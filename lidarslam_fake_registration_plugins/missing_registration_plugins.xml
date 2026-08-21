@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<library path="lidarslam_missing_registration_plugin">
+  <class
+    name="lidarslam_fake_registration_plugins/MissingLibrary"
+    type="lidarslam_fake_registration_plugins::MissingLibraryRegistration"
+    base_class_type="lidarslam::plugins::registration::RegistrationPlugin">
+    <description>Manifest-only class whose library is intentionally unavailable.</description>
+  </class>
+</library>

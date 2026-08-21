@@ -132,26 +132,28 @@ downstream artifacts; use `--force-trajectory` for an explicit refresh.
 
 ### Cross-repository SLAM benchmark
 
-`public_suite_v1.yaml` connects Localization Zoo trajectories to trajectory,
-geometry, real-RGB, runtime, and memory gates:
-
-```bash
-python3 scripts/run_cross_repo_slam_benchmark.py \
-  --localization-zoo ../loc_zoo_ws/localization_zoo \
-  --dataset <profile> --gt-tum <gt.tum> --raw-tum <raw.tum> \
-  --corrected-tum <graph.tum> --runtime-report <runtime.json> \
-  --out-dir <benchmark-dir>
-```
-
-Candidate promotion compares frozen OFF/ON manifests from MID-360, the HILTI
-position-only holdout, and RTK-SLAM Construction Seq2 surveyed checkpoints.
-The gate never invents rotational RPE for position-only references. Complete
-capture, replay, and adoption commands are in
+`public_suite_v1.yaml` applies trajectory, geometry, RGB, runtime, and memory
+gates to frozen OFF/ON manifests from MID-360, HILTI, and RTK-SLAM. Reproduction
+commands and both accepted and rejected experiments are in
 [Benchmarking and release gate](docs/benchmarking.md#slam-candidate-regression).
-The initial result is recorded in the
-[Phase 7 regression note](docs/research/phase7-plane-revisit-regression-2026-07.md);
-the second-positive rejection is in the
-[Phase 8 RTK-SLAM note](docs/research/phase8-rtkslam-plane-revisit-2026-07.md).
+
+## Open-source benchmark results
+
+On the same HILTI 2022 `exp04` LiDAR/IMU input and CPU-only host, the competitive
+profile recorded **34.7% lower median APE RMSE than GLIM** over three runs:
+
+| System | Median APE RMSE | Median processing RTF | Maximum peak RSS |
+| --- | ---: | ---: | ---: |
+| **lidarslam_ros2** | **0.0565 m** | 0.993 | **586.83 MB** |
+| GLIM CPU | 0.0866 m | **0.244** | 690.88 MB |
+
+The separate Voxel-SLAM `v17` research candidate also achieved the lowest
+geometric-mean APE across NavINST, Oxford, and UrbanNav: **2.2836 m**, versus
+GLIM `5.0779`, Point-LIO `3.8388`, FAST-LIO2 `6.9576`, and fixed Voxel-SLAM
+`2.7160` — **55.0% lower than GLIM**. It is not the default release path, does
+not win every sequence, and is not fresh-blind evidence. Exact revisions,
+per-sequence results, input hashes, resource results, map limitations, and
+reproduction notes are in [Comparison](docs/comparison.md#voxel-slam-v17-research-candidate-vs-pinned-oss-rivals).
 
 ## Accuracy
 

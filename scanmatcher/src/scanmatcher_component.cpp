@@ -1,5 +1,7 @@
 #include "scanmatcher/scanmatcher_component.h"
 #include "scanmatcher/odom_prior_utils.hpp"
+#include "scanmatcher/registration_config.hpp"
+#include "lidarslam_registration_loader/registration_plugin_loader.hpp"
 #include <chrono>
 #include <cmath>
 #include <filesystem>
@@ -8,10 +10,24 @@
 #include <limits>
 #include <sensor_msgs/point_cloud2_iterator.hpp>
 #include <sstream>
+#include <stdexcept>
 #include <vector>
 
 #include <pcl/common/common.h>
 #include <pcl/io/pcd_io.h>
+
+// Keep the built-in adapter implementation in this legacy shell translation
+// unit.  pclomp/Eigen template instantiation is order- and context-sensitive;
+// separating it into a DSO changes the floating-point operation sequence and
+// breaks the baseline trajectory equivalence gate.
+#include <pclomp/ndt_omp.h>  // NOLINT(build/include_order)
+#include <pclomp/ndt_omp_impl.hpp>  // NOLINT(build/include_order)
+#include <pclomp/voxel_grid_covariance_omp_impl.hpp>  // NOLINT(build/include_order)
+#include <lidarslam_default_plugins/ndt_omp_registration_impl.ipp>  // NOLINT(build/include_order)
+#include <lidarslam_default_plugins/gicp_omp_registration_impl.ipp>  // NOLINT(build/include_order)
+#ifdef HAS_SMALL_GICP
+#include <lidarslam_default_plugins/small_gicp_registration_impl.ipp>  // NOLINT(build/include_order)
+#endif
 
 using namespace std::chrono_literals;
 
@@ -106,11 +122,63 @@ PointCloudExtractionResult extractPointCloudXYZIAndTimes(const sensor_msgs::msg:
   result.cloud->is_dense = msg.is_dense;
   return result;
 }
+
+const char * registrationFailureName(
+  const lidarslam::plugins::registration::FailureCode failure)
+{
+  using lidarslam::plugins::registration::FailureCode;
+  switch (failure) {
+    case FailureCode::kNone:
+      return "none";
+    case FailureCode::kNotConfigured:
+      return "not configured";
+    case FailureCode::kInvalidInput:
+      return "invalid input";
+    case FailureCode::kUnsupportedCapability:
+      return "unsupported capability";
+    case FailureCode::kAlignmentFailed:
+      return "alignment failed";
+    case FailureCode::kInternalError:
+      return "internal error";
+  }
+  return "unknown failure";
+}
+
+enum class SmallRegistrationVariant
+{
+  kUnknown,
+  kGicp,
+  kVgicp,
+};
+
+SmallRegistrationVariant smallRegistrationVariant(const std::string & class_id)
+{
+  if (
+    class_id == "lidarslam_builtin/SmallGicpPcl" ||
+    class_id == "lidarslam_default_plugins/SmallGicpPcl")
+  {
+    return SmallRegistrationVariant::kGicp;
+  }
+  if (
+    class_id == "lidarslam_builtin/SmallVGicpPcl" ||
+    class_id == "lidarslam_default_plugins/SmallVGicpPcl")
+  {
+    return SmallRegistrationVariant::kVgicp;
+  }
+  return SmallRegistrationVariant::kUnknown;
+}
 }
 
 namespace graphslam
 {
 ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
+: ScanMatcherComponent(options, RegistrationConstruction::kBuiltIn)
+{
+}
+
+ScanMatcherComponent::ScanMatcherComponent(
+  const rclcpp::NodeOptions & options,
+  const RegistrationConstruction construction)
 : Node("scan_matcher", options),
   clock_(RCL_ROS_TIME),
   tfbuffer_(std::make_shared<rclcpp::Clock>(clock_)),
@@ -121,6 +189,8 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
   double ndt_resolution;
   int ndt_num_threads;
   double gicp_corr_dist_threshold;
+  const bool defer_builtin_registration =
+    construction == RegistrationConstruction::kDeferredPluginInjection;
 
   declare_parameter("global_frame_id", "map");
   get_parameter("global_frame_id", global_frame_id_);
@@ -162,7 +232,7 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
   declare_parameter("scan_period", 0.1);
   get_parameter("scan_period", scan_period_);
   declare_parameter("map_publish_period", 15.0);
-  get_parameter("map_publish_period", map_publish_period_);  
+  get_parameter("map_publish_period", map_publish_period_);
   declare_parameter("num_targeted_cloud", 10);
   get_parameter("num_targeted_cloud", num_targeted_cloud_);
   if (num_targeted_cloud_ < 1) {
@@ -433,26 +503,48 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
   std::cout << "------------------" << std::endl;
 
   if (registration_method_ == "NDT") {
-
-    pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>::Ptr
-      ndt(new pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>());
-    ndt->setResolution(ndt_resolution);
-    ndt->setTransformationEpsilon(ndt_transformation_epsilon_);
-    ndt->setMaximumIterations(ndt_max_iterations_);
-    ndt->setStepSize(ndt_step_size);
-    ndt->setOulierRatio(ndt_outlier_ratio_);
-    // ndt_omp
-    ndt->setNeighborhoodSearchMethod(pclomp::DIRECT7);
-    if (ndt_num_threads > 0) {ndt->setNumThreads(ndt_num_threads);}
-
-    registration_ = ndt;
+    if (defer_builtin_registration) {
+      RCLCPP_INFO(
+        get_logger(),
+        "external registration plugin preflight selected; deferring built-in NDT construction");
+    } else {
+      ndt_registration_ = std::make_shared<lidarslam_default_plugins::NdtOmpRegistration>();
+      std::string configure_error;
+      const auto parameters = graphslam::registration_config::makeNdtParameterMap(
+        ndt_resolution,
+        ndt_transformation_epsilon_,
+        ndt_max_iterations_,
+        ndt_step_size,
+        ndt_outlier_ratio_,
+        ndt_num_threads);
+      if (!ndt_registration_->configure(parameters, &configure_error)) {
+        RCLCPP_FATAL(
+          get_logger(), "NDT registration adapter configuration failed: %s",
+          configure_error.c_str());
+        throw std::runtime_error("NDT registration adapter configuration failed: " + configure_error);
+      }
+      // The production NDT object is constructed in this translation unit;
+      // expose that same object through the unified typed runtime slot.  No
+      // pluginlib session is involved for the default path.
+      registration_plugin_ = ndt_registration_;
+      registration_plugin_capabilities_ = ndt_registration_->capabilities();
+      registration_plugin_target_policy_ =
+        registration_plugin_capabilities_.targetPolicy();
+      registration_plugin_metric_ = registration_plugin_capabilities_.correspondenceMetric();
+    }
 
   } else if (registration_method_ == "GICP") {
-    boost::shared_ptr<pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>>
-      gicp(new pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>());
-    gicp->setMaxCorrespondenceDistance(gicp_corr_dist_threshold);
-    gicp->setTransformationEpsilon(1e-8);
-    registration_ = gicp;
+    if (defer_builtin_registration) {
+      RCLCPP_INFO(
+        get_logger(),
+        "external registration plugin preflight selected; deferring built-in GICP construction");
+    } else {
+      boost::shared_ptr<pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>>
+        gicp(new pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>());
+      gicp->setMaxCorrespondenceDistance(gicp_corr_dist_threshold);
+      gicp->setTransformationEpsilon(1e-8);
+      registration_ = gicp;
+    }
 
   }
 #ifdef HAS_FAST_GICP
@@ -477,23 +569,47 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
 #endif
 #ifdef HAS_SMALL_GICP
   else if (registration_method_ == "SMALL_GICP" || registration_method_ == "SMALL_VGICP") {
-    using SG = small_gicp::RegistrationPCL<pcl::PointXYZI, pcl::PointXYZI>;
-    boost::shared_ptr<SG> sg(new SG());
-    if (registration_method_ == "SMALL_VGICP") {
-      sg->setRegistrationType("VGICP");
-      sg->setVoxelResolution(ndt_resolution);
+    if (defer_builtin_registration) {
+      RCLCPP_INFO(
+        get_logger(),
+        "external registration plugin preflight selected; deferring built-in %s construction",
+        registration_method_.c_str());
     } else {
-      sg->setRegistrationType("GICP");
+      using SG = small_gicp::RegistrationPCL<pcl::PointXYZI, pcl::PointXYZI>;
+      boost::shared_ptr<SG> sg(new SG());
+      if (registration_method_ == "SMALL_VGICP") {
+        sg->setRegistrationType("VGICP");
+        sg->setVoxelResolution(ndt_resolution);
+      } else {
+        sg->setRegistrationType("GICP");
+      }
+      sg->setMaxCorrespondenceDistance(gicp_corr_dist_threshold);
+      sg->setTransformationEpsilon(1e-6);
+      sg->setMaximumIterations(ndt_max_iterations_);
+      if (ndt_num_threads > 0) { sg->setNumThreads(ndt_num_threads); }
+      registration_ = sg;
     }
-    sg->setMaxCorrespondenceDistance(gicp_corr_dist_threshold);
-    sg->setTransformationEpsilon(1e-6);
-    sg->setMaximumIterations(ndt_max_iterations_);
-    if (ndt_num_threads > 0) { sg->setNumThreads(ndt_num_threads); }
-    registration_ = sg;
   }
 #endif
   else {
-    RCLCPP_ERROR(get_logger(), "invalid registration method: %s", registration_method_.c_str());
+    if (graphslam::registration_config::isFastGicpMethod(registration_method_) &&
+      !graphslam::registration_config::fastGicpAvailable())
+    {
+      RCLCPP_ERROR(
+        get_logger(), "registration method '%s' unavailable: %s",
+        registration_method_.c_str(),
+        graphslam::registration_config::fastGicpUnavailableReason());
+    } else if (
+      graphslam::registration_config::isSmallGicpMethod(registration_method_) &&
+      !graphslam::registration_config::smallGicpAvailable())
+    {
+      RCLCPP_ERROR(
+        get_logger(), "registration method '%s' unavailable: %s",
+        registration_method_.c_str(),
+        graphslam::registration_config::smallGicpUnavailableReason());
+    } else {
+      RCLCPP_ERROR(get_logger(), "invalid registration method: %s", registration_method_.c_str());
+    }
     exit(1);
   }
 
@@ -702,6 +818,211 @@ void ScanMatcherComponent::initializePubSub()
   path_pub_ = create_publisher<nav_msgs::msg::Path>("path", rclcpp::QoS(10));
 }
 
+std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
+makeHostBuiltinNdtRegistration()
+{
+  // This allocation is intentionally in the legacy component TU.  Moving the
+  // concrete NDT construction to the offline runner would recreate the ODR
+  // and floating-point divergence that rejected the isolated plugin DSO.
+  return std::make_shared<lidarslam_default_plugins::NdtOmpRegistration>();
+}
+
+std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
+makeHostBuiltinGicpRegistration()
+{
+  // As with NDT, the concrete GICP object is constructed in this legacy
+  // component TU so pclomp/Eigen template instantiation remains baseline
+  // compatible.  This factory is only used by the deferred offline shell.
+  return std::make_shared<lidarslam_default_plugins::GicpOmpRegistration>();
+}
+
+#ifdef HAS_SMALL_GICP
+std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
+makeHostBuiltinSmallGicpRegistration()
+{
+  return std::make_shared<lidarslam_default_plugins::SmallGicpRegistration>();
+}
+
+std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
+makeHostBuiltinSmallVgicpRegistration()
+{
+  return std::make_shared<lidarslam_default_plugins::SmallVgicpRegistration>();
+}
+#endif
+
+bool ScanMatcherComponent::setRegistrationPluginSession(
+  const std::shared_ptr<lidarslam::plugins::registration::shell::RegistrationPluginSession>
+  & session,
+  std::string * error)
+{
+  // Validate the selected legacy role before replacing the unified runtime slot.
+  const auto fail = [this, error](const std::string & message) {
+      if (error != nullptr) {
+        *error = message;
+      }
+      RCLCPP_ERROR(get_logger(), "registration plugin injection rejected: %s", message.c_str());
+      return false;
+    };
+
+  if (
+    registration_method_ != "NDT" && registration_method_ != "GICP" &&
+    registration_method_ != "SMALL_GICP" && registration_method_ != "SMALL_VGICP")
+  {
+    return fail(
+      "the scanmatcher plugin boundary supports NDT, GICP, SMALL_GICP, and SMALL_VGICP only "
+      "(selected method: " + registration_method_ + ")");
+  }
+  if (initial_cloud_received_) {
+    return fail("the registration plugin session must be injected before the first sensor cloud");
+  }
+  if (!session || !session->plugin()) {
+    return fail("the registration plugin session or plugin object is null");
+  }
+
+  const auto & capabilities = session->capabilities();
+  const std::string plugin_id = session->classId();
+  using lidarslam::plugins::registration::Capability;
+  using lidarslam::plugins::registration::TargetPolicy;
+  const auto require = [&fail, &capabilities, &plugin_id](
+    Capability capability, const char * name) {
+      if (!capabilities.has(capability)) {
+        return fail(
+          "plugin '" + plugin_id + "' is missing the required scanmatcher capability '" +
+          name + "'");
+      }
+      return true;
+    };
+
+  if (!require(Capability::kInitialGuess, "initial_guess")) {
+    return false;
+  }
+  if (!require(Capability::kAlignedSource, "aligned_source")) {
+    return false;
+  }
+  if (registration_method_ == "NDT") {
+    if (capabilities.targetPolicy() != TargetPolicy::kRequiresRawTarget) {
+      return fail(
+        "plugin target policy is incompatible with registration_method=NDT: "
+        "raw target is required");
+    }
+    if (
+      !capabilities.has(Capability::kMeanCorrespondenceDistance) ||
+      capabilities.correspondenceMetric() !=
+      lidarslam::plugins::registration::CorrespondenceMetric::kMeanDistance)
+    {
+      return fail(
+        "plugin correspondence metric is incompatible with registration_method=NDT: "
+        "mean distance is required");
+    }
+    if (adaptive_correspondence_threshold_ &&
+      !capabilities.has(Capability::kMaximumCorrespondenceDistance))
+    {
+      return fail(
+        "plugin is missing the required scanmatcher capability "
+        "'maximum_correspondence_distance' for adaptive_correspondence_threshold");
+    }
+    if (
+      imu_ndt_prior_enable_ && imu_ndt_prior_weight_ > 0.0 &&
+      !capabilities.has(Capability::kRotationPrior))
+    {
+      return fail(
+        "plugin is missing the required scanmatcher capability 'rotation_prior'");
+    }
+    if (
+      imu_z_prior_enable_ && imu_z_prior_weight_ > 0.0 &&
+      !capabilities.has(Capability::kTranslationPrior))
+    {
+      return fail(
+        "plugin is missing the required scanmatcher capability 'translation_prior'");
+    }
+  } else if (registration_method_ == "GICP") {
+    if (capabilities.targetPolicy() != TargetPolicy::kAcceptHostPrepared) {
+      return fail(
+        "plugin target policy is incompatible with registration_method=GICP: "
+        "host-prepared target is required");
+    }
+    if (
+      capabilities.correspondenceMetric() !=
+      lidarslam::plugins::registration::CorrespondenceMetric::kSquareRootFitnessProxy)
+    {
+      return fail(
+        "plugin correspondence metric is incompatible with registration_method=GICP: "
+        "square-root fitness proxy is required");
+    }
+    if (adaptive_correspondence_threshold_ &&
+      !capabilities.has(Capability::kMaximumCorrespondenceDistance))
+    {
+      return fail(
+        "plugin is missing the required scanmatcher capability "
+        "'maximum_correspondence_distance' for adaptive_correspondence_threshold");
+    }
+  } else {
+    if (capabilities.targetPolicy() != TargetPolicy::kAcceptHostPrepared) {
+      return fail(
+        "plugin target policy is incompatible with SMALL_GICP/SMALL_VGICP: "
+        "host-prepared target is required");
+    }
+    if (
+      capabilities.correspondenceMetric() !=
+      lidarslam::plugins::registration::CorrespondenceMetric::kSquareRootFitnessProxy)
+    {
+      return fail(
+        "plugin correspondence metric is incompatible with SMALL_GICP/SMALL_VGICP: "
+        "square-root fitness proxy is required");
+    }
+    if (adaptive_correspondence_threshold_ &&
+      !capabilities.has(Capability::kMaximumCorrespondenceDistance))
+    {
+      return fail(
+        "plugin is missing the required scanmatcher capability "
+        "'maximum_correspondence_distance' for adaptive_correspondence_threshold");
+    }
+    const SmallRegistrationVariant selected_variant =
+      smallRegistrationVariant(plugin_id);
+    if (
+      registration_method_ == "SMALL_GICP" &&
+      selected_variant == SmallRegistrationVariant::kVgicp)
+    {
+      return fail(
+        "plugin class '" + plugin_id +
+        "' is SMALL_VGICP but registration_method=SMALL_GICP; selector mismatch is a hard failure");
+    }
+    if (
+      registration_method_ == "SMALL_VGICP" &&
+      selected_variant == SmallRegistrationVariant::kGicp)
+    {
+      return fail(
+        "plugin class '" + plugin_id +
+        "' is SMALL_GICP but registration_method=SMALL_VGICP; selector mismatch is a hard failure");
+    }
+  }
+
+  // Replace the one runtime slot only after all role/capability checks have
+  // passed.  A rejected injection therefore leaves an already-valid slot
+  // untouched, while an accepted injection cannot fall back to an old
+  // concrete implementation.
+  // Keep the new object alive while replacing the old pair.  The old plugin
+  // must be released before its session (and therefore its ClassLoader) so a
+  // reinjection cannot unload a DSO while an old object still exists.
+  const auto new_plugin = session->plugin();
+  registration_plugin_.reset();
+  ndt_registration_.reset();
+  registration_plugin_session_.reset();
+  registration_plugin_session_ = session;
+  registration_plugin_ = new_plugin;
+  registration_plugin_capabilities_ = capabilities;
+  registration_plugin_target_policy_ = capabilities.targetPolicy();
+  registration_plugin_metric_ = capabilities.correspondenceMetric();
+  registration_alignment_result_ =
+    lidarslam::plugins::registration::AlignmentResult();
+
+  RCLCPP_WARN(
+    get_logger(),
+    "using opt-in registration plugin '%s' for %s scan matching; no fallback is enabled",
+    session->classId().c_str(), registration_method_.c_str());
+  return true;
+}
+
 bool ScanMatcherComponent::reserveDebugCloudDumpFrame(int * frame_index)
 {
   if (debug_cloud_dump_max_frames_ <= 0 || debug_cloud_dump_dir_.empty()) {
@@ -855,7 +1176,9 @@ bool ScanMatcherComponent::initializeMap(const pcl::PointCloud <pcl::PointXYZI>:
     voxel_hash_map_->update(transformed_cloud_ptr, init_pos);
   }
 
-  registration_->setInputTarget(transformed_cloud_ptr);
+  if (!setRegistrationTarget(transformed_cloud_ptr, "initial map")) {
+    return false;
+  }
 
   // map (global)
   sensor_msgs::msg::PointCloud2 map_msg;
@@ -901,18 +1224,18 @@ void ScanMatcherComponent::receiveCloud(
         }
       }
       if (targeted_cloud_ptr) {
+        bool target_refresh_failed = false;
         if (!pose_acceptance_state_.recovery_target_active) {
-          if (registration_method_ == "NDT") {
-            registration_->setInputTarget(targeted_cloud_ptr);
-          } else {
-            pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_targeted_cloud_ptr(
-              new pcl::PointCloud<pcl::PointXYZI>());
-            pcl::VoxelGrid<pcl::PointXYZI> voxel_grid;
-            voxel_grid.setLeafSize(vg_size_for_input_, vg_size_for_input_, vg_size_for_input_);
-            voxel_grid.setInputCloud(targeted_cloud_ptr);
-            voxel_grid.filter(*filtered_targeted_cloud_ptr);
-            registration_->setInputTarget(filtered_targeted_cloud_ptr);
+          target_refresh_failed = !setRegistrationTargetFromMap(
+            targeted_cloud_ptr, "map update");
+        }
+        if (target_refresh_failed) {
+          mapping_flag_ = false;
+          if (mapping_thread_.joinable()) {
+            mapping_thread_.join();
           }
+          RCLCPP_ERROR(get_logger(), "scan skipped: map target refresh failed");
+          return;
         }
       }
       mapping_flag_ = false;
@@ -935,8 +1258,6 @@ void ScanMatcherComponent::receiveCloud(
       min_points_for_scan_);
     return;
   }
-  registration_->setInputSource(filtered_cloud_ptr);
-
   Eigen::Matrix4f sim_trans = getTransformation(current_pose_stamped_.pose);
 
   const pose_prediction::ImuPredictionConfig imu_prediction_config = makeImuPredictionConfig();
@@ -1007,100 +1328,120 @@ void ScanMatcherComponent::receiveCloud(
     }
   }
 
-  // Set IMU rotation prior for NDT cost function
-  if (
-    imu_ndt_prior_enable_ && imu_ndt_prior_weight_ > 0.0 &&
-    use_imu_ && latest_imu_orientation_valid_ && cloud_imu_reference_valid_ &&
-    registration_method_ == "NDT")
-  {
-    const double imu_age = std::abs((stamp - latest_imu_stamp_).seconds());
-    if (imu_age <= imu_pose_prediction_max_age_) {
-      // IMU-predicted rotation (previous pose + IMU delta) as Euler angles
-      // matching NDT's internal convention (XYZ intrinsic)
-      const Eigen::Vector3d prior_rpy = pose_prediction::imuPredictedRotationRpy(
-        imu_observation,
-        current_orientation_quat);
-      auto ndt_ptr = boost::dynamic_pointer_cast<
-        pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>>(registration_);
-      if (ndt_ptr) {
-        ndt_ptr->setRotationPrior(prior_rpy, imu_ndt_prior_weight_,
-          imu_ndt_prior_roll_pitch_only_);
-      }
-    }
-  }
-
-  // Set IMU Z-translation prior: constrain z-drift using gravity direction
-  if (imu_z_prior_enable_ && imu_z_prior_weight_ > 0.0 && registration_method_ == "NDT") {
-    auto ndt_ptr = boost::dynamic_pointer_cast<
-      pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>>(registration_);
-    if (ndt_ptr) {
-      // Use current z as prior (resist z changes between consecutive frames)
-      Eigen::Vector3d z_prior(
-        sim_trans(0, 3), sim_trans(1, 3), sim_trans(2, 3));
-      Eigen::Vector3d weights(0.0, 0.0, imu_z_prior_weight_);  // z-only
-      ndt_ptr->setTranslationPrior(z_prior, weights);
-    }
-  }
-
-  // Set adaptive correspondence distance before alignment (all methods)
-  if (adaptive_correspondence_threshold_ && adaptive_corr_dist_ema_ > 0.0) {
-    double max_dist = map_update_policy::adaptiveMaxCorrespondenceDistance(
-      adaptive_corr_dist_multiplier_, adaptive_corr_dist_ema_);
-    if (registration_method_ == "NDT") {
-      auto ndt_ptr = boost::dynamic_pointer_cast<
-        pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>>(registration_);
-      if (ndt_ptr) {
-        ndt_ptr->setMaxCorrespondenceDistance(max_dist);
-      }
-    } else {
-      registration_->setMaxCorrespondenceDistance(max_dist);
-    }
-  }
-
+  const bool use_registration_plugin = static_cast<bool>(registration_plugin_);
   pcl::PointCloud<pcl::PointXYZI>::Ptr output_cloud(new pcl::PointCloud<pcl::PointXYZI>);
+  double mean_correspondence_distance = 0.0;
   rclcpp::Clock system_clock;
   rclcpp::Time time_align_start = system_clock.now();
-  registration_->align(*output_cloud, sim_trans);
-  rclcpp::Time time_align_end = system_clock.now();
 
-  // Clear rotation prior after alignment (NDT only)
-  if (registration_method_ == "NDT") {
-    auto ndt_ptr = boost::dynamic_pointer_cast<
-      pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>>(registration_);
-    if (ndt_ptr) {
-      if (imu_ndt_prior_enable_) {
-        ndt_ptr->clearRotationPrior();
-      }
-      if (imu_z_prior_enable_) {
-        ndt_ptr->clearTranslationPrior();
+  if (use_registration_plugin) {
+    lidarslam::plugins::registration::AlignmentRequest request;
+    request.source = filtered_cloud_ptr;
+    request.initial_guess_enabled = true;
+    request.initial_guess = sim_trans;
+
+    // IMU-predicted rotation (previous pose + IMU delta) as Euler angles
+    // matching NDT's internal convention (XYZ intrinsic).
+    if (
+      imu_ndt_prior_enable_ && imu_ndt_prior_weight_ > 0.0 && use_imu_ &&
+      latest_imu_orientation_valid_ && cloud_imu_reference_valid_ &&
+      registration_plugin_capabilities_.has(
+        lidarslam::plugins::registration::Capability::kRotationPrior))
+    {
+      const double imu_age = std::abs((stamp - latest_imu_stamp_).seconds());
+      if (imu_age <= imu_pose_prediction_max_age_) {
+        request.rotation_prior.enabled = true;
+        request.rotation_prior.roll_pitch_yaw = pose_prediction::imuPredictedRotationRpy(
+          imu_observation,
+          current_orientation_quat);
+        request.rotation_prior.weight = imu_ndt_prior_weight_;
+        request.rotation_prior.roll_pitch_only = imu_ndt_prior_roll_pitch_only_;
       }
     }
-  }
 
-  // Update adaptive correspondence distance EMA after alignment (all methods)
-  if (adaptive_correspondence_threshold_) {
-    double mean_corr = 0.0;
-    if (registration_method_ == "NDT") {
-      auto ndt_ptr = boost::dynamic_pointer_cast<
-        pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>>(registration_);
-      if (ndt_ptr) {
-        mean_corr = ndt_ptr->getLastMeanCorrespondenceDistance();
-        ndt_ptr->setMaxCorrespondenceDistance(0.0);  // Reset for next frame
-      }
-    } else {
-      // For GICP/VGICP methods: use sqrt(fitness) as proxy for mean correspondence distance
-      double fitness = registration_->getFitnessScore();
+    // Use current z as a prior (resist z changes between consecutive frames).
+    if (
+      imu_z_prior_enable_ && imu_z_prior_weight_ > 0.0 &&
+      registration_plugin_capabilities_.has(
+        lidarslam::plugins::registration::Capability::kTranslationPrior))
+    {
+      request.translation_prior.enabled = true;
+      request.translation_prior.position = Eigen::Vector3d(
+        sim_trans(0, 3), sim_trans(1, 3), sim_trans(2, 3));
+      request.translation_prior.weights = Eigen::Vector3d(0.0, 0.0, imu_z_prior_weight_);
+    }
+
+    if (adaptive_correspondence_threshold_ && adaptive_corr_dist_ema_ > 0.0) {
+      request.maximum_correspondence_distance_enabled = true;
+      request.maximum_correspondence_distance = map_update_policy::adaptiveMaxCorrespondenceDistance(
+        adaptive_corr_dist_multiplier_, adaptive_corr_dist_ema_);
+    }
+
+    time_align_start = system_clock.now();
+    // Once the unified slot is selected, failures are returned to the caller;
+    // no method-specific or legacy implementation is an implicit fallback.
+    registration_alignment_result_ = registration_plugin_->align(request);
+    if (
+      registration_alignment_result_.failure !=
+      lidarslam::plugins::registration::FailureCode::kNone ||
+      !registration_alignment_result_.aligned_source)
+    {
+      RCLCPP_ERROR(
+        get_logger(),
+        "%s registration plugin failed (%s): %s",
+        registration_method_.c_str(),
+        registrationFailureName(registration_alignment_result_.failure),
+        registration_alignment_result_.diagnostics.detail.c_str());
+      registration_alignment_result_.aligned_source.reset();
+      return;
+    }
+    output_cloud = registration_alignment_result_.aligned_source;
+    registration_alignment_result_.aligned_source.reset();
+    if (!registrationRuntimeMetricValue(
+        registration_alignment_result_, registration_plugin_metric_,
+        &mean_correspondence_distance))
+    {
+      RCLCPP_ERROR(
+        get_logger(),
+        "%s registration plugin returned no valid '%s' correspondence metric",
+        registration_method_.c_str(),
+        registration_plugin_metric_ ==
+        lidarslam::plugins::registration::CorrespondenceMetric::kMeanDistance ?
+        "mean distance" : "square-root fitness");
+      return;
+    }
+  } else {
+    if (!registration_) {
+      RCLCPP_ERROR(get_logger(), "registration is unavailable; scan rejected");
+      return;
+    }
+    registration_->setInputSource(filtered_cloud_ptr);
+    if (adaptive_correspondence_threshold_ && adaptive_corr_dist_ema_ > 0.0) {
+      const double max_dist = map_update_policy::adaptiveMaxCorrespondenceDistance(
+        adaptive_corr_dist_multiplier_, adaptive_corr_dist_ema_);
+      registration_->setMaxCorrespondenceDistance(max_dist);
+    }
+    time_align_start = system_clock.now();
+    registration_->align(*output_cloud, sim_trans);
+    // For GICP/VGICP methods, retain the historical sqrt(fitness) proxy.
+    const double fitness = registration_->getFitnessScore();
+    if (adaptive_correspondence_threshold_) {
       if (fitness > 0.0) {
-        mean_corr = std::sqrt(fitness);
+        mean_correspondence_distance = std::sqrt(fitness);
       }
       registration_->setMaxCorrespondenceDistance(
-        std::numeric_limits<double>::max());  // Reset for next frame
+        std::numeric_limits<double>::max());
     }
+  }
+  rclcpp::Time time_align_end = system_clock.now();
+
+  if (adaptive_correspondence_threshold_) {
     adaptive_corr_dist_ema_ = map_update_policy::updateAdaptiveCorrespondenceEma(
-      adaptive_corr_dist_ema_, mean_corr, adaptive_corr_dist_ema_alpha_);
+      adaptive_corr_dist_ema_, mean_correspondence_distance, adaptive_corr_dist_ema_alpha_);
   }
 
-  Eigen::Matrix4f final_transformation = registration_->getFinalTransformation();
+  const Eigen::Matrix4f final_transformation = use_registration_plugin ?
+    registration_alignment_result_.final_transformation : registration_->getFinalTransformation();
 
 
   publishMapAndPose(cloud_ptr, final_transformation, stamp);
@@ -1125,8 +1466,12 @@ void ScanMatcherComponent::receiveCloud(
   std::cout << "number of filtered cloud points: " << filtered_cloud_ptr->size() << std::endl;
   std::cout << "initial transformation:" << std::endl;
   std::cout << sim_trans << std::endl;
-  std::cout << "has converged: " << registration_->hasConverged() << std::endl;
-  std::cout << "fitness score: " << registration_->getFitnessScore() << std::endl;
+  const bool debug_has_converged = use_registration_plugin ?
+    registration_alignment_result_.converged : registration_->hasConverged();
+  const double debug_fitness_score = use_registration_plugin ?
+    registration_alignment_result_.fitness_score : registration_->getFitnessScore();
+  std::cout << "has converged: " << debug_has_converged << std::endl;
+  std::cout << "fitness score: " << debug_fitness_score << std::endl;
   std::cout << "final transformation:" << std::endl;
   std::cout << final_transformation << std::endl;
   std::cout << "rpy" << std::endl;
@@ -1149,8 +1494,11 @@ void ScanMatcherComponent::publishMapAndPose(
   Eigen::Matrix3d rot_mat = final_transformation.block<3, 3>(0, 0).cast<double>();
   Eigen::Quaterniond quat_eig(rot_mat);
   geometry_msgs::msg::Quaternion quat_msg = tf2::toMsg(quat_eig);
-  const bool has_converged = registration_->hasConverged();
-  const double fitness_score = registration_->getFitnessScore();
+  const bool use_registration_plugin = static_cast<bool>(registration_plugin_);
+  const bool has_converged = use_registration_plugin ?
+    registration_alignment_result_.converged : registration_->hasConverged();
+  const double fitness_score = use_registration_plugin ?
+    registration_alignment_result_.fitness_score : registration_->getFitnessScore();
   pose_acceptance::Input acceptance_input;
   acceptance_input.position = position;
   acceptance_input.orientation = quat_msg;
@@ -1436,18 +1784,63 @@ bool ScanMatcherComponent::refreshRegistrationTargetFromTargetedCloud()
     RCLCPP_WARN(get_logger(), "POSE_REJECT_RECOVERY skipped: recovery target is empty");
     return false;
   }
-  if (registration_method_ == "NDT") {
-    registration_->setInputTarget(targeted_cloud_ptr);
-  } else {
-    pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_targeted_cloud_ptr(
-      new pcl::PointCloud<pcl::PointXYZI>());
-    pcl::VoxelGrid<pcl::PointXYZI> voxel_grid;
-    voxel_grid.setLeafSize(vg_size_for_input_, vg_size_for_input_, vg_size_for_input_);
-    voxel_grid.setInputCloud(targeted_cloud_ptr);
-    voxel_grid.filter(*filtered_targeted_cloud_ptr);
-    registration_->setInputTarget(filtered_targeted_cloud_ptr);
+  if (!setRegistrationTargetFromMap(targeted_cloud_ptr, "recovery")) {
+    return false;
   }
   return true;
+}
+
+bool ScanMatcherComponent::setRegistrationTarget(
+  const pcl::PointCloud<pcl::PointXYZI>::ConstPtr & target,
+  const char * context)
+{
+  if (registration_plugin_) {
+    std::string error;
+    if (!registration_plugin_->setInputTarget(target, &error)) {
+      RCLCPP_ERROR(
+        get_logger(), "registration plugin target update failed (%s): %s",
+        context, error.c_str());
+      return false;
+    }
+    return true;
+  }
+  if (!registration_) {
+    RCLCPP_ERROR(get_logger(), "registration target update failed (%s): registration is unavailable", context);
+    return false;
+  }
+  registration_->setInputTarget(target);
+  return true;
+}
+
+bool ScanMatcherComponent::setRegistrationTargetFromMap(
+  const pcl::PointCloud<pcl::PointXYZI>::ConstPtr & target,
+  const char * context)
+{
+  if (registration_plugin_) {
+    if (registrationRuntimeUsesRawTarget(registration_plugin_target_policy_)) {
+      return setRegistrationTarget(target, context);
+    }
+    if (!registrationRuntimeUsesHostPreparedTarget(registration_plugin_target_policy_)) {
+      RCLCPP_ERROR(
+        get_logger(),
+        "registration plugin target update failed (%s): unsupported target policy",
+        context);
+      return false;
+    }
+  } else if (registration_method_ == "NDT") {
+    return setRegistrationTarget(target, context);
+  }
+
+  // GICP-family registrations and host-prepared plugins retain the historical
+  // map-refresh voxel policy.  The initial map path is already prepared and
+  // calls setRegistrationTarget directly.
+  pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_target(
+    new pcl::PointCloud<pcl::PointXYZI>());
+  pcl::VoxelGrid<pcl::PointXYZI> voxel_grid;
+  voxel_grid.setLeafSize(vg_size_for_input_, vg_size_for_input_, vg_size_for_input_);
+  voxel_grid.setInputCloud(target);
+  voxel_grid.filter(*filtered_target);
+  return setRegistrationTarget(filtered_target, context);
 }
 
 const char * ScanMatcherComponent::trackingStateName(TrackingState state) const

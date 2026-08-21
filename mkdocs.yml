@@ -44,6 +44,13 @@ nav:
   - rosdistro Binary Release: rosdistro-release.md
   - DDS / Large-Message Tuning: dds-tuning.md
   - Comparison: comparison.md
+  - Architecture:
+      - Registration Plugin API: architecture/registration-plugin-api.md
+      - SMALL GICP HILTI exp04 Gate: architecture/small-gicp-hilti-exp04-gate-2026-08.md
+      - SMALL GICP MID-360 Gate: architecture/small-gicp-mid360-gate-2026-08.md
+      - SMALL GICP external DSO ODR Gate: architecture/small-gicp-external-dso-odr-gate-2026-08.md
+  - Roadmaps:
+      - Extensible OSS Architecture: roadmap/extensible-architecture-2026-08.md
   - Social:
       - v0.2.2 Post Kit: social/autoware_map_authoring_post_v0.2.2.md
   - Releases:

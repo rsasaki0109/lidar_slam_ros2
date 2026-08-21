@@ -33,6 +33,9 @@ find_package(tf2_eigen REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(lidarslam_msgs REQUIRED)
 find_package(ndt_omp_ros2 REQUIRED)
+find_package(lidarslam_plugin_interfaces REQUIRED)
+find_package(lidarslam_default_plugins REQUIRED)
+find_package(lidarslam_registration_loader REQUIRED)
 find_package(fast_gicp QUIET)
 find_package(small_gicp QUIET)
 find_package(PCL REQUIRED)
@@ -51,6 +54,8 @@ set(dependencies
   nav_msgs
   lidarslam_msgs
   ndt_omp_ros2
+  lidarslam_plugin_interfaces
+  lidarslam_registration_loader
 )
 
 if(fast_gicp_FOUND)
@@ -110,12 +115,29 @@ if(BUILD_TESTING)
   ament_add_gtest(test_map_update_policy test/test_map_update_policy.cpp)
   target_include_directories(test_map_update_policy PRIVATE include ${EIGEN3_INCLUDE_DIR})
 
+  ament_add_gtest(test_registration_config test/test_registration_config.cpp)
+  target_include_directories(test_registration_config PRIVATE include)
+  ament_target_dependencies(test_registration_config lidarslam_plugin_interfaces)
+
+  ament_add_gtest(test_registration_runtime test/test_registration_runtime.cpp)
+  target_include_directories(test_registration_runtime PRIVATE include)
+  ament_target_dependencies(test_registration_runtime lidarslam_plugin_interfaces)
+
+  ament_add_gtest(test_offline_map_export test/test_offline_map_export.cpp)
+  target_include_directories(test_offline_map_export PRIVATE include ${PCL_INCLUDE_DIRS})
+  ament_target_dependencies(test_offline_map_export
+    tf2_geometry_msgs
+    tf2_eigen
+    lidarslam_msgs
+    pcl_conversions)
+  target_link_libraries(test_offline_map_export ${PCL_LIBRARIES})
+
   ament_add_gtest(test_point_colorizer test/test_point_colorizer.cpp)
   target_include_directories(test_point_colorizer PRIVATE include ${EIGEN3_INCLUDE_DIR})
 endif()
 
 add_library(scanmatcher_component SHARED
-src/scanmatcher_component.cpp
+  src/scanmatcher_component.cpp
 )
 
 target_compile_definitions(scanmatcher_component PRIVATE "GS_SM_BUILDING_DLL")
@@ -125,6 +147,37 @@ if(small_gicp_FOUND)
 endif()
 
 ament_target_dependencies(scanmatcher_component ${dependencies})
+
+if(TARGET lidarslam_default_plugins::lidarslam_default_plugins)
+  # The shell includes the built-in implementation include so pclomp's
+  # templates are instantiated in this legacy translation unit.  Consume the
+  # package's headers and exported include context without linking its future
+  # plugin DSO into the production shell.
+  get_target_property(lidarslam_default_plugins_include_dirs
+    lidarslam_default_plugins::lidarslam_default_plugins
+    INTERFACE_INCLUDE_DIRECTORIES)
+  target_include_directories(scanmatcher_component PUBLIC
+    ${lidarslam_default_plugins_include_dirs})
+else()
+  message(FATAL_ERROR "lidarslam_default_plugins exported target is unavailable")
+endif()
+target_link_libraries(scanmatcher_component ${PCL_LIBRARIES})
+if(OpenMP_CXX_FOUND)
+  target_link_libraries(scanmatcher_component OpenMP::OpenMP_CXX)
+endif()
+
+if(BUILD_TESTING)
+  ament_add_gtest(test_registration_plugin_injection test/test_registration_plugin_injection.cpp)
+  target_include_directories(test_registration_plugin_injection PRIVATE include)
+  ament_target_dependencies(test_registration_plugin_injection
+    rclcpp lidarslam_registration_loader)
+  target_link_libraries(test_registration_plugin_injection scanmatcher_component ${PCL_LIBRARIES})
+
+  ament_add_gtest(test_fast_gicp_selector test/test_fast_gicp_selector.cpp)
+  target_include_directories(test_fast_gicp_selector PRIVATE include)
+  ament_target_dependencies(test_fast_gicp_selector rclcpp)
+  target_link_libraries(test_fast_gicp_selector scanmatcher_component ${PCL_LIBRARIES})
+endif()
 
 add_executable(scanmatcher_node
 src/scanmatcher_node.cpp
@@ -143,7 +196,8 @@ add_executable(scan_matcher_offline_runner
 target_link_libraries(scan_matcher_offline_runner
   scanmatcher_component ${PCL_LIBRARIES})
 ament_target_dependencies(scan_matcher_offline_runner
-  rclcpp rosbag2_cpp sensor_msgs geometry_msgs lidarslam_msgs pcl_conversions)
+  rclcpp rosbag2_cpp sensor_msgs geometry_msgs lidarslam_msgs pcl_conversions
+  lidarslam_registration_loader)
 
 if(small_gicp_FOUND)
   add_executable(small_gicp_odom_node
@@ -173,7 +227,7 @@ link_directories(
 )
 add_definitions(${PCL_DEFINITIONS})
 
-rclcpp_components_register_nodes(scanmatcher_component 
+rclcpp_components_register_nodes(scanmatcher_component
   "graphslam::ScanMatcherComponent")
 
 ament_export_libraries(scanmatcher_component)

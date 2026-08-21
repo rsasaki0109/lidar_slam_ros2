@@ -25,6 +25,9 @@
   <depend>lidarslam_msgs</depend>
   <depend>rosbag2_cpp</depend>
   <depend>ndt_omp_ros2</depend>
+  <depend>lidarslam_plugin_interfaces</depend>
+  <depend>lidarslam_default_plugins</depend>
+  <depend>lidarslam_registration_loader</depend>
   <!-- Optional: fast_gicp and small_gicp (from Thirdparty) -->
   <!-- <depend>fast_gicp</depend> -->
   <!-- <depend>small_gicp</depend> -->

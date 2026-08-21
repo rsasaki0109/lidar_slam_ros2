@@ -1,17 +1,3 @@
-# Repository Agent Instructions
-
-Always prefix shell commands with `rtk`.
-
-Examples:
-
-```bash
-rtk git status
-rtk python3 -m pytest -q
-rtk colcon test --packages-select lidarslam
-```
-
----
-
 # lidarslam-ros2
 
 ROS 2 LiDAR SLAM パッケージ。RKO-LIO フロントエンド + graph_based_slam バックエンドで Autoware 互換の pointcloud map を生成する。

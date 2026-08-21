@@ -61,10 +61,14 @@
 #include <pcl_conversions/pcl_conversions.h>  // NOLINT(build/include_order)
 
 #include <chrono>
+#include <climits>
+#include <cstdint>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <iomanip>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -76,7 +80,10 @@
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 
+#include "scanmatcher/offline_map_export.hpp"
+#include "scanmatcher/registration_config.hpp"
 #include "scanmatcher/scanmatcher_component.h"
+#include "lidarslam_registration_loader/registration_plugin_loader.hpp"
 
 namespace
 {
@@ -118,6 +125,80 @@ void writeSubmapsCsv(const std::string & path, const lidarslam_msgs::msg::MapArr
   }
 }
 
+std::string parameterValueToString(
+  const lidarslam::plugins::registration::ParameterValue & value)
+{
+  using Type = lidarslam::plugins::registration::ParameterValue::Type;
+  std::ostringstream stream;
+  stream << std::setprecision(17);
+  switch (value.type()) {
+    case Type::kBool:
+      return value.asBool() ? "true" : "false";
+    case Type::kInteger:
+      stream << value.asInteger();
+      return stream.str();
+    case Type::kDouble:
+      stream << value.asDouble();
+      return stream.str();
+    case Type::kString:
+      return value.asString();
+  }
+  return "<unknown>";
+}
+
+bool writeRegistrationPluginReceipt(
+  const std::filesystem::path & path,
+  const lidarslam::plugins::registration::shell::LoadRequest & request,
+  const lidarslam::plugins::registration::shell::RegistrationPluginSession & session,
+  std::string * error)
+{
+  std::ofstream out(path);
+  if (!out) {
+    if (error != nullptr) {
+      *error = "cannot open registration plugin receipt: " + path.string();
+    }
+    return false;
+  }
+  const auto & metadata = session.metadata();
+  const auto & capabilities = session.capabilities();
+  out << "schema: 1\n";
+  out << "backend_kind: " <<
+    lidarslam::plugins::registration::shell::backendKindName(session.backendKind()) << "\n";
+  out << "requested_class: " << request.class_id << "\n";
+  out << "resolved_class: " << session.classId() << "\n";
+  out << "metadata_class_id: " << metadata.class_id << "\n";
+  out << "implementation_version: " << metadata.implementation_version << "\n";
+  out << "license: " << metadata.license << "\n";
+  out << "api_major: " << metadata.api_version.major << "\n";
+  out << "api_minor: " << metadata.api_version.minor << "\n";
+  out << "capabilities_bits: " << capabilities.bits() << "\n";
+  out << "target_policy: " << static_cast<int>(capabilities.targetPolicy()) << "\n";
+  out << "correspondence_metric: " << static_cast<int>(capabilities.correspondenceMetric()) << "\n";
+  out << "library_path: " << session.libraryPath() << "\n";
+  out << "plugin_manifest_path: " << session.pluginManifestPath() << "\n";
+  out << "requirements:\n";
+  out << "  initial_guess: " << (request.capabilities.require_initial_guess ? "true" : "false") << "\n";
+  out << "  rotation_prior: " << (request.capabilities.require_rotation_prior ? "true" : "false") << "\n";
+  out << "  translation_prior: " << (request.capabilities.require_translation_prior ? "true" : "false") << "\n";
+  out << "  maximum_correspondence_distance: " <<
+    (request.capabilities.require_maximum_correspondence_distance ? "true" : "false") << "\n";
+  out << "  mean_correspondence_distance: " <<
+    (request.capabilities.require_mean_correspondence_distance ? "true" : "false") << "\n";
+  out << "  aligned_source: " << (request.capabilities.require_aligned_source ? "true" : "false") << "\n";
+  out << "  deterministic: " << (request.capabilities.require_deterministic ? "true" : "false") << "\n";
+  out << "parameters:\n";
+  for (const auto & entry : session.parameters()) {
+    out << "  " << entry.first << ": " << parameterValueToString(entry.second) << "\n";
+  }
+  if (!out) {
+    if (error != nullptr) {
+      *error = "failed while writing registration plugin receipt: " + path.string();
+    }
+    return false;
+  }
+  return true;
+}
+
 }  // namespace
 
 int main(int argc, char ** argv)
@@ -133,8 +214,20 @@ int main(int argc, char ** argv)
   const std::string imu_topic = runner->declare_parameter<std::string>("imu_topic", "");
   const bool force_cloud_frame = runner->declare_parameter<bool>(
     "force_cloud_frame_to_robot_frame", true);
+  // Empty keeps the historical frontend-only output. When set, the runner
+  // emits the same world-frame submap merge as publishMap() for map-quality
+  // evidence without changing trajectory or submap serialization.
+  const std::string map_output_path = runner->declare_parameter<std::string>(
+    "map_output_path", "");
   // 0 = whole bag; a positive cap supports smoke tests and quick gates.
   const int max_clouds = runner->declare_parameter<int>("max_clouds", 0);
+  // The plugin path is deliberately runner-only and opt-in.  Empty/false is
+  // the compatibility default; live scanmatcher nodes never declare or read
+  // these selectors.
+  const bool registration_plugin_enable = runner->declare_parameter<bool>(
+    "registration_plugin_enable", false);
+  const std::string registration_plugin_class = runner->declare_parameter<std::string>(
+    "registration_plugin_class", "");
 
   if (bag_path.empty() || output_dir.empty() || cloud_topic.empty()) {
     RCLCPP_ERROR(
@@ -143,10 +236,31 @@ int main(int argc, char ** argv)
     rclcpp::shutdown();
     return 1;
   }
+  if (!registration_plugin_enable && !registration_plugin_class.empty()) {
+    RCLCPP_ERROR(
+      runner->get_logger(),
+      "registration_plugin_class is set while registration_plugin_enable is false; "
+      "set both explicitly for offline characterization");
+    rclcpp::shutdown();
+    return 1;
+  }
+  if (registration_plugin_enable && registration_plugin_class.empty()) {
+    RCLCPP_ERROR(
+      runner->get_logger(),
+      "registration_plugin_enable=true requires a non-empty registration_plugin_class; "
+      "no fallback is applied");
+    rclcpp::shutdown();
+    return 1;
+  }
   std::filesystem::create_directories(output_dir);
 
-  auto component = std::make_shared<graphslam::ScanMatcherComponent>(
-    rclcpp::NodeOptions().use_intra_process_comms(true));
+  rclcpp::NodeOptions component_options;
+  component_options.use_intra_process_comms(true);
+  auto component = registration_plugin_enable ?
+    std::make_shared<graphslam::ScanMatcherComponent>(
+      component_options,
+      graphslam::RegistrationConstruction::kDeferredPluginInjection) :
+    std::make_shared<graphslam::ScanMatcherComponent>(component_options);
 
   // The async map-update worker hands updateMap to a wall-clock-raced
   // thread; the determinism contract requires the synchronous path.
@@ -168,6 +282,207 @@ int main(int argc, char ** argv)
   }
   const std::string robot_frame_id =
     component->get_parameter("robot_frame_id").as_string();
+
+  std::unique_ptr<lidarslam::plugins::registration::shell::RegistrationResolver>
+    registration_resolver;
+  std::shared_ptr<lidarslam::plugins::registration::shell::RegistrationPluginSession>
+    registration_plugin_session;
+  if (registration_plugin_enable) {
+    const std::string registration_method =
+      component->get_parameter("registration_method").as_string();
+    if (
+      registration_method != "NDT" && registration_method != "GICP" &&
+      registration_method != "SMALL_GICP" && registration_method != "SMALL_VGICP")
+    {
+      RCLCPP_ERROR(
+        runner->get_logger(),
+        "registration plugin characterization supports NDT, GICP, SMALL_GICP, and SMALL_VGICP; "
+        "registration_method=%s", registration_method.c_str());
+      rclcpp::shutdown();
+      return 1;
+    }
+    try {
+      lidarslam::plugins::registration::shell::LoadRequest request;
+      request.class_id = registration_plugin_class;
+      request.capabilities.require_initial_guess = true;
+      request.capabilities.require_aligned_source = true;
+      request.capabilities.require_target_policy = true;
+      const bool adaptive = component->get_parameter(
+        "adaptive_correspondence_threshold").as_bool();
+      if (registration_method == "NDT") {
+        const double ndt_resolution = component->get_parameter("ndt_resolution").as_double();
+        const double ndt_transformation_epsilon =
+          component->get_parameter("ndt_transformation_epsilon").as_double();
+        const std::int64_t ndt_max_iterations =
+          component->get_parameter("ndt_max_iterations").as_int();
+        const double ndt_step_size = component->get_parameter("ndt_step_size").as_double();
+        const double ndt_outlier_ratio = component->get_parameter("ndt_outlier_ratio").as_double();
+        const std::int64_t ndt_num_threads = component->get_parameter("ndt_num_threads").as_int();
+        if (
+          ndt_max_iterations < 1 || ndt_max_iterations > INT_MAX ||
+          ndt_num_threads < 0 || ndt_num_threads > INT_MAX)
+        {
+          RCLCPP_ERROR(
+            runner->get_logger(),
+            "NDT plugin parameters maximum_iterations and num_threads must fit the adapter integer range");
+          rclcpp::shutdown();
+          return 1;
+        }
+        request.parameters = graphslam::registration_config::makeNdtParameterMap(
+          ndt_resolution,
+          ndt_transformation_epsilon,
+          static_cast<int>(ndt_max_iterations),
+          ndt_step_size,
+          ndt_outlier_ratio,
+          static_cast<int>(ndt_num_threads));
+        request.capabilities.target_policy =
+          lidarslam::plugins::registration::TargetPolicy::kRequiresRawTarget;
+        request.capabilities.require_mean_correspondence_distance = true;
+        request.capabilities.require_correspondence_metric = true;
+        request.capabilities.correspondence_metric =
+          lidarslam::plugins::registration::CorrespondenceMetric::kMeanDistance;
+        request.capabilities.require_maximum_correspondence_distance = adaptive;
+        request.capabilities.require_rotation_prior =
+          component->get_parameter("imu_ndt_prior_enable").as_bool() &&
+          component->get_parameter("imu_ndt_prior_weight").as_double() > 0.0;
+        request.capabilities.require_translation_prior =
+          component->get_parameter("imu_z_prior_enable").as_bool() &&
+          component->get_parameter("imu_z_prior_weight").as_double() > 0.0;
+      } else if (registration_method == "GICP") {
+        const double gicp_corr_dist_threshold =
+          component->get_parameter("gicp_corr_dist_threshold").as_double();
+        request.parameters = graphslam::registration_config::makeGicpParameterMap(
+          gicp_corr_dist_threshold, adaptive);
+        request.capabilities.target_policy =
+          lidarslam::plugins::registration::TargetPolicy::kAcceptHostPrepared;
+        request.capabilities.require_correspondence_metric = true;
+        request.capabilities.correspondence_metric =
+          lidarslam::plugins::registration::CorrespondenceMetric::kSquareRootFitnessProxy;
+        request.capabilities.require_maximum_correspondence_distance = adaptive;
+      } else {
+        const std::int64_t ndt_max_iterations =
+          component->get_parameter("ndt_max_iterations").as_int();
+        const std::int64_t ndt_num_threads =
+          component->get_parameter("ndt_num_threads").as_int();
+        if (
+          ndt_max_iterations < 1 || ndt_max_iterations > INT_MAX ||
+          ndt_num_threads < 0 || ndt_num_threads > INT_MAX)
+        {
+          RCLCPP_ERROR(
+            runner->get_logger(),
+            "SMALL_GICP parameters maximum_iterations and num_threads must fit the adapter integer range");
+          rclcpp::shutdown();
+          return 1;
+        }
+        const bool voxelized = registration_method == "SMALL_VGICP";
+        request.parameters = graphslam::registration_config::makeSmallGicpParameterMap(
+          component->get_parameter("gicp_corr_dist_threshold").as_double(),
+          1e-6,
+          static_cast<int>(ndt_max_iterations),
+          static_cast<int>(ndt_num_threads),
+          adaptive,
+          voxelized,
+          component->get_parameter("ndt_resolution").as_double());
+        request.capabilities.target_policy =
+          lidarslam::plugins::registration::TargetPolicy::kAcceptHostPrepared;
+        request.capabilities.require_correspondence_metric = true;
+        request.capabilities.correspondence_metric =
+          lidarslam::plugins::registration::CorrespondenceMetric::kSquareRootFitnessProxy;
+        request.capabilities.require_maximum_correspondence_distance = adaptive;
+      }
+
+      lidarslam::plugins::registration::shell::HostBuiltinRegistration host_ndt;
+      host_ndt.class_id = "lidarslam_builtin/NdtOmp";
+      host_ndt.factory = []() {
+          return graphslam::makeHostBuiltinNdtRegistration();
+      };
+      host_ndt.metadata_class_id = "lidarslam_default_plugins/NdtOmp";
+      lidarslam::plugins::registration::shell::HostBuiltinRegistration host_gicp;
+      host_gicp.class_id = "lidarslam_builtin/GicpOmp";
+      host_gicp.factory = []() {
+          return graphslam::makeHostBuiltinGicpRegistration();
+        };
+      host_gicp.metadata_class_id = "lidarslam_default_plugins/GicpOmp";
+#ifdef HAS_SMALL_GICP
+      lidarslam::plugins::registration::shell::HostBuiltinRegistration host_small_gicp;
+      host_small_gicp.class_id = "lidarslam_builtin/SmallGicpPcl";
+      host_small_gicp.factory = []() {
+          return graphslam::makeHostBuiltinSmallGicpRegistration();
+        };
+      host_small_gicp.metadata_class_id = "lidarslam_default_plugins/SmallGicpPcl";
+      lidarslam::plugins::registration::shell::HostBuiltinRegistration host_small_vgicp;
+      host_small_vgicp.class_id = "lidarslam_builtin/SmallVGicpPcl";
+      host_small_vgicp.factory = []() {
+          return graphslam::makeHostBuiltinSmallVgicpRegistration();
+        };
+      host_small_vgicp.metadata_class_id = "lidarslam_default_plugins/SmallVGicpPcl";
+#endif
+#ifdef HAS_SMALL_GICP
+      registration_resolver.reset(
+        new lidarslam::plugins::registration::shell::RegistrationResolver(
+          {host_ndt, host_gicp, host_small_gicp, host_small_vgicp}));
+#else
+      registration_resolver.reset(
+        new lidarslam::plugins::registration::shell::RegistrationResolver(
+          {host_ndt, host_gicp}));
+#endif
+      const auto loaded = registration_resolver->resolve(request);
+      if (!loaded.ok()) {
+        RCLCPP_ERROR(
+          runner->get_logger(),
+          "offline registration plugin preflight failed [%d]: %s",
+          static_cast<int>(loaded.failure.code), loaded.failure.message.c_str());
+        rclcpp::shutdown();
+        return 1;
+      }
+      registration_plugin_session = loaded.session;
+      std::string injection_error;
+      if (!component->setRegistrationPluginSession(
+          registration_plugin_session, &injection_error))
+      {
+        RCLCPP_ERROR(
+          runner->get_logger(),
+          "offline registration plugin injection failed before sensor processing: %s",
+          injection_error.c_str());
+        rclcpp::shutdown();
+        return 1;
+      }
+      const auto receipt_path =
+        std::filesystem::path(output_dir) / "registration_plugin_receipt.yaml";
+      std::string receipt_error;
+      if (!writeRegistrationPluginReceipt(
+          receipt_path, request, *registration_plugin_session, &receipt_error))
+      {
+        RCLCPP_ERROR(
+          runner->get_logger(),
+          "offline registration plugin receipt failed before sensor processing: %s",
+          receipt_error.c_str());
+        rclcpp::shutdown();
+        return 1;
+      }
+      RCLCPP_INFO(
+        runner->get_logger(),
+        "offline registration resolved: backend=%s class=%s library=%s manifest=%s",
+        lidarslam::plugins::registration::shell::backendKindName(
+          registration_plugin_session->backendKind()),
+        registration_plugin_session->classId().c_str(),
+        registration_plugin_session->libraryPath().c_str(),
+        registration_plugin_session->pluginManifestPath().c_str());
+    } catch (const std::exception & exception) {
+      RCLCPP_ERROR(
+        runner->get_logger(),
+        "offline registration plugin preflight threw before sensor processing: %s",
+        exception.what());
+      rclcpp::shutdown();
+      return 1;
+    } catch (...) {
+      RCLCPP_ERROR(
+        runner->get_logger(),
+        "offline registration plugin preflight threw an unknown exception before sensor processing");
+      rclcpp::shutdown();
+      return 1;
+    }
+  }
 
   std::vector<geometry_msgs::msg::PoseStamped> poses;
   auto pose_sub = runner->create_subscription<geometry_msgs::msg::PoseStamped>(
@@ -233,6 +548,18 @@ int main(int argc, char ** argv)
       ++imu_count;
     }
   }
+  // rclcpp installs a graceful SIGINT handler.  Treat an interrupted bag as
+  // a failed run unless the requested cloud cap was already reached; this
+  // keeps the determinism script from touching .complete for a partial
+  // characterization artifact.
+  if (!rclcpp::ok() && !(max_clouds > 0 && cloud_count >= static_cast<std::size_t>(max_clouds))) {
+    RCLCPP_ERROR(
+      runner->get_logger(),
+      "offline runner interrupted before completion (clouds=%zu imu=%zu)",
+      cloud_count, imu_count);
+    rclcpp::shutdown();
+    return 1;
+  }
   executor.spin_all(std::chrono::seconds(60));
 
   if (poses.empty() || !map_array_received) {
@@ -251,6 +578,25 @@ int main(int argc, char ** argv)
     (std::filesystem::path(output_dir) / "submaps_frontend.csv").string();
   writeTum(trajectory_path, poses);
   writeSubmapsCsv(submaps_path, latest_map_array);
+
+  if (!map_output_path.empty()) {
+    const std::filesystem::path map_path(map_output_path);
+    if (map_path.has_parent_path()) {
+      std::filesystem::create_directories(map_path.parent_path());
+    }
+    const auto map_cloud = graphslam::offline_map_export::mergeSubmaps(latest_map_array);
+    if (map_cloud.empty() ||
+      !graphslam::offline_map_export::saveBinaryCompressed(map_output_path, map_cloud))
+    {
+      RCLCPP_ERROR(
+        runner->get_logger(), "failed to write non-empty map PCD: %s", map_output_path.c_str());
+      rclcpp::shutdown();
+      return 1;
+    }
+    RCLCPP_INFO(
+      runner->get_logger(), "map PCD: %s (%zu points)",
+      map_output_path.c_str(), map_cloud.size());
+  }
 
   RCLCPP_INFO(
     runner->get_logger(),

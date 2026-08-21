@@ -62,12 +62,11 @@ extern "C" {
 #include "scanmatcher/map_update_policy.hpp"
 #include "scanmatcher/pose_acceptance.hpp"
 #include "scanmatcher/pose_prediction.hpp"
+#include "scanmatcher/registration_runtime.hpp"
 #include "scanmatcher/voxel_hash_map.hpp"
+#include <lidarslam_default_plugins/ndt_omp_registration.hpp>
 
-#include <pclomp/ndt_omp.h>
-#include <pclomp/ndt_omp_impl.hpp>
 #include <pclomp/voxel_grid_covariance_omp.h>
-#include <pclomp/voxel_grid_covariance_omp_impl.hpp>
 #include <pclomp/gicp_omp.h>
 #include <pclomp/gicp_omp_impl.hpp>
 #ifdef HAS_FAST_GICP
@@ -79,18 +78,55 @@ extern "C" {
 #endif
 
 #include <mutex>
+#include <memory>
+#include <string>
 #include <thread>
 #include <future>
 
 #include <pcl_conversions/pcl_conversions.h>
 
+namespace lidarslam
+{
+namespace plugins
+{
+namespace registration
+{
+namespace shell
+{
+class RegistrationPluginSession;
+}
+class RegistrationPlugin;
+}  // namespace registration
+}  // namespace plugins
+}  // namespace lidarslam
+
 namespace graphslam
 {
+enum class RegistrationConstruction
+{
+  kBuiltIn,
+  kDeferredPluginInjection,
+};
+
   class ScanMatcherComponent: public rclcpp::Node
   {
 public:
     GS_SM_PUBLIC
     explicit ScanMatcherComponent(const rclcpp::NodeOptions & options);
+
+    GS_SM_PUBLIC
+    ScanMatcherComponent(
+      const rclcpp::NodeOptions & options,
+      RegistrationConstruction construction);
+
+    // Opt-in shell boundary for offline plugin characterization.  The shell
+    // resolves and owns the loader/session; the component only retains the
+    // configured session and never performs pluginlib discovery itself.
+    GS_SM_PUBLIC
+    bool setRegistrationPluginSession(
+      const std::shared_ptr<lidarslam::plugins::registration::shell::RegistrationPluginSession>
+      & session,
+      std::string * error = nullptr);
 
 private:
     using TrackingState = pose_acceptance::TrackingState;
@@ -105,6 +141,22 @@ private:
     std::string odom_frame_id_;
 
     boost::shared_ptr<pcl::Registration < pcl::PointXYZI, pcl::PointXYZI >> registration_;
+    std::shared_ptr<lidarslam_default_plugins::NdtOmpRegistration> ndt_registration_;
+    // Single registration-plugin runtime slot.  Declaration order keeps the
+    // session (and its ClassLoader) alive until after the plugin pointer is
+    // released during component destruction.  The cached contract fields are
+    // copied at configuration time so the scan hot path never branches on a
+    // plugin class ID.
+    std::shared_ptr<lidarslam::plugins::registration::shell::RegistrationPluginSession>
+      registration_plugin_session_;
+    std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
+      registration_plugin_;
+    lidarslam::plugins::registration::AlignmentResult registration_alignment_result_;
+    lidarslam::plugins::registration::Capabilities registration_plugin_capabilities_;
+    lidarslam::plugins::registration::TargetPolicy registration_plugin_target_policy_ {
+      lidarslam::plugins::registration::TargetPolicy::kAcceptHostPrepared};
+    lidarslam::plugins::registration::CorrespondenceMetric registration_plugin_metric_ {
+      lidarslam::plugins::registration::CorrespondenceMetric::kUnavailable};
 
     rclcpp::Subscription < geometry_msgs::msg::PoseStamped > ::SharedPtr initial_pose_sub_;
     rclcpp::Subscription < sensor_msgs::msg::Imu > ::SharedPtr imu_sub_;
@@ -161,6 +213,12 @@ private:
       const rclcpp::Time stamp
     );
     const char * trackingStateName(TrackingState state) const;
+    bool setRegistrationTarget(
+      const pcl::PointCloud<pcl::PointXYZI>::ConstPtr & target,
+      const char * context);
+    bool setRegistrationTargetFromMap(
+      const pcl::PointCloud<pcl::PointXYZI>::ConstPtr & target,
+      const char * context);
 
     bool initial_pose_received_ {false};
     bool initial_cloud_received_ {false};
@@ -288,6 +346,27 @@ private:
     LidarUndistortion lidar_undistortion_;
 
   };
+
+// The factory body lives in scanmatcher_component.cpp, alongside the same-TU
+// pclomp template instantiation.  Offline shells may register it with the
+// hybrid resolver without constructing NDT in their own TU.
+GS_SM_PUBLIC
+std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
+makeHostBuiltinNdtRegistration();
+
+GS_SM_PUBLIC
+std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
+makeHostBuiltinGicpRegistration();
+
+#ifdef HAS_SMALL_GICP
+GS_SM_PUBLIC
+std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
+makeHostBuiltinSmallGicpRegistration();
+
+GS_SM_PUBLIC
+std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
+makeHostBuiltinSmallVgicpRegistration();
+#endif
 } // namespace graphslam
 
 #endif  //GS_SM_COMPONENT_H_INCLUDED
