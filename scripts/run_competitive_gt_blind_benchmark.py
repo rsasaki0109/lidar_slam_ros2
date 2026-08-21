@@ -79,6 +79,7 @@ THREAD_ENV = {
 DENY_WORDS = ('ground_truth', 'ground-truth', 'ape', 'scorer', 'map_quality')
 SHA_RE = re.compile(r'^[0-9a-f]{64}$')
 CONTAINER_SHA_RE = re.compile(r'^sha256:[0-9a-f]{64}$')
+MEMORY_EVIDENCE_NAME = 'container_memory.json'
 
 
 class ContractError(ValueError):
@@ -366,6 +367,7 @@ def docker_command(
         'taskset', '--cpu-list', '0-7', '/usr/bin/time', '-v',
         '-o', str(output_dir / 'host_time.txt'), 'docker', 'run', '--rm', '--init',
         '--network', 'none', '--cpuset-cpus', '0-7', '--read-only',
+        '--memory', '4g', '--memory-swap', '4g',
         '--tmpfs', '/tmp:rw,noexec,nosuid,size=1024m', '--shm-size', '512m']
     for key, value in env.items():
         common.extend(['-e', f'{key}={value}'])
@@ -522,7 +524,7 @@ def write_json(path: Path, value: Any) -> None:
 def parse_time_report(path: Path) -> dict[str, float | int | None]:
     if not path.is_file():
         return {'wall_seconds': None, 'user_seconds': None,
-                'sys_seconds': None, 'peak_rss_kb': None}
+                'sys_seconds': None, 'docker_client_peak_rss_kb': None}
     text = path.read_text(errors='replace')
     elapsed = re.search(r'Elapsed \(wall clock\) time .*?:\s*([0-9:.]+)', text)
     user = re.search(r'User time \(seconds\):\s*([0-9.]+)', text)
@@ -536,7 +538,73 @@ def parse_time_report(path: Path) -> dict[str, float | int | None]:
     return {'wall_seconds': wall,
             'user_seconds': float(user.group(1)) if user else None,
             'sys_seconds': float(system.group(1)) if system else None,
-            'peak_rss_kb': int(rss.group(1)) if rss else None}
+            'docker_client_peak_rss_kb': int(rss.group(1)) if rss else None}
+
+
+def parse_container_memory_evidence(path: Path) -> dict[str, Any]:
+    """Validate the only RSS source accepted by the GT-blind driver."""
+    invalid = {'valid': False, 'reason': 'missing_or_unreadable_memory_evidence'}
+    if not path.is_file():
+        return invalid
+    try:
+        value = json.loads(path.read_text(encoding='utf-8'))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return invalid | {'reason': 'memory_evidence_not_valid_json'}
+    if not isinstance(value, dict):
+        return invalid | {'reason': 'memory_evidence_is_not_an_object'}
+    result = dict(value)
+    result['valid'] = False
+    required = ('container_cgroup_peak_bytes', 'memory_current_bytes')
+    if value.get('status') != 'pass':
+        result['reason'] = 'memory_measurement_status_not_pass'
+        return result
+    if value.get('measurement_version') != 'm6a5-cgroup-v2-memory-v1' or \
+            value.get('measurement_scope') != 'container_cgroup_v2':
+        result['reason'] = 'memory_measurement_scope_or_version_invalid'
+        return result
+    if value.get('cgroup_version') != 2 or \
+            value.get('children_included') is not True or \
+            value.get('atomic') is not True:
+        result['reason'] = 'memory_cgroup_scope_or_atomic_contract_invalid'
+        return result
+    if not value.get('cgroup_path') or not value.get('proc_self_cgroup'):
+        result['reason'] = 'memory_cgroup_path_missing'
+        return result
+    readability = value.get('output_readability')
+    if not isinstance(readability, dict) or readability.get('status') != 'pass':
+        result['reason'] = 'output_tree_readability_contract_invalid'
+        return result
+    values = [value.get(key) for key in required]
+    if any(isinstance(item, bool) or not isinstance(item, int) or item < 0
+           for item in values):
+        result['reason'] = 'memory_measurement_value_missing_or_non_numeric'
+        return result
+    peak, current = values
+    max_raw = value.get('memory_max_raw')
+    max_bytes = value.get('memory_max_bytes')
+    max_unlimited = value.get('memory_max_unlimited')
+    if max_raw == 'max':
+        if max_unlimited is not True or max_bytes is not None:
+            result['reason'] = 'unlimited_memory_max_fields_inconsistent'
+            return result
+    elif isinstance(max_raw, str) and re.fullmatch(r'[0-9]+', max_raw):
+        if max_unlimited is not False or \
+                isinstance(max_bytes, bool) or not isinstance(max_bytes, int) or \
+                max_bytes <= 0 or int(max_raw) != max_bytes:
+            result['reason'] = 'numeric_memory_max_fields_inconsistent'
+            return result
+        if current > max_bytes:
+            result['reason'] = 'memory_current_exceeds_max'
+            return result
+    else:
+        result['reason'] = 'memory_max_missing_or_non_numeric'
+        return result
+    if peak < current:
+        result['reason'] = 'memory_measurement_range_invalid'
+        return result
+    result['valid'] = True
+    result['reason'] = ''
+    return result
 
 
 def output_tree_hash(path: Path) -> str | None:
@@ -562,12 +630,53 @@ def artifact_hashes(path: Path) -> dict[str, str]:
     return result
 
 
+def write_json_atomic(path: Path, value: Any) -> None:
+    """Publish a root-level failure record without exposing a partial JSON."""
+    if path.exists():
+        raise ContractError(f'failure artifact already exists: {path}')
+    part = path.with_name(path.name + '.part')
+    if part.exists():
+        raise ContractError(f'failure artifact part already exists: {part}')
+    part.write_text(json.dumps(value, indent=2, sort_keys=True) + '\n',
+                    encoding='utf-8')
+    os.replace(part, path)
+
+
+def write_driver_failure(output_root: Path, plan: dict[str, Any],
+                         part: Path, started: dt.datetime,
+                         error: OSError) -> Path:
+    index = plan['schedule_index']
+    failure_path = output_root / f'attempt_{index:03d}.driver_failure.json'
+    failure = {
+        'schema_version': 1,
+        'kind': 'm6a_gt_blind_driver_failure',
+        'status': 'INCOMPLETE',
+        'failure_stage': 'attempt_artifact_finalization',
+        'schedule': {key: plan[key] for key in
+                     ('schedule_index', 'system', 'slot', 'sequence',
+                      'repetition')},
+        'started_at': started.isoformat(),
+        'observed_at': dt.datetime.now(dt.timezone.utc).isoformat(),
+        'error_type': type(error).__name__,
+        'error': str(error),
+        'attempt_part': str(part),
+        'attempt_final': str(output_root / f'attempt_{index:03d}'),
+        'attempt_finalized': False,
+        'preserve_part': True,
+        'ground_truth_content_opened': False,
+        'scorer_invoked': False,
+    }
+    write_json_atomic(failure_path, failure)
+    return failure_path
+
+
 def expected_outputs(system: str, output: Path) -> list[Path]:
+    memory = output / MEMORY_EVIDENCE_NAME
     if system == 'ours':
-        return [output / 'traj_raw.tum']
+        return [output / 'traj_raw.tum', memory]
     if system == 'glim_cpu':
-        return [output / 'dump' / 'traj_lidar.txt']
-    return [output / 'odometry.csv']
+        return [output / 'dump' / 'traj_lidar.txt', memory]
+    return [output / 'odometry.csv', memory]
 
 
 def run_attempt(plan: dict[str, Any], output_root: Path,
@@ -602,34 +711,63 @@ def run_attempt(plan: dict[str, Any], output_root: Path,
         exit_status = 127
     finished = dt.datetime.now(dt.timezone.utc)
     expected = expected_outputs(plan['system'], part)
-    complete = not timed_out and exit_status == 0 and all(path.is_file() for path in expected)
     proof = dict(plan['gt_blind_guard'])
     proof.update({'ground_truth_content_opened': False, 'scorer_invoked': False,
                   'argv_gt_free': True, 'env_gt_free': True, 'mounts_gt_free': True})
-    write_json(part / 'gt_blind_proof.json', proof)
-    report = {
-        'schema_version': 1, 'kind': 'm6a_gt_blind_attempt',
-        'schedule': {key: plan[key] for key in
-                     ('schedule_index', 'system', 'slot', 'sequence', 'repetition')},
-        'identity': {'profile_canonical_sha256': plan.get('profile_canonical_sha256'),
-                     'execution_receipt_file_sha256': plan.get('execution_receipt_file_sha256'),
-                     'selection_receipt_file_sha256': plan.get('selection_receipt_file_sha256'),
-                     'image_digest': plan['image_digest'],
-                     'execution': plan['execution_identity'], 'input': plan['input']},
-        'argv': command, 'env': plan['env'], 'mounts': plan['mounts'],
-        'started_at': started.isoformat(), 'finished_at': finished.isoformat(),
-        'execution': {'exit_status': exit_status, 'timed_out': timed_out, 'signal': signal},
-        'completion': {
-            'complete': complete,
-            'expected_outputs': [str(path.relative_to(part)) for path in expected]},
-        'timing': parse_time_report(part / 'host_time.txt'),
-        'artifact_hashes': artifact_hashes(part),
-        'output_tree_sha256': output_tree_hash(part),
-        'gt_blind_proof': proof,
-    }
-    write_json(part / 'attempt.json', report)
-    os.replace(part, final)
-    return report
+    try:
+        write_json(part / 'gt_blind_proof.json', proof)
+        memory_evidence = parse_container_memory_evidence(
+            part / MEMORY_EVIDENCE_NAME)
+        complete = not timed_out and exit_status == 0 and \
+            all(path.is_file() for path in expected) and \
+            memory_evidence['valid']
+        timing = parse_time_report(part / 'host_time.txt')
+        report = {
+            'schema_version': 1, 'kind': 'm6a_gt_blind_attempt',
+            'schedule': {key: plan[key] for key in
+                         ('schedule_index', 'system', 'slot', 'sequence',
+                          'repetition')},
+            'identity': {
+                'profile_canonical_sha256': plan.get('profile_canonical_sha256'),
+                'execution_receipt_file_sha256': plan.get(
+                    'execution_receipt_file_sha256'),
+                'selection_receipt_file_sha256': plan.get(
+                    'selection_receipt_file_sha256'),
+                'image_digest': plan['image_digest'],
+                'execution': plan['execution_identity'], 'input': plan['input']},
+            'argv': command, 'env': plan['env'], 'mounts': plan['mounts'],
+            'started_at': started.isoformat(), 'finished_at': finished.isoformat(),
+            'execution': {
+                'exit_status': exit_status, 'timed_out': timed_out,
+                'signal': signal},
+            'completion': {
+                'complete': complete,
+                'expected_outputs': [str(path.relative_to(part))
+                                     for path in expected],
+                'memory_evidence_valid': memory_evidence['valid']},
+            'timing': timing,
+            'docker_client_peak_rss_kb': timing.get('docker_client_peak_rss_kb'),
+            'container_cgroup_peak_bytes': memory_evidence.get(
+                'container_cgroup_peak_bytes'),
+            'memory_evidence': memory_evidence,
+            'artifact_hashes': artifact_hashes(part),
+            'output_tree_sha256': output_tree_hash(part),
+            'gt_blind_proof': proof,
+        }
+        write_json(part / 'attempt.json', report)
+        os.replace(part, final)
+        return report
+    except OSError as error:
+        try:
+            failure_path = write_driver_failure(output_root, plan, part, started,
+                                                error)
+        except OSError as failure_error:
+            raise ContractError(
+                f'attempt {index} finalization failed: {error}; '
+                f'failure artifact also failed: {failure_error}') from error
+        raise ContractError(
+            f'attempt {index} finalization failed; preserved {part}; '
+            f'failure artifact: {failure_path}: {error}') from error
 
 
 def root_marker(output_root: Path, identity: dict[str, Any]) -> Path:

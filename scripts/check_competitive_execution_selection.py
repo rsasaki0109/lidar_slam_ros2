@@ -67,6 +67,15 @@ THREAD_KEYS = (
     'openblas_num_threads', 'mkl_num_threads', 'tbb_num_threads',
     'accelerator_policy')
 SYSTEMS = ('ours', 'glim', 'fast_livo2')
+M6A5_MEMORY_VERSION = 'm6a5-cgroup-v2-memory-v1'
+M6A5_MEMORY_SCOPE = 'container_cgroup_v2'
+M6A5_MEMORY_PRODUCER_FILES = {
+    'helper': 'scripts/container_memory_evidence.sh',
+    'ours_wrapper': 'scripts/ours_container_gt_blind_run.sh',
+    'glim_wrapper': 'scripts/glim_container_run.sh',
+    'fast_wrapper': 'scripts/fast_livo2_container_run.sh',
+    'driver': 'scripts/run_competitive_gt_blind_benchmark.py',
+}
 
 
 def sha256_file(path: Path) -> str:
@@ -228,6 +237,101 @@ def _check_thread_policy(value: Any, label: str, errors: list[str],
             errors.append(f'{label}.{key} must be a positive integer')
             valid = False
     return valid
+
+
+def _check_m6a5_memory_contract(receipt: dict[str, Any], root: Path,
+                                errors: list[str],
+                                incomplete: list[str]) -> tuple[bool, dict[str, Any]]:
+    """Validate cgroup-memory evidence and immutable campaign lineage."""
+    contract = receipt.get('m6a5_memory_contract')
+    if not isinstance(contract, dict):
+        _add_missing(incomplete, 'receipt.m6a5_memory_contract')
+        return False, {'status': 'missing'}
+    valid = True
+
+    def require_equal(key: str, expected: Any) -> None:
+        nonlocal valid
+        actual = contract.get(key)
+        if actual != expected:
+            if actual is None:
+                _add_missing(incomplete, f'receipt.m6a5_memory_contract.{key}')
+            else:
+                errors.append(
+                    f'receipt.m6a5_memory_contract.{key} must be {expected!r}')
+            valid = False
+
+    require_equal('schema_version', 1)
+    require_equal('measurement_version', M6A5_MEMORY_VERSION)
+    require_equal('measurement_scope', M6A5_MEMORY_SCOPE)
+    require_equal('children_included', True)
+    require_equal('atomic_output', True)
+    require_equal('readability_scope', 'OUT_DIR_only')
+    require_equal('peak_field', 'container_cgroup_peak_bytes')
+    require_equal('comparative_rss_field', 'container_cgroup_peak_bytes')
+    require_equal('docker_client_diagnostic_field', 'docker_client_peak_rss_kb')
+    require_equal('docker_client_comparable', False)
+    require_equal('memory_max_unlimited_valid', True)
+
+    producer_files = contract.get('producer_files')
+    if not isinstance(producer_files, dict):
+        _add_missing(incomplete, 'receipt.m6a5_memory_contract.producer_files')
+        valid = False
+    else:
+        for name, expected_path in M6A5_MEMORY_PRODUCER_FILES.items():
+            item = producer_files.get(name)
+            if not isinstance(item, dict):
+                _add_missing(incomplete, f'memory producer {name}')
+                valid = False
+                continue
+            if item.get('path') != expected_path:
+                errors.append(f'memory producer {name} path is not {expected_path}')
+                valid = False
+            valid = _check_hash_file(root, item, f'memory producer {name}',
+                                     errors, incomplete) and valid
+
+    summary = contract.get('smoke_summary')
+    valid = _check_hash_file(root, summary, 'm6a5_memory_smoke_summary',
+                             errors, incomplete) and valid
+    if isinstance(summary, dict) and summary.get('status') != 'pass':
+        errors.append('m6a5_memory_smoke_summary.status must be pass')
+        valid = False
+    delta = contract.get('known_allocation_peak_delta_bytes')
+    if isinstance(delta, bool) or not isinstance(delta, int) or delta <= 0:
+        if delta is None:
+            _add_missing(
+                incomplete,
+                'receipt.m6a5_memory_contract.known_allocation_peak_delta_bytes')
+        else:
+            errors.append(
+                'm6a5_memory_contract.known_allocation_peak_delta_bytes must be positive')
+        valid = False
+
+    lineage = contract.get('campaign_lineage')
+    if not isinstance(lineage, dict):
+        _add_missing(incomplete, 'receipt.m6a5_memory_contract.campaign_lineage')
+        valid = False
+        lineage = {}
+    for name in ('campaign1_completion', 'campaign2_partial'):
+        item = lineage.get(name)
+        lineage_ok = _check_hash_file(
+            root, item, f'm6a5 campaign lineage {name}', errors, incomplete)
+        if not isinstance(item, dict) or item.get('immutable') is not True:
+            errors.append(f'm6a5 campaign lineage {name} must be immutable')
+            lineage_ok = False
+        if isinstance(item, dict) and item.get('status') != 'INCOMPLETE':
+            errors.append(f'm6a5 campaign lineage {name} must remain INCOMPLETE')
+            lineage_ok = False
+        valid = lineage_ok and valid
+    return valid, {
+        'measurement_version': contract.get('measurement_version'),
+        'measurement_scope': contract.get('measurement_scope'),
+        'comparative_rss_field': contract.get('comparative_rss_field'),
+        'docker_client_comparable': contract.get('docker_client_comparable'),
+        'smoke_summary_sha256': summary.get('sha256')
+        if isinstance(summary, dict) else None,
+        'known_allocation_peak_delta_bytes': delta,
+        'lineage': lineage,
+    }
 
 
 def evaluate(receipt: dict[str, Any], profile: dict[str, Any],
@@ -524,6 +628,9 @@ def evaluate(receipt: dict[str, Any], profile: dict[str, Any],
         'per_system': per_system_results,
         'expected_thread_policy_keys': list(THREAD_KEYS),
     })
+    memory_ok, memory_evidence = _check_m6a5_memory_contract(
+        receipt, root, errors, incomplete)
+    check('m6a5_memory_contract_and_lineage', memory_ok, memory_evidence)
 
     status = 'INVALID' if errors else ('INCOMPLETE' if incomplete else 'PASS')
     return {
@@ -536,6 +643,7 @@ def evaluate(receipt: dict[str, Any], profile: dict[str, Any],
         'receipt_status': receipt.get('status'),
         'canonical_scorer_fingerprint': computed_scorer_fingerprint,
         'thread_policy_canonical_sha256': thread_policy_canonical_hash,
+        'm6a5_memory_contract': memory_evidence,
         'profile_execution_selection_receipt': {
             'path': receipt_path_value,
             'expected_sha256': receipt_expected_sha,

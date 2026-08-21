@@ -338,6 +338,45 @@ completion SHA remains
 A planned campaign3 must first provide resilient attempt finalization and
 container/cgroup memory accounting; no M6b or README/SOTA claim is authorized.
 
+### M6a5 container-memory contract and campaign3 preflight (2026-08-22)
+
+M6a5 closes the measurement-accounting gap without starting another benchmark.
+The comparison RSS field is exclusively `container_cgroup_peak_bytes` from
+the container's cgroup-v2 `memory.peak`; the host `/usr/bin/time -v` value is
+retained only as the diagnostic `docker_client_peak_rss_kb`.  A cgroup-v2
+`memory.max` value of `max` is valid and is recorded as an unlimited limit.
+The helper writes an atomic, host-readable evidence file and includes all
+children in the container scope.  Missing, malformed, non-atomic, or
+unreadable evidence is fail-closed.
+
+The external smoke summary is
+`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a5_20260822/memory-max-unlimited/summary.json`
+(SHA-256
+`e2df6b70dcec703406a406ed7a4c45aaac87b69987d87966f4d10bceee1c85bb`).  The
+known-allocation check increased the cgroup peak by `138006528` bytes while
+the Docker-client RSS remained approximately constant; this validates the
+measurement scope, not SLAM performance.
+
+Campaign3 is a disclosed preflight-only successor at
+`/media/sasaki/aiueo1/benchmarks/competitive_results/m6a_gt_blind_campaign3_20260822`.
+Its final evidence directory is
+`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a5_20260822/campaign3-preflight-final`:
+the dry-run plan SHA is
+`bef6184b506b852288cf07b94772442cdc47c6c58e2cef45da5140249729d082`, the
+preflight plan SHA is
+`362ad49f85491bfd74ddda181ec0a334c972e4be2818374a05b0db3c5724087b`, and
+the summary SHA is
+`9ae7115d10dee09f5287317b5e9a3912580f7ae31cfd93e8686162149e108bf0`.
+All 27 scheduled attempts are preflight-ready, but the campaign has zero
+attempts, `execute_started=false`, and both GT content access and scorer use
+are false.  The current execution-receipt raw SHA is
+`d89d30d9e516f7d7211536bd1ea4f837ae95c4f7aa4527af60a5f7699c3d677f`; its
+profile canonical SHA is
+`5a8b81b7483ce9921fdfb4393ed006390fc5f0b2553b5e29976de96725a4da39`.
+Campaign1 and campaign2 remain immutable incomplete lineage records.  No
+M6b scoring, accuracy, performance, map-quality, or README/SOTA claim is
+authorized by this preflight.
+
 ### M5c fresh-holdout download checkpoint (2026-08-21)
 
 Fresh input acquisition is a separate, opaque-hash-only checkpoint. The

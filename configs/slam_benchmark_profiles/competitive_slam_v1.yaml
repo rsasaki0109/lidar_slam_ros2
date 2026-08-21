@@ -120,7 +120,7 @@ competitive_slam_profile:
       - toolchain_fingerprint
       - config_sha256
     execution_selection_receipt_path: configs/slam_benchmark_profiles/competitive_execution_selection_2026-08.yaml
-    execution_selection_receipt_sha256: d25057bc3660424f9ea852143a215610b8395dddfee0ed1e8c64a5acd1cde0ab
+    execution_selection_receipt_sha256: d89d30d9e516f7d7211536bd1ea4f837ae95c4f7aa4527af60a5f7699c3d677f
     require_execution_selection_receipt: true
   required_metrics:
     common:

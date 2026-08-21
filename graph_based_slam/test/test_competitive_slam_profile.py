@@ -166,6 +166,29 @@ def test_execution_selection_receipt_is_registered_and_ready_preflight():
     assert enforcement['required_before_run'] is True
 
 
+def test_m6a5_memory_contract_and_campaign_lineage_are_bound():
+    profile_document = yaml.safe_load(PROFILE_PATH.read_text(encoding='utf-8'))
+    receipt = yaml.safe_load(EXECUTION_RECEIPT_PATH.read_text(encoding='utf-8'))
+    contract = receipt['m6a5_memory_contract']
+    assert contract['measurement_version'] == 'm6a5-cgroup-v2-memory-v1'
+    assert contract['measurement_scope'] == 'container_cgroup_v2'
+    assert contract['comparative_rss_field'] == 'container_cgroup_peak_bytes'
+    assert contract['docker_client_comparable'] is False
+    assert contract['known_allocation_peak_delta_bytes'] > 100 * 1024 * 1024
+    result = _CHECKER.evaluate(receipt, profile_document)
+    assert result['checks']['m6a5_memory_contract_and_lineage']['pass'] is True
+    assert result['status'] == 'PASS'
+
+
+def test_m6a5_memory_contract_tamper_is_fail_closed():
+    profile_document = yaml.safe_load(PROFILE_PATH.read_text(encoding='utf-8'))
+    receipt = yaml.safe_load(EXECUTION_RECEIPT_PATH.read_text(encoding='utf-8'))
+    receipt['m6a5_memory_contract']['docker_client_comparable'] = True
+    result = _CHECKER.evaluate(receipt, profile_document)
+    assert result['checks']['m6a5_memory_contract_and_lineage']['pass'] is False
+    assert any('docker_client_comparable' in item for item in result['errors'])
+
+
 def test_observed_identity_is_complete_after_external_freeze():
     profile_document = yaml.safe_load(PROFILE_PATH.read_text(encoding='utf-8'))
     receipt = yaml.safe_load(EXECUTION_RECEIPT_PATH.read_text(encoding='utf-8'))

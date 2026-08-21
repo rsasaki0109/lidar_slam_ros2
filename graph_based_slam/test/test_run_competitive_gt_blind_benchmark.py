@@ -172,6 +172,20 @@ def test_fast_command_is_loopback_only_under_network_none():
     assert env['ROS_HOSTNAME'] == '127.0.0.1'
 
 
+def test_docker_command_sets_bounded_cgroup_memory_for_measurement():
+    item = {
+        'raw_path': Path('/managed/slots/exp14/source/exp14.bag'),
+        'canonical_path': Path('/managed/slots/exp14/canonical_ros2'),
+    }
+    command, _ = RUNNER.docker_command(
+        'ours', item, 'ours:test@sha256:' + 'a' * 64,
+        Path('/M6A_OUTPUT_PLACEHOLDER'),
+        {'schedule_index': 1, 'system': 'ours',
+         'slot': 'fresh_1', 'repetition': 1})
+    assert command[command.index('--memory') + 1] == '4g'
+    assert command[command.index('--memory-swap') + 1] == '4g'
+
+
 def test_runtime_writable_state_is_scoped_to_attempt_output():
     glim = (ROOT / 'scripts' / 'glim_container_run.sh').read_text()
     fast = (ROOT / 'scripts' / 'fast_livo2_container_run.sh').read_text()
@@ -303,10 +317,122 @@ def test_existing_attempt_cannot_be_overwritten(tmp_path):
 
 
 def test_expected_output_contract_is_fail_closed():
-    assert RUNNER.expected_outputs('ours', Path('/out')) == [Path('/out/traj_raw.tum')]
+    assert RUNNER.expected_outputs('ours', Path('/out')) == [
+        Path('/out/traj_raw.tum'), Path('/out/container_memory.json')]
     assert RUNNER.expected_outputs('glim_cpu', Path('/out')) == [
-        Path('/out/dump/traj_lidar.txt')]
-    assert RUNNER.expected_outputs('fast_livo2', Path('/out')) == [Path('/out/odometry.csv')]
+        Path('/out/dump/traj_lidar.txt'), Path('/out/container_memory.json')]
+    assert RUNNER.expected_outputs('fast_livo2', Path('/out')) == [
+        Path('/out/odometry.csv'), Path('/out/container_memory.json')]
+
+
+def _valid_memory_evidence():
+    return {
+        'schema_version': 1,
+        'measurement_version': 'm6a5-cgroup-v2-memory-v1',
+        'status': 'pass',
+        'measurement_scope': 'container_cgroup_v2',
+        'children_included': True,
+        'cgroup_version': 2,
+        'cgroup_path': '/docker/test',
+        'proc_self_cgroup': '0::/docker/test',
+        'container_cgroup_peak_bytes': 140,
+        'memory_current_bytes': 100,
+        'memory_max_raw': '512',
+        'memory_max_bytes': 512,
+        'memory_max_unlimited': False,
+        'atomic': True,
+        'output_readability': {'status': 'pass'},
+    }
+
+
+def test_container_memory_evidence_requires_numeric_cgroup_v2_values(tmp_path):
+    path = tmp_path / 'container_memory.json'
+    path.write_text(json.dumps(_valid_memory_evidence()))
+    valid = RUNNER.parse_container_memory_evidence(path)
+    assert valid['valid'] is True
+    assert valid['container_cgroup_peak_bytes'] == 140
+    for field, value in (
+            ('container_cgroup_peak_bytes', None),
+            ('memory_current_bytes', 'not-a-number')):
+        document = _valid_memory_evidence()
+        document[field] = value
+        path.write_text(json.dumps(document))
+        invalid = RUNNER.parse_container_memory_evidence(path)
+        assert invalid['valid'] is False
+    unlimited = _valid_memory_evidence()
+    unlimited['memory_max_raw'] = 'max'
+    unlimited['memory_max_bytes'] = None
+    unlimited['memory_max_unlimited'] = True
+    path.write_text(json.dumps(unlimited))
+    assert RUNNER.parse_container_memory_evidence(path)['valid'] is True
+    inconsistent = dict(unlimited)
+    inconsistent['memory_max_unlimited'] = False
+    path.write_text(json.dumps(inconsistent))
+    assert RUNNER.parse_container_memory_evidence(path)['valid'] is False
+    over_max = _valid_memory_evidence()
+    over_max['memory_current_bytes'] = 513
+    path.write_text(json.dumps(over_max))
+    assert RUNNER.parse_container_memory_evidence(path)['valid'] is False
+
+
+def test_container_memory_evidence_missing_and_unreadable_are_invalid(tmp_path):
+    path = tmp_path / 'container_memory.json'
+    assert RUNNER.parse_container_memory_evidence(path)['valid'] is False
+    document = _valid_memory_evidence()
+    document['output_readability'] = {'status': 'invalid', 'scope': 'runner'}
+    path.write_text(json.dumps(document))
+    assert RUNNER.parse_container_memory_evidence(path)['valid'] is False
+    path.write_bytes(b'{"status":\xff}')
+    assert RUNNER.parse_container_memory_evidence(path)['valid'] is False
+
+
+def test_client_rss_is_not_the_container_memory_metric(tmp_path):
+    path = tmp_path / 'host_time.txt'
+    path.write_text(
+        'Elapsed (wall clock) time (h:mm:ss or m:ss): 0:01.00\n'
+        'Maximum resident set size (kbytes): 29116\n')
+    timing = RUNNER.parse_time_report(path)
+    assert timing['docker_client_peak_rss_kb'] == 29116
+    assert 'peak_rss_kb' not in timing
+
+
+def test_permission_during_finalization_keeps_part_and_writes_failure(
+        tmp_path, monkeypatch):
+    output = tmp_path / 'results'
+    output.mkdir()
+    item = {
+        'schedule_index': 7, 'system': 'ours', 'slot': 'fresh_1',
+        'sequence': 'exp14', 'repetition': 1,
+        'image_digest': 'sha256:' + 'a' * 64,
+        'execution_identity': {'revision': 'b' * 40},
+        'input': {'semantic_equivalence_sha256': 'c' * 64},
+        'profile_canonical_sha256': 'd' * 64,
+        'execution_receipt_file_sha256': 'e' * 64,
+        'selection_receipt_file_sha256': 'f' * 64,
+        'argv': ['docker', 'run', '-v', '/M6A_OUTPUT_PLACEHOLDER:/out'],
+        'env': {'OMP_NUM_THREADS': '8'},
+        'mounts': [{'source': '/managed/bag', 'target': '/input/bag',
+                    'mode': 'ro'}],
+        'gt_blind_guard': {'ground_truth_reachable': False,
+                           'gt_device': 1, 'gt_inode': 2,
+                           'mount_sources': ['/managed/bag']},
+    }
+
+    class Completed:
+        returncode = 0
+
+    monkeypatch.setattr(RUNNER.subprocess, 'run', lambda *_a, **_k: Completed())
+    monkeypatch.setattr(RUNNER, 'output_tree_hash',
+                        lambda _path: (_ for _ in ()).throw(
+                            PermissionError('fixture unreadable')))
+    with pytest.raises(RUNNER.ContractError, match='finalization failed'):
+        RUNNER.run_attempt(item, output, 1.0)
+    assert (output / 'attempt_007.part').is_dir()
+    failure = output / 'attempt_007.driver_failure.json'
+    assert failure.is_file()
+    document = json.loads(failure.read_text())
+    assert document['preserve_part'] is True
+    assert document['attempt_finalized'] is False
 
 
 def test_gt_blind_wrappers_require_explicit_mode():

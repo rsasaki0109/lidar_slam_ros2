@@ -354,6 +354,36 @@ remain untouched. The immutable M6a2 parent SHA is
 planned campaign3 must add resilient attempt finalization and cgroup RSS
 accounting before any M6b evaluation or README/SOTA claim.
 
+### M6a5 measurement contract and campaign3 preflight (2026-08-22)
+
+The M6a5 remediation makes container cgroup-v2 `memory.peak` the only
+comparable RSS field (`container_cgroup_peak_bytes`).  The host Docker-client
+measurement (`docker_client_peak_rss_kb`) is diagnostic only.  `memory.max=max`
+is a valid unlimited-limit observation; missing, malformed, unreadable, or
+non-atomic memory evidence fails closed.  The helper, all three wrappers, and
+the driver are bound in the execution receipt, together with the immutable
+campaign1 completion and campaign2 partial-manifest lineage.  The synthetic
+known-allocation evidence is
+`e2df6b70dcec703406a406ed7a4c45aaac87b69987d87966f4d10bceee1c85bb` and is
+not a performance result.
+
+Campaign3 uses
+`/media/sasaki/aiueo1/benchmarks/competitive_results/m6a_gt_blind_campaign3_20260822`.
+Its external preflight evidence reports 27/27 readiness with no attempts,
+GT content access, or scorer invocation.  The final dry-run plan SHA is
+`bef6184b506b852288cf07b94772442cdc47c6c58e2cef45da5140249729d082`, the
+preflight plan SHA is
+`362ad49f85491bfd74ddda181ec0a334c972e4be2818374a05b0db3c5724087b`, and
+the summary SHA is
+`9ae7115d10dee09f5287317b5e9a3912580f7ae31cfd93e8686162149e108bf0`.
+The receipt/profile identities are raw receipt
+`d89d30d9e516f7d7211536bd1ea4f837ae95c4f7aa4527af60a5f7699c3d677f` and
+canonical profile
+`5a8b81b7483ce9921fdfb4393ed006390fc5f0b2553b5e29976de96725a4da39`.
+This is an execution-readiness checkpoint only; M6b scoring and any
+accuracy, performance, map-quality, or README/SOTA conclusion remain
+unauthorized.
+
 The reproducibility slice also owns the image recipes and their build entrypoint:
 `docker/ours_competitive_benchmark.Dockerfile`,
 `docker/glim_cpu_benchmark.Dockerfile`,

@@ -9,6 +9,23 @@ SHUTDOWN_GRACE_SECONDS="${SHUTDOWN_GRACE_SECONDS:-5}"
 SAVE_MAP="${SAVE_MAP:-0}"
 
 mkdir -p "${OUT_DIR}"
+source /runner/scripts/container_memory_evidence.sh
+write_status() { printf '%s\n' "$2" >"${OUT_DIR}/$1"; }
+cleanup() {
+  local exit_status=$?
+  set +e
+  for process_group in "${ODOM_PID:-}" "${MAPPER_PID:-}" "${ROSCORE_PID:-}"; do
+    if [[ -n "${process_group}" ]]; then
+      kill -TERM -- "-${process_group}" >/dev/null 2>&1 || true
+      kill -TERM "${process_group}" >/dev/null 2>&1 || true
+    fi
+  done
+  wait >/dev/null 2>&1 || true
+  m6a5_write_container_memory_evidence "${exit_status}" || true
+  return "${exit_status}"
+}
+trap cleanup EXIT
+
 set +u
 source /opt/ros/noetic/setup.bash
 if [[ -f /opt/fast_livo_ws/devel/setup.bash ]]; then
@@ -32,19 +49,6 @@ mkdir -p "${ROS_HOME}" "${ROS_LOG_DIR}"
 if [[ "${SAVE_MAP}" == "1" ]]; then
   mkdir -p /bench/FAST-LIVO2/Log/pcd
 fi
-
-write_status() { printf '%s\n' "$2" >"${OUT_DIR}/$1"; }
-cleanup() {
-  set +e
-  for process_group in "${ODOM_PID:-}" "${MAPPER_PID:-}" "${ROSCORE_PID:-}"; do
-    if [[ -n "${process_group}" ]]; then
-      kill -TERM -- "-${process_group}" >/dev/null 2>&1 || true
-      kill -TERM "${process_group}" >/dev/null 2>&1 || true
-    fi
-  done
-  wait >/dev/null 2>&1 || true
-}
-trap cleanup EXIT
 
 rosbag info --yaml "${BAG_PATH}" >"${OUT_DIR}/rosbag_info.yaml" 2>"${OUT_DIR}/rosbag_info.err"
 write_status rosbag_info_exit_status.txt "$?"

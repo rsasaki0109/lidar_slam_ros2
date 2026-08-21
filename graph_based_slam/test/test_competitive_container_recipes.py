@@ -192,9 +192,15 @@ def test_synthetic_smoke_paths_are_full_startup_contracts():
     ours = (ROOT / 'scripts' / 'ours_container_gt_blind_run.sh').read_text()
     glim = (ROOT / 'scripts' / 'glim_container_run.sh').read_text()
     fast = (ROOT / 'scripts' / 'fast_livo2_container_run.sh').read_text()
+    memory = (ROOT / 'scripts' / 'container_memory_evidence.sh').read_text()
+    assert 'container_memory.json' in memory
+    assert 'chmod -R a+rX' in memory
     for text in (ours, glim, fast):
         assert 'M6A3_SYNTHETIC_SMOKE' in text
         assert 'synthetic_smoke_contract.json' in text
+        assert 'container_memory_evidence.sh' in text
+        assert 'm6a5_write_container_memory_evidence' in text or \
+            'm6a5_container_exit_trap' in text
         assert 'gt_mounted":"false' not in text
         assert 'gt_mounted":false' in text
         assert 'performance_run":false' in text

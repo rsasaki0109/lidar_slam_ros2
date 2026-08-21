@@ -10,6 +10,8 @@ OVERRIDE_CONFIG="${OVERRIDE_CONFIG:-/runner/configs/glim/hilti2022_cpu}"
 export ROS_HOME="${ROS_HOME:-${OUT_DIR}/ros_home}"
 export ROS_LOG_DIR="${ROS_LOG_DIR:-${OUT_DIR}/ros_log}"
 mkdir -p "${ROS_HOME}" "${ROS_LOG_DIR}"
+source /runner/scripts/container_memory_evidence.sh
+trap 'm6a5_container_exit_trap "$?"' EXIT
 
 set +u
 source /opt/ros/jazzy/setup.bash

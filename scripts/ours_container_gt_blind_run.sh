@@ -38,6 +38,8 @@ set -euo pipefail
 export ROS_HOME="${ROS_HOME:-${OUT_DIR}/ros_home}"
 export ROS_LOG_DIR="${ROS_LOG_DIR:-${OUT_DIR}/ros_log}"
 mkdir -p "${ROS_HOME}" "${ROS_LOG_DIR}"
+source /runner/scripts/container_memory_evidence.sh
+trap 'm6a5_container_exit_trap "$?"' EXIT
 
 set +u
 source /opt/ros/jazzy/setup.bash
@@ -123,7 +125,7 @@ PY
   exit 0
 fi
 
-exec bash /runner/scripts/run_rko_lio_graph_benchmark.sh \
+bash /runner/scripts/run_rko_lio_graph_benchmark.sh \
   --bag "${BAG_PATH}" \
   --lidar-topic "${LIDAR_TOPIC}" \
   --imu-topic "${IMU_TOPIC}" \
@@ -135,3 +137,5 @@ exec bash /runner/scripts/run_rko_lio_graph_benchmark.sh \
   --save-timeout-secs "${SAVE_TIMEOUT_SECS:-600}" \
   --completion-end-margin-secs 0.25 \
   --gt-blind
+status=$?
+exit "${status}"

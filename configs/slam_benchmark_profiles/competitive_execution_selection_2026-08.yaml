@@ -17,9 +17,68 @@ status_reasons:
   - fresh_holdout_identity_deep_verified
   - gt_blind_dry_run_and_preflight_27_of_27
   - preflight_ready_before_first_run
+  - m6a5_container_cgroup_memory_contract_verified
+  - m6a5_campaign_lineage_manifest_hashes_verified
   - no_benchmark_result_or_sota_claim
 release: Release
 selected_at: '2026-08-21 JST'
+
+m6a5_memory_contract:
+  schema_version: 1
+  measurement_version: m6a5-cgroup-v2-memory-v1
+  measurement_scope: container_cgroup_v2
+  children_included: true
+  atomic_output: true
+  readability_scope: OUT_DIR_only
+  peak_field: container_cgroup_peak_bytes
+  comparative_rss_field: container_cgroup_peak_bytes
+  docker_client_diagnostic_field: docker_client_peak_rss_kb
+  docker_client_comparable: false
+  memory_max_unlimited_valid: true
+  producer_files:
+    helper:
+      path: scripts/container_memory_evidence.sh
+      sha256: 21e1fff544c7a724858d4f157003338bf801a2965a8322e53c343e905c374cb0
+    ours_wrapper:
+      path: scripts/ours_container_gt_blind_run.sh
+      sha256: 66bfc117a4eb3848b3331c6714d3d90620af4565fb6f7ecdb74c0c1cb8f93759
+    glim_wrapper:
+      path: scripts/glim_container_run.sh
+      sha256: 778dd8dfa7f758fe364b99f1b7bea30895062bf958ada9ebd18cf0c2757ddd7e
+    fast_wrapper:
+      path: scripts/fast_livo2_container_run.sh
+      sha256: 789f572471b657126482930b55da1ffbaaff051faeafbf4d3c304c2e0e7e5ea0
+    driver:
+      path: scripts/run_competitive_gt_blind_benchmark.py
+      sha256: 40e28cf155589e06d6830adcc91d146e83dd4033923fa03ef23cfad4b8afd2fd
+  smoke_summary:
+    path: /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a5_20260822/memory-max-unlimited/summary.json
+    sha256: e2df6b70dcec703406a406ed7a4c45aaac87b69987d87966f4d10bceee1c85bb
+    status: pass
+  known_allocation_peak_delta_bytes: 138006528
+  campaign_lineage:
+    campaign1_completion:
+      path: /media/sasaki/aiueo1/benchmarks/competitive_results/m6a_gt_blind_20260822/completion_manifest.json
+      sha256: a5abafdeb420619a1460737a3cf91862fa41ce7930c041324b1f38c00b16f002
+      status: INCOMPLETE
+      immutable: true
+      lineage: parent_failed_campaign_immutable_and_disclosed
+    campaign2_partial:
+      path: /media/sasaki/aiueo1/benchmarks/competitive_results/m6a_gt_blind_campaign2_20260822/partial_campaign_manifest.json
+      sha256: df91a0f0852911790f3fabb5b5638938b8e1222208943be01678a99fbd062978
+      status: INCOMPLETE
+      immutable: true
+      lineage: partial_campaign_not_replacement
+
+m6a5_campaign:
+  root: /media/sasaki/aiueo1/benchmarks/competitive_results/m6a_gt_blind_campaign3_20260822
+  lineage: disclosed_campaign3_after_memory_contract_remediation
+  status: preflight_ready
+  attempts: 0
+  execute_started: false
+  ground_truth_content_opened: false
+  scorer_invoked: false
+  preflight_summary_path: /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a5_20260822/campaign3-preflight-final/campaign3-preflight-summary.json
 
 common_identity:
   profile_path: configs/slam_benchmark_profiles/competitive_slam_v1.yaml
