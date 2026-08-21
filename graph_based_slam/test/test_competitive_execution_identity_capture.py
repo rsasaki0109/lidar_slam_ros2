@@ -353,6 +353,61 @@ def test_container_toolchain_probe_is_bounded_pull_free_and_digest_bound(monkeyp
     assert 'libomp-dev' in openmp_command and 'libgomp1' in openmp_command
 
 
+def test_container_toolchain_probe_accepts_explicit_unused_dependency(
+        monkeypatch):
+    commands = []
+
+    def fake_run(command, **_kwargs):
+        commands.append(command)
+        return 0, 'fixture-toolchain\n', ''
+
+    monkeypatch.setattr(MODULE, 'run_read_only', fake_run)
+    digest = 'sha256:' + '2' * 64
+    result = MODULE.capture_container_toolchain(
+        'glim:fixture', digest, {'pcl'})
+    assert result['status'] == 'observed'
+    assert result['observed']['pcl']['value'] == 'not_applicable'
+    assert result['observed']['pcl']['status'] == 'not_applicable'
+    assert result['not_applicable_fields'] == ['pcl']
+    assert len(commands) == len(MODULE.CONTAINER_TOOLCHAIN_COMMANDS) - 1
+    assert all('libpcl-dev' not in command for command in commands)
+
+
+def test_not_applicable_allowlist_is_system_specific(monkeypatch):
+    receipt, profile = _documents()
+    for system in MODULE.SYSTEMS:
+        receipt['systems'][system]['container'].update({
+            'image_tag': f'{system}:fixture',
+            'image_digest': 'sha256:' + '3' * 64,
+            'status': 'ready',
+        })
+    receipt['systems']['ours']['toolchain']['not_applicable_fields'] = ['pcl']
+    receipt['systems']['glim']['toolchain']['not_applicable_fields'] = ['compiler']
+    receipt['systems']['fast_livo2']['toolchain']['not_applicable_fields'] = []
+    monkeypatch.setattr(
+        MODULE, 'probe_container',
+        lambda tag: {
+            'status': 'observed', 'image_tag': tag,
+            'image_digest': 'sha256:' + '3' * 64,
+        })
+    calls = []
+
+    def fake_probe(tag, digest):
+        calls.append((tag, digest))
+        return {
+            'status': 'observed', 'fingerprint': '4' * 64,
+            'scope': 'system_container', 'image_tag': tag,
+            'image_digest': digest, 'observed': {
+                name: 'fixture' for name in MODULE.CONTAINER_TOOLCHAIN_COMMANDS},
+        }
+
+    monkeypatch.setattr(MODULE, 'capture_container_toolchain', fake_probe)
+    captured = MODULE.capture_identity(receipt, profile)
+    assert captured['systems']['ours']['toolchain']['status'] == 'INVALID'
+    assert captured['systems']['glim']['toolchain']['status'] == 'INVALID'
+    assert len(calls) == 1
+
+
 def test_cli_explicit_custom_paths_are_owned_by_capture(tmp_path):
     custom_receipt = tmp_path / 'receipt.yaml'
     custom_profile = tmp_path / 'profile.yaml'

@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Build only pinned benchmark recipes. This is a provenance preflight, not a
+# benchmark runner: it never downloads bags/GT and never changes the identity
+# receipt. The ours context contains only its Dockerfile; the image clones the
+# public repository at the declared revision and initializes only the
+# build-required submodule.
+ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+OURS_REVISION=866f733677e92ecb08d67126e463da99dd140d46
+OURS_REPOSITORY=https://github.com/rsasaki0109/lidar_slam_ros2.git
+GLIM_REVISION=faa264a1bce1bda406f73457e35511f56cdc2eaa
+GLIM_ROS2_REVISION=4a9e7a4cb084967c8525a1be529ad3ba2a118ae7
+FAST_REVISION=0d2c0346107b75b59934975adec9a6eeeb913c64
+RPG_VIKIT_REVISION=6c886c8e5d83997806e00294826d528cea3581dd
+SOPHUS_REVISION=a621ff2e56c56c839a6c40418d42c3c254424b5c
+OURS_CONTEXT=
+
+cleanup() {
+  if [[ -n "$OURS_CONTEXT" && -d "$OURS_CONTEXT" ]]; then
+    rm -rf "$OURS_CONTEXT"
+  fi
+}
+trap cleanup EXIT
+
+usage() {
+  cat <<'EOF'
+Usage: build_competitive_benchmark_images.sh [--system ours|glim|fast_livo2|all]
+                                             [--tag-prefix PREFIX]
+
+Builds pinned recipes with --pull=false. The default is --system all.
+The ours build clones the declared public repository revision and initializes
+only the build-required gitlink-pinned submodule inside the image.
+EOF
+}
+
+SYSTEM=all
+TAG_PREFIX=
+while (($#)); do
+  case "$1" in
+    --system) SYSTEM=${2:?--system requires a value}; shift 2 ;;
+    --tag-prefix) TAG_PREFIX=${2:?--tag-prefix requires a value}; shift 2 ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "unknown argument: $1" >&2; usage >&2; exit 2 ;;
+  esac
+done
+
+case "$SYSTEM" in
+  ours|glim|fast_livo2|all) ;;
+  *) echo "invalid --system: $SYSTEM" >&2; exit 2 ;;
+esac
+
+if [[ "$SYSTEM" == ours || "$SYSTEM" == all ]]; then
+  OURS_CONTEXT=$(mktemp -d "${TMPDIR:-/tmp}/lidarslam-ours-context.XXXXXX")
+  cp "$ROOT/docker/ours_competitive_benchmark.Dockerfile" \
+    "$OURS_CONTEXT/Dockerfile"
+fi
+
+build() {
+  local system=$1 recipe tag
+  case "$system" in
+    ours)
+      recipe=docker/ours_competitive_benchmark.Dockerfile
+      tag="${TAG_PREFIX}lidarslam-ours:jazzy" ;;
+    glim)
+      recipe=docker/glim_cpu_benchmark.Dockerfile
+      tag="${TAG_PREFIX}glim-cpu-benchmark:competitive-v1" ;;
+    fast_livo2)
+      recipe=docker/fast_livo2_benchmark.Dockerfile
+      tag="${TAG_PREFIX}fast-livo2-benchmark:ros1-pinned" ;;
+  esac
+  echo "building ${system}: ${tag} (${recipe})"
+  case "$system" in
+    ours)
+      docker build --pull=false --file "$OURS_CONTEXT/Dockerfile" --tag "$tag" \
+        --build-arg "OURS_REPOSITORY=$OURS_REPOSITORY" \
+        --build-arg "OURS_REVISION=$OURS_REVISION" "$OURS_CONTEXT" ;;
+    glim)
+      docker build --pull=false --file "$ROOT/$recipe" --tag "$tag" \
+        --build-arg "GLIM_REVISION=$GLIM_REVISION" \
+        --build-arg "GLIM_ROS2_REVISION=$GLIM_ROS2_REVISION" "$ROOT" ;;
+    fast_livo2)
+      docker build --pull=false --file "$ROOT/$recipe" --tag "$tag" \
+        --build-arg "FAST_LIVO2_REVISION=$FAST_REVISION" \
+        --build-arg "RPG_VIKIT_REVISION=$RPG_VIKIT_REVISION" \
+        --build-arg "SOPHUS_REVISION=$SOPHUS_REVISION" "$ROOT" ;;
+  esac
+}
+
+if [[ "$SYSTEM" == all ]]; then
+  build ours
+  build glim
+  build fast_livo2
+else
+  build "$SYSTEM"
+fi

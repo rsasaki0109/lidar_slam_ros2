@@ -11,7 +11,17 @@ SAVE_MAP="${SAVE_MAP:-0}"
 mkdir -p "${OUT_DIR}"
 set +u
 source /opt/ros/noetic/setup.bash
-source /bench/catkin_ws/devel/setup.bash
+if [[ -f /opt/fast_livo_ws/devel/setup.bash ]]; then
+  # Repo-owned pinned image workspace. The /bench mount is reserved for the
+  # input asset tree and must not shadow the built image workspace.
+  source /opt/fast_livo_ws/devel/setup.bash
+elif [[ -f /bench/catkin_ws/devel/setup.bash ]]; then
+  # Compatibility with the historical externally-built image.
+  source /bench/catkin_ws/devel/setup.bash
+else
+  echo 'FAST-LIVO2 catkin workspace is missing' >&2
+  exit 10
+fi
 set -u
 export ROS_MASTER_URI=http://127.0.0.1:11311
 export ROS_HOME="${OUT_DIR}/ros_home"

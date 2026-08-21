@@ -288,7 +288,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--profile', type=Path, default=DEFAULT_PROFILE)
     parser.add_argument('--input-manifest', type=Path)
-    parser.add_argument('--image', default='fast-livo2-benchmark:noetic')
+    parser.add_argument('--image', default='fast-livo2-benchmark:ros1-pinned')
     parser.add_argument('--runs', type=int)
     parser.add_argument('--rate', type=float, default=1.0)
     parser.add_argument('--shutdown-grace-seconds', type=float, default=5.0)

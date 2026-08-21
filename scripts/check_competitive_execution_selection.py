@@ -81,6 +81,10 @@ def _is_sha(value: Any) -> bool:
     return isinstance(value, str) and SHA256_RE.fullmatch(value) is not None
 
 
+def _is_sha256_digest(value: Any) -> bool:
+    return isinstance(value, str) and CONTAINER_DIGEST_RE.fullmatch(value) is not None
+
+
 def _nonempty(value: Any) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
@@ -116,17 +120,51 @@ def _check_hash_file(root: Path, value: Any, label: str,
 
 
 def _check_config(root: Path, config: Any, label: str,
-                  errors: list[str], incomplete: list[str]) -> bool:
+                  errors: list[str], incomplete: list[str], *,
+                  container_digest: Any = None) -> bool:
     if not isinstance(config, dict):
         errors.append(f'{label} must be a mapping')
         return False
-    path = _resolve(root, config.get('path'))
     expected = config.get('sha256')
-    if path is None or expected is None:
+    if expected is None:
         _add_missing(incomplete, f'{label}.path_or_sha256')
         return False
     if not _is_sha(expected):
         errors.append(f'{label}.sha256 must be a 64-hex SHA-256')
+        return False
+    hash_kind = config.get('hash_kind', 'file_sha256')
+    if hash_kind == 'external_container_file_sha256':
+        path_value = config.get('path')
+        valid = True
+        if (not isinstance(path_value, str) or not path_value or
+                not Path(path_value).is_absolute()):
+            errors.append(f'{label}.path must be an absolute container path')
+            valid = False
+        if config.get('path_kind') != 'external_container_absolute_path':
+            errors.append(
+                f'{label}.path_kind must be external_container_absolute_path')
+            valid = False
+        status = config.get('status')
+        if status not in {'observed', 'ready', 'frozen'}:
+            if status is None or 'pending' in str(status):
+                _add_missing(incomplete, f'{label}.status is not observed')
+            else:
+                errors.append(f'{label}.status must be observed/ready/frozen')
+            valid = False
+        observed_digest = config.get('container_image_digest')
+        if not _is_sha256_digest(observed_digest):
+            _add_missing(incomplete, f'{label}.container_image_digest')
+            valid = False
+        elif not _is_sha256_digest(container_digest):
+            _add_missing(incomplete, f'{label}.container_digest_binding')
+            valid = False
+        elif observed_digest != container_digest:
+            errors.append(f'{label}.container_image_digest does not match image')
+            valid = False
+        return valid
+    path = _resolve(root, config.get('path'))
+    if path is None:
+        _add_missing(incomplete, f'{label}.path_or_sha256')
         return False
     if not path.exists():
         errors.append(f'{label}.path does not exist: {path}')
@@ -391,13 +429,15 @@ def evaluate(receipt: dict[str, Any], profile: dict[str, Any],
             if worktree_dirty is False and not _is_sha(clean_value):
                 _add_missing(incomplete, f'{system}.repository.{clean_key}')
                 per_system_ok = False
+        container = item.get('container') or {}
         for index, config in enumerate(item.get('configs', [])):
             per_system_ok = (_check_config(root, config, f'{system}.configs[{index}]',
-                                           errors, incomplete) and per_system_ok)
+                                           errors, incomplete,
+                                           container_digest=container.get('image_digest'))
+                             and per_system_ok)
         runner = item.get('runner')
         per_system_ok = (_check_hash_file(root, runner, f'{system}.runner', errors,
                                           incomplete) and per_system_ok)
-        container = item.get('container') or {}
         container_status = container.get('status')
         if container_status not in {'ready', 'frozen'}:
             if container_status is None or 'pending' in str(container_status):

@@ -140,9 +140,9 @@ python3 scripts/check_competitive_execution_selection.py \
 ```
 
 The profile records the receipt path and full-file SHA-256. The checked-in receipt is
-currently `pending`: the ours clean revision, machine fingerprint, and eight-thread
-policy are observed, but rival containers/toolchains and fresh-input hashes still
-need a reviewed freeze. Missing values remain
+currently `pending`: the ours clean revision, machine fingerprint, eight-thread
+policy, and all three pinned container/toolchain identities are observed. The
+preregistered fresh-input hashes still need a reviewed freeze. Missing values remain
 `INCOMPLETE`; malformed or changed paths/digests are `INVALID`. This check is
 read-only and performs no container build, dataset download, ground-truth
 inspection, or benchmark run. The identity records exact `Release`,
@@ -206,7 +206,7 @@ python3 scripts/capture_competitive_execution_identity.py capture \
   --source glim=/path/to/glim \
   --source fast_livo2=/path/to/FAST-LIVO2 \
   --image glim=glim-cpu-benchmark:competitive-v1 \
-  --image fast_livo2=fast-livo2-benchmark:noetic \
+  --image fast_livo2=fast-livo2-benchmark:ros1-pinned \
   --receipt <receipt.yaml> --profile <profile.yaml> \
   --output <out>/capture.json
 ```
@@ -217,6 +217,54 @@ OpenMP commands still required; it does not infer readiness. A complete
 synthetic or clean ready/frozen contract can return `PASS`, while this checked
 in pending receipt remains `INCOMPLETE` until an operator explicitly reviews
 and updates it.
+
+### Pinned benchmark image recipes
+
+The checked-in execution receipt now names a repo-owned build recipe and build
+entrypoint for each system. Run the entrypoint only after the source revision
+and execution identity have been reviewed:
+
+```bash
+bash scripts/build_competitive_benchmark_images.sh --system all
+```
+
+The recipes use immutable `sha256` base-image references, pin the ours/GLIM/
+FAST-LIVO2 source revisions, and set the recorded CPU-only thread environment.
+The ours recipe receives a Docker context containing only its Dockerfile. It
+clones the public `lidar_slam_ros2` repository at `OURS_REVISION`, verifies the
+`ndt_omp_ros2` gitlink and initializes only that build-required submodule, then
+checks the detached HEAD, clean status, and initialized submodule status before
+rosdep or compilation. The pinned `rko_lio` gitlink is intentionally left
+uninitialized: its object is unavailable from the public mirror and it is not
+needed by this `BUILD_TESTING=OFF --packages-up-to lidarslam graph_based_slam`
+image target. The recipe fails closed if either gitlink changes or `rko_lio`
+appears in colcon discovery. This prevents a dirty host checkout or a source
+archive with missing submodule contents from entering the image.
+GLIM's CPU path does not consume PCL; its receipt explicitly records `pcl` as
+`not_applicable`, and the container probe fingerprints that sentinel rather
+than installing an unused package or falling back to the host. The capture
+tool only permits this exception for GLIM/PCL; compiler, linker, ROS, Eigen,
+OpenMP, and all ours/FAST fields remain mandatory and fail closed.
+The FAST-LIVO2 recipe builds its ROS 1 workspace under `/opt/fast_livo_ws`;
+its pinned image and system-container toolchain probe are now observed ready;
+it does not depend on the historical undocumented
+`fast-livo2-benchmark:noetic` or `hdl_localization_noetic:local` images. Its
+legacy Sophus compatibility commit is an explicit full-length build-time pin.
+FAST's upstream HILTI22 configuration is now recorded as an external-container
+artifact at `/opt/fast_livo_ws/src/FAST-LIVO2/config/HILTI22.yaml`, with SHA-256
+`efae9e702c71c770b19002b6e19d4e1b6f46c67df3727e984981d932258f0b4a`. The entry is
+`observed` and is bound to the immutable FAST image
+`sha256:ddc75b574f8cca1e111332153e31a65c74ccdb11f8059da3797ab130814ce17e`;
+the checker never treats that container path as a host file. Fresh execution
+inputs remain pending.
+`--pull=false` is
+intentional: a missing base image or source ref must fail rather than silently
+changing the identity.
+
+This recipe wiring is provenance infrastructure, not benchmark evidence. The
+three pinned image/toolchain observations are now marked ready after clean
+builds and read-only probes, but the checked-in M5b receipt remains `pending`
+until the preregistered fresh holdout input/GT/calibration hashes are frozen.
 
 The checked-in synthetic tests cover the exact 10% boundary, missing and
 failed runs, old schema, false freshness, pending slots, dataset hash

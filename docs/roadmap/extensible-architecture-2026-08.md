@@ -107,12 +107,27 @@ scorer fingerprint, machine-fingerprint source, exact `Release`, and the
 seven-key thread policy (`cpu_affinity`, `max_threads`, `OMP`, OpenBLAS, MKL,
 TBB, and accelerator policy). The receipt now records a verified clean ours
 revision, fresh machine fingerprint, and CPUs 0--7 with all thread limits set
-to 8; overall status remains `pending` because containers/toolchains and fresh
-input hashes are unresolved. The recorded policy must be enforced with
+to 8. GLIM's pinned image is now verified at
+`sha256:3702b73873395880e1dcdb91394232f1a9932194de22214e1aacb9626ced5846`
+with toolchain fingerprint
+`805429f650c6d927497e3c06169f9763c2cfd8e8101f02e6fcd565c0972924a2`; PCL is
+explicitly `not_applicable` for its CPU path. Overall status remains `pending`
+because all three pinned image/toolchain observations are now ready but fresh
+input hashes are unresolved. Ours is recorded at image
+`sha256:4426d334ee7014d6387694df8957285a56123c31576b17e30de655248dd91930`
+with toolchain fingerprint
+`6cdff5854c86cc820d6781700d7613b2e529e75d58c9fb0830fd2b0f792adca5`, and
+FAST-LIVO2 is recorded ready at its pinned image/toolchain receipt. The
+recorded policy must be enforced with
 `taskset`/Docker `--cpuset-cpus` plus the explicit OMP/OpenBLAS/MKL/TBB
-environment variables before execution. FAST's upstream visual
-configuration remains an external-container artifact until its pinned image is
-built; GLIM's CPU track disables visual input while preserving the canonical
+environment variables before execution. FAST's upstream visual configuration is
+an observed external-container artifact at
+`/opt/fast_livo_ws/src/FAST-LIVO2/config/HILTI22.yaml`, SHA-256
+`efae9e702c71c770b19002b6e19d4e1b6f46c67df3727e984981d932258f0b4a`, bound to
+the immutable image
+`sha256:ddc75b574f8cca1e111332153e31a65c74ccdb11f8059da3797ab130814ce17e`.
+The checker validates that container-path/digest binding without reading a host
+path. GLIM's CPU track disables visual input while preserving the canonical
 camera messages for the cross-system input contract.
 
 `scripts/check_competitive_execution_selection.py` is a read-only,
@@ -148,11 +163,12 @@ bound local image, it additionally runs bounded `--pull=never --network none
 toolchain fingerprint to the inspected image digest; source bindings provide
 Git provenance only. `finalize` verifies receipt ownership and emits a decision, but never
 writes or promotes the reviewed receipt. It also records that no fresh bag or
-GT was opened. The current artifact is intentionally `INCOMPLETE` because the
-worktree is dirty, rival images/toolchains are not system-container-ready, and
-the seven-key policy still contains nulls. A future clean freeze must rerun the
-capture in each pinned system container, review the resulting hashes, then
-update the receipt explicitly before the existing checker can report ready.
+GT was opened. The current artifact is intentionally `INCOMPLETE` because
+fresh holdout input/GT/calibration hashes are not frozen; all three
+image/toolchain observations and the seven-key policy are now recorded. A
+future clean freeze must rerun the capture in each pinned system container,
+review the resulting hashes, then update the receipt explicitly before the
+existing checker can report ready.
 Both commands accept explicit repeatable `--source SYSTEM=PATH` and
 `--image SYSTEM=TAG` bindings; absent bindings produce an exact read-only
 compiler/linker/ROS/PCL/Eigen/OpenMP probe manifest rather than guessed
@@ -160,6 +176,30 @@ readiness. The finite-state verifier compares measured revision, clean
 provenance, image digest, toolchain fields/fingerprint, machine identity, and
 canonical thread policy. Thus a complete ready/frozen synthetic contract can
 be `PASS`, but no pending production receipt can be promoted implicitly.
+
+The reproducibility slice also owns the image recipes and their build entrypoint:
+`docker/ours_competitive_benchmark.Dockerfile`,
+`docker/glim_cpu_benchmark.Dockerfile`,
+`docker/fast_livo2_benchmark.Dockerfile`, and
+`scripts/build_competitive_benchmark_images.sh`. Each recipe pins an immutable
+ROS base digest, source revisions, and the CPU-only thread environment. FAST
+LIVO2 no longer relies on the historical undocumented
+`fast-livo2-benchmark:noetic`/`hdl_localization_noetic:local` base; its pinned
+full-length Sophus compatibility commit is recorded explicitly. GLIM's CPU
+track explicitly marks unused PCL as
+`not_applicable`; its container probe fingerprints that sentinel rather than
+adding an unrelated dependency. The
+ours recipe uses a Dockerfile-only context, clones the pinned public repository,
+initializes only the build-required `Thirdparty/ndt_omp_ros2` gitlink, and
+checks HEAD/clean/submodule status before building. The pinned
+`Thirdparty/rko_lio` object is unavailable from the public mirror, so the
+recipe deliberately leaves it uninitialized, asserts that its exact gitlink
+remains unchanged, excludes it from colcon discovery, and builds with
+`BUILD_TESTING=OFF`. The static contract test binds every recipe and entrypoint
+SHA to this receipt. FAST-LIVO2's pinned image/toolchain and ours now have
+observed ready receipts. This proves reconstruction metadata only: the M5b
+status remains `INCOMPLETE` until fresh holdouts are frozen, and no performance
+or SOTA claim follows from this slice.
 
 ### M3 live backend NDT migration gate
 

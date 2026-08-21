@@ -177,6 +177,27 @@ def test_observed_identity_is_complete_but_external_freeze_remains_pending():
     assert result['pass'] is False
 
 
+def test_external_container_config_is_bound_to_immutable_image():
+    profile_document = yaml.safe_load(PROFILE_PATH.read_text(encoding='utf-8'))
+    receipt = yaml.safe_load(EXECUTION_RECEIPT_PATH.read_text(encoding='utf-8'))
+    config = receipt['systems']['fast_livo2']['configs'][1]
+    assert config['path_kind'] == 'external_container_absolute_path'
+    assert config['hash_kind'] == 'external_container_file_sha256'
+    assert config['status'] == 'observed'
+    assert config['container_image_digest'] == receipt['systems']['fast_livo2'][
+        'container']['image_digest']
+    result = _CHECKER.evaluate(receipt, profile_document)
+    assert result['checks']['system_fast_livo2']['pass'] is True
+
+    tampered = copy.deepcopy(receipt)
+    tampered['systems']['fast_livo2']['configs'][1][
+        'container_image_digest'] = 'sha256:' + '0' * 64
+    result = _CHECKER.evaluate(tampered, profile_document)
+    assert result['checks']['system_fast_livo2']['pass'] is False
+    assert any('container_image_digest does not match image' in item
+               for item in result['errors'])
+
+
 def test_canonical_profile_hash_excludes_only_registered_receipt_sha():
     document = yaml.safe_load(PROFILE_PATH.read_text(encoding='utf-8'))
     original = copy.deepcopy(document)
@@ -270,6 +291,10 @@ def test_execution_preflight_system_diagnostics_are_independent():
     receipt = yaml.safe_load(EXECUTION_RECEIPT_PATH.read_text(encoding='utf-8'))
     _mark_system_ready(receipt, 'glim')
     receipt['systems']['glim']['repository']['worktree_dirty'] = False
+    # The checked-in receipt now has real ours observations; make this system
+    # explicitly unresolved so the per-system diagnostic remains meaningful.
+    receipt['systems']['ours']['container']['status'] = 'pending_build'
+    receipt['systems']['ours']['toolchain']['status'] = 'pending_build'
     result = _CHECKER.evaluate(receipt, profile_document)
     assert result['checks']['system_glim']['pass'] is True
     assert result['checks']['system_ours']['pass'] is False

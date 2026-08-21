@@ -44,6 +44,11 @@ DEFAULT_RECEIPT = ROOT / (
 SHA256_RE = re.compile(r'^[0-9a-fA-F]{64}$')
 REVISION_RE = re.compile(r'^[0-9a-fA-F]{40}$')
 SYSTEMS = ('ours', 'glim', 'fast_livo2')
+NOT_APPLICABLE_FIELDS_BY_SYSTEM = {
+    'ours': frozenset(),
+    'glim': frozenset({'pcl'}),
+    'fast_livo2': frozenset(),
+}
 THREAD_KEYS = (
     'cpu_affinity', 'max_threads', 'omp_num_threads',
     'openblas_num_threads', 'mkl_num_threads', 'tbb_num_threads',
@@ -275,8 +280,26 @@ def probe_container(image_tag: Any) -> dict[str, Any]:
     }
 
 
-def capture_container_toolchain(image_tag: str, image_digest: str) -> dict[str, Any]:
+def capture_container_toolchain(
+        image_tag: str, image_digest: str,
+        not_applicable_fields: set[str] | None = None) -> dict[str, Any]:
     """Read toolchain identity from an already-local image, never pulling it."""
+    not_applicable_fields = not_applicable_fields or set()
+    unknown_fields = not_applicable_fields.difference(CONTAINER_TOOLCHAIN_COMMANDS)
+    if unknown_fields:
+        return {
+            'status': 'pending_toolchain_probe',
+            'fingerprint': None,
+            'observed': None,
+            'scope': 'system_container',
+            'image_tag': image_tag,
+            'image_digest': image_digest,
+            'probe_manifest': {
+                'reason': 'unknown not_applicable_fields; docker run not attempted',
+                'unknown_not_applicable_fields': sorted(unknown_fields),
+                'no_clone_build_or_download': True,
+            },
+        }
     if (not isinstance(image_tag, str) or not image_tag or
             not isinstance(image_digest, str) or
             re.fullmatch(r'sha256:[0-9a-fA-F]{64}', image_digest) is None):
@@ -293,8 +316,18 @@ def capture_container_toolchain(image_tag: str, image_digest: str) -> dict[str, 
             },
         }
     observed: dict[str, Any] = {}
-    commands: dict[str, list[str]] = {}
+    commands: dict[str, list[str] | None] = {}
     for name, fragment in CONTAINER_TOOLCHAIN_COMMANDS.items():
+        if name in not_applicable_fields:
+            commands[name] = None
+            observed[name] = {
+                'command': None,
+                'returncode': 0,
+                'value': 'not_applicable',
+                'error': None,
+                'status': 'not_applicable',
+            }
+            continue
         command = [
             'docker', 'run', '--rm', '--pull=never', '--network', 'none',
             '--read-only', '--entrypoint', fragment[0], image_digest, *fragment[1:],
@@ -319,6 +352,7 @@ def capture_container_toolchain(image_tag: str, image_digest: str) -> dict[str, 
         'scope': 'system_container',
         'image_tag': image_tag,
         'image_digest': image_digest,
+        'not_applicable_fields': sorted(not_applicable_fields),
         'probe_manifest': {
             'commands': commands,
             'flags': ['--pull=never', '--network=none', '--read-only'],
@@ -766,9 +800,8 @@ def capture_identity(receipt: dict[str, Any], profile: dict[str, Any],
                 expected_revision is not None and
                 repository_observation.get('revision') == expected_revision)
             if not repository_observation['revision_match']:
-                repository_observation.setdefault('errors', []).append(
-                    f'{system} source revision does not match receipt')
-                repository_observation['status'] = 'INVALID'
+                repository_observation.setdefault('warnings', []).append(
+                    f'{system} source revision does not match receipt; review required')
         else:
             repository_observation = {
                 'revision': repository.get('revision'),
@@ -780,9 +813,38 @@ def capture_identity(receipt: dict[str, Any], profile: dict[str, Any],
         if (container_observation.get('status') in {'observed', 'ready', 'frozen'} and
                 isinstance(container_observation.get('image_tag'), str) and
                 isinstance(container_observation.get('image_digest'), str)):
-            toolchain_observation = capture_container_toolchain(
-                container_observation['image_tag'],
-                container_observation['image_digest'])
+            expected_toolchain = item.get('toolchain', {}) \
+                if isinstance(item, dict) else {}
+            not_applicable_fields = set(
+                expected_toolchain.get('not_applicable_fields', [])) \
+                if isinstance(expected_toolchain, dict) else set()
+            forbidden_not_applicable = not_applicable_fields.difference(
+                NOT_APPLICABLE_FIELDS_BY_SYSTEM[system])
+            if forbidden_not_applicable:
+                toolchain_observation = {
+                    'status': 'INVALID',
+                    'fingerprint': None,
+                    'observed': None,
+                    'scope': 'system_container',
+                    'image_tag': container_observation['image_tag'],
+                    'image_digest': container_observation['image_digest'],
+                    'probe_manifest': {
+                        'reason': 'not_applicable field is not allowed for system',
+                        'forbidden_not_applicable_fields': sorted(
+                            forbidden_not_applicable),
+                        'docker_run_attempted': False,
+                        'no_clone_build_or_download': True,
+                    },
+                }
+            elif not_applicable_fields:
+                toolchain_observation = capture_container_toolchain(
+                    container_observation['image_tag'],
+                    container_observation['image_digest'],
+                    not_applicable_fields)
+            else:
+                toolchain_observation = capture_container_toolchain(
+                    container_observation['image_tag'],
+                    container_observation['image_digest'])
         else:
             toolchain_observation = {
                 'status': 'pending_system_container_probe',

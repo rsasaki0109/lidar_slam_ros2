@@ -1,15 +1,15 @@
-# M5b execution identity preregistration.  Remaining nulls are intentional for
-# unresolved containers/toolchains/fresh inputs; this is not a benchmark result.
+# M5b execution identity preregistration. Remaining nulls are intentional for
+# unresolved fresh inputs; this is not a benchmark result.
 schema_version: 1
 receipt_kind: competitive_execution_selection
 profile: competitive_slam_v1
 status: pending
 status_reasons:
-  - ours_clean_revision_observed_but_receipt_freeze_is_pending
-  - glim_container_not_available_locally_pending_build
-  - fast_livo2_container_not_available_locally_pending_build
-  - container_and_toolchain_freeze_require_execution_preflight
+  - ours_container_and_toolchain_verified
+  - glim_container_and_toolchain_verified
+  - fast_livo2_container_and_toolchain_verified
   - fresh_holdout_hashes_pending
+  - no_benchmark_result_or_sota_claim
 release: Release
 selected_at: '2026-08-21 JST'
 
@@ -93,9 +93,28 @@ systems:
       path: scripts/run_ours_competitive_benchmark.py
       sha256: 8280423f9d4ccd9ddcc507d39f0f7a19591fcc342708c9659ab739d1e8cb8b87
     container:
-      image_tag: null
-      image_digest: null
-      status: pending_selection_or_build
+      image_tag: lidarslam-ours:jazzy
+      image_digest: sha256:4426d334ee7014d6387694df8957285a56123c31576b17e30de655248dd91930
+      status: ready
+      recipe:
+        path: docker/ours_competitive_benchmark.Dockerfile
+        sha256: a719a46d50fa9fa7457db5832c755d81efecf9733a02abd79e96a67b4d1e13bd
+        base_image: docker.io/library/ros:jazzy-ros-base
+        base_digest: sha256:31daab66eef9139933379fb67159449944f4e2dcf2e22c2d12cc715f29873e0f
+        source_repository: https://github.com/rsasaki0109/lidar_slam_ros2.git
+        source_revision: 866f733677e92ecb08d67126e463da99dd140d46
+        source_checkout: clone_at_revision_with_required_submodule_only
+        build_testing: false
+        submodules:
+          ndt_omp_ros2:
+            revision: 497411279593eb261a3e3d04cdcbb4717af33ca3
+            initialized: true
+          rko_lio:
+            gitlink_revision: 622b74778a41f753d47aa5918043755ebcbd4c75
+            initialized: false
+            reason: pinned_gitlink_unavailable_from_public_mirror_not_needed_for_target
+      build_entrypoint_path: scripts/build_competitive_benchmark_images.sh
+      build_entrypoint_sha256: 409cce6e0a1b7b337960bd58ab3cd378b31015fce139157d23eabd3beddb708c
       observed_local_candidates:
         - tag: lidarslam-local-jazzy-runtime:handoff
           digest: sha256:0205654aa9c005f90d4df0ec44473487654706f181c979f921272013c479603a
@@ -111,8 +130,19 @@ systems:
         hash_kind: file_sha256
         sha256: 50a30f4442d450d2597e9c90a720ed249ee9f89b6f76b8b4f02aa9cea672d061
     toolchain:
-      fingerprint: null
-      status: pending_build
+      fingerprint: 6cdff5854c86cc820d6781700d7613b2e529e75d58c9fb0830fd2b0f792adca5
+      status: ready
+      scope: system_container
+      image_tag: lidarslam-ours:jazzy
+      image_digest: sha256:4426d334ee7014d6387694df8957285a56123c31576b17e30de655248dd91930
+      not_applicable_fields: []
+      observed:
+        compiler: c++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+        linker: GNU ld (GNU Binutils for Ubuntu) 2.42
+        ros_distro: jazzy
+        pcl: 1.14.0+dfsg-1
+        eigen: 3.4.0-4build0.1
+        openmp: 14.2.0-4ubuntu2~24.04.1
       source:
         path: scripts/capture_benchmark_machine_fingerprint.py
         sha256: f9e49ba213a5b4e02e0099ce7d3d7e1ffd34a2bc0e037b8c3635c0541b6f2467
@@ -133,13 +163,13 @@ systems:
       url: https://github.com/koide3/glim.git
       revision: faa264a1bce1bda406f73457e35511f56cdc2eaa
       revision_kind: tag_v1.2.2_commit
-      revision_status: pinned_source_pending_container
+      revision_status: pinned
       ros2_repository: https://github.com/koide3/glim_ros2.git
       ros2_revision: 4a9e7a4cb084967c8525a1be529ad3ba2a118ae7
       worktree_dirty: false
-      tracked_diff_sha256: null
-      untracked_content_sha256: null
-      clean_provenance_sha256: null
+      tracked_diff_sha256: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
+      untracked_content_sha256: 4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945
+      clean_provenance_sha256: 9e4fd6b7b4d2119aa2401dbbc7b37aaf46590f4635e2ac8ecd23806f4bd685ae
     runner:
       path: scripts/run_glim_benchmark.py
       sha256: 0213b9badffd0217eb90251bee7dc5fe57426e91bbc6de466947b30ddeeb6882
@@ -147,13 +177,20 @@ systems:
       container_entrypoint_sha256: 906d91c17703c77ff2f89e049732b7c86fdbb54b136103d4c75912052ec592c2
     container:
       image_tag: glim-cpu-benchmark:competitive-v1
-      image_digest: null
-      status: pending_build
+      image_digest: sha256:3702b73873395880e1dcdb91394232f1a9932194de22214e1aacb9626ced5846
+      status: ready
       recipe:
         path: docker/glim_cpu_benchmark.Dockerfile
-        sha256: c09b61f14cda61901dee3f40a79dcfdb49cff4a4ea42b122fb0ae3b5b7a4d3a4
-        base_image: ros:jazzy-ros-base
+        sha256: c5645058e71e447c608ee85fef6d35b906ba93ea0be61eaa407b82a62e9e706e
+        base_image: docker.io/library/ros:jazzy-ros-base
         base_digest: sha256:31daab66eef9139933379fb67159449944f4e2dcf2e22c2d12cc715f29873e0f
+        source_revisions:
+          glim: faa264a1bce1bda406f73457e35511f56cdc2eaa
+          glim_ros2: 4a9e7a4cb084967c8525a1be529ad3ba2a118ae7
+          gtsam: 2f3e56c0ddbd3a1aa54ed043643b553d26a069f6
+          gtsam_points: 9d32e7dbecf6015560d84b4901d6b0a6f483ec46
+      build_entrypoint_path: scripts/build_competitive_benchmark_images.sh
+      build_entrypoint_sha256: 409cce6e0a1b7b337960bd58ab3cd378b31015fce139157d23eabd3beddb708c
       historical_run_image_digest: sha256:3e495e0b85d5ef3d1bca360f45f0be6e05d6ba48b930362baefb817eee779b49
       historical_digest_is_not_current_identity: true
     configs:
@@ -167,12 +204,23 @@ systems:
         hash_kind: file_sha256
         sha256: 50ca0b66110b35ee05d80530f38a8d61b8175743e6eb0b42907ee486bbf666cd
     toolchain:
-      fingerprint: null
-      status: pending_build
+      fingerprint: 805429f650c6d927497e3c06169f9763c2cfd8e8101f02e6fcd565c0972924a2
+      status: ready
+      not_applicable_fields: [pcl]
+      image_tag: glim-cpu-benchmark:competitive-v1
+      image_digest: sha256:3702b73873395880e1dcdb91394232f1a9932194de22214e1aacb9626ced5846
+      scope: system_container
+      observed:
+        compiler: c++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+        linker: GNU ld (GNU Binutils for Ubuntu) 2.42
+        ros_distro: jazzy
+        eigen: 3.4.0-4build0.1
+        openmp: 1:18.0-59~exp2
+        pcl: not_applicable
       source:
         path: docker/glim_cpu_benchmark.Dockerfile
-        sha256: c09b61f14cda61901dee3f40a79dcfdb49cff4a4ea42b122fb0ae3b5b7a4d3a4
-        required_commands: [compiler, linker, ros_distro, pcl, eigen, openmp]
+        sha256: c5645058e71e447c608ee85fef6d35b906ba93ea0be61eaa407b82a62e9e706e
+        required_commands: [compiler, linker, ros_distro, eigen, openmp]
     scorer_ref: common_identity.scorer
     machine_fingerprint_ref: common_identity.machine_fingerprint
     release: Release
@@ -190,37 +238,61 @@ systems:
       url: https://github.com/hku-mars/FAST-LIVO2.git
       revision: 0d2c0346107b75b59934975adec9a6eeeb913c64
       revision_kind: main_commit
-      revision_status: pinned_source_pending_container
+      revision_status: pinned
       worktree_dirty: false
-      tracked_diff_sha256: null
-      untracked_content_sha256: null
-      clean_provenance_sha256: null
+      tracked_diff_sha256: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
+      untracked_content_sha256: 4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945
+      clean_provenance_sha256: e3797e6d4b0ac0f92dc3b41ddd15007ac25cd7aface9a782802f64e19a74a74b
     runner:
       path: scripts/run_fast_livo2_benchmark.py
-      sha256: 98db2a90fa34003127347bd6c85edf84841c5aed615a0dc7978d1c4eb264a03b
+      sha256: a65925fbe8bb6b126d84ad7dd10901f142753d822c19b7ae1865787cef65bf0c
       container_entrypoint_path: scripts/fast_livo2_container_run.sh
-      container_entrypoint_sha256: 696487caf922b8cda9c1d31d1720424377cc9ddf0606625631f9bd3cf61a0c3a
+      container_entrypoint_sha256: 8f2503ac4bab483a4828f990ca6504db52b4d2ba6d8ca72a5365fd920eba3c74
     container:
-      image_tag: fast-livo2-benchmark:noetic
-      image_digest: null
-      status: pending_build
-      recipe_path: null
+      image_tag: fast-livo2-benchmark:ros1-pinned
+      image_digest: sha256:ddc75b574f8cca1e111332153e31a65c74ccdb11f8059da3797ab130814ce17e
+      status: ready
+      recipe:
+        path: docker/fast_livo2_benchmark.Dockerfile
+        sha256: 32e92dccdb19a1bb3fe7e8980785e53578d5409008b4b7e0b791fddb89664425
+        base_image: docker.io/library/ros:noetic-ros-base
+        base_digest: sha256:72b8bc59035dc0a5b8e07aae28c16caa84192971d72d207c72ed734fb1d5e97d
+        source_revisions:
+          fast_livo2: 0d2c0346107b75b59934975adec9a6eeeb913c64
+          rpg_vikit: 6c886c8e5d83997806e00294826d528cea3581dd
+          sophus: a621ff2e56c56c839a6c40418d42c3c254424b5c
+        source_patch: remove_native_cpu_flags_and_disable_fast_math
+      build_entrypoint_path: scripts/build_competitive_benchmark_images.sh
+      build_entrypoint_sha256: 409cce6e0a1b7b337960bd58ab3cd378b31015fce139157d23eabd3beddb708c
       historical_run_image_digest: sha256:2c1ff787788d599889df00fd36850ab9764f6734720e7363fb8d1e5a326bd168
       historical_digest_is_not_current_identity: true
     configs:
       - path: configs/fast_livo2/mapping_hesaixt32_hilti22_benchmark_map.launch
         hash_kind: file_sha256
         sha256: 5d1f213d48488161da438e76d9fb359278fa5993e99247a94f52b9c09e2bf742
-      - path: configs/fast_livo2/upstream_HILTI22.yaml
+      - path: /opt/fast_livo_ws/src/FAST-LIVO2/config/HILTI22.yaml
+        path_kind: external_container_absolute_path
         hash_kind: external_container_file_sha256
-        sha256: null
-        status: pending_container_build
+        sha256: efae9e702c71c770b19002b6e19d4e1b6f46c67df3727e984981d932258f0b4a
+        status: observed
+        container_image_digest: sha256:ddc75b574f8cca1e111332153e31a65c74ccdb11f8059da3797ab130814ce17e
     toolchain:
-      fingerprint: null
-      status: pending_build
+      fingerprint: 05202b1c164a7ab40d09c18baa6f3edc2ab853478ed505c82f3adf7d75feea1e
+      status: ready
+      scope: system_container
+      image_tag: fast-livo2-benchmark:ros1-pinned
+      image_digest: sha256:ddc75b574f8cca1e111332153e31a65c74ccdb11f8059da3797ab130814ce17e
+      not_applicable_fields: []
+      observed:
+        compiler: c++ (Ubuntu 9.4.0-1ubuntu1~20.04.2) 9.4.0
+        linker: GNU ld (GNU Binutils for Ubuntu) 2.34
+        ros_distro: noetic
+        pcl: 1.10.0+dfsg-5ubuntu1
+        eigen: 3.3.7-2
+        openmp: 1:10.0-50~exp1
       source:
         path: scripts/fast_livo2_container_run.sh
-        sha256: 696487caf922b8cda9c1d31d1720424377cc9ddf0606625631f9bd3cf61a0c3a
+        sha256: 8f2503ac4bab483a4828f990ca6504db52b4d2ba6d8ca72a5365fd920eba3c74
         required_commands: [compiler, linker, ros_distro, pcl, eigen, openmp]
     scorer_ref: common_identity.scorer
     machine_fingerprint_ref: common_identity.machine_fingerprint
