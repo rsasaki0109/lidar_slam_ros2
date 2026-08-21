@@ -231,6 +231,26 @@ This M5c implementation checkpoint has not downloaded or opened any fresh
 data, so Exp14/16/18 remain `selected_unopened`/pending and M5 remains
 `INCOMPLETE`; no README or SOTA claim is authorized.
 
+The next conversion command is
+`scripts/prepare_competitive_fresh_ros_inputs.py --all` (or
+`--sequence exp14`). It requires exactly `rosbags==0.11.0`, rechecks only the
+raw-bag bytes/SHA, and never opens the manifest GT path. The fixed
+`rosbags-convert --src BAG --dst STAGING --dst-storage sqlite3 --compress none
+--src-typestore ros1_noetic --dst-typestore copy` argv is recorded together
+with Python/NumPy versions, converter/comparator hashes, canonical ROS 2 tree
+hash, and the seven-topic semantic report hash. Conversion and comparison are
+staged under `canonical_ros2.part`/`semantic_equivalence.json.part`, then
+atomically published with `preparation_receipt.json`; `--resume` is accepted
+only when that receipt, managed plan, raw identity, versions, commands, and
+all output hashes still match. The final receipt is the commit marker; a
+converter/comparator crash or either first publish rename can resume only when
+each artifact has exactly one `.part`/final form; a staged receipt must have
+full identity equality, while a converter/comparator partial without a
+receipt must pass safe tree/report validation. The resulting canonical
+tree/report are passed
+to the downloader's separate `finalize` step. No conversion has run on the
+preregistered data in this checkpoint, and receipts/profile remain unchanged.
+
 ### M3 live backend NDT migration gate
 
 The live `graph_based_slam` component now constructs the host-resident NDT

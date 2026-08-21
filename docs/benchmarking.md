@@ -247,16 +247,56 @@ python3 scripts/freeze_competitive_fresh_holdouts.py download --resume \
 python3 scripts/freeze_competitive_fresh_holdouts.py verify \
   --selection configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml \
   --root /media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821
-# Only after an independently reviewed ROS 2 conversion and semantic report:
+```
+
+Before `finalize`, prepare the canonical ROS 2 tree and semantic report from
+the verified raw bags. The preparation command is sequence-scoped or can cover
+all managed manifests; it requires `rosbags==0.11.0` and uses the fixed
+`rosbags-convert` command recorded in its preparation receipt:
+
+```bash
+python3 scripts/prepare_competitive_fresh_ros_inputs.py \
+  --root /media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821 \
+  --all
+# Or, for one slot (and --resume only after an interrupted preparation):
+python3 scripts/prepare_competitive_fresh_ros_inputs.py \
+  --root /media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821 \
+  --sequence exp14 --resume
+```
+
+It rechecks only the raw-bag byte count/SHA from each
+`downloaded_hashed` manifest and never opens the manifest's GT path. Each
+conversion is written to `slots/<seq>/canonical_ros2.part`, checked for the
+seven-topic contract, compared against the raw ROS 1 bag with
+`compare_rosbag_semantic_inputs.py`, then atomically published as
+`canonical_ros2/`, `semantic_equivalence.json`, and
+`preparation_receipt.json`. The receipt binds the plan SHA, manifest/raw
+identity, Python/NumPy/rosbags versions, converter/comparator script hashes,
+exact argv, ROS 2 tree hash, and semantic report hash. Existing output is
+accepted only when that receipt and all hashes still match; the final receipt
+is the commit marker. A crash after conversion, comparison, or either of the
+first two atomic renames is resumable only when each artifact has exactly one
+of its `.part`/final forms; a staged receipt must validate its full identity,
+while a converter/comparator partial without a receipt is only accepted after
+its safe tree/report validation. Mixed or symlinked output fails closed. After
+this step, pass
+`slots/<seq>/canonical_ros2` and `slots/<seq>/semantic_equivalence.json` to
+the downloader's `finalize` command. This implementation checkpoint has not
+run conversion on the preregistered data, so the fresh slots remain pending.
+
+Only after preparation and its separate review, publish the downloader's
+final state:
+
+```bash
 python3 scripts/freeze_competitive_fresh_holdouts.py finalize \
   --selection configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml \
   --root /media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821 \
-  --ros2-root exp14=/path/to/exp14_rosbag2 \
-  --ros2-root exp16=/path/to/exp16_rosbag2 \
-  --ros2-root exp18=/path/to/exp18_rosbag2 \
-  --semantic-report exp14=/path/to/exp14.semantic.yaml \
-  --semantic-report exp16=/path/to/exp16.semantic.yaml \
-  --semantic-report exp18=/path/to/exp18.semantic.yaml
+  --ros2-root exp14=/media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821/slots/exp14/canonical_ros2 \
+  --ros2-root exp16=/media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821/slots/exp16/canonical_ros2 \
+  --ros2-root exp18=/media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821/slots/exp18/canonical_ros2 \
+  --semantic-report exp14=/media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821/slots/exp14/semantic_equivalence.json \
+  --semantic-report exp16=/media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821/slots/exp16/semantic_equivalence.json \
+  --semantic-report exp18=/media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821/slots/exp18/semantic_equivalence.json
 ```
 
 `--resume` is only for a managed, identity-matching staging directory; a
