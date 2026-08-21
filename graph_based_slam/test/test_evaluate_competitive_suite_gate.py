@@ -44,6 +44,8 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / 'scripts' / 'evaluate_competitive_suite_gate.py'
 PROFILE = ROOT / 'configs/slam_benchmark_profiles/competitive_slam_v1.yaml'
+EXECUTION_RECEIPT_PATH = ROOT / (
+    'configs/slam_benchmark_profiles/competitive_execution_selection_2026-08.yaml')
 SPEC = importlib.util.spec_from_file_location('suite_gate', SCRIPT)
 MODULE = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
@@ -296,31 +298,38 @@ def test_v2_rtf_and_common_identity_mismatch_fail_closed():
     assert result['checks']['pinned_common_identity']['pass'] is False
 
 
-def test_v2_current_profile_selected_unopened_slots_cannot_be_claimed_fresh():
+def test_v2_frozen_slots_require_identity_and_ignore_self_declared_fresh_flag():
     assert all(
-        slot['status'] == 'selected_unopened'
+        slot['status'] == 'frozen_unopened'
         for slot in CONTRACT['datasets']['fresh_holdout_slots'].values())
     evidence = _v2_evidence(CONTRACT)
     evidence['contract']['fresh_holdout'] = True
     result = MODULE.evaluate_evidence_v2(evidence, CONTRACT)
-    assert result['status'] == 'INCOMPLETE'
-    assert result['pass'] is False
-    assert result['checks']['fresh_slot_contract_not_self_declared']['pass'] is False
-    assert result['checks']['execution_selection_receipt_registered']['pass'] is False
+    assert result['status'] == 'PASS'
+    assert result['pass'] is True
+    assert result['checks']['fresh_slot_contract_not_self_declared']['pass'] is True
+    assert result['checks']['execution_selection_receipt_registered']['pass'] is True
 
 
-def test_v2_pending_execution_receipt_blocks_otherwise_perfect_fixture():
+def test_v2_pending_execution_receipt_blocks_otherwise_perfect_fixture(
+        tmp_path, monkeypatch):
     pending_contract = copy.deepcopy(CONTRACT)
     evidence = _v2_evidence(pending_contract)
     pending_policy = pending_contract['evidence_gate_v2']
     pending_policy['execution_selection_receipt_path'] = (
         'configs/slam_benchmark_profiles/'
         'competitive_execution_selection_2026-08.yaml')
+    receipt_path = (tmp_path / pending_policy['execution_selection_receipt_path'])
+    receipt_path.parent.mkdir(parents=True)
+    receipt = yaml.safe_load(EXECUTION_RECEIPT_PATH.read_text(encoding='utf-8'))
+    receipt['status'] = 'pending'
+    receipt_path.write_text(yaml.safe_dump(receipt, sort_keys=False),
+                            encoding='utf-8')
     pending_policy['execution_selection_receipt_sha256'] = hashlib.sha256(
-        (ROOT / pending_policy['execution_selection_receipt_path']).read_bytes()
-    ).hexdigest()
+        receipt_path.read_bytes()).hexdigest()
     evidence['contract']['execution_selection_receipt_sha256'] = (
         pending_policy['execution_selection_receipt_sha256'])
+    monkeypatch.setattr(MODULE, 'ROOT', tmp_path)
     result = MODULE.evaluate_evidence_v2(evidence, pending_contract)
     assert result['status'] == 'INCOMPLETE'
     assert result['pass'] is False

@@ -73,14 +73,15 @@ historical `holdout_slots` (`exp02`, `exp03`, and `exp21`); those historical
 sequences can never be relabelled as fresh. Every profile fresh slot must be
 `frozen_unopened`/`frozen` with a selection-receipt, input-manifest,
 ground-truth, and calibration SHA-256, and the evidence must match all of
-them. The profile now preregisters Exp14, Exp16, and Exp18 in
+them. The profile records the reviewed, deep-verified Exp14, Exp16, and Exp18
+identities in
 `configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml` with
-status `selected_unopened`. The receipt fixes the official source revision,
-bag sizes/SHA-256 values, GT file identities, calibration tree, exposure
-audit, and blind-order policy, but the input-manifest, GT-content, and
-calibration archive SHA-256 values are still null until download. Therefore
-these slots are not ready for evidence: a real v2 receipt remains
-`INCOMPLETE`, and no self-declared fresh evidence can promote them.
+status `frozen_unopened`. The receipt fixes the official source revision, bag
+sizes/SHA-256 values, opaque GT identities, calibration tree, canonical ROS2
+and semantic/input-manifest identities, exposure audit, and blind-order
+policy. The execution-identity receipt/preflight is ready/PASS before first
+run; a real v2 evidence receipt remains `INCOMPLETE` until all required runs
+exist, and no self-declared evidence can promote it.
 
 The evidence contract has explicit `partitions.historical` (role
 `regression`) and `partitions.fresh` (role `primary_fresh`) blocks. Every
@@ -139,10 +140,10 @@ python3 scripts/check_competitive_execution_selection.py \
   --yaml-output <out>/competitive_execution_preflight.yaml
 ```
 
-The profile records the receipt path and full-file SHA-256. The checked-in receipt is
-currently `pending`: the ours clean revision, machine fingerprint, eight-thread
-policy, and all three pinned container/toolchain identities are observed. The
-preregistered fresh-input hashes still need a reviewed freeze. Missing values remain
+The profile records the receipt path and full-file SHA-256. The checked-in
+receipt is now `ready`: the ours clean revision, machine fingerprint,
+eight-thread policy, all three pinned container/toolchain identities, and the
+deep-verified fresh input identities are recorded. Missing values remain
 `INCOMPLETE`; malformed or changed paths/digests are `INVALID`. This check is
 read-only and performs no container build, dataset download, ground-truth
 inspection, or benchmark run. The identity records exact `Release`,
@@ -214,9 +215,10 @@ python3 scripts/capture_competitive_execution_identity.py capture \
 When a rival checkout or local image is not bound, the observation contains a
 machine-readable probe manifest with the exact compiler/linker/ROS/PCL/Eigen/
 OpenMP commands still required; it does not infer readiness. A complete
-synthetic or clean ready/frozen contract can return `PASS`, while this checked
-in pending receipt remains `INCOMPLETE` until an operator explicitly reviews
-and updates it.
+synthetic or clean ready/frozen contract can return `PASS`; any receipt left
+pending remains `INCOMPLETE` until an operator explicitly reviews and updates
+it. The current M5d execution receipt is ready, while the evidence gate still
+awaits benchmark run records.
 
 ### M5c fresh-holdout download checkpoint (2026-08-21)
 
@@ -281,8 +283,9 @@ while a converter/comparator partial without a receipt is only accepted after
 its safe tree/report validation. Mixed or symlinked output fails closed. After
 this step, pass
 `slots/<seq>/canonical_ros2` and `slots/<seq>/semantic_equivalence.json` to
-the downloader's `finalize` command. This implementation checkpoint has not
-run conversion on the preregistered data, so the fresh slots remain pending.
+the downloader's `finalize` command. The external managed root used for this
+checkpoint has been converted and deep-verified; its fresh slots are now
+`frozen_unopened`. Receipt/profile updates are a separate reviewed operation.
 
 Only after preparation and its separate review, publish the downloader's
 final state:
@@ -311,10 +314,10 @@ tree hash; storage paths are kept separate from logical paths. `finalize`
 verifies every manifest before calculating the canonical ROS 2 input identity,
 and publishes each state atomically. The output root is
 `/media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821` for the
-current preregistration. This checkpoint has not downloaded the fresh bags,
-GT, or calibration; slots remain `selected_unopened`/pending. Receipt/profile
-updates require a separate review after `finalize`, and no README/SOTA claim
-follows from acquisition metadata.
+current preregistration. The M5d review deep-verified this managed root and
+recorded selection/profile/execution identities. Ground truth remains opaque
+and no benchmark/metric was run; no README/SOTA claim follows from acquisition
+metadata.
 
 After a reviewed `frozen_unopened` tree exists, run the independent deep
 verifier before using it in a benchmark:
@@ -339,9 +342,11 @@ pre-finalization manifest **file** hash (canonical compact JSON plus its
 trailing newline; distinct from the newline-free payload hash). Its JSON
 summary includes each manifest and
 preparation-receipt file SHA. Missing slots, symlink/path traversal, stale
-receipt/runtime/argv identity, or artifact tampering are hard failures. It is
-independent of the freezer and has not accessed the preregistered data in
-this checkpoint; selection/profile receipts remain unchanged.
+receipt/runtime/argv identity, or artifact tampering are hard failures. The
+M5d invocation passed against the managed root and records the enriched
+selection SHA plus its explicit committed preregistration anchor; no GT
+content or metric was parsed. The selection/profile/execution identity update
+was reviewed separately from the freezer.
 
 ### Pinned benchmark image recipes
 
@@ -387,9 +392,10 @@ intentional: a missing base image or source ref must fail rather than silently
 changing the identity.
 
 This recipe wiring is provenance infrastructure, not benchmark evidence. The
-three pinned image/toolchain observations are now marked ready after clean
-builds and read-only probes, but the checked-in M5b receipt remains `pending`
-until the preregistered fresh holdout input/GT/calibration hashes are frozen.
+three pinned image/toolchain observations and the fresh-input identity are now
+marked ready after clean builds, read-only probes, and deep verification. The
+checked-in receipt is ready for a first run; this does not constitute benchmark
+evidence or an accuracy/SOTA claim.
 
 The checked-in synthetic tests cover the exact 10% boundary, missing and
 failed runs, old schema, false freshness, pending slots, dataset hash

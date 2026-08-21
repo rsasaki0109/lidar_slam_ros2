@@ -420,3 +420,37 @@ def test_marker_selection_and_plan_binding_fail_closed(tmp_path):
     marker['selection_receipt_sha256'] = 'f' * 64
     _write_json(marker_path, marker)
     assert _run(root, selection, output) == 1
+
+
+def test_enriched_selection_accepts_only_explicit_frozen_lineage_anchor(tmp_path):
+    root, selection, output = _make_fixture(tmp_path)
+    anchor = 'a' * 64
+    document = yaml.safe_load(selection.read_text(encoding='utf-8'))
+    document['selection_provenance'] = {
+        'receipt_hash_kind': 'file_sha256',
+        'managed_root_anchor_selection_receipt_sha256': anchor,
+        'frozen_manifest_source_selection_receipt_sha256': anchor,
+    }
+    selection.write_text(yaml.safe_dump(document, sort_keys=False),
+                         encoding='utf-8')
+
+    marker_path = root / '.freeze-root.json'
+    marker = json.loads(marker_path.read_text(encoding='utf-8'))
+    marker['selection_receipt_sha256'] = anchor
+    _write_json(marker_path, marker)
+    for sequence in MODULE.EXPECTED_SEQUENCES:
+        manifest_path = root / 'slots' / sequence / 'manifest.json'
+        manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+        manifest['source']['selection_receipt_sha256'] = anchor
+        _write_json(manifest_path, manifest)
+        receipt_path = root / 'slots' / sequence / 'preparation_receipt.json'
+        receipt = json.loads(receipt_path.read_text(encoding='utf-8'))
+        receipt['manifest_sha256'] = MODULE.canonical_json_file_sha256(
+            MODULE._base_manifest_from_final(manifest))
+        _write_json(receipt_path, receipt)
+
+    assert _run(root, selection, output) == 0
+    result = json.loads(output.read_text(encoding='utf-8'))
+    assert result['status'] == 'PASS'
+    assert result['accepted_selection_receipt_sha256'] == sorted({
+        anchor, MODULE._sha256_file(selection, 'selection')})

@@ -151,14 +151,46 @@ def _safe_relative(root: Path, value: Any, label: str) -> Path:
     return path
 
 
-def _managed_marker(root: Path, selection_path: Path) -> tuple[dict[str, Any], str]:
+def _selection_lineage_shas(selection: dict[str, Any], current_sha: str) -> set[str]:
+    """Return the current selection SHA plus explicitly declared frozen anchors.
+
+    The managed root is intentionally immutable after download/finalize.  When
+    the repository receipt is enriched with the identities produced by that
+    root, its file SHA necessarily changes.  Only anchors declared by the
+    enriched receipt can bridge that change; accepting an arbitrary historical
+    SHA would make the managed artifacts replayable under an unrelated
+    selection.
+    """
+    accepted = {current_sha}
+    provenance = selection.get('selection_provenance')
+    if provenance is None:
+        return accepted
+    if not isinstance(provenance, dict):
+        raise ValueError('selection_provenance must be a mapping')
+    for key in (
+            'managed_root_anchor_selection_receipt_sha256',
+            'frozen_manifest_source_selection_receipt_sha256'):
+        value = provenance.get(key)
+        if value is None:
+            continue
+        accepted.add(_require_sha(value, f'selection_provenance.{key}'))
+    if len(accepted) == 1:
+        raise ValueError('selection_provenance must declare a selection anchor')
+    return accepted
+
+
+def _managed_marker(root: Path, selection_path: Path,
+                    accepted_selection_shas: set[str] | None = None
+                    ) -> tuple[dict[str, Any], str]:
     if root.is_symlink() or not root.is_dir():
         raise ValueError('managed root is missing or unsafe')
     marker = _json_object(root / '.freeze-root.json', 'managed-root marker')
     marker['plan_sha256'] = _require_sha(marker.get('plan_sha256'),
                                          'marker plan_sha256')
     selection_sha = _sha256_file(selection_path, 'selection receipt')
-    if marker.get('selection_receipt_sha256') != selection_sha:
+    accepted = accepted_selection_shas or {selection_sha}
+    marker_selection_sha = marker.get('selection_receipt_sha256')
+    if marker_selection_sha not in accepted:
         raise ValueError('marker selection receipt SHA-256 mismatch')
     destination = marker.get('destination_root')
     if destination is not None and Path(destination).resolve() != root.resolve():
@@ -368,7 +400,7 @@ def _runtime_and_commands(receipt: dict[str, Any], raw_path: Path, ros2_path: Pa
 
 
 def _verify_slot(root: Path, selection: dict[str, Any], marker: dict[str, Any],
-                 selection_sha: str, candidate_name: str,
+                 selection_shas: set[str], candidate_name: str,
                  candidate: dict[str, Any]) -> dict[str, Any]:
     sequence = candidate['sequence']
     slot_root = root / 'slots' / sequence
@@ -378,8 +410,10 @@ def _verify_slot(root: Path, selection: dict[str, Any], marker: dict[str, Any],
         raise ValueError(f'{sequence} manifest is not frozen_unopened')
     source = manifest.get('source')
     official = selection['official_source']
+    source_selection_sha = source.get('selection_receipt_sha256') if isinstance(
+        source, dict) else None
     if (not isinstance(source, dict) or source.get('plan_sha256') != marker[
-            'plan_sha256'] or source.get('selection_receipt_sha256') != selection_sha or
+            'plan_sha256'] or source_selection_sha not in selection_shas or
             source.get('revision') != official['revision']):
         raise ValueError(f'{sequence} source identity mismatch')
     if manifest.get('sequence') != sequence:
@@ -565,7 +599,9 @@ def main(argv: list[str] | None = None) -> int:
     }
     try:
         selection = _load_selection(selection_path)
-        marker, selection_sha = _managed_marker(root, selection_path)
+        selection_sha = _sha256_file(selection_path, 'selection receipt')
+        selection_shas = _selection_lineage_shas(selection, selection_sha)
+        marker, _ = _managed_marker(root, selection_path, selection_shas)
         selected = selection['selection_decision']['selected_candidates']
         slots_root = root / 'slots'
         if slots_root.is_symlink() or not slots_root.is_dir():
@@ -581,10 +617,11 @@ def main(argv: list[str] | None = None) -> int:
             raise ValueError('managed root must contain exactly exp14/exp16/exp18 manifests')
         for candidate_name in EXPECTED_CANDIDATES:
             result['slots'].append(_verify_slot(
-                root, selection, marker, selection_sha, candidate_name,
+                root, selection, marker, selection_shas, candidate_name,
                 selected[candidate_name]))
         result['status'] = 'PASS'
         result['selection_receipt_sha256'] = selection_sha
+        result['accepted_selection_receipt_sha256'] = sorted(selection_shas)
         result['plan_sha256'] = marker['plan_sha256']
     except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError,
             yaml.YAMLError) as exc:

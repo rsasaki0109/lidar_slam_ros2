@@ -57,7 +57,7 @@ def _documents():
     )
 
 
-def test_capture_is_observation_only_and_preserves_pending_receipt(monkeypatch):
+def test_capture_is_observation_only_and_rejects_missing_container_probe(monkeypatch):
     receipt, profile = _documents()
     before = RECEIPT_PATH.read_bytes()
     monkeypatch.setattr(
@@ -66,7 +66,7 @@ def test_capture_is_observation_only_and_preserves_pending_receipt(monkeypatch):
                      'image_digest': None})
     captured = MODULE.capture_identity(receipt, profile)
     assert RECEIPT_PATH.read_bytes() == before
-    assert captured['status'] == 'INCOMPLETE'
+    assert captured['status'] == 'INVALID'
     assert captured['pass'] is False
     assert captured['receipt_mutation']['performed'] is False
     assert captured['fresh_data_access']['raw_bag_opened'] is False
@@ -75,12 +75,12 @@ def test_capture_is_observation_only_and_preserves_pending_receipt(monkeypatch):
     assert captured['machine_fingerprint']['machine_id']
     assert set(MODULE.THREAD_KEYS).issubset(captured['thread_policy'])
     assert all(
-        slot['status'] == 'selected_unopened'
+        slot['status'] == 'frozen_unopened'
         for slot in profile['competitive_slam_profile']['datasets'][
             'fresh_holdout_slots'].values())
 
 
-def test_finalize_requires_complete_capture_and_never_promotes_receipt(monkeypatch):
+def test_finalize_rejects_incomplete_capture_and_never_promotes_receipt(monkeypatch):
     receipt, profile = _documents()
     monkeypatch.setattr(
         MODULE, 'probe_container',
@@ -88,12 +88,13 @@ def test_finalize_requires_complete_capture_and_never_promotes_receipt(monkeypat
                      'image_digest': None})
     captured = MODULE.capture_identity(receipt, profile)
     finalized = MODULE.finalize_identity(receipt, profile, captured)
-    assert finalized['status'] == 'INCOMPLETE'
+    assert finalized['status'] == 'INVALID'
     assert finalized['pass'] is False
     assert finalized['receipt_mutation']['performed'] is False
     assert finalized['receipt_mutation']['automatic_promotion'] is False
     assert finalized['source_receipt_sha256'] == captured['source_receipt']['sha256']
-    assert any('source receipt status' in item for item in finalized['blockers'])
+    assert any('capture status is not PASS' in item
+               for item in finalized['blockers'])
 
 
 def test_finalize_rejects_capture_from_different_receipt(monkeypatch):

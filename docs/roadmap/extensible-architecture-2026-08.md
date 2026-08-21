@@ -16,7 +16,7 @@
 | GICP and optional Small GICP/VGICP adapters | **Experimental** | Small HILTI/MID-360 compatibility and the scoped symbol-isolated DSO gate pass for the pinned Jazzy/vendor replay; these are not absolute-accuracy claims, and broader toolchain/live gates remain pending. |
 | FAST_GICP / FAST_VGICP | **Pending** | Dependency is absent in the supported host; no class or fallback is advertised. |
 | Backend loop-registration/plugin seams | **Implemented / experimental** | Live and offline `graph_based_slam` NDT now resolve the same host-resident `lidarslam_builtin/NdtOmp` `backend_loop` request/session before observable processing; `BackendCore` consumes only the typed interface. R2, the path-independent R4 provenance fixture, the M4a receipt/parser fixture, and the pinned MID-360 three-run artifact comparison pass. That historical receipt **fails only the strict max-RTF gate** (`1.006913460 > 1.0`); the M4b bounded-cache implementation/tests and formal stride-5 MID-360 development-profile gate pass (`max RTF=0.264233831`, wall CV `2.484173052%`, peak RSS `565.222656250 MiB`). M4c HILTI exp04 and exp07 three-run backend regression gates also pass with old optimized artifacts exact; the paired exp04 map check passes at 2%, while the unchanged indoor absolute profile fails on both old/current reports. This closes cache/general regression for these receipts only; official dense-GT/SOTA comparison and broader promotion remain M5 pending. GICP stays an explicit legacy bridge. |
-| Competitive SOTA evidence validator | **Implemented / fail-closed; preregistered, not frozen** | Additive schema-v2 mode in `evaluate_competitive_suite_gate.py` separates historical exp02/03/21 regression slots from the primary-fresh partition. Every system must provide every dataset in both partitions with exactly three run records; completion, RTF/RSS, map, and per-sequence regression checks cover both, while aggregate APE and hierarchical CI use fresh only. It requires profile-assigned fresh slots (selection/input/reference/calibration hashes), all rivals, pinned per-system provenance, a common scorer fingerprint, an equal canonical seven-field thread policy, and the remaining safety evidence. Exp14/16/18 are now preregistered as `selected_unopened` in `configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml`; input/GT/calibration hashes are still null, so real evidence is necessarily `INCOMPLETE` until `frozen_unopened`. Exposed exp02/03/21 assets cannot be relabelled fresh. Synthetic boundary/negative tests pass and no README claim is authorized. |
+| Competitive SOTA evidence validator | **Implemented / fail-closed; identity frozen, evidence pending** | Additive schema-v2 mode in `evaluate_competitive_suite_gate.py` separates historical exp02/03/21 regression slots from the primary-fresh partition. Every system must provide every dataset in both partitions with exactly three run records; completion, RTF/RSS, map, and per-sequence regression checks cover both, while aggregate APE and hierarchical CI use fresh only. It requires profile-assigned fresh slots (selection/input/reference/calibration hashes), all rivals, pinned per-system provenance, a common scorer fingerprint, an equal canonical seven-field thread policy, and the remaining safety evidence. Exp14/16/18 are now `frozen_unopened` after a read-only deep verification of the managed root; the execution-identity preflight is `PASS` before first run, while benchmark evidence remains `INCOMPLETE` until all required 3-system x 3-slot x 3-run records exist. Exposed exp02/03/21 assets cannot be relabelled fresh. Synthetic boundary/negative tests pass and no README claim is authorized. |
 | Live-node plugin preflight | **Implemented / experimental** | Read-only `registration_plugin_enable`, `registration_plugin_class`, and `registration_plugin_allow_external` are validated before pub/sub creation; default constructor behavior is unchanged and runtime hot reload is rejected. External DSO promotion remains **No-Go** until independent ODR, lifecycle, rollback, and Humble/Jazzy replay gates pass. |
 | README superiority claims | **No-Go for new claims** | Existing sequence-scoped comparisons remain; no universal or plugin-performance claim is authorized. |
 
@@ -33,14 +33,13 @@ result. The additive schema-v2 mode of
 `scripts/evaluate_competitive_suite_gate.py` preserves the old report-only
 `--gate` path while rejecting incomplete victory evidence. It does not treat
 the exposed/frozen exp02, exp03, or exp21 slots as fresh. Instead, the profile
-has a separate `fresh_holdout_slots` contract. M5b preregisters Exp14, Exp16,
-and Exp18 in `configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml`
-with status `selected_unopened`; their input-manifest, ground-truth, and
-calibration archive hashes are still null, so any real v2 invocation remains
-`INCOMPLETE`. Once downloaded and reviewed, each fresh slot must move to
-`frozen_unopened` with those identities, and every system/run must repeat
-them. The preregistration contains no performance data and does not authorize
-a README or SOTA claim.
+has a separate `fresh_holdout_slots` contract. M5b preregistered Exp14, Exp16,
+and Exp18 in `configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml`;
+M5d now records their deep-verified identities with status `frozen_unopened`.
+The execution preflight is ready/PASS, but any real v2 evidence invocation
+remains `INCOMPLETE` until every system/run repeats those identities. The
+selection contains no performance data and does not authorize a README or
+SOTA claim.
 
 The contract fixes two explicit partitions: the exposed/frozen historical
 `holdout_slots` (`exp02`, `exp03`, `exp21`) as a regression partition, and
@@ -73,9 +72,9 @@ or `INVALID` receipts and records profile/evidence SHA-256 identities.
 Synthetic pass, exact-boundary, false-freshness, pending-slot, hash-mismatch,
 failed-run, old-schema, identity, RTF, per-sequence/map, and all-rival CI
 negative tests are the current evidence; real fresh-slot competitor evidence
-remains pending and cannot support a README or SOTA claim.
+has no run records yet and cannot support a README or SOTA claim.
 
-### M5b fresh-holdout selection preregistration (2026-08-21)
+### M5b fresh-holdout selection and identity freeze (2026-08-21)
 
 The read-only exposure audit selected three HILTI 2022 additional sequences
 with official dense 6DoF IMU references and the same Phasma sensor/calibration
@@ -86,16 +85,21 @@ profile hash is repeated in all three fresh slots. The receipt pins official
 revision `e62017f907007fdc5ab8c721842e4ae7359d7f49`, bag sizes and LFS hashes,
 GT file blob identities, calibration YAML blob identities, license, exposure
 audit commands, and the blind policy. It intentionally leaves downloaded
-input-manifest, GT-content, and calibration-archive SHA-256 fields null.
-
-The slots are therefore `selected_unopened`, not `frozen_unopened`, and the
-schema-v2 validator must remain `INCOMPLETE`; self-declared evidence cannot
-promote them. The required order is selection-receipt commit, download and
-hash without opening GT content, update to `frozen_unopened`, then the first
-run and only afterward scoring. No performance result, README claim, or SOTA
-claim is authorized by this preregistration. Its freshness is bounded to the
-recorded repository/workspace/media audit and is not a proof of external
-historical use absence.
+input-manifest, GT-content, and calibration-archive SHA-256 fields were null
+at preregistration time. The external managed root is now deep-verified
+read-only: all three slots are `frozen_unopened`, with opaque GT hashes,
+canonical calibration-tree hashes, canonical ROS2 tree/semantic hashes,
+input-manifest hashes, manifest file hashes, preparation-receipt file hashes,
+and plan identity recorded in the selection and profile. The frozen marker and
+manifests remain bound to the committed preregistration SHA; the enriched
+selection receipt records that SHA as an explicit lineage anchor, and the
+verifier accepts only the current SHA or that declared anchor. No GT content,
+trajectory metric, benchmark run, or performance result was opened or
+recorded. The execution identity receipt is `ready` and its read-only preflight
+is `PASS`; the schema-v2 evidence gate remains `INCOMPLETE` until all required
+3-system x 3-slot x 3-run records exist. No README/SOTA claim is authorized.
+Freshness remains bounded to the recorded repository/workspace/media audit and
+is not proof of external historical-use absence.
 
 After a separate review has produced all three `frozen_unopened` slots, the
 independent read-only verifier is:
@@ -118,10 +122,10 @@ trailing newline (the payload hash is distinct). Raw bag content is checked by e
 selection's LFS SHA-256; its preregistered Git-blob OID is the pointer
 provenance, not a content-blob comparison. Ground truth is hashed as an opaque
 stream only: no GT path, text, or metric is printed. Manifest and
-preparation-receipt file SHAs are
-included in the machine-readable summary. It is independent of the freezer,
-has not accessed the preregistered data, and does not change selection/profile
-receipts; M5 therefore remains `INCOMPLETE`.
+preparation-receipt file SHAs are included in the machine-readable summary.
+It is independent of the freezer; this M5d checkpoint reran it against the
+managed root without parsing GT. Its output records both the current enriched
+selection SHA and the accepted preregistration lineage anchor.
 
 ### M5b execution-identity freeze (2026-08-21)
 
@@ -137,9 +141,9 @@ to 8. GLIM's pinned image is now verified at
 `sha256:3702b73873395880e1dcdb91394232f1a9932194de22214e1aacb9626ced5846`
 with toolchain fingerprint
 `805429f650c6d927497e3c06169f9763c2cfd8e8101f02e6fcd565c0972924a2`; PCL is
-explicitly `not_applicable` for its CPU path. Overall status remains `pending`
-because all three pinned image/toolchain observations are now ready but fresh
-input hashes are unresolved. Ours is recorded at image
+explicitly `not_applicable` for its CPU path. The execution identity receipt
+is now `ready` after the deep-verified fresh-input identity was recorded; this
+is a pre-run readiness state, not benchmark evidence. Ours is recorded at image
 `sha256:4426d334ee7014d6387694df8957285a56123c31576b17e30de655248dd91930`
 with toolchain fingerprint
 `6cdff5854c86cc820d6781700d7613b2e529e75d58c9fb0830fd2b0f792adca5`, and
@@ -161,9 +165,10 @@ fail-closed preflight. It verifies the profile's receipt path/SHA, file and
 tree hashes, 40-hex revisions, `sha256:<64hex>` container digests, exact
 `Release`, scorer/machine files, and complete equal thread policy. It emits
 machine-readable JSON/YAML and reports missing values as `INCOMPLETE`; it does
-not build, download, open GT, or run SLAM. Consequently M5 remains
-`INCOMPLETE` until the receipt is refreshed after a clean revision, reproducible
-images/toolchains, current machine capture, and frozen fresh-holdout hashes.
+not build, download, open GT, or run SLAM. The M5d identity checkpoint now
+reports this preflight `PASS` after the deep-verified frozen fresh inputs were
+recorded; the separate schema-v2 evidence gate remains `INCOMPLETE` until
+benchmark run receipts exist.
 The scorer digest is recomputed from sorted canonical JSON entries containing
 file name, repository-relative path, measured SHA-256, and policy; a stored
 label cannot override a changed scorer. The CLI records profile SHA, execution
@@ -179,6 +184,30 @@ profile stores the raw full-file receipt SHA. No other profile mutation is
 excluded, so wrong-kind or mismatched hashes fail closed without a mutual-hash
 cycle.
 
+### M5d pre-run identity checkpoint (2026-08-22)
+
+The managed root
+`/media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821` was
+deep-verified without parsing GT or running SLAM. The enriched selection
+receipt is `frozen_unopened`; its current file SHA is
+`2bfc541a8d6127599f7a36e66c08da44488a08a55a4d9c4709703223be8bdd2b`, and its
+explicit lineage anchor is the committed preregistration SHA
+`cfc106a0396cc032f297f72f10e549ebef55c39f492afe9c1d25ded0d4307dde`.
+The verifier accepted only those two identities and passed all three Exp14,
+Exp16, and Exp18 manifests, opaque GT hashes, calibration tree, canonical ROS2
+tree/semantic report, input manifest, and preparation receipt identities.
+
+The profile canonical SHA is
+`5a8b81b7483ce9921fdfb4393ed006390fc5f0b2553b5e29976de96725a4da39`; the
+execution receipt raw file SHA is
+`ce6d03a273ec12d6191f9d802d1ee24892292d3333375fe10500c15a32a4abaf` and its
+status is `ready`. `check_competitive_execution_selection.py` reports
+`PASS`, including all three pinned systems, common machine/thread/scorer
+identity, and exact `Release`. This is a pre-run readiness checkpoint only:
+the schema-v2 evidence gate remains `INCOMPLETE` until every system supplies
+three complete runs for every historical and fresh dataset. No GT metric,
+performance result, README change, or SOTA claim is authorized.
+
 The capture/finalize workflow is
 `scripts/capture_competitive_execution_identity.py`. `capture` emits a
 machine-readable observation artifact for the current receipt: git revision,
@@ -189,12 +218,10 @@ bound local image, it additionally runs bounded `--pull=never --network none
 toolchain fingerprint to the inspected image digest; source bindings provide
 Git provenance only. `finalize` verifies receipt ownership and emits a decision, but never
 writes or promotes the reviewed receipt. It also records that no fresh bag or
-GT was opened. The current artifact is intentionally `INCOMPLETE` because
-fresh holdout input/GT/calibration hashes are not frozen; all three
-image/toolchain observations and the seven-key policy are now recorded. A
-future clean freeze must rerun the capture in each pinned system container,
-review the resulting hashes, then update the receipt explicitly before the
-existing checker can report ready.
+GT was opened. The M5d receipt is now `ready` because the fresh identity was
+deep-verified; the evidence gate is still `INCOMPLETE` until benchmark run
+records are reviewed. A future run must still enforce the pinned system
+containers, machine, Release, and seven-key thread policy.
 Both commands accept explicit repeatable `--source SYSTEM=PATH` and
 `--image SYSTEM=TAG` bindings; absent bindings produce an exact read-only
 compiler/linker/ROS/PCL/Eigen/OpenMP probe manifest rather than guessed
@@ -223,9 +250,9 @@ recipe deliberately leaves it uninitialized, asserts that its exact gitlink
 remains unchanged, excludes it from colcon discovery, and builds with
 `BUILD_TESTING=OFF`. The static contract test binds every recipe and entrypoint
 SHA to this receipt. FAST-LIVO2's pinned image/toolchain and ours now have
-observed ready receipts. This proves reconstruction metadata only: the M5b
-status remains `INCOMPLETE` until fresh holdouts are frozen, and no performance
-or SOTA claim follows from this slice.
+observed ready receipts. This proves reconstruction metadata only: the M5d
+receipt is ready for a first run, but no benchmark, accuracy, performance, or
+SOTA claim follows from this slice.
 
 ### M5c fresh-holdout acquisition checkpoint (2026-08-21)
 
@@ -253,9 +280,12 @@ SHA-256, never parses, prints, or scores their content. Calibration uses both
 storage paths and canonical logical paths, Git blob IDs, and a tree hash. The
 destination is the explicitly supplied
 `/media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821` tree.
-This M5c implementation checkpoint has not downloaded or opened any fresh
-data, so Exp14/16/18 remain `selected_unopened`/pending and M5 remains
-`INCOMPLETE`; no README or SOTA claim is authorized.
+The external M5c acquisition/preparation was completed before the M5d review;
+the independent deep verifier rechecked the final tree and all three slots are
+now `frozen_unopened`. This records identity only: no GT content, trajectory
+metric, benchmark run, or performance result was opened. The schema-v2
+evidence gate remains `INCOMPLETE` until the required run receipts exist; no
+README or SOTA claim is authorized.
 
 The next conversion command is
 `scripts/prepare_competitive_fresh_ros_inputs.py --all` (or
@@ -273,9 +303,9 @@ converter/comparator crash or either first publish rename can resume only when
 each artifact has exactly one `.part`/final form; a staged receipt must have
 full identity equality, while a converter/comparator partial without a
 receipt must pass safe tree/report validation. The resulting canonical
-tree/report are passed
-to the downloader's separate `finalize` step. No conversion has run on the
-preregistered data in this checkpoint, and receipts/profile remain unchanged.
+tree/report are passed to the downloader's separate `finalize` step. The
+recorded M5d receipt/profile update is a separate reviewed operation after
+finalization; the freezer itself never edits those files.
 
 ### M3 live backend NDT migration gate
 

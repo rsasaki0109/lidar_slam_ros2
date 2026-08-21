@@ -120,7 +120,7 @@ competitive_slam_profile:
       - toolchain_fingerprint
       - config_sha256
     execution_selection_receipt_path: configs/slam_benchmark_profiles/competitive_execution_selection_2026-08.yaml
-    execution_selection_receipt_sha256: 2ae19398cacb7c0ba47e142e463db3ac737fb4fcf54774b7cc43a91cd1f3380d
+    execution_selection_receipt_sha256: ce6d03a273ec12d6191f9d802d1ee24892292d3333375fe10500c15a32a4abaf
     require_execution_selection_receipt: true
   required_metrics:
     common:
@@ -165,17 +165,16 @@ competitive_slam_profile:
         reference: cross_validation_only
         forbidden_claims: [absolute_trajectory_accuracy]
     # These are deliberately separate from the already exposed/frozen
-    # holdout_slots below.  Selection is preregistered, but the inputs have
-    # not been downloaded or hashed yet.  selected_unopened is not a ready
-    # status; schema-v2 evidence must remain INCOMPLETE until frozen_unopened.
+    # holdout_slots below.  The frozen_unopened status records a deep-verified
+    # identity only; no benchmark run or GT scoring has been performed.
     fresh_holdout_slots:
       fresh_1:
-        status: selected_unopened
+        status: frozen_unopened
         dataset: hilti_exp14_basement_2
         sequence: exp14
         selection_reason: dense_6dof_common_phasma_platform_basement
         selection_receipt_path: configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml
-        selection_receipt_sha256: cfc106a0396cc032f297f72f10e549ebef55c39f492afe9c1d25ded0d4307dde
+        selection_receipt_sha256: 2bfc541a8d6127599f7a36e66c08da44488a08a55a4d9c4709703223be8bdd2b
         bag_url: https://huggingface.co/datasets/Hilti-Research/hilti-slam-challenge-2022/blob/e62017f907007fdc5ab8c721842e4ae7359d7f49/rosbags/exp14_basement_2.bag
         bag_expected_bytes: 6260771085
         bag_sha256: 18eea013076b8263ababf4f36eb68d331564a0a493262b006dc0dddc2aa85b82
@@ -184,18 +183,43 @@ competitive_slam_profile:
         ground_truth_kind: dense_6dof
         ground_truth_expected_bytes: 78222
         ground_truth_git_blob_oid: 89ab267bbb9cbc2e78eb443afc4e9b8f08acec19
-        input_manifest_sha256: null
-        ground_truth_sha256: null
-        calibration_archive_sha256: null
+        input_manifest_sha256: 2d0135e8a362fae3d18574651fc019b9339e548f21333f8f760db260745e0352
+        ground_truth_sha256: dec7b20cc11002482ccb416a6e1a1c410d385b843504d3aedf7b5956746af1b6
+        calibration_archive_sha256: 1655e7af6846283c7acd3f9d9f220f55623d14a79eb56a782018de5f0618c54d
+        calibration_archive_hash_kind: canonical_calibration_tree_sha256_v1
         calibration_tree_revision: e62017f907007fdc5ab8c721842e4ae7359d7f49
         calibration_tree_path: calibration/calibration_files
+        frozen_identity:
+          plan_sha256: 4bb02bf17c6691febb73e6d17e4e636715db22254692989ee4537858a6398111
+          raw_bag_path: slots/exp14/source/exp14_basement_2.bag
+          raw_bag_path_kind: managed_root_relative
+          raw_bag_bytes: 6260771085
+          raw_bag_hash_kind: lfs_content_sha256
+          canonical_rosbag2_tree_sha256: 07df9f37951bfc96ec40f960a1364276f58eedf0fe2460dcd41adefeeafefce4
+          semantic_equivalence_sha256: adc09e1f33fd2e861da54d51040cc045ea225608152c5570bc39896a262990bf
+          semantic_report_file_sha256: a985c68a4d738e7ce071c542eded08643f1d0870c2bfb12ccf99f6670784c6bf
+          manifest_path: slots/exp14/manifest.json
+          manifest_file_sha256: d302f4c3495512cdfd3a3441b59fabd5ee3892740aa1d1b67beb614c3cc7c6d0
+          preparation_receipt_path: slots/exp14/preparation_receipt.json
+          preparation_receipt_file_sha256: 2a6373915828183c7129e398412b76dbe3f32e66a782b8bc39dbdff59c0ef934
+          ground_truth_path: slots/exp14/ground_truth/exp14_basement_2_imu.txt
+          ground_truth_path_kind: managed_root_relative
+          ground_truth_bytes: 78222
+          ground_truth_hash_kind: opaque_file_sha256_only_no_parser
+          ground_truth_content_opened: false
+          calibration_tree_sha256: 1655e7af6846283c7acd3f9d9f220f55623d14a79eb56a782018de5f0618c54d
+          calibration_path: slots/exp14/calibration/files
+          input_manifest_hash_kind: canonical_ros_input_manifest_sha256_v1
+          blind_audit:
+            trajectory_metrics_computed: false
+            performance_data_recorded: false
       fresh_2:
-        status: selected_unopened
+        status: frozen_unopened
         dataset: hilti_exp16_attic_to_upper_gallery_2
         sequence: exp16
         selection_reason: dense_6dof_common_phasma_platform_attic
         selection_receipt_path: configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml
-        selection_receipt_sha256: cfc106a0396cc032f297f72f10e549ebef55c39f492afe9c1d25ded0d4307dde
+        selection_receipt_sha256: 2bfc541a8d6127599f7a36e66c08da44488a08a55a4d9c4709703223be8bdd2b
         bag_url: https://huggingface.co/datasets/Hilti-Research/hilti-slam-challenge-2022/blob/e62017f907007fdc5ab8c721842e4ae7359d7f49/rosbags/exp16_attic_to_upper_gallery_2.bag
         bag_expected_bytes: 15523312816
         bag_sha256: e340d874f0836f1637bfbc38b91216eadc18fd6c39fb5e83676a7b295dfcad80
@@ -204,18 +228,43 @@ competitive_slam_profile:
         ground_truth_kind: dense_6dof
         ground_truth_expected_bytes: 222627
         ground_truth_git_blob_oid: d60ea04840a7f819dd49d2512c786b2adc3b9e1f
-        input_manifest_sha256: null
-        ground_truth_sha256: null
-        calibration_archive_sha256: null
+        input_manifest_sha256: f5e4db8fbadb8d0c2d9e17b1424fb90ebd0a8ec6eb3b1528507c58199dd60f05
+        ground_truth_sha256: a616b11b22bf4490fe39bbafedf907016318fc8117851c3455c9b8b124134bb4
+        calibration_archive_sha256: 1655e7af6846283c7acd3f9d9f220f55623d14a79eb56a782018de5f0618c54d
+        calibration_archive_hash_kind: canonical_calibration_tree_sha256_v1
         calibration_tree_revision: e62017f907007fdc5ab8c721842e4ae7359d7f49
         calibration_tree_path: calibration/calibration_files
+        frozen_identity:
+          plan_sha256: 4bb02bf17c6691febb73e6d17e4e636715db22254692989ee4537858a6398111
+          raw_bag_path: slots/exp16/source/exp16_attic_to_upper_gallery_2.bag
+          raw_bag_path_kind: managed_root_relative
+          raw_bag_bytes: 15523312816
+          raw_bag_hash_kind: lfs_content_sha256
+          canonical_rosbag2_tree_sha256: 3dd2eec4ca9030b105234c9e47f1db23eb83c8b48e3eebae3273c7ab276f60a7
+          semantic_equivalence_sha256: 84d469b30c45d91c9f3a8887a2098e8a76e83d3139c6358a4f7022e347f8f6aa
+          semantic_report_file_sha256: 1d0af71ff5e0ed7a30d11ddc0e8732ae0595d80ce2ff03ea704cbf319f6892f1
+          manifest_path: slots/exp16/manifest.json
+          manifest_file_sha256: 248dc69e18d4edee88c215cde4bccf89f92ebb8ba99ea81e9958e263454d6f64
+          preparation_receipt_path: slots/exp16/preparation_receipt.json
+          preparation_receipt_file_sha256: 0d26982a58d36a290ca31877ec23123400190ec87622dcebb4f18a66dff0140d
+          ground_truth_path: slots/exp16/ground_truth/exp16_attic_to_upper_gallery_2_imu.txt
+          ground_truth_path_kind: managed_root_relative
+          ground_truth_bytes: 222627
+          ground_truth_hash_kind: opaque_file_sha256_only_no_parser
+          ground_truth_content_opened: false
+          calibration_tree_sha256: 1655e7af6846283c7acd3f9d9f220f55623d14a79eb56a782018de5f0618c54d
+          calibration_path: slots/exp16/calibration/files
+          input_manifest_hash_kind: canonical_ros_input_manifest_sha256_v1
+          blind_audit:
+            trajectory_metrics_computed: false
+            performance_data_recorded: false
       fresh_3:
-        status: selected_unopened
+        status: frozen_unopened
         dataset: hilti_exp18_corridor_lower_gallery_2
         sequence: exp18
         selection_reason: dense_6dof_common_phasma_platform_corridor
         selection_receipt_path: configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml
-        selection_receipt_sha256: cfc106a0396cc032f297f72f10e549ebef55c39f492afe9c1d25ded0d4307dde
+        selection_receipt_sha256: 2bfc541a8d6127599f7a36e66c08da44488a08a55a4d9c4709703223be8bdd2b
         bag_url: https://huggingface.co/datasets/Hilti-Research/hilti-slam-challenge-2022/blob/e62017f907007fdc5ab8c721842e4ae7359d7f49/rosbags/exp18_corridor_lower_gallery_2.bag
         bag_expected_bytes: 8657654860
         bag_sha256: 98373b52f207b9ace3914792b5604a6642f89441190cabca6acbaf1d17249280
@@ -224,11 +273,36 @@ competitive_slam_profile:
         ground_truth_kind: dense_6dof
         ground_truth_expected_bytes: 88743
         ground_truth_git_blob_oid: c01fea006e68eb0cede035e07cc719fb08cf9b4f
-        input_manifest_sha256: null
-        ground_truth_sha256: null
-        calibration_archive_sha256: null
+        input_manifest_sha256: 849ab7523ec04899aa7e6a8b90229fe134f90a8dc9973bc9bf4ae51925751663
+        ground_truth_sha256: 138def6a40884a87372a4f18938cce5180d6aa7ad4e705349abf47ac4ec9fa32
+        calibration_archive_sha256: 1655e7af6846283c7acd3f9d9f220f55623d14a79eb56a782018de5f0618c54d
+        calibration_archive_hash_kind: canonical_calibration_tree_sha256_v1
         calibration_tree_revision: e62017f907007fdc5ab8c721842e4ae7359d7f49
         calibration_tree_path: calibration/calibration_files
+        frozen_identity:
+          plan_sha256: 4bb02bf17c6691febb73e6d17e4e636715db22254692989ee4537858a6398111
+          raw_bag_path: slots/exp18/source/exp18_corridor_lower_gallery_2.bag
+          raw_bag_path_kind: managed_root_relative
+          raw_bag_bytes: 8657654860
+          raw_bag_hash_kind: lfs_content_sha256
+          canonical_rosbag2_tree_sha256: 597c363a1fb5bf27995dc6fef21afb18ed698d23983e072c7a56ab525fcd4f16
+          semantic_equivalence_sha256: 4ee90c3473016281c0f74aedc82752b153b4ae4ba59f1c3dc89c40fe127626e0
+          semantic_report_file_sha256: 4d31048dffc786db0e497e3bd7c702ee90f18abebc30cdfdb782b9bea6fe000c
+          manifest_path: slots/exp18/manifest.json
+          manifest_file_sha256: 6fab440453c200602c045503e130299e5af9b435ed297a3c8c027710b1a05582
+          preparation_receipt_path: slots/exp18/preparation_receipt.json
+          preparation_receipt_file_sha256: b05d9d66f543ceb59b09b1fa1c3c03af91fde49c0d18d6ac5a14ac64bcd194bb
+          ground_truth_path: slots/exp18/ground_truth/exp18_corridor_lower_gallery_2_imu.txt
+          ground_truth_path_kind: managed_root_relative
+          ground_truth_bytes: 88743
+          ground_truth_hash_kind: opaque_file_sha256_only_no_parser
+          ground_truth_content_opened: false
+          calibration_tree_sha256: 1655e7af6846283c7acd3f9d9f220f55623d14a79eb56a782018de5f0618c54d
+          calibration_path: slots/exp18/calibration/files
+          input_manifest_hash_kind: canonical_ros_input_manifest_sha256_v1
+          blind_audit:
+            trajectory_metrics_computed: false
+            performance_data_recorded: false
     holdout_slots:
       holdout_1:
         status: frozen

@@ -120,27 +120,27 @@ def test_seen_datasets_cannot_silently_become_holdouts():
     ] is True
 
 
-def test_fresh_v2_slots_are_preregistered_but_selected_unopened():
+def test_fresh_v2_slots_are_deep_verified_but_unscored():
     profile = _profile()
     slots = profile['datasets']['fresh_holdout_slots']
     assert len(slots) >= 3
-    assert all(slot['status'] == 'selected_unopened' for slot in slots.values())
+    assert all(slot['status'] == 'frozen_unopened' for slot in slots.values())
     assert [slot['sequence'] for slot in slots.values()] == ['exp14', 'exp16', 'exp18']
     assert all(len(slot['selection_receipt_sha256']) == 64 for slot in slots.values())
-    assert all(slot['input_manifest_sha256'] is None for slot in slots.values())
-    assert all(slot['ground_truth_sha256'] is None for slot in slots.values())
-    assert all(slot['calibration_archive_sha256'] is None for slot in slots.values())
+    assert all(len(slot['input_manifest_sha256']) == 64 for slot in slots.values())
+    assert all(len(slot['ground_truth_sha256']) == 64 for slot in slots.values())
+    assert all(len(slot['calibration_archive_sha256']) == 64 for slot in slots.values())
     receipt_path = ROOT / slots['fresh_1']['selection_receipt_path']
     assert receipt_path.is_file()
     receipt = yaml.safe_load(receipt_path.read_text(encoding='utf-8'))
-    assert receipt['status'] == 'selected_unopened'
+    assert receipt['status'] == 'frozen_unopened'
     assert receipt['selection_decision']['no_performance_data_used'] is True
     assert receipt['selection_decision']['no_ground_truth_content_opened'] is True
     exposed = profile['datasets']['holdout_slots']
     assert not set(slots).intersection(exposed)
 
 
-def test_execution_selection_receipt_is_registered_but_pending():
+def test_execution_selection_receipt_is_registered_and_ready_preflight():
     profile = _profile()
     policy = profile['evidence_gate_v2']
     assert policy['require_execution_selection_receipt'] is True
@@ -150,7 +150,7 @@ def test_execution_selection_receipt_is_registered_but_pending():
         policy['execution_selection_receipt_sha256'])
     receipt = yaml.safe_load(path.read_text(encoding='utf-8'))
     assert receipt['receipt_kind'] == 'competitive_execution_selection'
-    assert receipt['status'] == 'pending'
+    assert receipt['status'] == 'ready'
     assert receipt['systems']['ours']['repository']['revision_status'] == 'pinned'
     assert receipt['systems']['ours']['repository']['worktree_dirty'] is False
     assert receipt['systems']['ours']['repository']['revision'] == (
@@ -166,15 +166,15 @@ def test_execution_selection_receipt_is_registered_but_pending():
     assert enforcement['required_before_run'] is True
 
 
-def test_observed_identity_is_complete_but_external_freeze_remains_pending():
+def test_observed_identity_is_complete_after_external_freeze():
     profile_document = yaml.safe_load(PROFILE_PATH.read_text(encoding='utf-8'))
     receipt = yaml.safe_load(EXECUTION_RECEIPT_PATH.read_text(encoding='utf-8'))
     result = _CHECKER.evaluate(receipt, profile_document)
     assert result['checks']['machine_fingerprint']['pass'] is True
     assert result['checks']['thread_policy_complete']['pass'] is True
     assert result['checks']['system_ours']['evidence']['revision_status'] == 'pinned'
-    assert result['status'] == 'INCOMPLETE'
-    assert result['pass'] is False
+    assert result['status'] == 'PASS'
+    assert result['pass'] is True
 
 
 def test_external_container_config_is_bound_to_immutable_image():
@@ -228,9 +228,10 @@ def test_canonical_profile_hash_changes_for_non_receipt_mutations():
     assert _CHECKER.PROFILE_CANONICAL_HASH_KIND == 'canonical_profile_sha256_v1'
 
 
-def test_execution_preflight_keeps_pending_identity_incomplete():
+def test_execution_preflight_pending_observation_remains_incomplete():
     profile_document = yaml.safe_load(PROFILE_PATH.read_text(encoding='utf-8'))
     receipt = yaml.safe_load(EXECUTION_RECEIPT_PATH.read_text(encoding='utf-8'))
+    receipt['status'] = 'pending'
     result = _CHECKER.evaluate(receipt, profile_document)
     assert result['status'] == 'INCOMPLETE'
     assert result['pass'] is False
@@ -309,10 +310,11 @@ def test_execution_preflight_composite_scorer_mismatch_is_invalid():
     result = _CHECKER.evaluate(receipt, profile_document)
     assert result['status'] == 'INVALID'
     assert result['checks']['scorer_files_and_fingerprint']['pass'] is False
-    assert any('canonical scorer' in item for item in result['errors'])
+    assert any('canonical scorer file payload' in item
+               for item in result['errors'])
 
 
-def test_execution_preflight_cli_emits_pending_json_yaml_identity(tmp_path):
+def test_execution_preflight_cli_emits_ready_json_yaml_identity(tmp_path):
     json_path = tmp_path / 'preflight.json'
     yaml_path = tmp_path / 'preflight.yaml'
     completed = subprocess.run([
@@ -322,12 +324,12 @@ def test_execution_preflight_cli_emits_pending_json_yaml_identity(tmp_path):
         '--output', str(json_path),
         '--yaml-output', str(yaml_path),
     ], check=False, capture_output=True, text=True)
-    assert completed.returncode == 1
+    assert completed.returncode == 0
     json_result = json.loads(json_path.read_text(encoding='utf-8'))
     yaml_result = yaml.safe_load(yaml_path.read_text(encoding='utf-8'))
-    assert json_result['status'] == 'INCOMPLETE'
+    assert json_result['status'] == 'PASS'
     assert yaml_result['status'] == json_result['status']
-    assert json_result['pass'] is False
+    assert json_result['pass'] is True
     for key in ('profile_sha256', 'execution_receipt_sha256',
                 'canonical_scorer_fingerprint',
                 'thread_policy_canonical_sha256'):

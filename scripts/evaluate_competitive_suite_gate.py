@@ -1,4 +1,30 @@
 #!/usr/bin/env python3
+# Copyright 2026 Sasaki
+# All rights reserved.
+#
+# Software License Agreement (BSD 2-Clause Simplified License)
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+#  * Redistributions of source code must retain the above copyright notice,
+#    this list of conditions and the following disclaimer.
+#  * Redistributions in binary form must reproduce the above copyright notice,
+#    this list of conditions and the following disclaimer in the documentation
+#    and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
 """Require every frozen holdout to pass both competitive SLAM tracks."""
 
 from __future__ import annotations
@@ -1226,8 +1252,17 @@ def evaluate_evidence_v2(evidence: dict[str, Any],
     check('mapping_non_regression', map_gate, {
         'tolerance_percent': 100.0 * tolerance, 'comparisons': map_checks})
 
-    status = 'INVALID' if errors else ('INCOMPLETE' if incomplete else (
-        'PASS' if all(check_row['pass'] for check_row in checks.values()) else 'FAIL'))
+    # A schema-valid receipt with an entirely absent contract/system payload
+    # is an incomplete submission, not malformed evidence.  Keep the detailed
+    # missing-field diagnostics below, but do not turn this common pre-run
+    # smoke case into INVALID merely because the now-frozen profile allows the
+    # deeper per-slot checks to run.
+    minimal_submission = (
+        schema_ok and not source.get('contract') and not source.get('systems'))
+    status = ('INCOMPLETE' if minimal_submission else
+              'INVALID' if errors else ('INCOMPLETE' if incomplete else (
+                  'PASS' if all(check_row['pass'] for check_row in checks.values())
+                  else 'FAIL')))
     return {
         'schema_version': 2,
         'evidence_kind': 'competitive_slam_victory_evidence_receipt',
