@@ -441,9 +441,10 @@ evidence, not SLAM accuracy or SOTA evidence.
 The checked-in execution receipt and profile bind the audit/receipt/summary
 file SHAs using the existing `canonical_profile_sha256_v1` projection.  The
 profile excludes only its registered execution-receipt file SHA; no mtime or
-self-referential receipt hash is used.  Campaign4 remains a separate
-GT-blind, scorer-free dry-run/preflight gate with a fresh results root and
-zero attempts; no performance execution is authorized by this section.
+self-referential receipt hash is used.  At this M6a7 checkpoint, campaign4
+was a separate GT-blind, scorer-free dry-run/preflight gate with a fresh
+results root and zero attempts; no performance execution was authorized by
+that checkpoint.
 
 The campaign4 read-only plans were then generated against a fresh, disjoint
 results root
@@ -454,8 +455,8 @@ repeat dry-run produced the same bytes and SHA.  The final 27/27 preflight
 plan SHA is
 `a8c953e59b6a7dd70891fcdf3c57c791f9735ea6173dda114cd365e188562e4e`.
 Both final plans contain the fixed 27-attempt schedule and the M6a7
-process-tree RSS contract; preflight status is `preflight_ready`, while the
-results root remains empty (`attempts=0`).  The plans bind selection SHA
+process-tree RSS contract; at that checkpoint preflight status was
+`preflight_ready` and the results root was empty (`attempts=0`).  The plans bind selection SHA
 `2bfc541a8d6127599f7a36e66c08da44488a08a55a4d9c4709703223be8bdd2b`,
 algorithm revision `866f733677e92ecb08d67126e463da99dd140d46`, all three
 immutable image digests, canonical profile SHA
@@ -464,6 +465,51 @@ execution-receipt SHA
 `c58d11881f88dd7ea6fef05f1e91edf901ca5eaa23076ff673306580885d14f7`.
 They are GT-blind and scorer-free; `--execute` remains a separate, explicitly
 unauthorized action in this checkpoint.
+
+### M6a8 campaign4 GT-blind completion (2026-08-22)
+
+The fixed campaign4 root was run only after the third quiescence window
+passed.  The pre-run snapshot is recorded at
+`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a8_20260822/campaign4-run-start-20260822/pre_run_snapshot.json`
+with SHA-256
+`07f97ffc4241be205a0678fa58bd5defc66fa6bc818d83716d901e3177ec2341`.
+Two earlier driver starts failed before any attempt because the existing empty
+root was rejected by the no-overwrite contract; their immutable evidence is
+`4bda0f3811e7bf3f9f4d9e38ea91b6f9c9be965e8272824c1862bb955fab9bd4` and
+`26873c3a35b5c70894ebccc24dd694c05060abc450195d7930423c9f6f9119fd4`.
+After verifying that root was empty, it was removed and the driver-owned mkdir
+recovery created the actual campaign root.  No container or attempt was
+created by either failed start.
+
+Campaign4 completed the registered 27-attempt schedule (three systems × three
+fresh slots × three repetitions) with exit status zero and complete output
+contracts.  The immutable external artifacts are:
+
+- results root: `/media/sasaki/aiueo1/benchmarks/competitive_results/m6a_gt_blind_campaign4_20260822`;
+- `completion_manifest.json`, SHA-256
+  `f63b14f52c0b22b957f897568aa38f5a2fce26fea47bd2ca5917f6fec43c1c74`;
+- `integrity_manifest.json`, SHA-256
+  `f28ba05ea5c8fce0a6944ddcc7353d3dd5ea38dca927a7dcef7e4131983b6e5b`;
+- `closure_manifest.json`, SHA-256
+  `f2b1b6e943f1c30cd54636c9221bd1eb38d18192cb1cce1f583fd17bf8b1c59a`.
+
+All attempts are GT-blind: `ground_truth_content_opened=false`,
+`ground_truth_reachable=false`, and `scorer_invoked=false`.  There are no
+`.part` files or residual Docker/sampler processes.  Every attempt passed the
+aggregate process-tree RSS evidence contract, used cgroup v2
+`memory.max=max`, and had zero OOM/`oom_kill` delta.  Docker-client RSS and
+cgroup total memory are retained as diagnostics only.
+
+This is a completion and integrity receipt, not a victory result.  The
+closure status is `VALID_COMPLETE_GT_BLIND_RTF_GATE_NOT_PASSED`: all finite
+processing RTFs were derived from the opaque bag metadata, but FAST-LIVO2's
+maximum was `1.173445611`, exceeding the registered `maximum_processing_rtf`
+limit of `1.0`.  No GT was opened, no scorer or accuracy/map-quality metric was
+run, and no SOTA or M6b claim is permitted.  The fixed canonical profile and
+execution identity remain bound to canonical SHA
+`cbb093233b2740e0624fbd348ac293a705fd69e7fa1825723a4e7e493736cc25` and
+receipt SHA
+`c58d11881f88dd7ea6fef05f1e91edf901ca5eaa23076ff673306580885d14f7`.
 
 ### M5c fresh-holdout download checkpoint (2026-08-21)
 

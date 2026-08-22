@@ -17,7 +17,7 @@
 | FAST_GICP / FAST_VGICP | **Pending** | Dependency is absent in the supported host; no class or fallback is advertised. |
 | Backend loop-registration/plugin seams | **Implemented / experimental** | Live and offline `graph_based_slam` NDT now resolve the same host-resident `lidarslam_builtin/NdtOmp` `backend_loop` request/session before observable processing; `BackendCore` consumes only the typed interface. R2, the path-independent R4 provenance fixture, the M4a receipt/parser fixture, and the pinned MID-360 three-run artifact comparison pass. That historical receipt **fails only the strict max-RTF gate** (`1.006913460 > 1.0`); the M4b bounded-cache implementation/tests and formal stride-5 MID-360 development-profile gate pass (`max RTF=0.264233831`, wall CV `2.484173052%`, peak RSS `565.222656250 MiB`). M4c HILTI exp04 and exp07 three-run backend regression gates also pass with old optimized artifacts exact; the paired exp04 map check passes at 2%, while the unchanged indoor absolute profile fails on both old/current reports. This closes cache/general regression for these receipts only; official dense-GT/SOTA comparison and broader promotion remain M5 pending. GICP stays an explicit legacy bridge. |
 | Competitive SOTA evidence validator | **Implemented / fail-closed; identity frozen, evidence pending** | Additive schema-v2 mode in `evaluate_competitive_suite_gate.py` separates historical exp02/03/21 regression slots from the primary-fresh partition. Every system must provide every dataset in both partitions with exactly three run records; completion, RTF/RSS, map, and per-sequence regression checks cover both, while aggregate APE and hierarchical CI use fresh only. It requires profile-assigned fresh slots (selection/input/reference/calibration hashes), all rivals, pinned per-system provenance, a common scorer fingerprint, an equal canonical seven-field thread policy, and the remaining safety evidence. Exp14/16/18 are now `frozen_unopened` after a read-only deep verification of the managed root; the execution-identity preflight is `PASS` before first run, while benchmark evidence remains `INCOMPLETE` until all required 3-system x 3-slot x 3-run records exist. Exposed exp02/03/21 assets cannot be relabelled fresh. Synthetic boundary/negative tests pass and no README claim is authorized. |
-| M6a GT-blind execution harness | **Implemented / campaign4 preflight ready; execution pending** | `scripts/run_competitive_gt_blind_benchmark.py` emits an explicit 27-attempt plan and supports read-only dry-run/preflight plus a separately gated execute mode. M6a2 is retained as an immutable infrastructure-failed parent (`a5abafde…f002`), not replaced; campaign3 remains an incomplete lineage record. M6a3 repairs the ours RKO runtime contract, attempt-scoped GLIM ROS state, and FAST loopback-only ROS1 startup. The rebuilt ours image is `sha256:18198c…288bd`; synthetic full-path smoke passes for all three wrappers. M6a7 fixes and audits the comparable aggregate process-tree RSS contract (`memory.max=max`, OOM delta zero). Campaign4 final dry-run/preflight are deterministic and 27/27 with empty results root (dry `1ffa6836…09f2`, preflight `a8c953e5…62e4`); no benchmark execution, accuracy, map-quality, performance, or README/SOTA claim is authorized. |
+| M6a GT-blind execution harness | **Implemented / campaign4 GT-blind complete; RTF gate not passed** | `scripts/run_competitive_gt_blind_benchmark.py` emits an explicit 27-attempt plan and supports read-only dry-run/preflight plus a separately gated execute mode. M6a2 is retained as an immutable infrastructure-failed parent (`a5abafde…f002`), not replaced; campaign3 remains an incomplete lineage record. M6a3 repairs the ours RKO runtime contract, attempt-scoped GLIM ROS state, and FAST loopback-only ROS1 startup. The rebuilt ours image is `sha256:18198c…288bd`; synthetic full-path smoke passes for all three wrappers. M6a7 fixes and audits the comparable aggregate process-tree RSS contract (`memory.max=max`, OOM delta zero). Campaign4 completed all 27 GT-blind attempts with valid integrity evidence, but the finite processing-RTF gate is not passed (`max RTF=1.173445611` from FAST-LIVO2, threshold `<=1.0`). No accuracy, map-quality, performance-superiority, SOTA claim, or M6b authorization follows. |
 | Live-node plugin preflight | **Implemented / experimental** | Read-only `registration_plugin_enable`, `registration_plugin_class`, and `registration_plugin_allow_external` are validated before pub/sub creation; default constructor behavior is unchanged and runtime hot reload is rejected. External DSO promotion remains **No-Go** until independent ODR, lifecycle, rollback, and Humble/Jazzy replay gates pass. |
 | README superiority claims | **No-Go for new claims** | Existing sequence-scoped comparisons remain; no universal or plugin-performance claim is authorized. |
 
@@ -464,13 +464,13 @@ or SOTA evidence.
 The profile/receipt use `canonical_profile_sha256_v1`: only the registered
 execution-receipt file SHA is excluded from the profile projection.  The M6a7
 audit/receipt/summary SHAs are explicit external bindings and do not depend on
-mtime or a self-referential hash.  Campaign4 is next as a fresh-root,
-GT-blind/scorer-free dry-run and preflight with zero attempts; no real replay
-is authorized in this checkpoint.
+mtime or a self-referential hash.  At that M6a7 checkpoint, campaign4 was a
+fresh-root, GT-blind/scorer-free dry-run and preflight with zero attempts; no
+real replay was authorized in that checkpoint.
 
-The campaign4 fresh results root is
+At that pre-run checkpoint, the campaign4 fresh results root was
 `/media/sasaki/aiueo1/benchmarks/competitive_results/m6a_gt_blind_campaign4_20260822`
-and remains empty.  Its final deterministic read-only dry-run plan SHA is
+and had zero attempts.  Its final deterministic read-only dry-run plan SHA is
 `1ffa6836abc9aa94bb41e310de4ff2e50c9f336335b23779f0ccfa1236ea09f2` (a
 repeat is byte-identical); the 27/27 preflight plan SHA is
 `a8c953e59b6a7dd70891fcdf3c57c791f9735ea6173dda114cd365e188562e4e`.
@@ -478,7 +478,44 @@ Both bind selection `2bfc541a…dd2b`, algorithm revision
 `866f733677e92ecb08d67126e463da99dd140d46`, profile canonical
 `cbb09323…6cc25`, execution receipt `c58d1188…d14f7`, and the M6a7
 process-RSS audit receipt `06985d4c…ae62e`; neither plan starts a container or
-scorer.
+scorer.  The subsequent GT-blind execution is recorded below; the plans and
+fixed execution identity remain unchanged.
+
+### M6a8 campaign4 GT-blind completion (2026-08-22)
+
+The fixed campaign4 root was executed only after the third quiescence window
+passed (`30744959f67ef3c6b9f67aa8e8663ba1412c2fc65ae65ef7e4b949dc81b214ca`).
+The pre-run machine snapshot is
+`07f97ffc4241be205a0678fa58bd5defc66fa6bc818d83716d901e3177ec2341`.
+Two earlier starts failed before any attempt because an already-created empty
+root was rejected by the driver's no-overwrite contract; their immutable
+evidence is `4bda0f3811e7bf3f9f4d9e38ea91b6f9c9be965e8272824c1862bb955fab9bd4`
+and `26873c3a35b5c70894ebccc24dd694c05060abc450195d7930423c9f6f9119fd4`.
+The verified empty root was then removed and the driver-owned mkdir recovery
+was used; those starts created no containers and no attempts.
+
+All 27 scheduled attempts (ours/GLIM/FAST-LIVO2 × exp14/16/18 × three
+repetitions) exited zero and completed the GT-blind output contract. The
+completion manifest is
+`f63b14f52c0b22b957f897568aa38f5a2fce26fea47bd2ca5917f6fec43c1c74`, the
+integrity manifest is
+`f28ba05ea5c8fce0a6944ddcc7353d3dd5ea38dca927a7dcef7e4131983b6e5b`, and
+the closure manifest is
+`f2b1b6e943f1c30cd54636c9221bd1eb38d18192cb1cce1f583fd17bf8b1c59a`.
+There are no `.part` files, Docker containers, or sampler residuals. Every
+attempt has valid aggregate process-tree RSS evidence, `memory.max=max`, and
+zero cgroup OOM/`oom_kill` deltas; Docker-client RSS and cgroup total memory
+remain diagnostics, not the comparison metric.
+
+The closure is deliberately
+`VALID_COMPLETE_GT_BLIND_RTF_GATE_NOT_PASSED`: all finite processing RTFs were
+recorded from bag metadata, but FAST-LIVO2 reached `1.173445611`, above the
+registered `<=1.0` limit. No GT file was opened, no scorer was invoked, and
+no accuracy, map-quality, aggregate APE, SOTA, or M6b claim is authorized.
+The fixed profile canonical SHA remains
+`cbb093233b2740e0624fbd348ac293a705fd69e7fa1825723a4e7e493736cc25` and the
+execution-receipt SHA remains
+`c58d11881f88dd7ea6fef05f1e91edf901ca5eaa23076ff673306580885d14f7`.
 
 ### M5c fresh-holdout acquisition checkpoint (2026-08-21)
 
