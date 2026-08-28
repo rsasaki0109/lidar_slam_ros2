@@ -4,9 +4,9 @@
   and static characterization paths, Phase 2 shell-loader/offline injection,
   and the ODR-safe hybrid resolver implemented; optional SMALL pluginlib DSO
   discovery/replay is characterized; live backend NDT typed integration and
-  R2 characterization are implemented, while offline-runner step 7, GICP
-  backend migration, independent external-DSO production promotion, and
-  absolute-accuracy promotion remain pending/No-Go
+  R2 characterization are implemented; the common host/session processing
+  boundary now covers live/offline NDT and GICP, while independent external-DSO
+  production promotion and absolute-accuracy promotion remain pending/No-Go
 - Date: 2026-08-21
 - Scope: scan-to-map registration used by `scanmatcher` and loop-candidate
   registration used by `graph_based_slam`
@@ -24,14 +24,16 @@ host/pluginlib hybrid resolver are now implemented as offline opt-in paths.
 The live `ScanMatcherComponent` also has an explicit, read-only startup
 preflight: it resolves and validates a requested host or external session
 before creating publishers or sensor subscriptions. The default constructor
-remains the legacy same-translation-unit path when the selector is disabled,
-and external pluginlib loading requires a separate explicit risk-acceptance
-parameter. This is startup wiring coverage, not production promotion of the
-independently failing DSO path below.
-The typed GICP adapter and host-resident GICP selector are characterization
-only; live backend GICP keeps the legacy construction behind the typed bridge,
-while full GICP backend migration remains pending. The live backend NDT path
-is now resolved through the host-resident `NdtOmp` session described below.
+now resolves the same host factories through the activation transaction; the
+factories remain in the same translation unit and external pluginlib loading
+still requires a separate explicit risk-acceptance parameter. This is startup
+wiring coverage, not production promotion of the independently failing DSO
+path below.
+The typed GICP adapter and host-resident GICP selector preserve the frontend
+and backend legacy construction defaults behind the common session boundary;
+the live backend GICP bridge is adopted as a preconfigured host session rather
+than being sent through pluginlib. The live backend NDT path is now resolved
+through the host-resident `NdtOmp` session described below.
 The Phase 1 gates below remain authoritative.
 
 A 2026-08-20 MID-360 full-sequence replay processed all 2,772 scans three
@@ -98,11 +100,16 @@ cached capabilities / target policy / correspondence metric
 ```
 
 The session is stored before the plugin pointer and is retained for the whole
-component lifetime. On an accepted re-injection, the new plugin is held in a
-local shared pointer, then the old plugin is released before the old session;
-only after that is the new session followed by the new plugin stored. This
-prevents a ClassLoader from unloading an external library while its old object
-is being destroyed. A rejected injection leaves the existing slot untouched.
+component lifetime. Startup activation uses a shared `prepare -> validate ->
+commit` transaction: the candidate session, plugin, and cached contract are
+held off to the side while the existing host-owned slots remain untouched;
+commit swaps the plugin before the session so a ClassLoader cannot unload an
+external library while its old object is being destroyed. A rejected
+candidate, validation exception, or startup publisher/subscription failure
+discards only the candidate and preserves the previous host-owned slot. This
+boundary does not roll back constructor/static-initializer side effects inside
+an external DSO. Selection is startup-only; runtime replacement/hot reload is
+rejected and no ROS pub/sub state is exposed before a validated commit.
 
 The normal production defaults are unchanged. `registration_method=NDT`
 constructs `NdtOmpRegistration` in the legacy `scanmatcher_component.cpp`
@@ -157,15 +164,50 @@ backend injection, and live default promotion remain pending; the conditional
 SMALL adapter is covered by the optional-dependency gate below but has no
 full-replay promotion evidence.
 
-## FAST_GICP / FAST_VGICP optional-dependency gate (2026-08-21)
+## Session processing boundary (2026-08-24, current wiring)
+
+Startup validation alone is not a processing safety boundary. A resolved
+`RegistrationPluginSession` now exposes `setInputTarget()` and `align()`
+wrappers for the live scanmatcher path and the NDT/GICP backend loop-search
+paths used by the live component and offline runner. The wrappers retain the
+session/ClassLoader lease, serialize calls for `ThreadModel::kSerializedOwner`,
+and convert both standard and unknown plugin exceptions into an observable
+`FailureCode::kInternalError` / error string. An exception latches the session
+faulted; subsequent calls cannot re-enter a potentially corrupted plugin.
+
+`cancel()` is a cooperative admission gate and returns
+`FailureCode::kCancelled` for later alignment requests. `shutdown()` is an
+idempotent terminal operation that marks cancellation and invokes the
+interface's `reset() noexcept`; callers must quiesce an in-flight reentrant
+plugin before shutdown because the C++14 API has no interrupt token. The raw
+`session->plugin()` accessor remains only for source-compatible legacy bridges
+and inspection; it is not a safe live processing API. The historical
+same-translation-unit PCL defaults are now wrapped by the host resolver and
+activation transaction, and backend/offline legacy GICP is adopted through
+`RegistrationPluginSession::createHostSession()`. This is deliberately a
+host-only adoption path: built-ins are not routed through pluginlib, and no
+failed plugin selection falls back to a raw PCL object. The three production
+shells have a read-only source audit that rejects direct processing calls and
+the positive/adversarial tests cover built-in throw, cancellation,
+idempotent shutdown, and raw fallback rejection. Direct processing in
+`small_gicp_odom_node` and `map_ndt_residual_report_main` remains an explicit
+standalone allowlist, outside this live frontend/backend contract.
+
+The requirement-to-evidence matrix for this contract is maintained in
+[`registration-plugin-contract-matrix-2026-08.md`](registration-plugin-contract-matrix-2026-08.md).
+
+## FAST_GICP / FAST_VGICP optional-dependency gate (2026-08-23)
 
 The current Jazzy environment does not provide `fast_gicp`; CMake reports
-`fast_gicp_FOUND=FALSE`. The existing scanmatcher CMake design keeps this
-dependency `QUIET`, compiles the legacy FAST branches only under
-`HAS_FAST_GICP`, and leaves the package manifest dependency optional. No
-unverified FAST adapter DSO, plugin XML class, or host same-TU factory is
-installed in this environment, so the resolver cannot advertise a class that
-does not exist.
+`fast_gicp_FOUND=FALSE`. The scanmatcher and default-plugin CMake designs keep
+this dependency `QUIET`, compile the legacy FAST branches only under
+`HAS_FAST_GICP`, and leave the package manifest dependency optional. The
+source tree now contains a separate conditional
+`lidarslam_fast_gicp_plugins` DSO, `registration_plugins_fast.xml`, and typed
+`FastGicp`/`FastVGicp` adapters plus host factories. Because the dependency is
+absent here, none of those classes or the manifest is installed and the
+resolver cannot advertise a class that does not exist. This is a static Phase
+B implementation; no dependency-enabled C++ build or replay was performed.
 
 The pre-migration FAST behavior is nevertheless fixed here for the future
 adapter contract:
@@ -185,20 +227,23 @@ Selection is now explicit and fail-closed. The ROS-free availability helper
 reports both FAST selectors as unavailable when the optional package is
 missing, and constructing a component with either selector exits before sensor
 processing with a diagnostic naming `fast_gicp` and stating that no fallback is
-allowed. Unit coverage checks the availability state and constructor death
-tests cover both `FAST_GICP` and `FAST_VGICP`; NDT/GICP are never selected as a
-substitute. The current gate is therefore **No-Go** for adapter/resolver
-promotion, not a claim that FAST is unsupported in a dependency-enabled build.
+allowed. When the dependency is present, the host preflight accepts only the
+variant-specific canonical IDs (`FastGicp` versus `FastVGicp`), maps the legacy
+parameters into the typed request, and resolves the matching host factory or
+pluginlib class. A missing or mismatched variant is a startup error; NDT/GICP
+are never selected as a substitute. The legacy same-TU FAST branch remains
+available only when typed plugin injection is not selected, so comparison
+fixtures can characterize both routes without silently changing the default.
 
-The **Go** criteria for a dependency-enabled follow-up are: add the two typed
-adapters only inside the `fast_gicp_FOUND` CMake branch; expose capabilities as
-host-prepared target plus square-root-fitness metric; construct the host
-compatibility factory in the scanmatcher translation unit; register external
-classes only with a plugin manifest; and pass direct-fast-gicp fixture equality
-(transform, fitness, aligned cloud, convergence) plus the MID-360/HILTI
-replay gates before enabling any selector or changing the production default.
-Those adapter/factory/fixture results are not available in this dependency-
-absent run and remain explicitly unverified.
+The remaining **Go** criteria for a dependency-enabled follow-up are: configure
+and build the isolated DSO against the pinned `fast_gicp` package; run the
+direct-fast-gicp fixture equality checks (transform, fitness, aligned cloud,
+and convergence); verify plugin XML discovery and host-factory equivalence;
+and pass the MID-360/HILTI replay, ODR, and Humble/Jazzy gates before enabling
+any selector in a benchmark profile or changing the production default. The
+source-level adapter/configuration/loader tests are present, but their
+dependency-enabled compilation and replay results remain explicitly
+unverified in this dependency-absent host.
 
 ## SMALL_GICP / SMALL_VGICP optional-dependency gate (2026-08-21)
 
@@ -319,8 +364,9 @@ failure reporting. `BackendCore` and the future ROS-free scan-matching core
 know only the interface and typed request/result objects. They must not include
 pluginlib, `rclcpp`, plugin XML, or a concrete NDT/GICP header.
 
-The built-in NDT and GICP implementations are migrated first through adapters
-that preserve the current PCL behavior. FAST_GICP and FAST_VGICP remain
+The built-in NDT and GICP implementations are routed through adapters that
+preserve the current PCL behavior and are now adopted by the common session
+boundary in live and offline shells. FAST_GICP and FAST_VGICP remain
 dependency-gated; SMALL_GICP and SMALL_VGICP have conditional adapters and
 host factories, but remain characterization-only until their replay gates
 pass. The
@@ -1159,6 +1205,36 @@ the window remains a hard error.
 
 ## Loader, metadata, and run manifest
 
+### Pre-instantiation contract sidecar (v1)
+
+Every installed external registration XML class has a read-only sidecar named
+`<plugin-xml>.<sanitized-class-id>.contract.json`. It is generated by CMake
+in the install phase, after the target DSO has been linked and installed. The
+sidecar binds the class name, XML and DSO byte size/SHA-256, ABI epoch,
+compiler/libstdc++ ABI tag, API major/minor range, required and optional
+capability bit IDs, target/metric/thread policy, configuration-schema identity,
+interface-contract digest, and a deterministic manifest digest. The loader
+canonicalizes and reopens this sidecar before `createSharedInstance()`; a
+missing sidecar, symlink, duplicate/unknown field, XML/DSO drift, API range or
+ABI mismatch, unknown capability bit, or stale digest is a hard startup
+failure. The DSO is intentionally hashed post-install so a relink cannot
+reuse a configure-time receipt.
+
+After construction and configuration, the plugin must implement the separate
+`RegistrationPluginDescriptorProvider` C++14 opt-in interface and return a
+descriptor exactly matching the sidecar's logical fields. A missing provider,
+provider exception, class/config-schema/API/capability/policy drift, or
+descriptor mismatch aborts activation and leaves the prior host-owned session
+untouched. Built-in factories use the same descriptor and expected identity,
+but do not require a pluginlib sidecar.
+
+The interface digest and ABI epoch describe the supported registration
+contract scope; a header digest is not a proof of the complete C++ ABI. The
+toolchain tag covers the compiler family/major and libstdc++ C++11 ABI macro
+when available. A different ROS distro, compiler, standard library, compiler
+flags, or dependency ABI requires a clean rebuild and a new sidecar; this
+static contract does not waive distro-specific runtime evidence.
+
 The shell uses a standard pluginlib class export. A plugin package provides a
 description equivalent to:
 
@@ -1234,6 +1310,17 @@ compiler/distribution build identity so a bitwise claim is not detached from
 the binary that produced it.
 
 ### Phase 2 shell-loader slice receipt (2026-08-20)
+
+#### Current-source evidence qualification (2026-08-24)
+
+The receipt snippets in this historical section describe prior runs.  They
+are not current-source Humble/Jazzy evidence unless an immutable receipt and
+sidecar bind the current transaction/provenance/ODR source manifest.  The
+additive [registration-plugin matrix audit](registration-plugin-matrix-audit-2026-08.md)
+marks the unbound prose claims as superseded, records the current Jazzy host
+as `PASS_HOST_TOOLCHAIN_ONLY`, and records Humble as `NO_GO` when
+`/opt/ros/humble` is unavailable.  It performs no image pull/build/run and
+does not promote an external DSO or C++14 load claim.
 
 The first loader slice is implemented in the shell-only package
 `lidarslam_registration_loader`. It owns
@@ -1871,12 +1958,15 @@ uncharacterized registration semantics at once.
    the backend factory's distinct 30 m and 100-iteration defaults and remove
    the backend's direct factory branch only after backend R2 and current GICP
    accuracy gates pass.
-9. **Migrate optional scanmatcher adapters.** Add FAST_GICP and FAST_VGICP only
-   when their dependency is present. The conditional SMALL_GICP and
-   SMALL_VGICP adapters now have direct fixtures and host factories, but both
-   families remain opt-in until target, thread, result, deterministic, and
-   replay claims are complete. An absent optional package must still produce a
-   clear class-availability error for a requested legacy method.
+9. **Migrate optional scanmatcher adapters. (FAST Phase B source slice.)** The
+   repository now contains typed FAST_GICP and FAST_VGICP adapters, a separate
+   dependency-gated DSO/XML manifest, variant-specific host factories, and
+   direct-vs-typed fixture scaffolding. The conditional SMALL_GICP and
+   SMALL_VGICP adapters also have direct fixtures and host factories. Both
+   families remain opt-in until dependency-enabled target, thread, result,
+   deterministic, ODR, and replay claims are complete. An absent optional
+   package must still produce a clear class-availability error for a requested
+   legacy method.
 10. **Delete concrete branches.** Remove `registration_method`-driven target,
     prior, and adaptive casts from `scanmatcher_component.cpp`, delete the
     backend factory after all call sites use the loader, and remove direct

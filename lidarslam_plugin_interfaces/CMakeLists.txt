@@ -33,6 +33,19 @@ endif()
 install(DIRECTORY include/ DESTINATION include)
 install(TARGETS ${PROJECT_NAME} EXPORT export_${PROJECT_NAME})
 
+# Registration plugins are expected to build outside this source tree. Export
+# the contract-manifest helper from the public SDK package so a consumer only
+# needs find_package(lidarslam_plugin_interfaces); no sibling checkout path is
+# required.
+set(_registration_contract_cmake_dir
+  "${CMAKE_CURRENT_SOURCE_DIR}/../lidarslam_registration_loader/cmake")
+set(_registration_contract_helper
+  "${_registration_contract_cmake_dir}/registration_contract.cmake")
+set(_registration_contract_generator
+  "${_registration_contract_cmake_dir}/generate_registration_contract_manifest.cmake")
+install(FILES "${_registration_contract_generator}"
+  DESTINATION share/${PROJECT_NAME}/cmake)
+
 ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
 ament_export_dependencies(Eigen3 PCL)
-ament_package()
+ament_package(CONFIG_EXTRAS "${_registration_contract_helper}")

@@ -36,4 +36,10 @@
     base_class_type="lidarslam::plugins::registration::RegistrationPlugin">
     <description>Plugin with a disallowed license for policy tests.</description>
   </class>
+  <class
+    name="lidarslam_fake_registration_plugins/ConstructorProbe"
+    type="lidarslam_fake_registration_plugins::ConstructorProbeRegistration"
+    base_class_type="lidarslam::plugins::registration::RegistrationPlugin">
+    <description>Test fixture that records constructor entry for pre-load gate tests.</description>
+  </class>
 </library>

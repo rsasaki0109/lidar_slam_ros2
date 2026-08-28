@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<library path="lidarslam_fast_gicp_plugins">
+  <class
+    name="lidarslam_default_plugins/FastGicp"
+    type="lidarslam_default_plugins::FastGicpRegistration"
+    base_class_type="lidarslam::plugins::registration::RegistrationPlugin">
+    <description>Optional fast_gicp registration adapter.</description>
+  </class>
+  <class
+    name="lidarslam_default_plugins/FastVGicp"
+    type="lidarslam_default_plugins::FastVgicpRegistration"
+    base_class_type="lidarslam::plugins::registration::RegistrationPlugin">
+    <description>Optional fast_gicp voxelized registration adapter.</description>
+  </class>
+</library>

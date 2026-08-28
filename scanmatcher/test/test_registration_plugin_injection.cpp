@@ -29,6 +29,11 @@
 
 #include <rclcpp/rclcpp.hpp>
 
+#include <array>
+#include <chrono>
+#include <memory>
+#include <string>
+
 #include "lidarslam_registration_loader/registration_plugin_loader.hpp"
 #include "scanmatcher/registration_config.hpp"
 #include "scanmatcher/scanmatcher_component.h"
@@ -68,6 +73,45 @@ LoadRequest makeGicpRequest()
   return request;
 }
 
+#ifdef HAS_FAST_GICP
+LoadRequest makeFastRequest(const bool voxelized)
+{
+  LoadRequest request;
+  request.class_id = voxelized ?
+    "lidarslam_builtin/FastVGicp" : "lidarslam_builtin/FastGicp";
+  request.parameters = graphslam::registration_config::makeFastGicpParameterMap(
+    5.0, 35, 1, false, voxelized, 0.6);
+  request.capabilities.require_initial_guess = true;
+  request.capabilities.require_aligned_source = true;
+  request.capabilities.require_target_policy = true;
+  request.capabilities.target_policy = TargetPolicy::kAcceptHostPrepared;
+  request.capabilities.require_correspondence_metric = true;
+  request.capabilities.correspondence_metric =
+    lidarslam::plugins::registration::CorrespondenceMetric::kSquareRootFitnessProxy;
+  return request;
+}
+
+std::unique_ptr<lidarslam::plugins::registration::shell::RegistrationResolver>
+makeFastResolver()
+{
+  lidarslam::plugins::registration::shell::HostBuiltinRegistration fast_gicp;
+  fast_gicp.class_id = "lidarslam_builtin/FastGicp";
+  fast_gicp.factory = []() {
+      return graphslam::makeHostBuiltinFastGicpRegistration();
+    };
+  fast_gicp.metadata_class_id = "lidarslam_default_plugins/FastGicp";
+  lidarslam::plugins::registration::shell::HostBuiltinRegistration fast_vgicp;
+  fast_vgicp.class_id = "lidarslam_builtin/FastVGicp";
+  fast_vgicp.factory = []() {
+      return graphslam::makeHostBuiltinFastVgicpRegistration();
+    };
+  fast_vgicp.metadata_class_id = "lidarslam_default_plugins/FastVGicp";
+  return std::unique_ptr<lidarslam::plugins::registration::shell::RegistrationResolver>(
+    new lidarslam::plugins::registration::shell::RegistrationResolver(
+      {fast_gicp, fast_vgicp}));
+}
+#endif
+
 rclcpp::NodeOptions makeDeferredOptions(
   const std::string & class_id,
   const std::string & registration_method = "NDT",
@@ -80,6 +124,35 @@ rclcpp::NodeOptions makeDeferredOptions(
     rclcpp::Parameter("registration_plugin_class", class_id),
     rclcpp::Parameter("registration_plugin_allow_external", allow_external)});
   return options;
+}
+
+bool scanMatcherGraphHasNoResources(const std::shared_ptr<rclcpp::Node> & probe)
+{
+  static constexpr std::array<const char *, 7> kScanMatcherTopics {
+    "initial_pose", "imu", "input_cloud", "current_pose", "map", "map_array", "path"};
+  rclcpp::executors::SingleThreadedExecutor executor;
+  executor.add_node(probe);
+  for (int attempt = 0; attempt < 20; ++attempt) {
+    executor.spin_some();
+    bool empty = true;
+    for (const char * topic : kScanMatcherTopics) {
+      const std::string absolute_topic = std::string("/") + topic;
+      if (
+        !probe->get_publishers_info_by_topic(absolute_topic, true).empty() ||
+        !probe->get_subscriptions_info_by_topic(absolute_topic, true).empty())
+      {
+        empty = false;
+        break;
+      }
+    }
+    if (empty) {
+      executor.remove_node(probe);
+      return true;
+    }
+    rclcpp::sleep_for(std::chrono::milliseconds(50));
+  }
+  executor.remove_node(probe);
+  return false;
 }
 
 #ifdef HAS_SMALL_GICP
@@ -197,6 +270,57 @@ TEST(RegistrationPluginInjection, LiveConstructorLoadsExplicitExternalPluginlibC
   EXPECT_EQ(session->metadata().class_id, class_id);
 
   component.reset();
+  rclcpp::shutdown();
+}
+
+TEST(RegistrationPluginInjection, RealRosResourceFailureRollsBackExternalCandidate)
+{
+  if (!rclcpp::ok()) {
+    char ** argv = nullptr;
+    rclcpp::init(0, argv);
+  }
+
+  // This is a test-only name rewrite, not a ROS parameter.  The first real
+  // subscription is created normally; the second asks rclcpp to validate an
+  // invalid topic name, forcing the production resource-init exception after
+  // the candidate transaction has committed.
+  int hook_calls = 0;
+  graphslam::ScanMatcherComponent::setResourceInitTopicHookForTest(
+    [&hook_calls](const std::string & topic) {
+      ++hook_calls;
+      return topic == "imu" ? std::string("invalid topic") : topic;
+    });
+
+  std::string failure_message;
+  try {
+    auto component = std::make_shared<graphslam::ScanMatcherComponent>(
+      makeDeferredOptions("lidarslam_default_plugins/NdtOmp", "NDT", true));
+    (void)component;
+  } catch (const std::exception & exception) {
+    failure_message = exception.what();
+  }
+  graphslam::ScanMatcherComponent::clearResourceInitTopicHookForTest();
+
+  ASSERT_FALSE(failure_message.empty());
+  EXPECT_NE(failure_message.find("could not initialize the frontend"), std::string::npos);
+  EXPECT_GE(hook_calls, 2);
+
+  auto probe = std::make_shared<rclcpp::Node>("resource_failure_graph_probe");
+  EXPECT_TRUE(scanMatcherGraphHasNoResources(probe));
+  probe.reset();
+
+  // A second clean construction proves the test seam is not a user-visible
+  // startup parameter and that its process-global hook was cleared.
+  auto clean_component = std::make_shared<graphslam::ScanMatcherComponent>(
+    makeDeferredOptions("lidarslam_builtin/NdtOmp", "NDT", false));
+  ASSERT_TRUE(clean_component->registrationPluginPreflightComplete());
+  ASSERT_NE(clean_component->registrationPluginSession(), nullptr);
+  rclcpp::executors::SingleThreadedExecutor clean_executor;
+  clean_executor.add_node(clean_component);
+  clean_executor.spin_some();
+  clean_executor.remove_node(clean_component);
+  clean_component.reset();
+
   rclcpp::shutdown();
 }
 
@@ -375,6 +499,27 @@ TEST(RegistrationPluginInjection, ResolvesHostBuiltinGicpBeforeSensorCloud)
   component.reset();
   rclcpp::shutdown();
 }
+
+#ifdef HAS_FAST_GICP
+TEST(RegistrationPluginInjection, ResolvesBothFastHostVariantsWithTypedCapabilities)
+{
+  const auto resolver = makeFastResolver();
+  for (const bool voxelized : {false, true}) {
+    const auto loaded = resolver->resolve(makeFastRequest(voxelized));
+    ASSERT_TRUE(loaded.ok()) << loaded.failure.message;
+    ASSERT_NE(loaded.session, nullptr);
+    EXPECT_EQ(loaded.session->backendKind(),
+      lidarslam::plugins::registration::shell::BackendKind::kHostBuiltIn);
+    EXPECT_TRUE(loaded.session->capabilities().has(
+      lidarslam::plugins::registration::Capability::kInitialGuess));
+    EXPECT_TRUE(loaded.session->capabilities().has(
+      lidarslam::plugins::registration::Capability::kAlignedSource));
+    EXPECT_EQ(
+      loaded.session->capabilities().correspondenceMetric(),
+      lidarslam::plugins::registration::CorrespondenceMetric::kSquareRootFitnessProxy);
+  }
+}
+#endif
 
 TEST(RegistrationPluginInjection, RejectsGicpPluginForNdtRegistrationMethod)
 {

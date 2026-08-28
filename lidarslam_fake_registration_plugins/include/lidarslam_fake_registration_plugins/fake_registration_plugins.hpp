@@ -36,7 +36,8 @@ namespace lidarslam_fake_registration_plugins
 {
 
 class BasicRegistration
-  : public lidarslam::plugins::registration::RegistrationPlugin
+  : public lidarslam::plugins::registration::RegistrationPlugin,
+  public lidarslam::plugins::registration::RegistrationPluginDescriptorProvider
 {
 public:
   explicit BasicRegistration(std::string class_id, std::uint16_t api_major = 1);
@@ -44,6 +45,8 @@ public:
 
   lidarslam::plugins::registration::PluginMetadata metadata() const override;
   lidarslam::plugins::registration::Capabilities capabilities() const override;
+  lidarslam::plugins::registration::RegistrationRuntimeDescriptor
+  registrationDescriptor() const override;
   bool configure(
     const lidarslam::plugins::registration::ParameterMap & parameters,
     std::string * error) override;
@@ -101,6 +104,15 @@ class UnlicensedRegistration final : public BasicRegistration
 public:
   UnlicensedRegistration();
   lidarslam::plugins::registration::PluginMetadata metadata() const override;
+};
+
+// Test-only external fixture.  When the marker environment variable is set,
+// construction records a line so loader tests can prove that pre-load
+// provenance rejection never enters a plugin constructor.
+class ConstructorProbeRegistration final : public BasicRegistration
+{
+public:
+  ConstructorProbeRegistration();
 };
 
 }  // namespace lidarslam_fake_registration_plugins

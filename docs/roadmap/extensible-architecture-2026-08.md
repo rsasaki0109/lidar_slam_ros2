@@ -1,24 +1,291 @@
 # Extensible OSS architecture roadmap
 
-> Status: proposed, 2026-08-20. This roadmap changes architecture and contributor
+## Future-only systems direction (post-SOTA evidence phase)
+
+After the current evidence phase and its independent SOTA gates are complete,
+future work is split into two tracks. Both tracks are exploratory and additive:
+they are not implemented here, make no present benchmark or SOTA claim, do not
+authorize replay/GT/scorer activity, and do not change the current SLAM default.
+
+### Track A — lifelong and long-term SLAM
+
+Track A studies a durable map lifecycle rather than a new default estimator. A
+multi-session map would be a version DAG with session and submap provenance,
+explicit branch/merge and rollback semantics, and change classification for
+dynamic, seasonal, and structural changes. The lifecycle would also study
+bounded storage and compaction, catastrophic-forgetting detection,
+relocalization and recovery, fleet federation with conflict resolution, and
+privacy/security controls for retained observations and shared map state.
+
+The differentiator is deliberately an evidence contract around map history,
+change decisions, recovery, and privacy—not a claim that the estimator is
+better than other OSS. Each capability below is a future gate with a declared
+dependency and time horizon; a missing dependency is a No-Go, never an
+implicit pass.
+
+| Track A capability | User value | Technical capability to prove | Public dataset or self-contained protocol | KPI and Go/No-Go | Dependencies | Timing |
+| --- | --- | --- | --- | --- | --- | --- |
+| Long-term change robustness | Keep localization useful across seasons, weather, construction, and dynamic-object turnover. | Classify dynamic/seasonal/structural change while preserving stable geometry and session provenance. | Repeated-route 24-hour/7-day simulation plus controlled weather, construction, and dynamic-object interventions. | False-change rate, localization availability, drift versus session age; **Go** only with predeclared bounds and crash-safe replay, otherwise **No-Go**. | Versioned observations, calibration identity, change-policy plugin, replay harness. | Mid-term |
+| Multi-session merge and localization | Reuse prior maps and recover after disconnected or interrupted sessions. | Version-DAG branch/merge, provenance-aware relocalization, conflict detection, and deterministic rollback. | Public multi-session robotics sequences where available, plus a reproducible repeated-route protocol with injected branch conflicts. | Merge conflict loss, availability, relocalization time, drift, rollback determinism; any nondeterministic merge is **No-Go**. | Map schema/migrations, append-only event log, stable localization API. | Mid-term |
+| Change detection and map aging | Prevent stale or transient observations from silently becoming permanent map state. | Age/retire evidence, distinguish transient from structural change, and expose reviewable map events. | Seasonal/revisit sequences and staged layout/roadway changes with held-out intervention schedules. | Structural-change precision/recall, false alarm rate, time-to-review, stale-map rate; missing provenance is **No-Go**. | Change classifier, policy plugin, session clock, review/export tooling. | Near-to-mid term |
+| Bounded-memory map lifecycle | Keep long deployments operational under finite storage. | Crash-safe compaction, retention policies, submap eviction, and version-preserving recovery. | 7-day stress protocol with restart/crash injection and declared storage quota. | Storage growth bound, compaction loss rate, recovery time, byte-for-byte replay; quota breach or data loss is **No-Go**. | Versioned map store, transactional event log, filesystem durability contract. | Mid-term |
+| Failure detection and rollback | Return to a known-good localization state after bad data, software, or storage events. | Detect divergence/catastrophic forgetting, select a known-good version, and restore host-owned state transactionally. | Fault-injection protocol covering process crash, corrupted event, rejected candidate, and sensor interruption. | Detection latency, recovery success/time, rollback determinism, zero partial publication; leaked state is **No-Go**. | Activation transaction, health/observability API, durable checkpoints. | Near-to-mid term |
+| Fleet federation and privacy | Share useful map updates across robots without forcing raw-data centralization. | Conflict-aware cross-robot merge, bounded synchronization, access policy, provenance, and privacy-preserving retention. | Multi-robot intermittent-link protocol with divergent branches, delayed merges, and redacted/raw-data policy variants. | Cross-robot consistency, convergence time, bandwidth/storage bound, conflict loss, privacy-policy violations; violation is **No-Go**. | Federation transport, conflict resolver, key/identity policy, secure storage. | Long-term |
+
+Track A is not exit-ready until a reproducible harness covers all of the
+following, with crash-safe replay and an auditable lineage for every result:
+
+| Exit metric | Required future evidence |
+| --- | --- |
+| Long-duration operation | At least 24-hour and 7-day simulation or replay runs, with restart/crash injection. |
+| Repeated-route aging | The same routes revisited across months and multiple sessions, with immutable session identities. |
+| Localization availability | Availability and recovery distributions, including relocalization after map branch/rollback and sensor interruption. |
+| Drift versus session age | Drift curves indexed by session age and map-version depth, with confidence bounds. |
+| False change rate | Dynamic/seasonal/structural classification error, including false structural-change alarms. |
+| Rollback determinism | Replaying the same event prefix produces the same selected version, map bytes, and localization result. |
+| Storage growth bound | Measured growth, compaction safety, and a bounded-retention guarantee under the declared workload. |
+| Recovery time | Time to restore a usable map/localization state after process, host, or storage failure. |
+| Cross-robot consistency | Version/conflict convergence and localization agreement across independently operating robots. |
+
+### Future-only lifecycle invariants and candidate promotion targets
+
+The Track A capabilities above are intentionally decomposed into invariants so
+that a future implementation cannot pass by reporting only average accuracy.
+The numerical values in this table are proposed planning targets, not current
+benchmark thresholds or SOTA evidence. They must be ratified in a versioned
+future profile before any acquisition, replay, GT, or scorer work; until then
+every row is **NOT_READY**. A missing, non-reproducible, or non-finite metric is
+an unconditional **No-Go**.
+
+| Future invariant | Candidate KPI and minimum evidence | Go / No-Go | Explicit non-goal |
+| --- | --- | --- | --- |
+| Map-generation DAG and safe merge | 100% of sessions/submaps/events have immutable parent and source hashes; 100 deterministic replays produce identical lineage and map bytes; injected branch conflicts have 0 silently dropped updates. | **Go** only with append-only provenance, conflict receipts, and transactional merge/rollback; any orphan, silent overwrite, or nondeterminism is **No-Go**. | No automatic merging of unreviewed maps and no claim that a DAG alone improves accuracy. |
+| Seasonal/time change detection | Report precision, recall, F1, false-structural-change rate, and time-to-review separately for dynamic, seasonal, and structural classes on a held-out intervention set; candidate target F1 >= 0.95 for structural changes and false-structural-change rate <= 0.02. | **Go** only when class labels, holdout identity, and review latency are independently auditable; missing class separation is **No-Go**. | No silent deletion or promotion of map state from an unverified classifier. |
+| Aging, forgetting, and bounded storage | Under a declared retention policy, 7-day runs stay within the configured byte quota, have 0 orphaned chunks, preserve a recoverable lineage, and show byte-for-byte replay after compaction/restart. | **Go** only if aging/forgetting decisions are reversible or provenance-preserving; quota breach or unrecoverable forgetting is **No-Go**. | No claim of indefinite memory, lossless retention beyond the declared quota, or deletion without policy evidence. |
+| Rollback and multi-session relocalization | 100% recovery in injected bad-update, process-crash, storage-fault, and sensor-gap cases; report p50/p95 relocalization and rollback time with 0 partial publications. | **Go** only with a known-good checkpoint and deterministic recovery receipt; one leaked bad state is **No-Go**. | No safety certification or guarantee of recovery from arbitrary physical damage. |
+| Fleet federation, privacy, and safe merge | In intermittent-link multi-robot trials, 100% of accepted updates retain robot/session identity, 0 cross-branch ID collisions or policy violations occur, and repeated merges converge to identical bytes; report bandwidth and storage bounds. | **Go** only with explicit authorization, redaction, key/identity, and conflict receipts; any raw-data policy violation or lost conflict is **No-Go**. | No mandatory cloud, unrestricted raw-data upload, or identity/privacy guarantee without an independently reviewed threat model. |
+| Long-duration operation | Complete one 24-hour and one 7-day run per declared hardware/profile, including restart and crash injection, with availability, drift-vs-age, storage growth, and recovery distributions. | **Go** only when every interval and failure is accounted for; timeout, missing intervals, or a substituted shorter run is **No-Go**. | No extrapolation from short runs to 24-hour/7-day reliability. |
+
+These targets remain future-only even when an experimental implementation is
+available. They are separate from the current competitive SOTA claim gate and
+cannot satisfy, replace, or relax its accuracy, runtime, memory, map-quality,
+fresh-holdout, or legal-provenance requirements.
+
+### Track B — application differentiation
+
+Track B explores opt-in application layers around stable SLAM contracts. Each
+application must prove user value independently; a plugin seam or service
+interface is not evidence that the underlying SLAM algorithm is superior.
+
+| Application | User value | Differentiator / technical capability | Plugin seam | Validation dataset or scenario | KPI | Go/No-Go | Dependencies | Timing | Non-goals |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Warehouse/factory change intelligence | Detect layout, inventory, and safety-relevant changes between routine passes. | Separate operational change from seasonal motion and maintenance noise. | Versioned change classifier and map-event policy. | Repeated aisle/plant routes with staged pallet, rack, and access changes. | Change precision/recall, alert latency, false structural-change rate. | **Go** only on held-out interventions; otherwise **No-Go**. | Track A change aging; session provenance; review UI. | Near term | No autonomous workcell command, safety certification, or default-map mutation. |
+| Mining and construction equipment | Keep localization and site maps useful while terrain, stockpiles, and equipment move. | Robust change classes and branch/rollback for large, partially observed sites. | Site adapter, submap policy, event exporter. | Multi-week quarry/site protocol with staged earthworks, occlusion, and GNSS degradation. | Availability, drift, change F1, recovery time, storage growth. | **No-Go** without degraded-sensor and restart evidence. | Long-term map lifecycle; calibration; rugged storage. | Mid term | No machine-control or progress-certification claim. |
+| Agriculture and forestry | Support repeatable navigation as crops, foliage, and paths evolve. | Distinguish seasonal biological change from traversable structure. | Vegetation/change policy and domain dataset adapter. | Repeated row/forest routes across growth/weather phases with held-out paths. | Relocalization availability, drift by season, false structural-change rate. | **Go** only with seasonal holdout and privacy review. | Change classifier; multisession schema; sensor calibration. | Mid term | No agronomic diagnosis or yield claim. |
+| Underground and GNSS-denied robotics | Recover and maintain maps where global positioning is absent or intermittent. | Local branch/recovery semantics and bounded offline event logs. | Offline recovery and map-store adapter. | Tunnel/mine protocol with blocked routes, sensor interruption, and restart injection. | Availability, time-to-relocalize, recovery success, bytes transferred. | Any unrecoverable branch or unbounded log is **No-Go**. | Crash-safe storage; relocalization API; fault injector. | Mid term | No mine-safety certification or guaranteed coverage. |
+| Autoware localization/map maintenance | Keep road maps and localization assets synchronized with verified roadway changes. | Provenance-aware promotion and deterministic rollback. | Localization/map adapter, migration, approval-policy APIs. | Repeated urban routes with controlled lane, curb, and construction changes. | Availability, drift, rollback time, rejected-change rate. | **Go** only with approved-map audit trail; no production claim otherwise. | Stable versioned APIs; map migrations; Autoware adapter. | Mid term | No driving policy, planning, or production Autoware claim. |
+| Construction progress and digital twin | Track geometry and site-state evolution for planners and owners. | Link spatial changes to time/session provenance and reviewable versions. | Event log and digital-twin schema adapter. | Multi-week staged site scans with occlusion and planned demolition/build phases. | Registration consistency, phase-change F1, review latency, storage growth. | **No-Go** without independent phase labels and crash-safe replay. | Map schema; export API; compaction. | Mid term | No contractual progress certification or BIM replacement. |
+| Urban infrastructure inspection | Compare bridges, tunnels, utilities, or roads over repeated inspections. | Distinguish structural change from viewpoint, weather, and seasonal effects. | Inspection feature/change policy and evidence exporter. | Repeat inspections with controlled defects and weather/lighting variation. | Defect recall/false alarm rate, revisit alignment, recovery time. | **Go** only for evidence-assisted review; engineering sign-off remains out of scope. | Inspection dataset/protocol; provenance; reviewer tooling. | Mid term | No engineering sign-off or unverified defect claim. |
+| Fleet/cloud-edge map federation | Share useful updates while robots remain productive offline. | Conflict-aware merge, bounded synchronization, and edge-first privacy. | Federation transport, resolver, and policy interfaces. | Several robots with intermittent links, divergent branches, and delayed merges. | Convergence time, cross-robot consistency, bandwidth/storage bound, conflict loss. | Any raw-data policy violation or lost conflict is **No-Go**. | Identity/key policy; transport; conflict resolver. | Long term | No mandatory cloud dependency or fleet-scale claim. |
+| Disaster and low-connectivity response | Maintain localization/map continuity when infrastructure is damaged or disconnected. | Crash-safe local branches with explicit recovery and later reconciliation. | Offline event-log, recovery, and privacy/security plugins. | Intermittent-network, degraded-sensor, blocked-route, and restart scenarios. | Availability, time-to-relocalize, recovery success, reconnect bytes. | **Go** only as a non-safety-critical aid with recovery evidence. | Offline storage; relocalization; secure reconciliation. | Long term | No emergency-response certification or safety-critical authorization. |
+| General autonomous-driving/robotics integrations | Give downstream systems a reviewable map lifecycle without forking core SLAM. | Stable adapters, policy plugins, observability, and migration contracts. | Versioned SDK and dataset adapters. | Public robotics/vehicle sequences plus a reproducible multi-session protocol. | API compatibility, replay determinism, availability, drift, storage bound. | **No-Go** until at least one concrete domain gate above passes. | Versioned APIs, schema migrations, benchmark kit. | Long term | No universal autonomy or SOTA claim. |
+
+### Shared OSS differentiation and promotion stages
+
+Future OSS differentiation should be expressed through stable versioned APIs,
+map schemas and migrations, an append-only event log, policy plugins,
+observability hooks, dataset adapters, and reproducible benchmark kits. The
+promotion sequence is deliberately conservative:
+
+1. research spike;
+2. experimental plugins;
+3. shadow mode;
+4. opt-in production;
+5. default candidate review.
+
+Each promotion preserves the existing deterministic replay, accuracy, runtime,
+memory, map-quality, and Autoware bundle gates. Until the Track A and Track B
+evidence is independently accepted, all of this remains future-only planning:
+no implementation, default behavior change, README/SOTA claim, or production
+authorization follows from this document.
+
+> Status: proposed, 2026-08-24. This roadmap changes architecture and contributor
 > experience, not the default SLAM algorithm. Every migration step must preserve
 > the existing deterministic replay, accuracy, runtime, memory, map-quality, and
 > Autoware bundle gates.
 
-## 0. Current status matrix (2026-08-21)
+### Additive competitive execution-selection handoff (2026-08-26)
+
+The r3 execution-selection work is a future promotion handoff only. Its
+candidate is `NOT_READY` and non-promoting while legal/source, dataset/fresh
+holdout, machine, image, and toolchain closures remain external. It does not
+alter the active profile, historical receipts, or any Track A/Track B claim.
+Any future promotion requires an independently reviewed READY receipt and a
+canonical profile reseal; unsigned handoff artifacts are review inputs only.
+
+The additive r3 external-capture utility now provides a bounded observation
+boundary for the three pinned image identities and an explicit opt-in,
+network-none/read-only toolchain probe. Its immutable outputs remain
+`NOT_REVIEWED_EXTERNAL` and non-promoting, including when all synthetic probes
+pass; missing local images and probe failures remain `PENDING`. Custodian review
+and independent execution receipts are still required before any promotion.
+
+## 0. Current status matrix (2026-08-23)
+
+### Current-source registration matrix audit (2026-08-24)
+
+The earlier Humble/Jazzy external-consumer and author-template entries below
+are historical claims, not current-source promotion.  The additive
+`registration-plugin-matrix-current-2026-08` profile and
+`scripts/audit_registration_plugin_matrix.py` now require a content-hashed
+manifest covering the current transaction/provenance/ODR changes.  The local
+result is Jazzy `PASS_HOST_TOOLCHAIN_ONLY`; the host has no `/opt/ros/humble`,
+so Humble is `NO_GO` here.  Historical claims without immutable receipt
+sidecars, and the missing `/tmp` ODR artifacts, are explicitly superseded.
+No build, container, replay, GT, scorer, map, or SOTA claim follows from this
+audit; a clean C++14 external build/load receipt remains a distro-specific
+gate.  The new current-source release matrix is stricter and has four required
+legs (Humble/Jazzy × optional-dependency absent/present).  Its present legs are
+now `READY_PINNED_STATIC_REVIEW`: official immutable fast_gicp and small_gicp
+archive, source-tree, and license pins are checked in, but no distro build/load
+PASS is claimed.  Archive verification precedes extraction and post-fetch
+network-capable commands are forbidden.  The release status remains pending
+until all four immutable runtime receipts are `PASS`.
 
 | Area | Status | Evidence and next gate |
 | --- | --- | --- |
 | C++14 `RegistrationPlugin` API, typed request/result, capabilities, and failure contract | **Implemented** | [`registration-plugin-api.md`](../architecture/registration-plugin-api.md); installed interface and contract tests pass. The public C++14 interface is consumed by the clean external fixture below. |
-| Shell `pluginlib` loader and host/pluginlib hybrid resolver | **Implemented / experimental** | Offline and explicit live-startup discovery, provenance, API/capability/config validation, and failure tests pass. The clean external consumer proof passes on both Jazzy and Humble; external DSO replay/promotion remains pending/No-Go under the independent ODR gate. |
-| External author SDK/template and contract guide | **Implemented** | [`registration-plugin-authoring.md`](../registration-plugin-authoring.md), the C++14 template under `examples/`, and isolated template proof passes on both Jazzy and Humble. |
-| Built-in NDT same-translation-unit adapter path | **Implemented** | Legacy default remains unchanged; the HILTI exp04 baseline/adapter frontend and map-artifact receipts are byte-identical (the existing indoor absolute profile still has its documented violation). |
-| GICP and optional Small GICP/VGICP adapters | **Experimental** | Small HILTI/MID-360 compatibility and the scoped symbol-isolated DSO gate pass for the pinned Jazzy/vendor replay; these are not absolute-accuracy claims, and broader toolchain/live gates remain pending. |
-| FAST_GICP / FAST_VGICP | **Pending** | Dependency is absent in the supported host; no class or fallback is advertised. |
+| Shell `pluginlib` loader and host/pluginlib hybrid resolver | **Implemented / experimental** | Offline and explicit live-startup discovery, provenance, API/capability/config validation, and failure tests pass. Actual DSO load/session, constructor rejection, activation rejection with lease preservation, post-commit rollback, scanmatcher resource rollback, and backend preflight rejection now pass targeted gates. Broader live-bag characterization remains pending. |
+| External author SDK/template and contract guide | **Implemented / distro matrix passed** | [`registration-plugin-authoring.md`](../registration-plugin-authoring.md) and the C++14 template build as clean external consumers on Humble and Jazzy. The installed interface now exports its contract helper, removing the source-tree reach-back. CI adoption and additional third-party author feedback remain next. |
+| Built-in NDT same-translation-unit adapter path | **Implemented** | The numerical/configuration default remains unchanged, but startup and processing now use the host-resident session and activation transaction even when the explicit plugin selector is disabled. The HILTI exp04 baseline/adapter frontend and map-artifact receipts are byte-identical (the existing indoor absolute profile still has its documented violation). |
+| GICP and optional Small GICP/VGICP adapters | **Experimental / Humble+Jazzy build verified** | Real optional-dependency builds and all direct-fixture adapter tests pass on Humble and Jazzy. These are compatibility results, not absolute-accuracy claims; real-bag characterization remains pending. |
+| FAST_GICP / FAST_VGICP | **Implemented conditionally / Humble+Jazzy build verified** | The optional `fast_gicp`-only DSO provides typed `FastGicp`/`FastVGicp` adapters, plugin XML, variant-specific host factories, canonical preflight mapping, and fail-closed absence behavior. Dependency-enabled compilation and direct-fixture equality pass on both supported distros; real-bag accuracy/runtime characterization remains pending. |
 | Backend loop-registration/plugin seams | **Implemented / experimental** | Live and offline `graph_based_slam` NDT now resolve the same host-resident `lidarslam_builtin/NdtOmp` `backend_loop` request/session before observable processing; `BackendCore` consumes only the typed interface. R2, the path-independent R4 provenance fixture, the M4a receipt/parser fixture, and the pinned MID-360 three-run artifact comparison pass. That historical receipt **fails only the strict max-RTF gate** (`1.006913460 > 1.0`); the M4b bounded-cache implementation/tests and formal stride-5 MID-360 development-profile gate pass (`max RTF=0.264233831`, wall CV `2.484173052%`, peak RSS `565.222656250 MiB`). M4c HILTI exp04 and exp07 three-run backend regression gates also pass with old optimized artifacts exact; the paired exp04 map check passes at 2%, while the unchanged indoor absolute profile fails on both old/current reports. This closes cache/general regression for these receipts only; official dense-GT/SOTA comparison and broader promotion remain M5 pending. GICP stays an explicit legacy bridge. |
 | Competitive SOTA evidence validator | **Implemented / fail-closed; identity frozen, evidence pending** | Additive schema-v2 mode in `evaluate_competitive_suite_gate.py` separates historical exp02/03/21 regression slots from the primary-fresh partition. Every system must provide every dataset in both partitions with exactly three run records; completion, RTF/RSS, map, and per-sequence regression checks cover both, while aggregate APE and hierarchical CI use fresh only. It requires profile-assigned fresh slots (selection/input/reference/calibration hashes), all rivals, pinned per-system provenance, a common scorer fingerprint, an equal canonical seven-field thread policy, and the remaining safety evidence. Exp14/16/18 are now `frozen_unopened` after a read-only deep verification of the managed root; the execution-identity preflight is `PASS` before first run, while benchmark evidence remains `INCOMPLETE` until all required 3-system x 3-slot x 3-run records exist. Exposed exp02/03/21 assets cannot be relabelled fresh. Synthetic boundary/negative tests pass and no README claim is authorized. |
 | M6a GT-blind execution harness | **Implemented / campaign4 GT-blind complete; RTF gate not passed** | `scripts/run_competitive_gt_blind_benchmark.py` emits an explicit 27-attempt plan and supports read-only dry-run/preflight plus a separately gated execute mode. M6a2 is retained as an immutable infrastructure-failed parent (`a5abafde…f002`), not replaced; campaign3 remains an incomplete lineage record. M6a3 repairs the ours RKO runtime contract, attempt-scoped GLIM ROS state, and FAST loopback-only ROS1 startup. The rebuilt ours image is `sha256:18198c…288bd`; synthetic full-path smoke passes for all three wrappers. M6a7 fixes and audits the comparable aggregate process-tree RSS contract (`memory.max=max`, OOM delta zero). Campaign4 completed all 27 GT-blind attempts with valid integrity evidence, but the finite processing-RTF gate is not passed (`max RTF=1.173445611` from FAST-LIVO2, threshold `<=1.0`). No accuracy, map-quality, performance-superiority, SOTA claim, or M6b authorization follows. |
-| Live-node plugin preflight | **Implemented / experimental** | Read-only `registration_plugin_enable`, `registration_plugin_class`, and `registration_plugin_allow_external` are validated before pub/sub creation; default constructor behavior is unchanged and runtime hot reload is rejected. External DSO promotion remains **No-Go** until independent ODR, lifecycle, rollback, and Humble/Jazzy replay gates pass. |
+| M6a10 online-compute phase contract | **v1 immutable / fixed10-v2 FAIL_CLOSED / fixed10-v3/v4/v5 preflight FAIL_CLOSED / fixed10-v6 runner-not-started FAIL_CLOSED / fixed10-v7 identity FAIL_CLOSED / fixed10-v8 identity FAIL_CLOSED / fixed10-v9 quiescence FAIL_CLOSED / fixed10-v10 completed GT-blind functional / FAST v2c retry-v2 runner-contract FAIL_CLOSED / FAST v2c retry-v3 quiescence FAIL_CLOSED** | Fixed10-v2 retains exact consumer PASS evidence but is invalid overall: exit `125` for missing `input_end`, callback max `0.371609411 > 0.25` s, and RSS jitter `139.5325092% > 100%`; all hashes are pinned, retry `0`, GT/scorer false. Fixed10-v3, v4, and v5 each had one immutable read-only quiescence preflight failure and therefore never started a runner: v3 exceeded CPU/load with eight compilers, v4 exceeded CPU/load with seven compilers, and v5 recorded CPU busy `25.717884130982366% > 5%` with one compiler (load1/CPU `0.2575 <= 0.5`). Fixed10-v6 had a PASS quiescence receipt (CPU busy `3.0264817150063053%`, load1/CPU `0.03875`, no forbidden processes), but its preflight-to-run continuity window was lost before runner start; it is retained as immutable `runner_not_started_after_preflight` `FAIL_CLOSED` with retry `0`. Fixed10-v7 ran once and failed closed before quiescence because its launcher tree hash `bcbb4c86…f1b8ee6eb` did not match the preregistered profile hash; independent canonical recomputation matches the corrected 64-hex tree identity. Fixed10-v8 ran once and failed closed before quiescence because the adapter bound a malformed 69-character image digest while Docker inspection returned the full pinned 71-character image ID; marker/closure hashes are recorded in the profile, runner start was not attempted, and retry remains `0`. Fixed10-v9 passed its read-only identity receipt but its one owned quiescence attempt failed closed at load1/CPU `0.72375 > 0.5` (CPU busy `2.4439405391786346%`, no forbidden process); no runner started and retry remains `0`. Fixed10-v10 then ran exactly once from a single launcher process with successful quiescence continuity. It completed the GT-blind functional unpaced-ack contract with `230895` expected/received/processed messages, zero drops/overflow/failures, EOF and empty drain, callback maximum `0.109221778` s, and online compute RTF `0.126860008821509`; aggregate process-tree RSS was `868278272` bytes, cgroup total peak `2750537728` bytes, `memory.max=max`, OOM delta zero, and the trajectory hash was byte-equivalent for raw/corrected output. The closure receipt SHA is `e7224eb29dc547a5119cb7ecc1d51d009ced43cfca8e23c6c6d2fc1977e2e82b`; no map artifacts, GT content access, scorer, retry, accuracy claim, performance comparison, SOTA claim, or M6b authorization follows. FAST-LIVO2 v2c retry-v2 was then quiescent (busy `3.7616763443574857%`, load1/CPU `0.415`) but failed closed in the host runner before Docker because `safety.ground_truth_mount_exposed` was absent; closure receipt `c76ce0a5…ffdf0`, no bag replay/container, retry `0`. FAST-LIVO2 v2c retry-v3 then failed its single quiescence attempt before runner start (busy `98.275%`, load1/CPU `0.69375`, seven C++ compilers and one rustc); closure receipt `eed5aa50…bc399`, retry `0`. |
+The fixed10-v2 image-bound launch overlay is separately content-addressed at
+`d45545717f90f6877b5f281fc5623df04b824f7a236d2fe73b91c2dd3714371c` and is
+installed/label-checked in image
+`m6a10-v2a-fixed10-v2-lidarslam-ours:jazzy` (`sha256:385b6eeedae3014bcd893849f2ec3a49f5176f0ef3cdd7e96559690e8dc25a69`).
+The preregistration remains unexecuted; the fixed9/v1 failure lineage is
+unchanged.
+
+GLIM fixed10-v4 is a separate completed functional GT-blind closure, not a
+rewrite of the ours fixed10-v10 or the GLIM fixed10-v3 failure lineage. Its
+common phase finalizer receives the preregistered backlog bound `100000`; the
+single run passed exact consumer counts, EOF/drain, callback bound, RSS/OOM,
+and input-only mount checks. Closure receipt SHA is
+`f33953c4126939dfce841b030cdb2e5560615d42963ae4aaaf4ab0aad7a7f6c1`.
+Online RTF remains diagnostic and no accuracy, SOTA, or M6b claim is
+authorized.
+
+Fixed10-v10 is recorded as completed functional GT-blind validation under
+`m6a10-v2a-ours-rko-unpaced-ack-fixed10-v10`. Its independent launcher is
+`scripts/run_m6a10_fixed10_v10.py` (SHA-256
+`f1d7844eaf8f2d5c22431fed5abcc84ae07f9f34cbd92de3b515c61d20ce78ed`) and its
+test SHA is
+`b89afc720fec4cc0af2d0736367407cbb6dc4b8789a26e3a0a3adf56530b2283`. The
+launcher pins v9 source SHA
+`879fa1c44aa093b158e405806276935bc41bf3bf4d9134a4534cd4922312254f`, the
+complete image ID
+`sha256:385b6eeedae3014bcd893849f2ec3a49f5176f0ef3cdd7e96559690e8dc25a69`,
+and canonical input tree
+`0a45497ab4ed94bf8e9757bab3f37e5786fee4991beea16c1efdc49e38cb926`.
+The read-only identity receipt is
+`/media/sasaki/aiueo1/benchmarks/m6a10_training_20260822/ours_m6a10_v2a_unpaced_ack_fixed10_v10_identity_preflight/identity_receipt.json`
+with SHA-256 `2211744e3691df3fc71f7b0a81248a2e75daa4c5b15a23c8a0f8acab4b360ab2`;
+its read-only identity receipt was followed by exactly one launcher-owned
+quiescence and Docker run. The execution root and closure receipt are
+content-addressed in the profile; runner return code, consumer/phase status,
+RSS/OOM, no-map, and GT-blind completion checks all passed. This remains
+functional validation only, not a performance comparison or SOTA claim, and
+M6b remains unauthorized.
+
+### M6a10-v2b GLIM consumer hook (2026-08-23)
+
+GLIM's benchmark-only consumer hook image build and installed-image identity
+verification pass. One fixed10-v2 functional replay was executed once, but
+the overall closure is `INVALID_SAFETY` and is not promoted.
+Pinned core and ROS2 source revisions (`faa264a1…` and `4a9e7a4c…`) receive
+content-addressed patches that record callback acceptance, exact NTU topic
+counts (LiDAR 5793, IMU 225102, image 5792), EOF before `wait()`, and final
+queue drain before save. Queue observability and high-water bounds are
+required; unknown drops or overflow are invalid rather than assumed zero.
+The runner binds the preregistered input/config tree hashes and image labels,
+including `BUILD_WITH_CV_BRIDGE=ON`; its host wall RTF remains diagnostic.
+The verified image is
+`m6a10-v2b-20260823-glim-cpu-benchmark:competitive-v1` with ID
+`sha256:010c0019a077116edf4d1e7462dfa28561c4fb17db3b5db52e3652c8a875eb41`.
+The read-only build receipt is
+`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2b-glim-closure-20260823/build_receipt.json`
+(SHA-256
+`fe4d7e3b3b3fec28185f5faa016b19dfb30bd9a52928b099a68d6679e0a09df2`).
+The system-level execution identity was independently preflighted in a
+read-only, network-none container. The PASS receipt is
+`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2b-execution-preflight-20260823-v2/execution_identity_preflight.json`
+with SHA-256
+`0ae210d6df457fb6bebf7c23ee33cb4e9299bcfe5f0ddde2ad009f79b1dd5179`.
+It binds the current runner/wrapper and recipe hashes, image ID and OCI
+labels, installed callback markers, and system-container toolchain probe;
+no bag, GT, scorer, or replay was opened. The earlier generator receipt is
+retained as superseded because it used a non-contract config tree hash; the
+v2 receipt uses `relative_path_size_content_sha256_v1`.
+The synchronized profile canonical SHA is
+`800f07184b728623710375c778624a4f623bc706a1f8c05b19b544847d6e3830`; its
+execution-selection file binding is
+`9038c02be377a9ac9cc6fc15a34e9f23fc0181b57f31a5053d8f7c1a4aa00db2`.
+The immutable closure receipt is
+`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2b-execution-closure-20260823/closure_receipt.json`
+(SHA-256
+`72d8ef9cd2c8e26d4c2120463fdbff3057a75e3f81203863049c11028baa41d5`), with
+output tree SHA-256
+`f0db95c9c700b8c9650e9ce2751eb716c2cc271c664ee971f337ec6c01da2552`.
+The wrapper/phase sub-result passed exact expected/received/processed
+`236687`, zero drops/overflow/failures, EOF and empty drain, callback maximum
+`0.0149106` seconds, process-tree RSS `1334648832` bytes,
+`memory.max=max`, and OOM delta zero; online acknowledgement RTF
+`0.29150756632664043` is diagnostic only. The first direct launch mounted the
+release parent directory, making sibling `ntuviral_gt` reachable even though
+no GT file was opened. Strict GT-unreachable closure is therefore false; a
+future attempt must mount only the canonical input directory and use a fresh
+root. Retry is zero. The atomic consumer evidence and EOF sidecar remain
+immutable; no scoring, accuracy, performance comparison, SOTA claim, or M6b
+authorization follows.
+
+The fixed10-v3 successor narrowed the Docker input bind to the canonical ROS2
+directory only (no release-parent or `ntuviral_gt` sibling mount). Its identity
+preflight is
+`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2b-execution-preflight-20260823-v3/execution_identity_preflight.json`
+(SHA-256
+`9b8cc1d089a73113930557c6558a32a5ded3725d386b20a78c61fc14e740e190`). The
+single replay retained exact consumer PASS evidence (`236687` messages,
+zero drop/overflow/failure, EOF, final queue `0`, callback maximum
+`0.025782` seconds), RSS/cgroup evidence, `memory.max=max`, and OOM delta zero.
+It remains `INVALID_SAFETY`, however, because the generic phase finalizer used
+its default backlog bound `0` instead of the preregistered `100000`, rejecting
+the observed high-water `249`. The immutable v3 closure is
+`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2b-execution-closure-20260823-v3/closure_receipt.json`
+(SHA-256
+`492d39b1f7c4a1a2e86893dd979b0ed57b3f37267cb7f21849b990d95bcc32ff`). The
+output tree is `3ab59eed2f20c3bf179bbfa05d0b5a4ffed723137ea81ebc2427619fd26306c5`.
+No retry, GT/scorer access, performance comparison, or M6b authorization
+follows. The synchronized profile canonical SHA is
+`d83a3b96ea224f3f4673dd48a6252af488834dc272f735c5d5e147ce6a7a0ec4`; the
+execution-selection file SHA is
+`6ddcc24b5d221ef96ac746a7f0b4c6c3e261f5c002d115d51d19eb5fa8e072f4`.
+
+FAST-LIVO2 fixed10-v4 is likewise retained as an immutable `FAIL_CLOSED`
+diagnostic, not a performance result. Its host stop/force-kill sequence had
+no OOM evidence, and first-ACK absence is not proven because v4 had no
+progress checkpoint. The preregistered v5 observability slice adds atomic,
+line-buffered feeder progress, stable container name/cidfile, and
+non-destructive reconnectable Docker lifecycle snapshots. It preserves the
+algorithm, input, mount graph, and fairness contract, requires a rebuilt image
+label, and has not started quiescence or replay. No FAST performance or M6b
+claim follows.
+
+| Live-node plugin preflight | **Implemented / experimental** | Read-only `registration_plugin_enable`, `registration_plugin_class`, and `registration_plugin_allow_external` are validated before pub/sub creation. The default selector preserves built-in behavior through the same host-session processing boundary; runtime hot reload is rejected. External DSO promotion remains **No-Go** until independent ODR, lifecycle, rollback, and Humble/Jazzy replay gates pass. |
 | README superiority claims | **No-Go for new claims** | Existing sequence-scoped comparisons remain; no universal or plugin-performance claim is authorized. |
 
 The status table is normative for planning. A replay receipt may establish
@@ -845,13 +1112,15 @@ unchanged.
 
 The component-owned preflight is the smallest live integration slice. With the
 selector disabled, the normal one-argument `ScanMatcherComponent` constructor
-still builds the legacy same-translation-unit NDT path (and the existing direct
-GICP/FAST/SMALL paths). With the selector enabled, the component builds the
-shared typed request, resolves the explicit host or external class, validates
-API major/minor, SPDX license, capabilities, typed configuration, method and
-Small variant, and injects the session before creating publishers or sensor
-subscriptions. Unknown, unavailable, mismatched, or invalid classes fail
-closed; no fallback or runtime hot reload is allowed.
+maps the legacy method name to a host-resident class, resolves it through the
+same typed request, and commits a session before creating publishers or sensor
+subscriptions. This preserves the built-in numerical/configuration defaults
+without leaving a raw-PCL processing fallback. With the selector enabled, the
+component instead resolves the explicit host or external class and validates
+API major/minor, SPDX license, capabilities, typed configuration, method, and
+variant before the same transactional activation. Unknown, unavailable,
+mismatched, or invalid classes fail closed; no fallback or runtime hot reload
+is allowed.
 
 The parameters are read-only after construction:
 
@@ -861,14 +1130,15 @@ The parameters are read-only after construction:
 | `registration_plugin_class` | `""` | Explicit `lidarslam_builtin/<name>` host ID or external pluginlib ID. |
 | `registration_plugin_allow_external` | `false` | Required for external pluginlib DSOs; it is an explicit risk acceptance, not a fallback switch. |
 
-The offline runner uses the same component-owned resolution and reads the
-resolved session/provenance for its receipt; it does not resolve or inject a
-second session. The acceptance tests cover default behavior, host success and
-provenance, external wiring with explicit risk acceptance, unknown/missing
-selectors, method/variant mismatch, read-only mutation rejection, and session
-lifetime. The external success test is wiring-only. The independent DSO replay
-and ODR gate remains No-Go, so this slice does not change the default or permit
-README superiority claims.
+The live frontend hot path calls only `RegistrationPluginSession::align()` and
+`setInputTarget()` after activation. The backend live/offline shells share the
+same session-owned boundary; a read-only source audit rejects direct raw-PCL or
+raw-plugin processing calls in all three production shells. The 2026-08-28
+Jazzy Release build and all three registration-focused scanmatcher test targets
+pass, and the production-boundary source audit reports `PASS`. The
+external success test remains wiring-only. The independent DSO replay, ODR,
+optional-dependency, and Humble/Jazzy matrix gates remain No-Go, so this slice
+does not permit README superiority claims.
 
 ### M0 clean external consumer gate
 
@@ -895,8 +1165,10 @@ gtest_filter=RegistrationPluginLoader.DiscoversInstalledFakeExternalClasses:Regi
 repository_install_sourced=false
 ```
 
-Both matrix legs have passed with the two selected tests. Jazzy was run from
-the local `/opt/ros/jazzy` installation. The Humble proof used the read-only
+The historical two-leg receipt claimed a pass with the two selected tests;
+that evidence is superseded by the current-source four-leg release matrix and
+must not be used for promotion. Jazzy was run from the local `/opt/ros/jazzy`
+installation. The historical Humble proof used the read-only
 repository mount and `ros:humble-ros-core` image digest
 `sha256:ebae805c9d985e443b26e13a47339098dc0a42eee4626055bfd4ebc6dcdb4988`.
 Its toolchain receipt was: GCC `11.4.0-1ubuntu1~22.04.3`, PCL
@@ -960,9 +1232,10 @@ metadata_license=BSD-2-Clause
 repository_install_sourced=false
 ```
 
-The workflow runs this proof for both Humble and Jazzy after dependency
-installation and before the normal workspace build. Both matrix legs have
-also passed independently. The Humble run used a read-only repository mount
+The historical workflow ran this proof for both Humble and Jazzy after
+dependency installation and before the normal workspace build. Those matrix
+legs are superseded and do not satisfy the current release gate. The
+historical Humble run used a read-only repository mount
 and the same `ros:humble-ros-core` image digest recorded by M0
 (`sha256:ebae805c9d985e443b26e13a47339098dc0a42eee4626055bfd4ebc6dcdb4988`).
 The C++14 source claim applies to the public plugin and its direct consumer,

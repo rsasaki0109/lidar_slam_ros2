@@ -36,7 +36,8 @@ namespace lidarslam_registration_plugin_template
 {
 
 class IdentityRegistration final
-  : public lidarslam::plugins::registration::RegistrationPlugin
+  : public lidarslam::plugins::registration::RegistrationPlugin,
+    public lidarslam::plugins::registration::RegistrationPluginDescriptorProvider
 {
 public:
   IdentityRegistration() = default;
@@ -44,6 +45,8 @@ public:
 
   lidarslam::plugins::registration::PluginMetadata metadata() const override;
   lidarslam::plugins::registration::Capabilities capabilities() const override;
+  lidarslam::plugins::registration::RegistrationRuntimeDescriptor
+  registrationDescriptor() const override;
   bool configure(
     const lidarslam::plugins::registration::ParameterMap & parameters,
     std::string * error) override;

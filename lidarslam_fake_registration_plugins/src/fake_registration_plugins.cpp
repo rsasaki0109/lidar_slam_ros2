@@ -28,7 +28,9 @@
 #include "lidarslam_fake_registration_plugins/fake_registration_plugins.hpp"
 
 #include <cmath>
+#include <cstdlib>
 #include <exception>
+#include <fstream>
 
 #include <pluginlib/class_list_macros.hpp>
 
@@ -60,6 +62,16 @@ registration::Capabilities BasicRegistration::capabilities() const
   .setCorrespondenceMetric(registration::CorrespondenceMetric::kMeanDistance)
   .setThreadModel(registration::ThreadModel::kSerializedOwner);
   return capabilities;
+}
+
+registration::RegistrationRuntimeDescriptor BasicRegistration::registrationDescriptor() const
+{
+  const std::uint64_t deterministic =
+    static_cast<std::uint64_t>(registration::Capability::kDeterministic);
+  const registration::Capabilities current = capabilities();
+  return registration::makeRegistrationRuntimeDescriptor(
+    metadata(), current, current.bits() & ~deterministic, deterministic,
+    registration::registrationConfigSchemaForClassId(class_id_));
 }
 
 bool BasicRegistration::configure(
@@ -200,6 +212,16 @@ registration::PluginMetadata UnlicensedRegistration::metadata() const
   return metadata;
 }
 
+ConstructorProbeRegistration::ConstructorProbeRegistration()
+: BasicRegistration("lidarslam_fake_registration_plugins/ConstructorProbe")
+{
+  const char * marker = std::getenv("LIDARSLAM_FAKE_PLUGIN_CONSTRUCTOR_MARKER");
+  if (marker != nullptr && *marker != '\0') {
+    std::ofstream output(marker, std::ios::app);
+    output << "constructor\n";
+  }
+}
+
 }  // namespace lidarslam_fake_registration_plugins
 
 PLUGINLIB_EXPORT_CLASS(
@@ -219,4 +241,7 @@ PLUGINLIB_EXPORT_CLASS(
   lidarslam::plugins::registration::RegistrationPlugin)
 PLUGINLIB_EXPORT_CLASS(
   lidarslam_fake_registration_plugins::UnlicensedRegistration,
+  lidarslam::plugins::registration::RegistrationPlugin)
+PLUGINLIB_EXPORT_CLASS(
+  lidarslam_fake_registration_plugins::ConstructorProbeRegistration,
   lidarslam::plugins::registration::RegistrationPlugin)

@@ -25,12 +25,47 @@ find_package(OpenMP)
 find_package(pluginlib REQUIRED)
 find_package(lidarslam_plugin_interfaces REQUIRED)
 find_package(ndt_omp_ros2 REQUIRED)
+find_package(fast_gicp QUIET)
 find_package(small_gicp QUIET)
 
 add_library(${PROJECT_NAME} SHARED
   src/ndt_omp_registration.cpp
   src/gicp_omp_registration.cpp
 )
+
+if(fast_gicp_FOUND)
+  # FAST is deliberately isolated from the pclomp/small DSOs.  The optional
+  # adapter is explicit opt-in; its absence must not alter the default NDT or
+  # legacy GICP path.
+  add_library(lidarslam_fast_gicp_plugins SHARED
+    src/fast_gicp_registration.cpp
+  )
+  target_compile_features(lidarslam_fast_gicp_plugins PUBLIC cxx_std_17)
+  target_include_directories(lidarslam_fast_gicp_plugins PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+    ${PCL_INCLUDE_DIRS}
+  )
+  target_link_libraries(lidarslam_fast_gicp_plugins ${PCL_LIBRARIES})
+  ament_target_dependencies(lidarslam_fast_gicp_plugins
+    Eigen3
+    pluginlib
+    lidarslam_plugin_interfaces
+    fast_gicp
+  )
+  if(OpenMP_CXX_FOUND)
+    target_link_libraries(lidarslam_fast_gicp_plugins OpenMP::OpenMP_CXX)
+  endif()
+  if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    # Keep fast_gicp template symbols in the optional DSO boundary.  This
+    # prevents accidental interposition with the legacy pclomp/small paths.
+    set_property(TARGET lidarslam_fast_gicp_plugins APPEND_STRING PROPERTY
+      LINK_FLAGS " -Wl,-Bsymbolic-functions")
+  endif()
+  message(STATUS "fast_gicp found; isolated FAST_GICP/FAST_VGICP DSO enabled")
+else()
+  message(STATUS "fast_gicp not found; FAST_GICP/FAST_VGICP adapters disabled")
+endif()
 
 if(small_gicp_FOUND)
   # Keep the optional Small implementation out of the NDT/GICP DSO.  The
@@ -69,6 +104,18 @@ else()
   message(STATUS "small_gicp not found; SMALL_GICP/SMALL_VGICP adapters disabled")
 endif()
 
+set(_registration_ndt_required_bits 159)
+set(_registration_gicp_required_bits 137)
+set(_registration_deterministic_bit 64)
+set(_registration_ndt_schema_sha256
+  "0b38bd0c73d94d9d01fb6c656aec6210f434b65f8cf88f1aea9e61e433c9ba44")
+set(_registration_gicp_schema_sha256
+  "6c35ace8983dcfdc86d609ed9347c4743638b3c51665bec43b9f5a59b25b6f19")
+set(_registration_fast_schema_sha256
+  "af44393771764fb1eff20d75743995995134bd35911b93d49839af14406b7bb5")
+set(_registration_small_schema_sha256
+  "c5d1bce8fbe885537121606949bc1c0e7ae5dcd5e5279ea9e28581f83ff995f5")
+
 target_include_directories(${PROJECT_NAME} PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
@@ -98,6 +145,7 @@ if(BUILD_TESTING)
 
   ament_add_gtest(test_ndt_omp_registration
     test/test_ndt_omp_registration.cpp
+    TIMEOUT 300
   )
   if(TARGET test_ndt_omp_registration)
     target_include_directories(test_ndt_omp_registration PRIVATE
@@ -166,10 +214,35 @@ if(BUILD_TESTING)
       endif()
     endif()
   endif()
+
+  if(fast_gicp_FOUND)
+    ament_add_gtest(test_fast_gicp_registration
+      test/test_fast_gicp_registration.cpp
+    )
+    if(TARGET test_fast_gicp_registration)
+      target_include_directories(test_fast_gicp_registration PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${PCL_INCLUDE_DIRS}
+      )
+      target_compile_features(test_fast_gicp_registration PRIVATE cxx_std_17)
+      target_link_libraries(test_fast_gicp_registration
+        lidarslam_fast_gicp_plugins
+        ${PCL_LIBRARIES}
+      )
+      ament_target_dependencies(test_fast_gicp_registration
+        Eigen3
+        lidarslam_plugin_interfaces
+        fast_gicp
+      )
+    endif()
+  endif()
 endif()
 
 install(DIRECTORY include/ DESTINATION include)
 set(plugin_install_targets ${PROJECT_NAME})
+if(fast_gicp_FOUND)
+  list(APPEND plugin_install_targets lidarslam_fast_gicp_plugins)
+endif()
 if(small_gicp_FOUND)
   list(APPEND plugin_install_targets lidarslam_small_gicp_plugins)
 endif()
@@ -183,10 +256,20 @@ install(TARGETS ${plugin_install_targets}
 ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
 ament_export_include_directories(include)
 ament_export_libraries(${PROJECT_NAME})
+if(fast_gicp_FOUND)
+  ament_export_libraries(lidarslam_fast_gicp_plugins)
+endif()
 if(small_gicp_FOUND)
   ament_export_libraries(lidarslam_small_gicp_plugins)
 endif()
 ament_export_dependencies(Eigen3 PCL pluginlib lidarslam_plugin_interfaces ndt_omp_ros2)
+if(fast_gicp_FOUND)
+  ament_export_dependencies(fast_gicp)
+  pluginlib_export_plugin_description_file(
+    lidarslam_plugin_interfaces
+    registration_plugins_fast.xml
+  )
+endif()
 if(small_gicp_FOUND)
   ament_export_dependencies(small_gicp)
   pluginlib_export_plugin_description_file(
@@ -202,5 +285,37 @@ else()
     lidarslam_plugin_interfaces
     registration_plugins.xml
   )
+endif()
+
+# These run from the generated install script after each target and XML have
+# been installed.  The DSO digest therefore binds the exact post-link bytes;
+# a relink or toolchain change produces a different sidecar and is rejected
+# before pluginlib construction.
+lidarslam_install_registration_contract(${PROJECT_NAME} registration_plugins.xml
+  "lidarslam_default_plugins/NdtOmp" ${_registration_ndt_required_bits}
+  ${_registration_deterministic_bit} 1 1 0
+  "lidarslam.registration.ndt.v1" 1 "${_registration_ndt_schema_sha256}")
+lidarslam_install_registration_contract(${PROJECT_NAME} registration_plugins.xml
+  "lidarslam_default_plugins/GicpOmp" ${_registration_gicp_required_bits} 0 0 2 0
+  "lidarslam.registration.gicp.v1" 1 "${_registration_gicp_schema_sha256}")
+if(fast_gicp_FOUND)
+  lidarslam_install_registration_contract(lidarslam_fast_gicp_plugins
+    registration_plugins_fast.xml "lidarslam_default_plugins/FastGicp"
+    ${_registration_gicp_required_bits} 0 0 2 0
+    "lidarslam.registration.fast_gicp.v1" 1 "${_registration_fast_schema_sha256}")
+  lidarslam_install_registration_contract(lidarslam_fast_gicp_plugins
+    registration_plugins_fast.xml "lidarslam_default_plugins/FastVGicp"
+    ${_registration_gicp_required_bits} 0 0 2 0
+    "lidarslam.registration.fast_gicp.v1" 1 "${_registration_fast_schema_sha256}")
+endif()
+if(small_gicp_FOUND)
+  lidarslam_install_registration_contract(lidarslam_small_gicp_plugins
+    registration_plugins_small.xml "lidarslam_default_plugins/SmallGicpPcl"
+    ${_registration_gicp_required_bits} ${_registration_deterministic_bit} 0 2 0
+    "lidarslam.registration.small_gicp.v1" 1 "${_registration_small_schema_sha256}")
+  lidarslam_install_registration_contract(lidarslam_small_gicp_plugins
+    registration_plugins_small.xml "lidarslam_default_plugins/SmallVGicpPcl"
+    ${_registration_gicp_required_bits} ${_registration_deterministic_bit} 0 2 0
+    "lidarslam.registration.small_gicp.v1" 1 "${_registration_small_schema_sha256}")
 endif()
 ament_package()

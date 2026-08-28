@@ -1336,10 +1336,36 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
               std::to_string(static_cast<int>(loaded.failure.code)) + "]: " +
               loaded.failure.message);
     }
-    // Store the session before the plugin so its ClassLoader (when a future
-    // resolver implementation supplies one) outlives plugin destruction.
-    registration_plugin_session_ = loaded.session;
-    registration_plugin_ = loaded.session->plugin();
+    // Commit the host-owned backend pair only after the resolver has returned
+    // a fully validated candidate.  The common transaction keeps a previous
+    // session/plugin pair intact on any activation failure and preserves the
+    // loader lease destruction order.  This component resolves at startup,
+    // before subscriptions are created; runtime hot reload remains absent.
+    using lidarslam::plugins::registration::shell::LoadFailure;
+    using lidarslam::plugins::registration::shell::RegistrationActivationSlots;
+    using lidarslam::plugins::registration::shell::RegistrationActivationTransaction;
+    RegistrationActivationSlots activation_slots;
+    activation_slots.session = &registration_plugin_session_;
+    activation_slots.plugin = &registration_plugin_;
+    RegistrationActivationTransaction activation(activation_slots);
+    LoadFailure activation_failure;
+    if (!activation.prepare(loaded.session, &activation_failure) ||
+      !activation.validate(
+        [](const lidarslam::plugins::registration::shell::
+        RegistrationActivationSnapshot & candidate)
+        {
+          if (!candidate.session || !candidate.plugin) {
+            return LoadFailure{
+            lidarslam::plugins::registration::shell::LoadFailureCode::kInvalidRequest,
+            "backend registration activation candidate is null"};
+          }
+          return LoadFailure{};
+        }, &activation_failure) ||
+      !activation.commit(&activation_failure))
+    {
+      throw std::runtime_error(
+              "backend registration activation failed: " + activation_failure.message);
+    }
     const auto & provenance = loaded.session->provenance();
     const std::string capability_bits =
       std::to_string(provenance.capabilities.bits());
@@ -1356,10 +1382,10 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
       provenance.metadata.license.c_str(),
       capability_bits.c_str());
   } else if (registration_method == "GICP") {
-    // GICP remains on the historical PCL implementation for this slice.  It
-    // is nevertheless exposed to BackendCore through the typed bridge, so
-    // gate/log semantics are shared with NDT.  A full GICP backend resolver
-    // migration is deliberately a later characterization step.
+    // Preserve the historical PCL construction and numeric defaults, then
+    // adopt that already-configured object into the same serialized session
+    // boundary as NDT.  This is a host-built-in adoption, not a pluginlib
+    // fallback: the raw PCL object never reaches BackendCore directly.
     boost::shared_ptr<pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>>
     gicp(new pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>());
     gicp->setMaxCorrespondenceDistance(30.0);
@@ -1368,13 +1394,60 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
     gicp->setEuclideanFitnessEpsilon(1e-6);
     gicp->setRANSACIterations(0);
     registration_ = gicp;
-    registration_plugin_ = std::make_shared<backend_registration::PclRegistrationAdapter>(
+    auto candidate_plugin = std::make_shared<backend_registration::PclRegistrationAdapter>(
       registration_, "lidarslam_builtin/LegacyBackendGicp");
-    const auto metadata = registration_plugin_->metadata();
+    lidarslam::plugins::registration::shell::LoadRequest request;
+    request.class_id = "lidarslam_builtin/LegacyBackendGicp";
+    request.capabilities.require_initial_guess = true;
+    request.capabilities.require_aligned_source = true;
+    request.capabilities.require_target_policy = true;
+    request.capabilities.target_policy =
+      lidarslam::plugins::registration::TargetPolicy::kAcceptHostPrepared;
+    request.capabilities.require_correspondence_metric = true;
+    request.capabilities.correspondence_metric =
+      lidarslam::plugins::registration::CorrespondenceMetric::kSquareRootFitnessProxy;
+    request.enforce_permissive_license = true;
+
+    using lidarslam::plugins::registration::shell::LoadFailure;
+    using lidarslam::plugins::registration::shell::RegistrationActivationSlots;
+    using lidarslam::plugins::registration::shell::RegistrationActivationTransaction;
+    LoadFailure session_failure;
+    const auto candidate_session =
+      lidarslam::plugins::registration::shell::RegistrationPluginSession::createHostSession(
+      candidate_plugin, request, "", false, &session_failure);
+    if (!candidate_session) {
+      throw std::runtime_error(
+              "backend GICP host session adoption failed: " + session_failure.message);
+    }
+    RegistrationActivationSlots activation_slots;
+    activation_slots.session = &registration_plugin_session_;
+    activation_slots.plugin = &registration_plugin_;
+    RegistrationActivationTransaction activation(activation_slots);
+    LoadFailure activation_failure;
+    if (!activation.prepare(candidate_session, &activation_failure) ||
+      !activation.validate(
+        [](const lidarslam::plugins::registration::shell::
+        RegistrationActivationSnapshot & candidate)
+        {
+          if (!candidate.session || !candidate.plugin) {
+            return LoadFailure{
+            lidarslam::plugins::registration::shell::LoadFailureCode::kInvalidRequest,
+            "backend GICP activation candidate is null"};
+          }
+          return LoadFailure{};
+        }, &activation_failure) ||
+      !activation.commit(&activation_failure))
+    {
+      throw std::runtime_error(
+              "backend GICP activation failed: " + activation_failure.message);
+    }
+    const auto & metadata = registration_plugin_session_->metadata();
     RCLCPP_INFO(
       get_logger(),
-      "backend registration preflight ok backend_kind=legacy_pcl_bridge class=%s "
+      "backend registration preflight ok backend_kind=%s class=%s "
       "implementation=%s api=%u.%u license=%s library=<host> manifest=<host>",
+      lidarslam::plugins::registration::shell::backendKindName(
+        registration_plugin_session_->backendKind()),
       metadata.class_id.c_str(), metadata.implementation_version.c_str(),
       static_cast<unsigned int>(metadata.api_version.major),
       static_cast<unsigned int>(metadata.api_version.minor), metadata.license.c_str());
@@ -1809,12 +1882,26 @@ void GraphBasedSlamComponent::searchLoopForLatest(
   gate_config.max_translation_descriptor_m = loop_max_translation_delta_descriptor_;
   gate_config.max_rotation_descriptor_deg = loop_max_rotation_delta_deg_descriptor_;
 
+  // BackendCore deliberately accepts only the ROS-free public interface. A
+  // session facade keeps that core free of pluginlib while routing the live
+  // NDT session through its lease/exception/cancellation boundary.
+  std::unique_ptr<lidarslam::plugins::registration::shell::RegistrationPluginSessionAdapter>
+  registration_session_adapter;
+  lidarslam::plugins::registration::RegistrationPlugin * registration_for_search =
+    registration_plugin_.get();
+  if (registration_plugin_session_ != nullptr) {
+    registration_session_adapter.reset(
+      new lidarslam::plugins::registration::shell::RegistrationPluginSessionAdapter(
+        *registration_plugin_session_));
+    registration_for_search = registration_session_adapter.get();
+  }
+
   const backend_core::LoopSearchOutput search_output = backend_core_.searchLoopForSubmap(
     submaps,
     latest_idx,
     search_config,
     raw_cloud_provider,
-    *registration_plugin_,
+    *registration_for_search,
     voxelgrid_,
     three_d_bbs_loop_verifier_);
 

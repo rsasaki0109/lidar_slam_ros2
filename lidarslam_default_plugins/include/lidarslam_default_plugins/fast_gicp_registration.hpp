@@ -25,8 +25,8 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#ifndef LIDARSLAM_DEFAULT_PLUGINS__SMALL_GICP_REGISTRATION_HPP_
-#define LIDARSLAM_DEFAULT_PLUGINS__SMALL_GICP_REGISTRATION_HPP_
+#ifndef LIDARSLAM_DEFAULT_PLUGINS__FAST_GICP_REGISTRATION_HPP_
+#define LIDARSLAM_DEFAULT_PLUGINS__FAST_GICP_REGISTRATION_HPP_
 
 #include <memory>
 #include <string>
@@ -37,24 +37,23 @@ namespace lidarslam_default_plugins
 {
 
 /**
- * Typed adapter for small_gicp's PCL GICP wrapper.
+ * Typed optional adapter for fast_gicp::FastGICP.
  *
- * The public class intentionally exposes only the C++14 registration
- * contract.  small_gicp headers and template instantiations stay in the
- * implementation include so the scanmatcher host can include that same
- * implementation from its legacy translation unit when exact equivalence is
- * required.
+ * The fast_gicp headers and template instantiation are deliberately confined
+ * to the optional fast_gicp DSO.  Consumers only see the C++14 registration
+ * contract, and the scanmatcher's host factory is enabled only when the
+ * dependency and this DSO are both present.
  */
-class SmallGicpRegistration
+class FastGicpRegistration final
   : public lidarslam::plugins::registration::RegistrationPlugin,
   public lidarslam::plugins::registration::RegistrationPluginDescriptorProvider
 {
 public:
-  SmallGicpRegistration();
-  ~SmallGicpRegistration() override;
+  FastGicpRegistration();
+  ~FastGicpRegistration() override;
 
-  SmallGicpRegistration(const SmallGicpRegistration &) = delete;
-  SmallGicpRegistration & operator=(const SmallGicpRegistration &) = delete;
+  FastGicpRegistration(const FastGicpRegistration &) = delete;
+  FastGicpRegistration & operator=(const FastGicpRegistration &) = delete;
 
   lidarslam::plugins::registration::PluginMetadata metadata() const override;
   lidarslam::plugins::registration::Capabilities capabilities() const override;
@@ -74,10 +73,42 @@ public:
 
   void reset() noexcept override;
 
-protected:
-  explicit SmallGicpRegistration(bool voxelized);
+private:
+  struct Impl;
+  struct PerCallStateGuard;
+  static void clearPerCallState(Impl * implementation) noexcept;
+  std::unique_ptr<Impl> impl_;
+};
 
-  bool voxelized() const noexcept;
+/** Typed optional adapter for fast_gicp::FastVGICP. */
+class FastVgicpRegistration final
+  : public lidarslam::plugins::registration::RegistrationPlugin,
+  public lidarslam::plugins::registration::RegistrationPluginDescriptorProvider
+{
+public:
+  FastVgicpRegistration();
+  ~FastVgicpRegistration() override;
+
+  FastVgicpRegistration(const FastVgicpRegistration &) = delete;
+  FastVgicpRegistration & operator=(const FastVgicpRegistration &) = delete;
+
+  lidarslam::plugins::registration::PluginMetadata metadata() const override;
+  lidarslam::plugins::registration::Capabilities capabilities() const override;
+  lidarslam::plugins::registration::RegistrationRuntimeDescriptor
+  registrationDescriptor() const override;
+
+  bool configure(
+    const lidarslam::plugins::registration::ParameterMap & parameters,
+    std::string * error) override;
+
+  bool setInputTarget(
+    const lidarslam::plugins::registration::PointCloudConstPtr & target,
+    std::string * error) override;
+
+  lidarslam::plugins::registration::AlignmentResult align(
+    const lidarslam::plugins::registration::AlignmentRequest & request) override;
+
+  void reset() noexcept override;
 
 private:
   struct Impl;
@@ -86,23 +117,6 @@ private:
   std::unique_ptr<Impl> impl_;
 };
 
-/**
- * The VGICP variant has a separate pluginlib type so its class ID cannot be
- * confused with SMALL_GICP.  Both variants share the same typed adapter
- * implementation and differ only in the fixed registration type and voxel
- * resolution parameter.
- */
-class SmallVgicpRegistration final : public SmallGicpRegistration
-{
-public:
-  SmallVgicpRegistration();
-  ~SmallVgicpRegistration() override;
-
-  lidarslam::plugins::registration::PluginMetadata metadata() const override;
-  lidarslam::plugins::registration::RegistrationRuntimeDescriptor
-  registrationDescriptor() const override;
-};
-
 }  // namespace lidarslam_default_plugins
 
-#endif  // LIDARSLAM_DEFAULT_PLUGINS__SMALL_GICP_REGISTRATION_HPP_
+#endif  // LIDARSLAM_DEFAULT_PLUGINS__FAST_GICP_REGISTRATION_HPP_

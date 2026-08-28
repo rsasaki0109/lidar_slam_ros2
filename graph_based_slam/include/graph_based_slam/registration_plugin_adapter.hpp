@@ -51,7 +51,8 @@ namespace backend_registration
  * is not a public plugin implementation and does not perform discovery.
  */
 class PclRegistrationAdapter final
-  : public lidarslam::plugins::registration::RegistrationPlugin
+  : public lidarslam::plugins::registration::RegistrationPlugin,
+  public lidarslam::plugins::registration::RegistrationPluginDescriptorProvider
 {
 public:
   using PclRegistration = pcl::Registration<pcl::PointXYZI, pcl::PointXYZI>;
@@ -102,6 +103,17 @@ public:
     .setCorrespondenceMetric(CorrespondenceMetric::kSquareRootFitnessProxy)
     .setThreadModel(ThreadModel::kSerializedOwner);
     return capabilities;
+  }
+
+  lidarslam::plugins::registration::RegistrationRuntimeDescriptor
+  registrationDescriptor() const override
+  {
+    const auto metadata_value = metadata();
+    const auto capabilities_value = capabilities();
+    return lidarslam::plugins::registration::makeRegistrationRuntimeDescriptor(
+      metadata_value, capabilities_value,
+      capabilities_value.bits(), 0U,
+      lidarslam::plugins::registration::registrationConfigSchemaForClassId(class_id_));
   }
 
   bool configure(

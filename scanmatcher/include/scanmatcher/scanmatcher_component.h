@@ -65,19 +65,9 @@ extern "C" {
 #include "scanmatcher/registration_runtime.hpp"
 #include "scanmatcher/voxel_hash_map.hpp"
 
-#include <pclomp/voxel_grid_covariance_omp.h>
-#include <pclomp/gicp_omp.h>
-#include <pclomp/gicp_omp_impl.hpp>
-#ifdef HAS_FAST_GICP
-#include <fast_gicp/gicp/fast_gicp.hpp>
-#include <fast_gicp/gicp/fast_vgicp.hpp>
-#endif
-#ifdef HAS_SMALL_GICP
-#include <small_gicp/pcl/pcl_registration.hpp>
-#endif
-
 #include <mutex>
 #include <memory>
+#include <functional>
 #include <string>
 #include <thread>
 #include <future>
@@ -99,15 +89,6 @@ class RegistrationPlugin;
 }  // namespace plugins
 }  // namespace lidarslam
 
-// The public component header stores this adapter behind shared_ptr but does
-// not expose its concrete API.  Keep the implementation package out of the
-// installed consumer include surface; the same-TU factory/ipp include belongs
-// to scanmatcher_component.cpp.
-namespace lidarslam_default_plugins
-{
-class NdtOmpRegistration;
-}
-
 namespace graphslam
 {
 enum class RegistrationConstruction
@@ -119,6 +100,21 @@ enum class RegistrationConstruction
   class ScanMatcherComponent: public rclcpp::Node
   {
 public:
+    // Test-only seam for exercising the real rclcpp resource creation
+    // boundary.  It is deliberately not a ROS parameter and is empty by
+    // default, so a user cannot enable it through startup configuration.
+    // The hook may only rewrite a resource name; rclcpp still performs the
+    // actual create_subscription/create_publisher validation and exception
+    // path.  External DSO constructor/static-initializer side effects remain
+    // outside the host rollback guarantee.
+    using ResourceInitTopicHook = std::function<std::string(const std::string &)>;
+
+    GS_SM_PUBLIC
+    static void setResourceInitTopicHookForTest(ResourceInitTopicHook hook);
+
+    GS_SM_PUBLIC
+    static void clearResourceInitTopicHookForTest();
+
     GS_SM_PUBLIC
     explicit ScanMatcherComponent(const rclcpp::NodeOptions & options);
 
@@ -165,8 +161,6 @@ private:
     std::string robot_frame_id_;
     std::string odom_frame_id_;
 
-    boost::shared_ptr<pcl::Registration < pcl::PointXYZI, pcl::PointXYZI >> registration_;
-    std::shared_ptr<lidarslam_default_plugins::NdtOmpRegistration> ndt_registration_;
     // Single registration-plugin runtime slot.  Declaration order keeps the
     // session (and its ClassLoader) alive until after the plugin pointer is
     // released during component destruction.  The cached contract fields are
@@ -388,6 +382,16 @@ makeHostBuiltinNdtRegistration();
 GS_SM_PUBLIC
 std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
 makeHostBuiltinGicpRegistration();
+
+#ifdef HAS_FAST_GICP
+GS_SM_PUBLIC
+std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
+makeHostBuiltinFastGicpRegistration();
+
+GS_SM_PUBLIC
+std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
+makeHostBuiltinFastVgicpRegistration();
+#endif
 
 #ifdef HAS_SMALL_GICP
 GS_SM_PUBLIC

@@ -44,7 +44,8 @@ namespace lidarslam_default_plugins
  * implementation templates out of the C++14 registration interface.
  */
 class GicpOmpRegistration final
-  : public lidarslam::plugins::registration::RegistrationPlugin
+  : public lidarslam::plugins::registration::RegistrationPlugin,
+  public lidarslam::plugins::registration::RegistrationPluginDescriptorProvider
 {
 public:
   GicpOmpRegistration();
@@ -55,6 +56,8 @@ public:
 
   lidarslam::plugins::registration::PluginMetadata metadata() const override;
   lidarslam::plugins::registration::Capabilities capabilities() const override;
+  lidarslam::plugins::registration::RegistrationRuntimeDescriptor
+  registrationDescriptor() const override;
 
   bool configure(
     const lidarslam::plugins::registration::ParameterMap & parameters,

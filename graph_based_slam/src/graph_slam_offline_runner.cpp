@@ -903,6 +903,8 @@ int main(int argc, char ** argv)
   using RegistrationPlugin = lidarslam::plugins::registration::RegistrationPlugin;
   using RegistrationPluginSession =
     lidarslam::plugins::registration::shell::RegistrationPluginSession;
+  using RegistrationPluginSessionAdapter =
+    lidarslam::plugins::registration::shell::RegistrationPluginSessionAdapter;
   using RegistrationResolver = lidarslam::plugins::registration::shell::RegistrationResolver;
 
   // The resolver and session are shell-owned.  Declaration order is
@@ -912,7 +914,7 @@ int main(int argc, char ** argv)
   std::shared_ptr<RegistrationPluginSession> registration_plugin_session;
   std::shared_ptr<RegistrationPlugin> registration_plugin_owner;
   boost::shared_ptr<pcl::Registration<pcl::PointXYZI, pcl::PointXYZI>> legacy_registration;
-  std::unique_ptr<graphslam::backend_registration::PclRegistrationAdapter>
+  std::shared_ptr<graphslam::backend_registration::PclRegistrationAdapter>
   legacy_registration_bridge;
   RegistrationPlugin * registration_plugin = nullptr;
   graphslam::backend_registration::BackendRegistrationRequest backend_request;
@@ -947,8 +949,36 @@ int main(int argc, char ** argv)
       rclcpp::shutdown();
       return 1;
     }
-    registration_plugin_session = loaded.session;
-    registration_plugin_owner = loaded.session->plugin();
+    // Use the same host-owned startup transaction as the live backend.  The
+    // offline shell has no ROS publishers, but it still must not expose a
+    // partially activated session if a future adapter validation step fails.
+    using lidarslam::plugins::registration::shell::LoadFailure;
+    using lidarslam::plugins::registration::shell::RegistrationActivationSlots;
+    using lidarslam::plugins::registration::shell::RegistrationActivationTransaction;
+    RegistrationActivationSlots activation_slots;
+    activation_slots.session = &registration_plugin_session;
+    activation_slots.plugin = &registration_plugin_owner;
+    RegistrationActivationTransaction activation(activation_slots);
+    LoadFailure activation_failure;
+    if (!activation.prepare(loaded.session, &activation_failure) ||
+      !activation.validate(
+        [](const lidarslam::plugins::registration::shell::
+        RegistrationActivationSnapshot & candidate)
+        {
+          if (!candidate.session || !candidate.plugin) {
+            return LoadFailure{
+            lidarslam::plugins::registration::shell::LoadFailureCode::kInvalidRequest,
+            "offline registration activation candidate is null"};
+          }
+          return LoadFailure{};
+        }, &activation_failure) ||
+      !activation.commit(&activation_failure))
+    {
+      RCLCPP_ERROR(
+        logger, "backend registration activation failed: %s", activation_failure.message.c_str());
+      rclcpp::shutdown();
+      return 1;
+    }
     registration_plugin = registration_plugin_owner.get();
 
     const std::filesystem::path receipt_path =
@@ -983,25 +1013,81 @@ int main(int argc, char ** argv)
       registration_plugin_session->pluginManifestPath().empty() ? "<host>" :
       registration_plugin_session->pluginManifestPath().c_str());
   } else if (registration_method == "GICP") {
-    // Backend GICP remains explicitly legacy.  It is constructed in the
-    // shell and bridged into the typed core; it is not resolved as NDT and
-    // never falls back to NDT when construction or configuration fails.
+    // Preserve the historical PCL construction/configuration, then adopt the
+    // bridge into the common session boundary.  The host namespace is
+    // intentional: this path must never reinterpret a built-in as a
+    // pluginlib class or silently fall back to NDT.
     legacy_registration = graphslam::backend_core::makeLegacyGicpRegistration();
     if (!legacy_registration) {
       RCLCPP_ERROR(logger, "backend GICP legacy construction failed; no fallback is allowed");
       rclcpp::shutdown();
       return 1;
     }
-    legacy_registration_bridge.reset(
-      new graphslam::backend_registration::PclRegistrationAdapter(
-        legacy_registration, "lidarslam_builtin/LegacyBackendGicp"));
-    registration_plugin = legacy_registration_bridge.get();
+    legacy_registration_bridge =
+      std::make_shared<graphslam::backend_registration::PclRegistrationAdapter>(
+      legacy_registration, "lidarslam_builtin/LegacyBackendGicp");
+    const std::shared_ptr<RegistrationPlugin> candidate_owner = legacy_registration_bridge;
+    lidarslam::plugins::registration::shell::LoadRequest request;
+    request.class_id = "lidarslam_builtin/LegacyBackendGicp";
+    request.capabilities.require_initial_guess = true;
+    request.capabilities.require_aligned_source = true;
+    request.capabilities.require_target_policy = true;
+    request.capabilities.target_policy =
+      lidarslam::plugins::registration::TargetPolicy::kAcceptHostPrepared;
+    request.capabilities.require_correspondence_metric = true;
+    request.capabilities.correspondence_metric =
+      lidarslam::plugins::registration::CorrespondenceMetric::kSquareRootFitnessProxy;
+    request.enforce_permissive_license = true;
+    using lidarslam::plugins::registration::shell::LoadFailure;
+    using lidarslam::plugins::registration::shell::RegistrationActivationSlots;
+    using lidarslam::plugins::registration::shell::RegistrationActivationTransaction;
+    LoadFailure session_failure;
+    const auto candidate_session =
+      RegistrationPluginSession::createHostSession(
+      candidate_owner, request, "", false, &session_failure);
+    if (!candidate_session) {
+      RCLCPP_ERROR(
+        logger, "backend GICP host session adoption failed: %s", session_failure.message.c_str());
+      rclcpp::shutdown();
+      return 1;
+    }
+    RegistrationActivationSlots activation_slots;
+    activation_slots.session = &registration_plugin_session;
+    activation_slots.plugin = &registration_plugin_owner;
+    RegistrationActivationTransaction activation(activation_slots);
+    LoadFailure activation_failure;
+    if (!activation.prepare(candidate_session, &activation_failure) ||
+      !activation.validate(
+        [](const lidarslam::plugins::registration::shell::
+        RegistrationActivationSnapshot & candidate)
+        {
+          if (!candidate.session || !candidate.plugin) {
+            return LoadFailure{
+            lidarslam::plugins::registration::shell::LoadFailureCode::kInvalidRequest,
+            "offline backend GICP activation candidate is null"};
+          }
+          return LoadFailure{};
+        }, &activation_failure) ||
+      !activation.commit(&activation_failure))
+    {
+      RCLCPP_ERROR(
+        logger, "backend GICP activation failed: %s", activation_failure.message.c_str());
+      rclcpp::shutdown();
+      return 1;
+    }
+    registration_plugin = registration_plugin_owner.get();
     RCLCPP_INFO(
       logger,
-      "backend registration preflight resolved role=%s backend_kind=legacy_pcl_bridge "
-      "class=lidarslam_builtin/LegacyBackendGicp api=1.0 license=BSD-2-Clause "
+      "backend registration preflight resolved role=%s backend_kind=%s "
+      "class=%s api=%u.%u license=%s "
       "library=<host> manifest=<host>",
-      graphslam::backend_registration::kBackendRegistrationRole);
+      graphslam::backend_registration::kBackendRegistrationRole,
+      lidarslam::plugins::registration::shell::backendKindName(
+        registration_plugin_session->backendKind()),
+      registration_plugin_session->classId().c_str(),
+      static_cast<unsigned int>(registration_plugin_session->metadata().api_version.major),
+      static_cast<unsigned int>(registration_plugin_session->metadata().api_version.minor),
+      registration_plugin_session->metadata().license.c_str());
   } else {
     RCLCPP_ERROR(
       logger, "invalid registration_method='%s'; backend supports only NDT and GICP "
@@ -1079,8 +1165,16 @@ int main(int argc, char ** argv)
         for (int i = 0; i <= query_idx; ++i) {
           visible.push_back(records[i].meta);
         }
+        std::unique_ptr<RegistrationPluginSessionAdapter> registration_session_adapter;
+        RegistrationPlugin * registration_for_search = registration_plugin;
+        if (registration_plugin_session != nullptr) {
+          registration_session_adapter.reset(
+            new RegistrationPluginSessionAdapter(*registration_plugin_session));
+          registration_for_search = registration_session_adapter.get();
+        }
         const graphslam::backend_core::LoopSearchOutput output = core.searchLoopForSubmap(
-          visible, query_idx, search_config, raw_cloud_provider, *registration_plugin, voxelgrid,
+          visible, query_idx, search_config, raw_cloud_provider, *registration_for_search,
+        voxelgrid,
           bbs_verifier);
         for (const auto & line : output.logs) {
           if (line.via_logger) {

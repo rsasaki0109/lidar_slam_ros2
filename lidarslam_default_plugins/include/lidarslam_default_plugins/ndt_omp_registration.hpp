@@ -56,7 +56,8 @@ struct TargetCellCacheStats
  * need the stable registration interface, not pclomp template definitions.
  */
 class NdtOmpRegistration final
-  : public lidarslam::plugins::registration::RegistrationPlugin
+  : public lidarslam::plugins::registration::RegistrationPlugin,
+  public lidarslam::plugins::registration::RegistrationPluginDescriptorProvider
 {
 public:
   NdtOmpRegistration();
@@ -67,6 +68,8 @@ public:
 
   lidarslam::plugins::registration::PluginMetadata metadata() const override;
   lidarslam::plugins::registration::Capabilities capabilities() const override;
+  lidarslam::plugins::registration::RegistrationRuntimeDescriptor
+  registrationDescriptor() const override;
 
   bool configure(
     const lidarslam::plugins::registration::ParameterMap & parameters,

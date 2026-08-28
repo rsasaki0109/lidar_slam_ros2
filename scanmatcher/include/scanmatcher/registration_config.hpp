@@ -59,6 +59,35 @@ inline const char * fastGicpUnavailableReason()
          "FAST_GICP/FAST_VGICP cannot be selected and no fallback is allowed";
 }
 
+inline const char * fastGicpHostClassId(const std::string & method)
+{
+  if (method == "FAST_GICP") {
+    return "lidarslam_builtin/FastGicp";
+  }
+  if (method == "FAST_VGICP") {
+    return "lidarslam_builtin/FastVGicp";
+  }
+  return "";
+}
+
+inline const char * fastGicpPluginClassId(const std::string & method)
+{
+  if (method == "FAST_GICP") {
+    return "lidarslam_default_plugins/FastGicp";
+  }
+  if (method == "FAST_VGICP") {
+    return "lidarslam_default_plugins/FastVGicp";
+  }
+  return "";
+}
+
+inline bool isCanonicalFastGicpClassId(
+  const std::string & method, const std::string & class_id)
+{
+  return class_id == fastGicpHostClassId(method) ||
+         class_id == fastGicpPluginClassId(method);
+}
+
 inline bool isSmallGicpMethod(const std::string & method)
 {
   return method == "SMALL_GICP" || method == "SMALL_VGICP";
@@ -126,6 +155,38 @@ inline lidarslam::plugins::registration::ParameterMap makeGicpParameterMap(
   parameters.emplace(
     "adaptive_correspondence_threshold",
     ParameterValue(adaptive_correspondence_threshold));
+  return parameters;
+}
+
+// Convert the legacy FAST_GICP/FAST_VGICP values into the typed optional
+// adapter map. FAST retains the historical fixed 1e-6 epsilon; the
+// voxelized variant additionally requires an explicit resolution.
+inline lidarslam::plugins::registration::ParameterMap makeFastGicpParameterMap(
+  const double maximum_correspondence_distance,
+  const int maximum_iterations,
+  const int num_threads,
+  const bool adaptive_correspondence_threshold,
+  const bool voxelized,
+  const double voxel_resolution)
+{
+  using lidarslam::plugins::registration::ParameterMap;
+  using lidarslam::plugins::registration::ParameterValue;
+
+  ParameterMap parameters;
+  parameters.emplace(
+    "maximum_correspondence_distance",
+    ParameterValue(maximum_correspondence_distance));
+  parameters.emplace("transformation_epsilon", ParameterValue(1e-6));
+  parameters.emplace(
+    "maximum_iterations",
+    ParameterValue(static_cast<std::int64_t>(maximum_iterations)));
+  parameters.emplace("num_threads", ParameterValue(static_cast<std::int64_t>(num_threads)));
+  parameters.emplace(
+    "adaptive_correspondence_threshold",
+    ParameterValue(adaptive_correspondence_threshold));
+  if (voxelized) {
+    parameters.emplace("voxel_resolution", ParameterValue(voxel_resolution));
+  }
   return parameters;
 }
 

@@ -67,6 +67,7 @@ using registration::CorrespondenceMetric;
 using registration::FailureCode;
 using registration::ParameterMap;
 using registration::PluginMetadata;
+using registration::RegistrationRuntimeDescriptor;
 using registration::PointCloud;
 using registration::PointCloudConstPtr;
 using registration::PointT;
@@ -243,6 +244,8 @@ const char * failureName(FailureCode failure)
       return "unsupported capability";
     case FailureCode::kAlignmentFailed:
       return "alignment failed";
+    case FailureCode::kCancelled:
+      return "cancelled";
     case FailureCode::kInternalError:
       return "internal error";
   }
@@ -438,6 +441,21 @@ PluginMetadata NdtOmpRegistration::metadata() const
   metadata.license = "BSD-2-Clause";
   metadata.api_version = kHostApiVersion;
   return metadata;
+}
+
+RegistrationRuntimeDescriptor NdtOmpRegistration::registrationDescriptor() const
+{
+  const std::uint64_t required =
+    static_cast<std::uint64_t>(Capability::kInitialGuess) |
+    static_cast<std::uint64_t>(Capability::kRotationPrior) |
+    static_cast<std::uint64_t>(Capability::kTranslationPrior) |
+    static_cast<std::uint64_t>(Capability::kMaximumCorrespondenceDistance) |
+    static_cast<std::uint64_t>(Capability::kMeanCorrespondenceDistance) |
+    static_cast<std::uint64_t>(Capability::kAlignedSource);
+  return makeRegistrationRuntimeDescriptor(
+    metadata(), capabilities(), required,
+    static_cast<std::uint64_t>(Capability::kDeterministic),
+    registration::registrationConfigSchemaForClassId(metadata().class_id));
 }
 
 Capabilities NdtOmpRegistration::capabilities() const

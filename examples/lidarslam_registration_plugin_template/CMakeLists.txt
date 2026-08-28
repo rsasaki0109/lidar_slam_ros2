@@ -70,6 +70,11 @@ install(TARGETS ${PROJECT_NAME}
   RUNTIME DESTINATION bin
 )
 
+lidarslam_install_registration_contract(${PROJECT_NAME} registration_plugins.xml
+  "lidarslam_registration_plugin_template/Identity" 129 64 0 1 0
+  "lidarslam.registration.template.v1" 1
+  "5b9eff0fabe6c6110fbc9ab2790715c39032f0a2e857bd34a2d0abb95cf8aab3")
+
 ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
 ament_export_include_directories(include)
 ament_export_dependencies(pluginlib lidarslam_plugin_interfaces)

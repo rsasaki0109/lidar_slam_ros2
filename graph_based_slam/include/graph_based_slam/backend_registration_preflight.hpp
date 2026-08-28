@@ -82,6 +82,31 @@ makeNdtHostBuiltinRegistration(
   registration.class_id = "lidarslam_builtin/NdtOmp";
   registration.metadata_class_id = "lidarslam_default_plugins/NdtOmp";
   registration.factory = std::move(factory);
+  registration.expected_descriptor_factory = []() {
+      using namespace lidarslam::plugins::registration;  // NOLINT(build/namespaces)
+      PluginMetadata metadata;
+      metadata.class_id = "lidarslam_builtin/NdtOmp";
+      metadata.implementation_version = "host-preflight";
+      metadata.license = "BSD-2-Clause";
+      metadata.api_version = kHostApiVersion;
+      Capabilities capabilities;
+      capabilities.add(Capability::kInitialGuess).add(Capability::kRotationPrior)
+      .add(Capability::kTranslationPrior).add(Capability::kMaximumCorrespondenceDistance)
+      .add(Capability::kMeanCorrespondenceDistance).add(Capability::kAlignedSource)
+      .setTargetPolicy(TargetPolicy::kRequiresRawTarget)
+      .setCorrespondenceMetric(CorrespondenceMetric::kMeanDistance)
+      .setThreadModel(ThreadModel::kSerializedOwner);
+      return makeRegistrationRuntimeDescriptor(
+        metadata, capabilities,
+        static_cast<std::uint64_t>(Capability::kInitialGuess) |
+        static_cast<std::uint64_t>(Capability::kRotationPrior) |
+        static_cast<std::uint64_t>(Capability::kTranslationPrior) |
+        static_cast<std::uint64_t>(Capability::kMaximumCorrespondenceDistance) |
+        static_cast<std::uint64_t>(Capability::kMeanCorrespondenceDistance) |
+        static_cast<std::uint64_t>(Capability::kAlignedSource),
+        static_cast<std::uint64_t>(Capability::kDeterministic),
+        registrationConfigSchemaForClassId(metadata.class_id));
+    };
   return registration;
 }
 

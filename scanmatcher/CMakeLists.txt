@@ -123,7 +123,12 @@ if(BUILD_TESTING)
 
   ament_add_gtest(test_registration_config test/test_registration_config.cpp)
   target_include_directories(test_registration_config PRIVATE include)
-  ament_target_dependencies(test_registration_config lidarslam_plugin_interfaces)
+  # registration_preflight.hpp is a public scanmatcher test seam that includes
+  # the shell loader contract.  Keep the loader as a direct target dependency
+  # so this test does not rely on undeclared transitive include paths.
+  ament_target_dependencies(test_registration_config
+    lidarslam_plugin_interfaces
+    lidarslam_registration_loader)
 
   ament_add_gtest(test_registration_runtime test/test_registration_runtime.cpp)
   target_include_directories(test_registration_runtime PRIVATE include)
@@ -166,6 +171,16 @@ if(TARGET lidarslam_default_plugins::lidarslam_default_plugins)
     ${lidarslam_default_plugins_include_dirs})
 else()
   message(FATAL_ERROR "lidarslam_default_plugins exported target is unavailable")
+endif()
+if(fast_gicp_FOUND)
+  if(NOT TARGET lidarslam_default_plugins::lidarslam_fast_gicp_plugins)
+    message(FATAL_ERROR
+      "fast_gicp was found but lidarslam_default_plugins did not export its FAST adapter DSO")
+  endif()
+  # The explicit host resolver can construct the typed adapter.  The legacy
+  # direct FAST branch remains available when plugin injection is disabled.
+  target_link_libraries(scanmatcher_component
+    lidarslam_default_plugins::lidarslam_fast_gicp_plugins)
 endif()
 target_link_libraries(scanmatcher_component ${PCL_LIBRARIES})
 if(OpenMP_CXX_FOUND)

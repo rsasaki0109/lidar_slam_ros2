@@ -30,7 +30,9 @@
 
 #include <cstdint>
 
+#include "lidarslam_registration_loader/registration_plugin_loader.hpp"
 #include "scanmatcher/registration_config.hpp"
+#include "scanmatcher/registration_preflight.hpp"
 
 namespace registration = lidarslam::plugins::registration;
 
@@ -49,6 +51,26 @@ TEST(RegistrationConfig, FastGicpAvailabilityIsExplicitAndNeverFallbacks)
     std::string(graphslam::registration_config::fastGicpUnavailableReason()).find("no fallback"),
     std::string::npos);
 #endif
+}
+
+TEST(RegistrationConfig, FastLegacyMethodsMapToVariantSpecificCanonicalIds)
+{
+  EXPECT_EQ(
+    graphslam::registration_config::fastGicpHostClassId("FAST_GICP"),
+    std::string("lidarslam_builtin/FastGicp"));
+  EXPECT_EQ(
+    graphslam::registration_config::fastGicpHostClassId("FAST_VGICP"),
+    std::string("lidarslam_builtin/FastVGicp"));
+  EXPECT_EQ(
+    graphslam::registration_config::fastGicpPluginClassId("FAST_GICP"),
+    std::string("lidarslam_default_plugins/FastGicp"));
+  EXPECT_EQ(
+    graphslam::registration_config::fastGicpPluginClassId("FAST_VGICP"),
+    std::string("lidarslam_default_plugins/FastVGicp"));
+  EXPECT_TRUE(graphslam::registration_config::isCanonicalFastGicpClassId(
+    "FAST_GICP", "lidarslam_builtin/FastGicp"));
+  EXPECT_FALSE(graphslam::registration_config::isCanonicalFastGicpClassId(
+    "FAST_GICP", "lidarslam_builtin/FastVGicp"));
 }
 
 TEST(RegistrationConfig, SmallGicpAvailabilityIsExplicitAndNeverFallbacks)
@@ -96,4 +118,45 @@ TEST(RegistrationConfig, MapsLegacyGicpValuesAndAdaptiveMode)
   EXPECT_DOUBLE_EQ(parameters.at("transformation_epsilon").asDouble(), 1e-8);
   EXPECT_TRUE(parameters.at("adaptive_correspondence_threshold").asBool());
   EXPECT_THROW(parameters.at("adaptive_correspondence_threshold").asDouble(), std::logic_error);
+}
+
+TEST(RegistrationConfig, MapsFastVariantsWithoutSilentCrossVariantFallback)
+{
+  const auto gicp = graphslam::registration_config::makeFastGicpParameterMap(
+    5.0, 35, 1, false, false, 0.0);
+  EXPECT_EQ(gicp.size(), 5U);
+  EXPECT_DOUBLE_EQ(gicp.at("transformation_epsilon").asDouble(), 1e-6);
+  EXPECT_FALSE(gicp.count("voxel_resolution"));
+
+  const auto vgicp = graphslam::registration_config::makeFastGicpParameterMap(
+    5.0, 35, 1, false, true, 0.6);
+  EXPECT_EQ(vgicp.size(), 6U);
+  EXPECT_DOUBLE_EQ(vgicp.at("voxel_resolution").asDouble(), 0.6);
+}
+
+TEST(RegistrationPreflight, RequiresVariantSpecificFastClass)
+{
+  graphslam::registration_config::RegistrationPreflightParameters values;
+  values.method = "FAST_GICP";
+  values.class_id = "lidarslam_builtin/FastGicp";
+  values.ndt_num_threads = 1;
+  lidarslam::plugins::registration::shell::LoadRequest request;
+  std::string error;
+#ifndef HAS_FAST_GICP
+  EXPECT_FALSE(graphslam::registration_config::makeRegistrationPluginLoadRequest(
+    values, &request, &error));
+  EXPECT_NE(error.find("fast_gicp is unavailable"), std::string::npos);
+  return;
+#else
+  ASSERT_TRUE(graphslam::registration_config::makeRegistrationPluginLoadRequest(
+    values, &request, &error)) << error;
+  EXPECT_EQ(request.class_id, "lidarslam_builtin/FastGicp");
+  EXPECT_FALSE(request.parameters.count("voxel_resolution"));
+
+  values.method = "FAST_VGICP";
+  values.class_id = "lidarslam_builtin/FastGicp";
+  EXPECT_FALSE(graphslam::registration_config::makeRegistrationPluginLoadRequest(
+    values, &request, &error));
+  EXPECT_NE(error.find("FastVGicp"), std::string::npos);
+#endif
 }

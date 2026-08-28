@@ -89,6 +89,16 @@ registration::Capabilities IdentityRegistration::capabilities() const
   return capabilities;
 }
 
+registration::RegistrationRuntimeDescriptor IdentityRegistration::registrationDescriptor() const
+{
+  const std::uint64_t deterministic =
+    static_cast<std::uint64_t>(registration::Capability::kDeterministic);
+  const registration::Capabilities current = capabilities();
+  return registration::makeRegistrationRuntimeDescriptor(
+    metadata(), current, current.bits() & ~deterministic, deterministic,
+    registration::registrationConfigSchemaForClassId(metadata().class_id));
+}
+
 bool IdentityRegistration::configure(
   const registration::ParameterMap & parameters, std::string * error)
 {

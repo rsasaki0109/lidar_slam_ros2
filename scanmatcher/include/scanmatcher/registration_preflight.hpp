@@ -28,6 +28,7 @@
 #ifndef SCANMATCHER__REGISTRATION_PREFLIGHT_HPP_
 #define SCANMATCHER__REGISTRATION_PREFLIGHT_HPP_
 
+#include <cstdint>
 #include <string>
 
 #include "lidarslam_registration_loader/registration_plugin_loader.hpp"
@@ -57,6 +58,53 @@ struct RegistrationPreflightParameters
   bool require_translation_prior{false};
 };
 
+inline lidarslam::plugins::registration::RegistrationRuntimeDescriptor
+makeExpectedHostRegistrationDescriptor(const std::string & class_id)
+{
+  using namespace lidarslam::plugins::registration;  // NOLINT(build/namespaces)
+  PluginMetadata metadata;
+  metadata.class_id = class_id;
+  metadata.implementation_version = "host-preflight";
+  metadata.license = "BSD-2-Clause";
+  metadata.api_version = kHostApiVersion;
+  Capabilities capabilities;
+  std::uint64_t required = 0U;
+  std::uint64_t optional = 0U;
+  if (class_id.find("NdtOmp") != std::string::npos) {
+    required = static_cast<std::uint64_t>(Capability::kInitialGuess) |
+      static_cast<std::uint64_t>(Capability::kRotationPrior) |
+      static_cast<std::uint64_t>(Capability::kTranslationPrior) |
+      static_cast<std::uint64_t>(Capability::kMaximumCorrespondenceDistance) |
+      static_cast<std::uint64_t>(Capability::kMeanCorrespondenceDistance) |
+      static_cast<std::uint64_t>(Capability::kAlignedSource);
+    optional = static_cast<std::uint64_t>(Capability::kDeterministic);
+    capabilities.add(Capability::kInitialGuess).add(Capability::kRotationPrior)
+      .add(Capability::kTranslationPrior).add(Capability::kMaximumCorrespondenceDistance)
+      .add(Capability::kMeanCorrespondenceDistance).add(Capability::kAlignedSource)
+      .setTargetPolicy(TargetPolicy::kRequiresRawTarget)
+      .setCorrespondenceMetric(CorrespondenceMetric::kMeanDistance)
+      .setThreadModel(ThreadModel::kSerializedOwner);
+  } else if (class_id.find("Gicp") != std::string::npos ||
+    class_id.find("VGicp") != std::string::npos)
+  {
+    required = static_cast<std::uint64_t>(Capability::kInitialGuess) |
+      static_cast<std::uint64_t>(Capability::kMaximumCorrespondenceDistance) |
+      static_cast<std::uint64_t>(Capability::kAlignedSource);
+    if (class_id.find("Small") != std::string::npos) {
+      optional = static_cast<std::uint64_t>(Capability::kDeterministic);
+    }
+    capabilities.add(Capability::kInitialGuess).add(Capability::kMaximumCorrespondenceDistance)
+      .add(Capability::kAlignedSource)
+      .setTargetPolicy(TargetPolicy::kAcceptHostPrepared)
+      .setCorrespondenceMetric(CorrespondenceMetric::kSquareRootFitnessProxy)
+      .setThreadModel(ThreadModel::kSerializedOwner);
+  }
+  auto descriptor = makeRegistrationRuntimeDescriptor(
+    metadata, capabilities, required, optional,
+    registrationConfigSchemaForClassId(class_id));
+  return descriptor;
+}
+
 inline bool makeRegistrationPluginLoadRequest(
   const RegistrationPreflightParameters & values,
   lidarslam::plugins::registration::shell::LoadRequest * request,
@@ -76,11 +124,12 @@ inline bool makeRegistrationPluginLoadRequest(
   }
   if (
     values.method != "NDT" && values.method != "GICP" &&
-    values.method != "SMALL_GICP" && values.method != "SMALL_VGICP")
+    values.method != "SMALL_GICP" && values.method != "SMALL_VGICP" &&
+    values.method != "FAST_GICP" && values.method != "FAST_VGICP")
   {
     if (error != nullptr) {
       *error = "registration plugin preflight does not support registration_method='" +
-        values.method + "'; FAST/other methods remain legacy or unavailable";
+        values.method + "'; other methods remain legacy or unavailable";
     }
     return false;
   }
@@ -101,6 +150,29 @@ inline bool makeRegistrationPluginLoadRequest(
   request->capabilities.require_initial_guess = true;
   request->capabilities.require_aligned_source = true;
   request->capabilities.require_target_policy = true;
+
+  if (
+    registration_config::isFastGicpMethod(values.method) &&
+    !registration_config::fastGicpAvailable())
+  {
+    if (error != nullptr) {
+      *error = "registration plugin preflight requested " + values.method +
+        " but fast_gicp is unavailable in this build; no fallback is allowed";
+    }
+    return false;
+  }
+  if (
+    registration_config::isFastGicpMethod(values.method) &&
+    !registration_config::isCanonicalFastGicpClassId(values.method, values.class_id))
+  {
+    if (error != nullptr) {
+      *error =
+        "FAST registration_method='" + values.method + "' requires canonical class ID '" +
+        registration_config::fastGicpHostClassId(values.method) + "' or '" +
+        registration_config::fastGicpPluginClassId(values.method) + "'";
+    }
+    return false;
+  }
 
   if (values.method == "NDT") {
     request->parameters = makeNdtParameterMap(
@@ -131,11 +203,27 @@ inline bool makeRegistrationPluginLoadRequest(
       lidarslam::plugins::registration::CorrespondenceMetric::kSquareRootFitnessProxy;
     request->capabilities.require_maximum_correspondence_distance =
       values.adaptive_correspondence_threshold;
-  } else {
+  } else if (values.method == "SMALL_GICP" || values.method == "SMALL_VGICP") {
     const bool voxelized = values.method == "SMALL_VGICP";
     request->parameters = makeSmallGicpParameterMap(
       values.gicp_maximum_correspondence_distance,
       1e-6,
+      values.ndt_max_iterations,
+      values.ndt_num_threads,
+      values.adaptive_correspondence_threshold,
+      voxelized,
+      values.ndt_resolution);
+    request->capabilities.target_policy =
+      lidarslam::plugins::registration::TargetPolicy::kAcceptHostPrepared;
+    request->capabilities.require_correspondence_metric = true;
+    request->capabilities.correspondence_metric =
+      lidarslam::plugins::registration::CorrespondenceMetric::kSquareRootFitnessProxy;
+    request->capabilities.require_maximum_correspondence_distance =
+      values.adaptive_correspondence_threshold;
+  } else {
+    const bool voxelized = values.method == "FAST_VGICP";
+    request->parameters = makeFastGicpParameterMap(
+      values.gicp_maximum_correspondence_distance,
       values.ndt_max_iterations,
       values.ndt_num_threads,
       values.adaptive_correspondence_threshold,

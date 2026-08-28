@@ -50,6 +50,23 @@ install(TARGETS ${PROJECT_NAME}
   RUNTIME DESTINATION bin
 )
 
+set(_registration_fake_schema_sha256
+  "4d2d0f7f87d168fa5a04b22d1f3fbfc468c3576ae1e4f529dc8b6a7fca8a7c30")
+foreach(_registration_fake_class
+    "lidarslam_fake_registration_plugins/Identity"
+    "lidarslam_fake_registration_plugins/BadApi"
+    "lidarslam_fake_registration_plugins/BadMetadata"
+    "lidarslam_fake_registration_plugins/Rejecting"
+    "lidarslam_fake_registration_plugins/Unlicensed"
+    "lidarslam_fake_registration_plugins/ConstructorProbe")
+  lidarslam_install_registration_contract(${PROJECT_NAME} registration_plugins.xml
+    "${_registration_fake_class}" 129 64 1 1 0
+    "lidarslam.registration.generic.v1" 1 "${_registration_fake_schema_sha256}")
+endforeach()
+lidarslam_install_registration_contract(${PROJECT_NAME} registration_plugins.xml
+  "lidarslam_fake_registration_plugins/NoGuess" 128 64 1 1 0
+  "lidarslam.registration.generic.v1" 1 "${_registration_fake_schema_sha256}")
+
 ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
 ament_export_include_directories(include)
 ament_export_dependencies(pluginlib lidarslam_plugin_interfaces)

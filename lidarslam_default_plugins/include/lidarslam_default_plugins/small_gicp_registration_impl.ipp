@@ -53,6 +53,7 @@ using registration::CorrespondenceMetric;
 using registration::FailureCode;
 using registration::ParameterMap;
 using registration::PluginMetadata;
+using registration::RegistrationRuntimeDescriptor;
 using registration::PointCloud;
 using registration::PointCloudConstPtr;
 using registration::PointT;
@@ -231,6 +232,8 @@ const char * smallFailureName(const FailureCode failure)
       return "unsupported capability";
     case FailureCode::kAlignmentFailed:
       return "alignment failed";
+    case FailureCode::kCancelled:
+      return "cancelled";
     case FailureCode::kInternalError:
       return "internal error";
   }
@@ -308,6 +311,18 @@ PluginMetadata SmallGicpRegistration::metadata() const
   return metadata;
 }
 
+RegistrationRuntimeDescriptor SmallGicpRegistration::registrationDescriptor() const
+{
+  const std::uint64_t required =
+    static_cast<std::uint64_t>(Capability::kInitialGuess) |
+    static_cast<std::uint64_t>(Capability::kMaximumCorrespondenceDistance) |
+    static_cast<std::uint64_t>(Capability::kAlignedSource);
+  return makeRegistrationRuntimeDescriptor(
+    metadata(), capabilities(), required,
+    static_cast<std::uint64_t>(Capability::kDeterministic),
+    registration::registrationConfigSchemaForClassId(metadata().class_id));
+}
+
 PluginMetadata SmallVgicpRegistration::metadata() const
 {
   PluginMetadata metadata;
@@ -316,6 +331,18 @@ PluginMetadata SmallVgicpRegistration::metadata() const
   metadata.license = "BSD-2-Clause";
   metadata.api_version = kHostApiVersion;
   return metadata;
+}
+
+RegistrationRuntimeDescriptor SmallVgicpRegistration::registrationDescriptor() const
+{
+  const std::uint64_t required =
+    static_cast<std::uint64_t>(Capability::kInitialGuess) |
+    static_cast<std::uint64_t>(Capability::kMaximumCorrespondenceDistance) |
+    static_cast<std::uint64_t>(Capability::kAlignedSource);
+  return makeRegistrationRuntimeDescriptor(
+    metadata(), capabilities(), required,
+    static_cast<std::uint64_t>(Capability::kDeterministic),
+    registration::registrationConfigSchemaForClassId(metadata().class_id));
 }
 
 Capabilities SmallGicpRegistration::capabilities() const

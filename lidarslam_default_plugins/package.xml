@@ -15,6 +15,10 @@
   <depend>lidarslam_plugin_interfaces</depend>
   <depend>ndt_omp_ros2</depend>
 
+  <!-- Optional build-time dependency.  FAST adapters and their plugin
+       manifest are exported only when fast_gicp is found; this package must
+       remain usable on dependency-absent hosts. -->
+
   <test_depend>ament_cmake_gtest</test_depend>
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
