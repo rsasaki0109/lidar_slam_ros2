@@ -82,6 +82,7 @@ trap stop_recorder EXIT INT TERM
 
 mkdir -p "$(dirname "${OUTPUT_DIR}")"
 RECORD_LOG="${OUTPUT_DIR}.record.log"
+QOS_OVERRIDES="${REPO_ROOT}/configs/rosbag2/backend_capture_qos.yaml"
 echo "recording: ${OUTPUT_DIR}"
 printf 'command:'
 printf ' %q' "${COMMAND[@]}"
@@ -89,7 +90,9 @@ printf '\n'
 # Bash starts asynchronous commands with SIGINT ignored in non-interactive
 # mode. GNU env restores the default dispositions immediately before exec.
 /usr/bin/env --default-signal=INT --default-signal=TERM \
-  ros2 bag record --storage mcap -o "${OUTPUT_DIR}" \
+  ros2 bag record --storage mcap --storage-preset-profile fastwrite \
+  --max-cache-size 1073741824 --include-unpublished-topics \
+  --qos-profile-overrides-path "${QOS_OVERRIDES}" -o "${OUTPUT_DIR}" \
   /rko_lio/odometry /rko_lio/frame >"${RECORD_LOG}" 2>&1 &
 RECORDER_PID=$!
 sleep 2

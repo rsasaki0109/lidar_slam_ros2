@@ -72,6 +72,8 @@ nav:
   - Operator Workflows: workflows.md
   - Degeneracy Resilience Guide: degeneracy-guide.md
   - Graph SLAM Architecture: graph-slam-architecture.md
+  - Registration Plugin API: architecture/registration-plugin-api.md
+  - Registration Plugin Authoring: registration-plugin-authoring.md
   - 3DGS Photoreal Map: 3dgs-map-tutorial.md
   - 3DGS Map Viewer: 3dgs-viewer.md
   - Benchmarking And Release Gate: benchmarking.md
@@ -81,6 +83,8 @@ nav:
   - DDS / Large-Message Tuning: dds-tuning.md
   - Comparison: comparison.md
   - Roadmaps:
+      - SOTA Product Development: roadmap/sota-product-development-2026-08.md
+      - Extensible OSS Architecture: roadmap/extensible-architecture-2026-08.md
       - 1,000 Stars: roadmap/1000-stars.md
       - 2026–2029 Operating Plan: roadmap/1000-stars-2026-2029.md
       - Quarterly Health Review Template: roadmap/1000-stars-quarterly-review-template.md

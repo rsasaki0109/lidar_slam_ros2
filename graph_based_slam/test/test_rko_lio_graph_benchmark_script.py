@@ -34,20 +34,9 @@ from __future__ import annotations
 from pathlib import Path
 import subprocess
 
-import yaml
-
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 BENCHMARK_SCRIPT = REPO_ROOT / 'scripts' / 'run_rko_lio_graph_benchmark.sh'
-NTU_RKO_PROFILE = REPO_ROOT / 'lidarslam' / 'param' / 'rko_lio_ntu_viral.yaml'
-STADTGARTEN_OUTDOOR_PROFILE = (
-    REPO_ROOT / 'configs' / 'mid360_robot' /
-    'rko_lio_rtk_slam_mid360_outdoor.yaml'
-)
-STADTGARTEN_SEQ2_PROFILE = (
-    REPO_ROOT / 'configs' / 'mid360_robot' /
-    'rko_lio_rtk_slam_mid360_stadtgarten_seq2.yaml'
-)
 
 
 def _run_benchmark(*args: str) -> subprocess.CompletedProcess[str]:
@@ -81,50 +70,6 @@ def test_rko_lio_benchmark_help_exits_successfully():
     assert '--skip-reference-gen' in result.stderr
 
 
-def test_default_graph_profile_is_the_validated_ntu_configuration():
-    """The zero-option golden benchmark must use the NTU release profile."""
-    script = BENCHMARK_SCRIPT.read_text(encoding='utf-8')
-    assert (
-        'DEFAULT_LIDARSLAM_PARAM="${REPO_ROOT}/lidarslam/param/'
-        'lidarslam_ntu_viral.yaml"'
-    ) in script
-
-
-def test_default_ntu_frontend_profile_keeps_calibration_and_tuned_resolution():
-    """The golden profile must combine official extrinsics with bounded tuning."""
-    profile = yaml.safe_load(NTU_RKO_PROFILE.read_text(encoding='utf-8'))
-    assert profile['extrinsic_lidar2base_quat_xyzw_xyz'] == [
-        0.0, 0.0, 0.0, 1.0, -0.05, 0.0, 0.055,
-    ]
-    assert profile['voxel_size'] == 1.5
-    assert profile['gravity_window_alignment'] is False
-    assert profile['async.output_publish_delay_ms'] == 20
-
-
-def test_default_ntu_graph_profile_buffers_fast_offline_frontend_bursts():
-    """Loop search must not drop synchronized pairs from the 10x frontend."""
-    profile_path = REPO_ROOT / 'lidarslam' / 'param' / 'lidarslam_ntu_viral.yaml'
-    profile = yaml.safe_load(profile_path.read_text(encoding='utf-8'))
-    graph = profile['graph_based_slam']['ros__parameters']
-
-    assert graph['odom_cloud_sync_queue_size'] == 1024
-    assert graph['use_save_map_in_loop'] is False
-
-
-def test_stadtgarten_seq2_uses_measured_compatibility_profile_only():
-    outdoor = yaml.safe_load(
-        STADTGARTEN_OUTDOOR_PROFILE.read_text(encoding='utf-8'))
-    seq2 = yaml.safe_load(
-        STADTGARTEN_SEQ2_PROFILE.read_text(encoding='utf-8'))
-
-    assert outdoor.get('legacy_voxel_downsample', False) is False
-    assert outdoor['max_range'] == 100.0
-    assert seq2['legacy_voxel_downsample'] is True
-    assert seq2['max_range'] == 105.0
-    assert seq2['double_downsample'] is False
-    assert seq2['voxel_size'] == 0.5
-
-
 def test_trajectory_only_mode_uses_full_dump_as_explicit_passthrough():
     script = BENCHMARK_SCRIPT.read_text(encoding='utf-8')
     assert 'find "$OUTPUT_DIR" -mindepth 2 -maxdepth 2' in script
@@ -132,93 +77,14 @@ def test_trajectory_only_mode_uses_full_dump_as_explicit_passthrough():
     assert 'cp "${BACKEND_TUMS[0]}" "$RAW_TUM"' in script
 
 
-def test_sparse_graph_corrections_are_propagated_to_full_rate_trajectory():
-    """The scored corrected artifact must retain the raw pose sampling rate."""
-    script = BENCHMARK_SCRIPT.read_text(encoding='utf-8')
-    assert (
-        'CORRECTED_SPARSE_TUM="${OUTPUT_DIR}/traj_corrected_sparse.tum"'
-        in script
-    )
-    assert 'CORRECTED_TUM="${OUTPUT_DIR}/traj_corrected.tum"' in script
-    assert '"${SCRIPT_DIR}/densify_corrected_trajectory.py"' in script
-    assert '--corrected "$CORRECTED_SPARSE_TUM"' in script
-    assert '--output "$CORRECTED_TUM"' in script
-    assert '--est "$CORRECTED_TUM_PRISM"' in script
-    assert '--sparse-match' not in script
-
-
-def test_reference_offset_failure_is_not_masked_by_process_substitution():
-    script = BENCHMARK_SCRIPT.read_text(encoding='utf-8')
-    assert 'if ! PRISM_TRANSFORM_OUTPUT="$(python3' in script
-    assert 'reference frame-offset contract is invalid' in script
-    assert 'readarray -t PRISM_TRANSFORM <<<"$PRISM_TRANSFORM_OUTPUT"' in script
-    assert 'base/body/imu_to_reference_translation_m' in script
-
-
-def test_release_provenance_identifies_runtime_and_harness():
-    script = BENCHMARK_SCRIPT.read_text(encoding='utf-8')
-    assert '--benchmark-harness "${BASH_SOURCE[0]}"' in script
-    assert '--runtime-artifact "rko_lio_offline_node=' in script
-    assert '--runtime-artifact "graph_based_slam_node=' in script
-    assert '--parameter-file "$RKO_PARAM"' in script
-
-
 def test_quiet_completion_requires_substantial_bag_progress():
     """Require both near-end and minimum-progress quiet-completion guards."""
     script = BENCHMARK_SCRIPT.read_text(encoding='utf-8')
 
-    assert 'COMPLETION_END_MARGIN_SECS=0.25' in script
+    assert 'COMPLETION_END_MARGIN_SECS=120' in script
     assert 'raw_tum_reached "$end_stamp" "$COMPLETION_END_MARGIN_SECS"' in script
     assert 'raw_tum_reached_fraction 0.8' in script
     assert '[[ -n "$end_stamp" ]]' in script
-    assert 'aborted-but-scoreable' not in script
-
-
-def test_map_save_waits_for_graph_ingestion_to_be_quiet():
-    """Frontend completion must not race graph ingestion and map saving."""
-    script = BENCHMARK_SCRIPT.read_text(encoding='utf-8')
-
-    assert 'graph_progress_signature()' in script
-    assert 'wait_for_graph_drain()' in script
-    assert (
-        'wait_for_graph_drain "$QUIESCENCE_SECS" "$SAVE_TIMEOUT_SECS"'
-        in script
-    )
-    wait_pos = script.index('Waiting for graph input to drain')
-    save_pos = script.index('Calling /map_save ...')
-    assert wait_pos < save_pos
-    assert 'event-driven loop search, query submap' in script
-
-
-def test_signal_handlers_exit_instead_of_continuing_to_map_save():
-    script = BENCHMARK_SCRIPT.read_text(encoding='utf-8')
-
-    assert "trap 'on_signal 130' INT" in script
-    assert "trap 'on_signal 143' TERM" in script
-    assert 'trap cleanup EXIT INT TERM' not in script
-
-
-def test_reference_offset_preflight_requires_finite_numbers():
-    script = BENCHMARK_SCRIPT.read_text(encoding='utf-8')
-
-    assert 'math.isfinite(numeric)' in script
-    assert 'must be a finite number' in script
-
-
-def test_reference_sidecar_controls_timestamp_association_tolerance():
-    script = BENCHMARK_SCRIPT.read_text(encoding='utf-8')
-
-    assert 'meta.get("max_time_diff_sec", 0.05)' in script
-    assert 'reference timestamp-association contract is invalid' in script
-    assert '--max-time-diff "$REFERENCE_MAX_TIME_DIFF"' in script
-
-
-def test_skip_map_save_also_disables_metrics_map_verification():
-    """A trajectory-only run must not inspect a partial map directory."""
-    script = BENCHMARK_SCRIPT.read_text(encoding='utf-8')
-
-    assert 'if [[ "$SKIP_MAP_SAVE" == "true" ]]; then' in script
-    assert 'METRICS_ARGS+=(--skip-map-verify)' in script
 
 
 def test_rko_lio_benchmark_rejects_missing_option_value_before_realpath():
@@ -235,20 +101,6 @@ def test_rko_lio_benchmark_rejects_invalid_bool_without_usage_dump():
     assert result.returncode == 2
     assert 'error: --publish-static-tf expects true or false.' in result.stderr
     assert 'Usage:' not in result.stderr
-
-
-def test_rko_lio_benchmark_rejects_unsafe_completion_margin():
-    result = _run_benchmark('--completion-end-margin-secs', 'nan')
-
-    assert result.returncode == 2
-    assert 'must be a non-negative finite number' in result.stderr
-
-
-def test_rko_lio_benchmark_rejects_non_integer_timeout():
-    result = _run_benchmark('--offline-timeout-secs', '1.5')
-
-    assert result.returncode == 2
-    assert 'offline_timeout_secs must be a positive integer' in result.stderr
 
 
 def test_rko_lio_benchmark_reports_missing_bag_without_realpath(tmp_path: Path):

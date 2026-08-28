@@ -319,6 +319,650 @@ RGB inlier rate. A metric only counts when both systems provide it; values
 within 1% are ties. This prevents an attractive map image or a single trajectory
 number from being presented as an overall win.
 
+## Competitive victory evidence (schema v2)
+
+`scripts/run_cross_repo_slam_benchmark.py` and the legacy `--gate` mode of
+`scripts/evaluate_competitive_suite_gate.py` remain report-only compatibility
+paths. They do not authorize a system-level SOTA claim. The explicit v2 gate
+is fail-closed and consumes one machine-readable evidence document:
+
+```bash
+python3 scripts/evaluate_competitive_suite_gate.py \
+  --evidence <competitive_evidence_v2.yaml> \
+  --profile configs/slam_benchmark_profiles/competitive_slam_v1.yaml \
+  --output <out>/competitive_evidence_v2.json \
+  --yaml-output <out>/competitive_evidence_v2.yaml
+```
+
+The document must declare `schema_version: 2`,
+`evidence_kind: competitive_slam_victory_evidence`, a profile-matched
+`fresh_holdout_slots` selection receipt, and all three required systems
+(`ours`, `glim`, and `fast_livo2`). Fresh slots are separate from the exposed
+historical `holdout_slots` (`exp02`, `exp03`, and `exp21`); those historical
+sequences can never be relabelled as fresh. Every profile fresh slot must be
+`frozen_unopened`/`frozen` with a selection-receipt, input-manifest,
+ground-truth, and calibration SHA-256, and the evidence must match all of
+them. The profile records the reviewed, deep-verified Exp14, Exp16, and Exp18
+identities in
+`configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml` with
+status `frozen_unopened`. The receipt fixes the official source revision, bag
+sizes/SHA-256 values, opaque GT identities, calibration tree, canonical ROS2
+and semantic/input-manifest identities, exposure audit, and blind-order
+policy. The execution-identity receipt/preflight is ready/PASS before first
+run; a real v2 evidence receipt remains `INCOMPLETE` until all required runs
+exist, and no self-declared evidence can promote it.
+
+The evidence contract has explicit `partitions.historical` (role
+`regression`) and `partitions.fresh` (role `primary_fresh`) blocks. Every
+system must provide exactly three complete runs for every dataset in both
+partitions. Historical rows are not used for the aggregate victory APE/CI, but
+they remain mandatory regression coverage.
+
+Each system contains pinned provenance (`revision`, container digest, and
+64-hex toolchain/config fingerprints) plus common scorer fingerprint,
+input/reference/calibration, hardware, machine, thread-policy, and exact
+`Release` identity. The thread policy must include `cpu_affinity`,
+`max_threads`, `omp_num_threads`, `openblas_num_threads`, `mkl_num_threads`,
+`tbb_num_threads`, and `accelerator_policy`; all systems must match the
+canonical mapping hash. Each run repeats the dataset identity hashes, so a
+global input hash cannot hide a cross-dataset mismatch. Historical identity
+uses the profile's `input_manifest_sha256`, `ground_truth_sha256`, and
+`calibration_archive_sha256`; fresh identity additionally includes the
+selection receipt hash. Failed runs remain records and force `FAIL`; an
+omitted run is `INCOMPLETE`. A complete run must include finite positive APE,
+processing RTF at most 1.0, peak RSS, all map metrics, completion/exit status,
+zero catastrophic failures/verified false loops, and trajectory/map SHA-256
+artifacts.
+
+The accuracy gate selects the lowest aggregate APE rival and requires ours to
+improve by at least 10%. Its 95% superiority interval is a true two-stage
+hierarchical bootstrap: fresh datasets are resampled as clusters with fixed
+seed `20260821`, then ours and each rival's three runs inside every selected
+dataset are independently resampled before their means are compared (10,000
+draws). Runs are explicitly not treated as pseudo-independent datasets. All
+rivals must have a positive lower CI bound. Each dataset also has a 2%
+primary-APE regression limit against that sequence's best rival, and map
+non-regression is checked separately for every dataset/rival pair before any
+suite aggregation. The command writes matching JSON and YAML receipts with
+`PASS`, `FAIL`, `INCOMPLETE`, or `INVALID`, including profile/evidence SHA-256
+identities; missing real competitor evidence therefore cannot become a
+victory by aggregation.
+
+The scorer fingerprint is not a hand-entered label: the preflight checker
+sorts scorer entries by name and hashes canonical JSON containing each entry's
+name, repository-relative path, measured file SHA-256, and declared policy.
+The receipt fingerprint must equal that recomputed digest. The checker also
+requires every system's revision/container/toolchain status to be `ready`,
+`frozen`, or (for source revisions only) `pinned`, rejects dirty worktrees,
+and requires clean tracked-diff/untracked-content provenance before a run.
+Pending status values remain `INCOMPLETE` even if a placeholder digest is
+present.
+
+Before any competitor run, freeze the execution identity with the separate
+preflight receipt:
+
+```bash
+python3 scripts/check_competitive_execution_selection.py \
+  --receipt configs/slam_benchmark_profiles/competitive_execution_selection_2026-08.yaml \
+  --profile configs/slam_benchmark_profiles/competitive_slam_v1.yaml \
+  --output <out>/competitive_execution_preflight.json \
+  --yaml-output <out>/competitive_execution_preflight.yaml
+```
+
+The profile records the receipt path and full-file SHA-256. The checked-in
+receipt is now `ready`: the ours clean revision, machine fingerprint,
+eight-thread policy, all three pinned container/toolchain identities, and the
+deep-verified fresh input identities are recorded. Missing values remain
+`INCOMPLETE`; malformed or changed paths/digests are `INVALID`. This check is
+read-only and performs no container build, dataset download, ground-truth
+inspection, or benchmark run. The identity records exact `Release`,
+revision/config/container/toolchain/scorer/machine/thread fields, plus the
+modality/calibration policy: GLIM CPU is lidar+IMU, FAST-LIVO2 is
+lidar+IMU+five-camera visual, and ours is the lidar+IMU track. These are
+fairness constraints, not performance evidence. Before any run, enforce the
+recorded policy with `taskset` and the matching Docker `--cpuset-cpus` setting,
+and explicitly export `OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS`,
+`MKL_NUM_THREADS`, and `TBB_NUM_THREADS` as recorded; this receipt update does
+not change the benchmark runners.
+
+The profile/receipt registration uses the non-cyclic
+`canonical_profile_sha256_v1` contract. It parses the complete
+`competitive_slam_profile` YAML mapping, removes only
+`evidence_gate_v2.execution_selection_receipt_sha256`, then serializes the
+mapping as UTF-8 JSON with sorted keys, compact separators, and
+`ensure_ascii=true` before hashing with SHA-256. The receipt stores that value
+as `common_identity.profile_sha256` plus its hash kind. The profile continues
+to store the raw full-file SHA of the receipt, so YAML formatting changes are
+visible there without creating a mutual-hash cycle. Any other profile field
+mutation changes the canonical profile hash; missing, wrong-kind, or mismatched
+values remain fail-closed (`INCOMPLETE` for unresolved pending data and
+`INVALID` for malformed/tampered data).
+
+To refresh the pending identity without touching the reviewed receipt, create
+an observation artifact and then finalize it against the same receipt:
+
+```bash
+python3 scripts/capture_competitive_execution_identity.py capture \
+  --receipt configs/slam_benchmark_profiles/competitive_execution_selection_2026-08.yaml \
+  --profile configs/slam_benchmark_profiles/competitive_slam_v1.yaml \
+  --output <out>/execution_identity_capture.json \
+  --yaml-output <out>/execution_identity_capture.yaml
+python3 scripts/capture_competitive_execution_identity.py finalize \
+  --receipt configs/slam_benchmark_profiles/competitive_execution_selection_2026-08.yaml \
+  --profile configs/slam_benchmark_profiles/competitive_slam_v1.yaml \
+  --capture <out>/execution_identity_capture.yaml \
+  --output <out>/execution_identity_finalize.json \
+  --yaml-output <out>/execution_identity_finalize.yaml
+```
+
+Both commands are read-only with respect to the receipt. Capture records the
+current worktree provenance, machine fingerprint, OpenMP-related environment,
+and locally available Docker image IDs. For an explicitly bound local image,
+capture also runs bounded `--pull=never --network none --read-only` probes for
+compiler/linker/ROS/PCL/Eigen/OpenMP and binds the result to the inspected
+image digest; a source checkout binding supplies Git provenance only. It does
+not pull/build images or open fresh bags/GT. Finalize refuses a capture
+from another receipt and cannot promote `pending` to `ready`/`frozen`. The
+current worktree therefore produces `INCOMPLETE`, as required; only a later
+reviewed clean revision with system-container toolchain identities and a
+complete equal thread policy can be explicitly frozen.
+
+For a measured local checkout or image, bindings are explicit and repeatable;
+they never clone, build, or download anything:
+
+```bash
+python3 scripts/capture_competitive_execution_identity.py capture \
+  --source ours=/path/to/ours \
+  --source glim=/path/to/glim \
+  --source fast_livo2=/path/to/FAST-LIVO2 \
+  --image glim=glim-cpu-benchmark:competitive-v1 \
+  --image fast_livo2=fast-livo2-benchmark:ros1-pinned \
+  --receipt <receipt.yaml> --profile <profile.yaml> \
+  --output <out>/capture.json
+```
+
+When a rival checkout or local image is not bound, the observation contains a
+machine-readable probe manifest with the exact compiler/linker/ROS/PCL/Eigen/
+OpenMP commands still required; it does not infer readiness. A complete
+synthetic or clean ready/frozen contract can return `PASS`; any receipt left
+pending remains `INCOMPLETE` until an operator explicitly reviews and updates
+it. The current M5d execution receipt is ready, while the evidence gate still
+awaits benchmark run records.
+
+### M6a0 GT-blind execution plan (2026-08-22)
+
+Before any fresh-holdout replay, generate the read-only 27-attempt plan:
+
+```bash
+python3 scripts/run_competitive_gt_blind_benchmark.py \
+  --input-root /media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821 \
+  --output-root /media/sasaki/aiueo1/benchmarks/competitive_results/m6a_gt_blind_20260822 \
+  --profile configs/slam_benchmark_profiles/competitive_slam_v1.yaml \
+  --receipt configs/slam_benchmark_profiles/competitive_execution_selection_2026-08.yaml \
+  --selection configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml \
+  --dry-run --plan-output /tmp/m6a_gt_blind_plan.json
+```
+
+The driver does not launch containers in `--dry-run`. `--preflight` adds
+immutable image inspection and frozen raw/canonical input hashing. M6a1
+rebuilt the ours image from algorithm revision
+`866f733677e92ecb08d67126e463da99dd140d46`; its immutable image ID/digest is
+`sha256:0680ae359deb2da45ff16ecf1c5d92c0510dc51d48bd06c0fcd93ce1d33ff3fb`.
+The separate GT-blind harness/orchestrator revision is
+`4701f0084d6b0fff475a62bec7eeb6d807561821`, not an algorithm revision.
+Receipt/profile hashes were resynchronized without changing the canonical
+profile identity. Read-only dry-run and preflight passed all 27 scheduled
+attempts; M6a2 subsequently exercised `--execute` once, and its incomplete
+GT-blind completion manifest is recorded below. Ours and GLIM
+mount only the canonical ROS 2 directory; FAST-LIVO2 mounts only the selected
+raw ROS 1 bag and records the frozen raw/canonical semantic-equivalence hash.
+No GT path, calibration tree, scorer, APE, or map-quality input is passed to a
+container by this harness. Preflight hashes each frozen slot once despite the
+repeated system/repetition schedule.
+
+### M6a2 GT-blind execution result (2026-08-22)
+
+The one permitted `--execute` pass covered all 27 scheduled attempts in the
+managed results root. Completion is `INCOMPLETE` (manifest SHA256
+`a5abafdeb420619a1460737a3cf91862fa41ce7930c041324b1f38c00b16f002`):
+ours had nine exit-1 RKO-LIO startup failures, GLIM had nine exit-250
+read-only ROS-log failures, and FAST-LIVO2 had nine exit-20 ROS-master
+self-connect failures under the network-disabled container policy. Attempt
+directories are immutable and no `.part` directory remains. The completion
+manifest proves GT content was not opened and no scorer was invoked, but it
+contains no valid trajectory/performance evidence. Repair and smoke-test these
+three runtime contracts before any rerun; do not infer accuracy, performance,
+map quality, or SOTA superiority from this incomplete attempt.
+
+### M6a3 GT-blind remediation and preflight closure (2026-08-22)
+
+The failed M6a2 campaign is immutable and remains the parent failure record;
+its completion manifest SHA-256 is
+`a5abafdeb420619a1460737a3cf91862fa41ce7930c041324b1f38c00b16f002`.
+It is an infrastructure-failed campaign, not a replacement or a benchmark
+result. The remediation keeps the algorithm revision
+`866f733677e92ecb08d67126e463da99dd140d46` unchanged:
+
+- ours now builds and installs the pinned `rko_lio` runtime, checks its package,
+  executable, config, archive SHA, and writes ROS launch state only below the
+  attempt output;
+- GLIM writes ROS state below the attempt output and its synthetic smoke uses
+  process-group SIGINT for bounded clean shutdown;
+- FAST-LIVO2 keeps `network=none` and uses only loopback
+  `ROS_MASTER_URI`/`ROS_IP`/`ROS_HOSTNAME`.
+
+The rebuilt ours image is
+`m6a3c-lidarslam-ours:jazzy@sha256:18198c17627459e96c574b1bf3093064c9c092f4fc2f89594b7e4b14705288bd`.
+Synthetic ROS2/ROS1 fixtures exercised startup, bag open/input parsing, and
+clean shutdown for all three wrappers. The normalized evidence is under
+`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a3_20260822/smoke/normalized`;
+the ours, GLIM, and FAST tree SHA-256 values are respectively
+`12e56407c0750bf47ff3aae307c4a96e78e056f84121421de10ed6d9825216ec2`,
+`2e74d9659c04007af20e4fb5999087f1a6cbaac4a4cf3df47f6eacc8562edbed`, and
+`8293e1f1771f9b60a8d11a43998f538e6b965341bc3399b4aeda81c1a209ce17`.
+All three contract markers report `performance_run: false` and
+`gt_mounted: false`.
+
+The disclosed rerun uses the separate results root
+`/media/sasaki/aiueo1/benchmarks/competitive_results/m6a_gt_blind_campaign2_20260822`.
+Its read-only dry-run has 27/27 attempts and plan SHA-256
+`465e856846eb4bcf15e125285a914d2defda72413b5016e2965b884cda2f8bd8`.
+The preflight plan is `preflight_ready`, has 27/27 attempts, plan SHA-256
+`7aeac10cdeb1c8356e282b53a62f4f3a05621f37942d325d58302a8f6464cd43`,
+and records profile canonical SHA
+`5a8b81b7483ce9921fdfb4393ed006390fc5f0b2553b5e29976de96725a4da39`,
+selection SHA
+`2bfc541a8d6127599f7a36e66c08da44488a08a55a4d9c4709703223be8bdd2b`,
+and execution-receipt SHA
+`d25057bc3660424f9ea852143a215610b8395dddfee0ed1e8c64a5acd1cde0ab`.
+At the M6a3 checkpoint GT content and scorer remained untouched and no
+`--execute` had been run. The later M6a4 partial record below is the complete
+execution status; neither checkpoint authorizes accuracy, performance, map, or
+SOTA claims.
+
+### M6a4 partial GT-blind campaign closure (2026-08-22)
+
+The disclosed campaign2 execute was started once after the fixed preflight.
+Attempts 001--018 are immutable final attempts: ours and GLIM each completed
+all three frozen slots with three repetitions (18/18, exit 0, complete output,
+and GT/scorer-free proofs). FAST attempt 019 produced its wrapper status and
+odometry artifacts, but the driver failed while finalizing the attempt because
+`attempt_019.part/ros_home/rospack_cache_15823137030970321179` was mode 600,
+owned by root, and unreadable to the driver user. The `.part` directory is
+preserved unchanged; no attempt 019 final manifest exists, and attempts
+020--027 were not started. The exact partial record is the external atomic
+manifest
+`/media/sasaki/aiueo1/benchmarks/competitive_results/m6a_gt_blind_campaign2_20260822/partial_campaign_manifest.json`
+(SHA-256
+`df91a0f0852911790f3fabb5b5638938b8e1222208943be01678a99fbd062978`). Its
+non-circular root-tree projection SHA is
+`ceafd30fbfe4f0099ba32e4a79390f8dd5cc0e6ea428254c8d021c11231bd16e`.
+
+The partial campaign is `INCOMPLETE`, not a benchmark result. The host
+`/usr/bin/time -v` values recorded around `docker run` are client-process RSS,
+not container/cgroup peak memory, so RSS evidence is invalid for a performance
+gate. GT content and scorers were never accessed. The immutable M6a2 parent
+completion SHA remains
+`a5abafdeb420619a1460737a3cf91862fa41ce7930c041324b1f38c00b16f002`.
+A planned campaign3 must first provide resilient attempt finalization and
+container/cgroup memory accounting; no M6b or README/SOTA claim is authorized.
+
+### M6a5 container-memory contract and campaign3 preflight (2026-08-22)
+
+M6a5 closes the measurement-accounting gap without starting another benchmark.
+The comparison RSS field is exclusively `container_cgroup_peak_bytes` from
+the container's cgroup-v2 `memory.peak`; the host `/usr/bin/time -v` value is
+retained only as the diagnostic `docker_client_peak_rss_kb`.  A cgroup-v2
+`memory.max` value of `max` is valid and is recorded as an unlimited limit.
+The helper writes an atomic, host-readable evidence file and includes all
+children in the container scope.  Missing, malformed, non-atomic, or
+unreadable evidence is fail-closed.
+
+The external smoke summary is
+`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a5_20260822/memory-max-unlimited/summary.json`
+(SHA-256
+`e2df6b70dcec703406a406ed7a4c45aaac87b69987d87966f4d10bceee1c85bb`).  The
+known-allocation check increased the cgroup peak by `138006528` bytes while
+the Docker-client RSS remained approximately constant; this validates the
+measurement scope, not SLAM performance.
+
+Campaign3 is a disclosed preflight-only successor at
+`/media/sasaki/aiueo1/benchmarks/competitive_results/m6a_gt_blind_campaign3_20260822`.
+Its final evidence directory is
+`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a5_20260822/campaign3-preflight-final`:
+the dry-run plan SHA is
+`bef6184b506b852288cf07b94772442cdc47c6c58e2cef45da5140249729d082`, the
+preflight plan SHA is
+`362ad49f85491bfd74ddda181ec0a334c972e4be2818374a05b0db3c5724087b`, and
+the summary SHA is
+`9ae7115d10dee09f5287317b5e9a3912580f7ae31cfd93e8686162149e108bf0`.
+All 27 scheduled attempts are preflight-ready, but the campaign has zero
+attempts, `execute_started=false`, and both GT content access and scorer use
+are false.  The historical M6a5 checkpoint recorded execution-receipt raw
+SHA
+`d89d30d9e516f7d7211536bd1ea4f837ae95c4f7aa4527af60a5f7699c3d677f` and
+profile canonical SHA
+`5a8b81b7483ce9921fdfb4393ed006390fc5f0b2553b5e29976de96725a4da39`;
+M6a7 later resynchronized these identities after adding its audited metric
+contract (the current values are recorded in the M6a7 section below).
+Campaign1 and campaign2 remain immutable incomplete lineage records.  No
+M6b scoring, accuracy, performance, map-quality, or README/SOTA claim is
+authorized by this preflight.
+
+### M6a6 campaign3 GT-blind closure (2026-08-22)
+
+Campaign3 was executed once from the fixed M6a5 preflight and then closed
+without opening GT content or invoking a scorer.  The completion manifest is
+27/27 final attempts with no `.part` directories.  Ours completed 9/9 and
+GLIM 9/9.  FAST-LIVO2 completed 6/9; attempts 022--024 (FAST-LIVO2,
+`fresh_2`) are immutable formal failures with exit status 22 and
+`complete=false`.  The completion manifest SHA is
+`31df60ff2775d2f2a699e7559c16cc5d732a91e175f12af1db06bc47e4b8cd5b`.
+The read-only GT-blind integrity summary is
+`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a6_20260822/completion/integrity-summary.json`
+(SHA-256
+`af27ae2c7d019db790cace3b38b250c2a5dcd3340e58fa5a91158293b2bf2024`).
+The closure manifest is
+`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a6_20260822/closure/m6a6-campaign3-closure.json`
+(SHA-256
+`44d50669e33dbb105300b2b3f926c99f891341373e6a1dfa71ae9c85acf954b8`).
+
+This remains `INCOMPLETE`, not a benchmark result.  The recorded
+`container_cgroup_peak_bytes` is cgroup total footprint (including page
+cache), not process RSS; several runs reached the configured 4-GiB cap, and
+the cold/warm spread (for example, attempt 001 versus 002) means reclaim and
+cache effects cannot be separated.  `docker_client_peak_rss_kb` is retained
+only as a diagnostic.  `memory.events` was not recorded by the M6a5 evidence
+schema, so no pressure or reclaim conclusion is inferred.  Consequently RTF,
+RSS, accuracy, map-quality, and SOTA gates are invalid/insufficient here.
+Campaign lineage is campaign1 immutable failure -> campaign2 immutable
+partial -> campaign3 incomplete -> planned campaign4.  M6b is not
+authorized.
+
+### M6a7 process-tree RSS audit and campaign4 gate (2026-08-22)
+
+Before planning campaign4, the M6a7 evidence was re-audited read-only with the
+correct GNU `time` parser (including indented `Exit status:` lines) and strict
+schedule/mode validation.  The final audit is
+`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/v3_final_audit_tool_final_20260822/v3_run_audit.json`
+(SHA-256
+`bd7f57cd2cb6fe8b93a9c28d7b193968d3e865180f2985fb66c44c736e7cd818`), and its
+normalized receipt is
+`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/v3_final_audit_tool_final_20260822/m6a7_v3_final_receipt.json`
+(SHA-256
+`06985d4c4900dbe1aa27687c023c4b6c2ddd3c362ed6782c92a048f5e1eae62e`).
+The audit accepts exactly 20 AB/BA pairs (40 runs), verifies every run's
+Docker/host exit status and mode, and rejects missing, duplicate, or unexpected
+directories.  Earlier failed audit attempts remain immutable lineage evidence;
+they are not overwritten by this PASS audit.
+
+The comparable memory metric for the next campaign is the aggregate
+process-tree peak RSS, `aggregate_process_tree_peak_rss_bytes`, defined as the
+sum of each process's peak `VmRSS` (shared pages may be counted once per
+process).  Sampling is 250 ms with scheduler nice 10, cgroup v2
+`memory.max=max`, and zero OOM/`oom_kill` delta required.  Cgroup total memory
+and host Docker-client RSS are diagnostics only; the latter is explicitly not
+comparable.  M6a7's measured overhead gate passed (median absolute 1.8513%,
+bootstrap 95% upper 4.1914%), as did signal, allocation/cache-separation, and
+all three synthetic wrapper smoke contracts.  This is measurement-contract
+evidence, not SLAM accuracy or SOTA evidence.
+
+The checked-in execution receipt and profile bind the audit/receipt/summary
+file SHAs using the existing `canonical_profile_sha256_v1` projection.  The
+profile excludes only its registered execution-receipt file SHA; no mtime or
+self-referential receipt hash is used.  At this M6a7 checkpoint, campaign4
+was a separate GT-blind, scorer-free dry-run/preflight gate with a fresh
+results root and zero attempts; no performance execution was authorized by
+that checkpoint.
+
+The campaign4 read-only plans were then generated against a fresh, disjoint
+results root
+`/media/sasaki/aiueo1/benchmarks/competitive_results/m6a_gt_blind_campaign4_20260822`.
+The final deterministic dry-run plan SHA is
+`1ffa6836abc9aa94bb41e310de4ff2e50c9f336335b23779f0ccfa1236ea09f2`; a
+repeat dry-run produced the same bytes and SHA.  The final 27/27 preflight
+plan SHA is
+`a8c953e59b6a7dd70891fcdf3c57c791f9735ea6173dda114cd365e188562e4e`.
+Both final plans contain the fixed 27-attempt schedule and the M6a7
+process-tree RSS contract; at that checkpoint preflight status was
+`preflight_ready` and the results root was empty (`attempts=0`).  The plans bind selection SHA
+`2bfc541a8d6127599f7a36e66c08da44488a08a55a4d9c4709703223be8bdd2b`,
+algorithm revision `866f733677e92ecb08d67126e463da99dd140d46`, all three
+immutable image digests, canonical profile SHA
+`cbb093233b2740e0624fbd348ac293a705fd69e7fa1825723a4e7e493736cc25`, and
+execution-receipt SHA
+`c58d11881f88dd7ea6fef05f1e91edf901ca5eaa23076ff673306580885d14f7`.
+They are GT-blind and scorer-free; `--execute` remains a separate, explicitly
+unauthorized action in this checkpoint.
+
+### M6a8 campaign4 GT-blind completion (2026-08-22)
+
+The fixed campaign4 root was run only after the third quiescence window
+passed.  The pre-run snapshot is recorded at
+`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a8_20260822/campaign4-run-start-20260822/pre_run_snapshot.json`
+with SHA-256
+`07f97ffc4241be205a0678fa58bd5defc66fa6bc818d83716d901e3177ec2341`.
+Two earlier driver starts failed before any attempt because the existing empty
+root was rejected by the no-overwrite contract; their immutable evidence is
+`4bda0f3811e7bf3f9f4d9e38ea91b6f9c9be965e8272824c1862bb955fab9bd4` and
+`26873c3a35b5c70894ebccc24dd694c05060abc450195d7930423c9f6f9119fd4`.
+After verifying that root was empty, it was removed and the driver-owned mkdir
+recovery created the actual campaign root.  No container or attempt was
+created by either failed start.
+
+Campaign4 completed the registered 27-attempt schedule (three systems × three
+fresh slots × three repetitions) with exit status zero and complete output
+contracts.  The immutable external artifacts are:
+
+- results root: `/media/sasaki/aiueo1/benchmarks/competitive_results/m6a_gt_blind_campaign4_20260822`;
+- `completion_manifest.json`, SHA-256
+  `f63b14f52c0b22b957f897568aa38f5a2fce26fea47bd2ca5917f6fec43c1c74`;
+- `integrity_manifest.json`, SHA-256
+  `f28ba05ea5c8fce0a6944ddcc7353d3dd5ea38dca927a7dcef7e4131983b6e5b`;
+- `closure_manifest.json`, SHA-256
+  `f2b1b6e943f1c30cd54636c9221bd1eb38d18192cb1cce1f583fd17bf8b1c59a`.
+
+All attempts are GT-blind: `ground_truth_content_opened=false`,
+`ground_truth_reachable=false`, and `scorer_invoked=false`.  There are no
+`.part` files or residual Docker/sampler processes.  Every attempt passed the
+aggregate process-tree RSS evidence contract, used cgroup v2
+`memory.max=max`, and had zero OOM/`oom_kill` delta.  Docker-client RSS and
+cgroup total memory are retained as diagnostics only.
+
+This is a completion and integrity receipt, not a victory result.  The
+closure status is `VALID_COMPLETE_GT_BLIND_RTF_GATE_NOT_PASSED`: all finite
+processing RTFs were derived from the opaque bag metadata, but FAST-LIVO2's
+maximum was `1.173445611`, exceeding the registered `maximum_processing_rtf`
+limit of `1.0`.  No GT was opened, no scorer or accuracy/map-quality metric was
+run, and no SOTA or M6b claim is permitted.  The fixed canonical profile and
+execution identity remain bound to canonical SHA
+`cbb093233b2740e0624fbd348ac293a705fd69e7fa1825723a4e7e493736cc25` and
+receipt SHA
+`c58d11881f88dd7ea6fef05f1e91edf901ca5eaa23076ff673306580885d14f7`.
+
+### M5c fresh-holdout download checkpoint (2026-08-21)
+
+Fresh input acquisition is a separate, opaque-hash-only checkpoint. The
+selection receipt is reviewed independently first; this tool never edits the
+selection receipt or competitive profile. Use an explicit destination on the
+benchmark storage volume. The read-only `plan` action is the first step and
+does not access the network or dataset contents:
+
+```bash
+python3 scripts/freeze_competitive_fresh_holdouts.py plan \
+  --selection configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml \
+  --root /media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821 \
+  --output /tmp/fresh-holdout-plan.json
+```
+
+After a separate review of that plan and selection receipt, run the actions in
+this order:
+
+```bash
+python3 scripts/freeze_competitive_fresh_holdouts.py download \
+  --selection configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml \
+  --root /media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821
+# If a transfer is interrupted, use this instead of repeating download:
+python3 scripts/freeze_competitive_fresh_holdouts.py download --resume \
+  --selection configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml \
+  --root /media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821
+python3 scripts/freeze_competitive_fresh_holdouts.py verify \
+  --selection configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml \
+  --root /media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821
+```
+
+Before `finalize`, prepare the canonical ROS 2 tree and semantic report from
+the verified raw bags. The preparation command is sequence-scoped or can cover
+all managed manifests; it requires `rosbags==0.11.0` and uses the fixed
+`rosbags-convert` command recorded in its preparation receipt:
+
+```bash
+python3 scripts/prepare_competitive_fresh_ros_inputs.py \
+  --root /media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821 \
+  --all
+# Or, for one slot (and --resume only after an interrupted preparation):
+python3 scripts/prepare_competitive_fresh_ros_inputs.py \
+  --root /media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821 \
+  --sequence exp14 --resume
+```
+
+It rechecks only the raw-bag byte count/SHA from each
+`downloaded_hashed` manifest and never opens the manifest's GT path. Each
+conversion is written to `slots/<seq>/canonical_ros2.part`, checked for the
+seven-topic contract, compared against the raw ROS 1 bag with
+`compare_rosbag_semantic_inputs.py`, then atomically published as
+`canonical_ros2/`, `semantic_equivalence.json`, and
+`preparation_receipt.json`. The receipt binds the plan SHA, manifest/raw
+identity, Python/NumPy/rosbags versions, converter/comparator script hashes,
+exact argv, ROS 2 tree hash, and semantic report hash. Existing output is
+accepted only when that receipt and all hashes still match; the final receipt
+is the commit marker. A crash after conversion, comparison, or either of the
+first two atomic renames is resumable only when each artifact has exactly one
+of its `.part`/final forms; a staged receipt must validate its full identity,
+while a converter/comparator partial without a receipt is only accepted after
+its safe tree/report validation. Mixed or symlinked output fails closed. After
+this step, pass
+`slots/<seq>/canonical_ros2` and `slots/<seq>/semantic_equivalence.json` to
+the downloader's `finalize` command. The external managed root used for this
+checkpoint has been converted and deep-verified; its fresh slots are now
+`frozen_unopened`. Receipt/profile updates are a separate reviewed operation.
+
+Only after preparation and its separate review, publish the downloader's
+final state:
+
+```bash
+python3 scripts/freeze_competitive_fresh_holdouts.py finalize \
+  --selection configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml \
+  --root /media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821 \
+  --ros2-root exp14=/media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821/slots/exp14/canonical_ros2 \
+  --ros2-root exp16=/media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821/slots/exp16/canonical_ros2 \
+  --ros2-root exp18=/media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821/slots/exp18/canonical_ros2 \
+  --semantic-report exp14=/media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821/slots/exp14/semantic_equivalence.json \
+  --semantic-report exp16=/media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821/slots/exp16/semantic_equivalence.json \
+  --semantic-report exp18=/media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821/slots/exp18/semantic_equivalence.json
+```
+
+`--resume` is only for a managed, identity-matching staging directory; a
+complete final slot is re-verified and skipped, while a stale or mixed final/
+staging tree fails closed. The plan and managed-root marker bind the selection
+receipt SHA and the runtime SHA-256 of this producer script, so changing the
+producer or selection contract cannot reuse an old download. Raw bags are
+checked by expected byte count and official LFS SHA-256. Ground truth is never
+parsed or printed: only its opaque byte count/SHA-256 is recorded. Calibration
+files are checked by bytes, SHA-256, Git blob identity, and a canonical logical
+tree hash; storage paths are kept separate from logical paths. `finalize`
+verifies every manifest before calculating the canonical ROS 2 input identity,
+and publishes each state atomically. The output root is
+`/media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821` for the
+current preregistration. The M5d review deep-verified this managed root and
+recorded selection/profile/execution identities. Ground truth remains opaque
+and no benchmark/metric was run; no README/SOTA claim follows from acquisition
+metadata.
+
+After a reviewed `frozen_unopened` tree exists, run the independent deep
+verifier before using it in a benchmark:
+
+```bash
+python3 scripts/verify_competitive_frozen_holdouts.py \
+  --root /media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821 \
+  --selection configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml \
+  --output <out>/frozen_holdouts_deep_verification.json
+```
+
+The verifier requires exactly Exp14/16/18 and rechecks the managed marker,
+selection/plan identities, official bag byte/LFS-SHA identity, calibration
+byte/Git-blob identity, and every final manifest. The bag's preregistered
+Git-blob OID is the immutable Git LFS pointer provenance; it is format-checked
+and reported, never compared with the downloaded bag's content blob. Ground
+truth remains an opaque stream: no GT path, text, trajectory, or score is printed.
+The verifier recomputes the safe
+canonical ROS 2 metadata/tree hash, seven-topic semantic report hash,
+input-manifest payload hash, and the preparation receipt's deterministic
+pre-finalization manifest **file** hash (canonical compact JSON plus its
+trailing newline; distinct from the newline-free payload hash). Its JSON
+summary includes each manifest and
+preparation-receipt file SHA. Missing slots, symlink/path traversal, stale
+receipt/runtime/argv identity, or artifact tampering are hard failures. The
+M5d invocation passed against the managed root and records the enriched
+selection SHA plus its explicit committed preregistration anchor; no GT
+content or metric was parsed. The selection/profile/execution identity update
+was reviewed separately from the freezer.
+
+### Pinned benchmark image recipes
+
+The checked-in execution receipt now names a repo-owned build recipe and build
+entrypoint for each system. Run the entrypoint only after the source revision
+and execution identity have been reviewed:
+
+```bash
+bash scripts/build_competitive_benchmark_images.sh --system all
+```
+
+The recipes use immutable `sha256` base-image references, pin the ours/GLIM/
+FAST-LIVO2 source revisions, and set the recorded CPU-only thread environment.
+The ours recipe receives a Docker context containing only its Dockerfile. It
+clones the public `lidar_slam_ros2` repository at `OURS_REVISION`, verifies the
+`ndt_omp_ros2` gitlink and initializes only that build-required submodule, then
+checks the detached HEAD, clean status, and initialized submodule status before
+rosdep or compilation. The pinned `rko_lio` gitlink is supplied as an exact
+local archive whose SHA is checked against the pinned gitlink; no public-mirror
+substitution is used. This prevents a dirty host checkout or a source archive
+with missing submodule contents from entering the image.
+GLIM's CPU path does not consume PCL; its receipt explicitly records `pcl` as
+`not_applicable`, and the container probe fingerprints that sentinel rather
+than installing an unused package or falling back to the host. The capture
+tool only permits this exception for GLIM/PCL; compiler, linker, ROS, Eigen,
+OpenMP, and all ours/FAST fields remain mandatory and fail closed.
+The FAST-LIVO2 recipe builds its ROS 1 workspace under `/opt/fast_livo_ws`;
+its pinned image and system-container toolchain probe are now observed ready;
+it does not depend on the historical undocumented
+`fast-livo2-benchmark:noetic` or `hdl_localization_noetic:local` images. Its
+legacy Sophus compatibility commit is an explicit full-length build-time pin.
+FAST's upstream HILTI22 configuration is now recorded as an external-container
+artifact at `/opt/fast_livo_ws/src/FAST-LIVO2/config/HILTI22.yaml`, with SHA-256
+`efae9e702c71c770b19002b6e19d4e1b6f46c67df3727e984981d932258f0b4a`. The entry is
+`observed` and is bound to the immutable FAST image
+`sha256:ddc75b574f8cca1e111332153e31a65c74ccdb11f8059da3797ab130814ce17e`;
+the checker never treats that container path as a host file. Fresh execution
+inputs remain pending.
+`--pull=false` is
+intentional: a missing base image or source ref must fail rather than silently
+changing the identity.
+
+This recipe wiring is provenance infrastructure, not benchmark evidence. The
+three pinned image/toolchain observations and the fresh-input identity are now
+marked ready after clean builds, read-only probes, and deep verification. The
+checked-in receipt is ready for a first run; this does not constitute benchmark
+evidence or an accuracy/SOTA claim.
+
+The checked-in synthetic tests cover the exact 10% boundary, missing and
+failed runs, old schema, false freshness, pending slots, dataset hash
+mismatches, invalid fingerprints, identity/RTF failures, within-run CI
+variance, sequence collapse, per-dataset map regression, and all-rival
+bootstrap superiority. No real fresh-slot competitor receipt currently
+satisfies this contract; existing exp02/exp21 assets with failures or RTF
+above one remain negative evidence. README superiority claims are unchanged.
+
 ## SLAM candidate regression
 
 Run plane-revisit OFF/ON with the same backend input and reference:
@@ -1024,6 +1668,55 @@ bash scripts/run_release_readiness_checks.sh \
 
 That hook runs `scripts/run_mid360_robot_public_completion_gate.py` as a hard
 gate and writes its JSON/Markdown under the release-readiness output directory.
+
+### Paired map-quality non-regression
+
+When a candidate map has a like-for-like baseline report, the release wrapper
+can add a fail-closed paired check without changing the existing absolute
+profile gate:
+
+```bash
+bash scripts/run_release_readiness_checks.sh \
+  --skip-default-ci \
+  --skip-benchmark-summary \
+  --map-quality-pcd /path/to/candidate/map_refined.pcd@configs/map_quality_profiles/indoor_construction.yaml \
+  --map-quality-baseline-report /path/to/baseline/map_quality_report.yaml \
+  --map-quality-max-regression-percent 2.0
+```
+
+`run_map_quality_check.sh` evaluates the candidate's run-1 report against the
+named baseline with `scripts/check_map_quality_regression.py`. The five paired
+metrics are plane thickness mean/p95 (lower is better), planar coverage and
+mean-map-entropy valid fraction (higher is better), and entropy value (higher,
+or less negative, is worse). Reports must have finite values, meaningful
+planes, and identical extraction settings; a missing field, zero baseline
+denominator, or mismatch is invalid and fails closed. The paired budget never
+relaxes `indoor_construction.yaml` or any other absolute profile. The command
+writes `paired_regression_verdict.yaml` and `.json` beside the map-quality
+summary, plus human-readable rows in `paired_regression_verdict.txt`.
+
+The HILTI exp04 current-vs-old map reports used in the M4c diagnostic pass this
+2% paired check. Both reports independently violate the indoor profile's
+`mme_valid_fraction_min` threshold, so that absolute-profile result remains a
+separate applicability issue rather than being hidden by the paired pass.
+
+M4c also closed the fixed backend regression receipts for two HILTI inputs:
+
+- exp04: `/tmp/lidarslam-m4c-hilti-exp04-gate.pzufEB`, three-run artifact
+  identity and old optimized trajectory exact, wall `2.71/2.90/2.73 s`,
+  maximum RTF `0.010347643`, peak RSS `272.167968750 MiB`, and wall CV
+  `3.066357758%`.
+- exp07: `/tmp/lidarslam-m4c-hilti-exp07-gate.zCELMb`, three-run artifact
+  identity and old optimized trajectory exact, historical interpolated APE
+  `0.6186851452574647 m` from 5/6 sparse GT points, wall `1.90/1.90/1.97 s`,
+  maximum RTF `0.050166829`, peak RSS `201.136718750 MiB`, and wall CV
+  `1.715683698%`.
+
+Both receipts pass the fixed RTF/RSS/CV gates and record the canonical host NDT
+`backend_loop` receipt with `target_cell_cache_capacity=3`. These are named
+input compatibility/resource gates, not official dense-GT or SOTA comparisons;
+the M5 fresh-holdout and competitor protocol remains pending. The old/current
+indoor absolute-profile violation is reported separately and is not relaxed.
 
 For the continuous RKO-LIO kidnap-relocalization evidence, run:
 

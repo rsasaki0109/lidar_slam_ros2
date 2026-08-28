@@ -33,6 +33,7 @@
 #include <cmath>
 #include <limits>
 
+#include "graph_based_slam/adjacent_edge_covariance_weighting.hpp"
 #include "graph_based_slam/localizability_analysis.hpp"
 #include "graph_based_slam/odometry_covariance_localizability.hpp"
 #include "graph_based_slam/synthetic_degeneracy_fixtures.hpp"
@@ -42,6 +43,7 @@ namespace
 
 using graphslam::degeneracy::analyzeLocalizability;
 using graphslam::degeneracy::analyzeOdometryCovariance;
+using graphslam::degeneracy::AdjacentEdgeCovarianceWeightingConfig;
 using graphslam::degeneracy::BoxFixtureConfig;
 using graphslam::degeneracy::buildGaussNewtonSystem;
 using graphslam::degeneracy::CorridorFixtureConfig;
@@ -55,6 +57,7 @@ using graphslam::degeneracy::makeSinglePlaneFixture;
 using graphslam::degeneracy::matrix6dFromRowMajorCovariance;
 using graphslam::degeneracy::Matrix6d;
 using graphslam::degeneracy::SinglePlaneFixtureConfig;
+using graphslam::degeneracy::weightAdjacentEdgeFromCovariance;
 
 // -----------------------------------------------------------------------
 // Test-only replica of the Thirdparty/rko_lio fork's own
@@ -207,6 +210,70 @@ TEST(OdometryCovarianceLocalizability, RealAnisotropicCovarianceIsNotMistakenFor
   const GaussNewtonSystem system = buildGaussNewtonSystem(fixture.correspondences);
   const Matrix6d cov = covarianceFromHessianLikeFork(system.h);
   EXPECT_FALSE(looksLikeNoDiagnosticsFallback(cov));
+}
+
+TEST(AdjacentEdgeCovarianceWeighting, DisabledPreservesLegacyMatrixExactly)
+{
+  const auto fixture = makeCorridorFixture(CorridorFixtureConfig());
+  const GaussNewtonSystem system = buildGaussNewtonSystem(fixture.correspondences);
+  const auto covariance = toRowMajorArray(covarianceFromHessianLikeFork(system.h));
+  const Matrix6d base = Matrix6d::Identity() * 1000.0;
+
+  const auto result = weightAdjacentEdgeFromCovariance(
+    base, covariance, AdjacentEdgeCovarianceWeightingConfig());
+
+  EXPECT_FALSE(result.applied);
+  EXPECT_TRUE(result.information == base);
+}
+
+TEST(AdjacentEdgeCovarianceWeighting, MissingDiagnosticsPreservesLegacyMatrix)
+{
+  std::array<double, 36> covariance {};
+  const Matrix6d base = Matrix6d::Identity() * 1000.0;
+  AdjacentEdgeCovarianceWeightingConfig config;
+  config.enabled = true;
+
+  const auto result = weightAdjacentEdgeFromCovariance(base, covariance, config);
+
+  EXPECT_FALSE(result.diagnostics_available);
+  EXPECT_FALSE(result.applied);
+  EXPECT_TRUE(result.information == base);
+}
+
+TEST(AdjacentEdgeCovarianceWeighting, CorridorDownweightsOnlyWeakAxis)
+{
+  const auto fixture = makeCorridorFixture(CorridorFixtureConfig());
+  const GaussNewtonSystem system = buildGaussNewtonSystem(fixture.correspondences);
+  const auto covariance = toRowMajorArray(covarianceFromHessianLikeFork(system.h));
+  const Matrix6d base = Matrix6d::Identity() * 1000.0;
+  AdjacentEdgeCovarianceWeightingConfig config;
+  config.enabled = true;
+  config.degenerate_information_scale = 0.25;
+  config.non_observable_information_scale = 0.05;
+
+  const auto result = weightAdjacentEdgeFromCovariance(base, covariance, config);
+
+  ASSERT_TRUE(result.diagnostics_available);
+  ASSERT_TRUE(result.applied);
+  EXPECT_NEAR(result.information(0, 0), 250.0, 1.0e-6);
+  EXPECT_NEAR(result.information(1, 1), 1000.0, 1.0e-6);
+  EXPECT_NEAR(result.information(2, 2), 1000.0, 1.0e-6);
+}
+
+TEST(AdjacentEdgeCovarianceWeighting, ObservableBoxPreservesLegacyMatrix)
+{
+  const auto fixture = makeBoxFixture(BoxFixtureConfig());
+  const GaussNewtonSystem system = buildGaussNewtonSystem(fixture.correspondences);
+  const auto covariance = toRowMajorArray(covarianceFromHessianLikeFork(system.h));
+  const Matrix6d base = Matrix6d::Identity() * 1000.0;
+  AdjacentEdgeCovarianceWeightingConfig config;
+  config.enabled = true;
+
+  const auto result = weightAdjacentEdgeFromCovariance(base, covariance, config);
+
+  ASSERT_TRUE(result.diagnostics_available);
+  EXPECT_FALSE(result.applied);
+  EXPECT_TRUE(result.information.isApprox(base, 1.0e-12));
 }
 
 TEST(OdometryCovarianceLocalizability, NegativeDiagonalIsRejectedDefensively)

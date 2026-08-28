@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<library path="lidarslam_small_gicp_plugins">
+  <class
+    name="lidarslam_default_plugins/SmallGicpPcl"
+    type="lidarslam_default_plugins::SmallGicpRegistration"
+    base_class_type="lidarslam::plugins::registration::RegistrationPlugin">
+    <description>isolated small_gicp PCL GICP registration adapter.</description>
+  </class>
+  <class
+    name="lidarslam_default_plugins/SmallVGicpPcl"
+    type="lidarslam_default_plugins::SmallVgicpRegistration"
+    base_class_type="lidarslam::plugins::registration::RegistrationPlugin">
+    <description>isolated small_gicp PCL VGICP registration adapter.</description>
+  </class>
+</library>

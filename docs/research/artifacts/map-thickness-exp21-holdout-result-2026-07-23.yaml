@@ -1,0 +1,90 @@
+schema_version: 1
+sequence: exp21_outside_building
+evaluation_role: second_untouched_holdout_single_frozen_profile
+candidate_manifest: map-thickness-ndt-guard03-candidate-2026-07-23.yaml
+candidate_manifest_pre_holdout_sha256: d1d76b9dbd7c3c2d3fb5d276b44d371fe62bf4f73ce0daf46a4c5afcfb645b5f
+parameters_changed_after_observing_holdout: false
+evidence_root: /media/sasaki/aiueo/benchmarks/map_thickness_exp21_holdout_20260723/exp21
+
+frozen_input:
+  exact_odom_cloud_pairs: 1528
+  duration_s: 340.445302072
+  bag_size_gib: 1.0
+
+even_map:
+  input_scans: 764
+  submaps: 80
+  travel_m: 123.7
+  loop_edges: 1
+  occupied_points: 8419724
+  fused_surfel_points: 7317673
+  fallback_points: 1102051
+  selective_output_points: 6055522
+  elapsed_s: 168.13
+  peak_rss_kib: 3401168
+  rtf: 0.493846
+
+geometry:
+  baseline_mean_thickness_m: 0.058783005
+  candidate_mean_thickness_m: 0.038111589
+  mean_change_percent: -35.16563333228711
+  baseline_p95_thickness_m: 0.118644469
+  candidate_p95_thickness_m: 0.094931111
+  p95_change_percent: -19.9869055842797
+  baseline_planar_coverage: 0.092257431
+  candidate_planar_coverage: 0.346325609
+  coverage_change_percent: 275.3904755921504
+
+ndt_and_trajectory:
+  odd_query_scans: 764
+  baseline_fitness_mean_m2: 0.06047789795809797
+  candidate_fitness_mean_m2: 0.05106436840913125
+  fitness_mean_change_percent: -15.565239313523882
+  baseline_fitness_p95_m2: 0.15077528237353605
+  candidate_fitness_p95_m2: 0.1291940133325912
+  fitness_p95_change_percent: -14.31353249764019
+  baseline_ape_rmse_m: 0.2371035477421047
+  candidate_ape_rmse_m: 0.22989434020981944
+  ape_rmse_change_percent: -3.0405312788177485
+  baseline_rpe_rmse_m: 0.2525195876087287
+  candidate_rpe_rmse_m: 0.24671885178878514
+  rpe_rmse_change_percent: -2.2971429166642077
+  candidate_elapsed_s: 128.47
+  candidate_peak_rss_kib: 1826440
+
+sha256:
+  baseline_map_pcd: b3dcd6a40f5deea613339e9bd46d82b9e3cfa7114ff1a5fa1fab51bbf09efa5a
+  candidate_map_pcd: dd993e1571ffadcc87c71e1d3f47036fc7e16547540c88cd98460690e8b87458
+  surfel_report: a64ff5f63c82901995d7aa9175ea4900b2b2eeef368727c6f52cb46595311ab9
+  baseline_quality_report: 6e780e16ad438d2775bf458b2d65b7750b7bcc80f007b900437c51dcdec9a0fa
+  candidate_quality_report: 638bc41d9ec1398de7b2e357099230b6e51516a13752f23a99a7ce69fa14c07c
+  target_pcd: 2e0050f01c5c37eb50cc027bb202f454a8f6980502a2ddd2387d5af2b8b6ca81
+  candidate_tum: c7aa4bb58acc83b5ce135c30ad2d93765cfe647bcee42acb20a87be5d802d266
+  candidate_csv: 38dc0fc73ca05524c9f9755b77bd00e7b756d1577f3bdef0008ee203677bf368
+  ape_rpe_report: 8d64b3f9e2778dcec649dcfb6d8f5d13469c929a7da788f3bcff0b68c2a0343e
+
+verdict:
+  geometry_mean_gate: pass
+  geometry_p95_gate: fail
+  coverage_gate: pass
+  ndt_mean_gate: pass
+  ndt_p95_gate: pass
+  ape_gate: pass
+  rpe_gate: pass
+  resource_gate: pass
+  overall: fail
+
+six_sequence_macro_after_holdout:
+  geometry_mean_change_percent: -37.010986553676105
+  geometry_p95_change_percent: -27.160351932693754
+  coverage_change_percent: 268.588150825862
+  ndt_mean_change_percent: -12.844085414504903
+  ndt_p95_change_percent: -12.707282918865838
+  ape_rmse_change_percent: -0.14068629902915983
+  rpe_rmse_change_percent: -0.10376036105853952
+
+release_note: >-
+  The second untouched holdout fails only the individual p95 geometry gate:
+  19.9869% improvement versus the required 25%. No parameter may be tuned on
+  exp21. The six-sequence macro passes all numerical gates, but this result
+  prevents an every-sequence default-on decision.

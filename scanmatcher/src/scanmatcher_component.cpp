@@ -1,7 +1,8 @@
 #include "scanmatcher/scanmatcher_component.h"
-#include "scanmatcher/voxel_grid_safety.hpp"
 #include "scanmatcher/odom_prior_utils.hpp"
-#include <algorithm>
+#include "scanmatcher/registration_config.hpp"
+#include "scanmatcher/registration_preflight.hpp"
+#include "lidarslam_registration_loader/registration_plugin_loader.hpp"
 #include <chrono>
 #include <cmath>
 #include <filesystem>
@@ -9,13 +10,29 @@
 #include <iomanip>
 #include <limits>
 #include <sensor_msgs/point_cloud2_iterator.hpp>
+#include <rcl_interfaces/msg/parameter_descriptor.hpp>
 #include <sstream>
 #include <stdexcept>
-#include <string>
 #include <vector>
 
 #include <pcl/common/common.h>
 #include <pcl/io/pcd_io.h>
+
+// Keep the built-in adapter implementation in this legacy shell translation
+// unit.  pclomp/Eigen template instantiation is order- and context-sensitive;
+// separating it into a DSO changes the floating-point operation sequence and
+// breaks the baseline trajectory equivalence gate.
+#include <pclomp/ndt_omp.h>  // NOLINT(build/include_order)
+#include <pclomp/ndt_omp_impl.hpp>  // NOLINT(build/include_order)
+#include <pclomp/voxel_grid_covariance_omp_impl.hpp>  // NOLINT(build/include_order)
+#include <lidarslam_default_plugins/ndt_omp_registration_impl.ipp>  // NOLINT(build/include_order)
+#include <lidarslam_default_plugins/gicp_omp_registration_impl.ipp>  // NOLINT(build/include_order)
+#ifdef HAS_FAST_GICP
+#include <lidarslam_default_plugins/fast_gicp_registration.hpp>  // NOLINT(build/include_order)
+#endif
+#ifdef HAS_SMALL_GICP
+#include <lidarslam_default_plugins/small_gicp_registration_impl.ipp>  // NOLINT(build/include_order)
+#endif
 
 using namespace std::chrono_literals;
 
@@ -39,151 +56,12 @@ bool pointCloudHasField(const sensor_msgs::msg::PointCloud2 & msg, const std::st
   return false;
 }
 
-bool checkedMultiply(size_t lhs, size_t rhs, size_t * product)
-{
-  if (lhs != 0U && rhs > std::numeric_limits<size_t>::max() / lhs) {
-    return false;
-  }
-  *product = lhs * rhs;
-  return true;
-}
-
-bool validateFloatField(
-  const sensor_msgs::msg::PointCloud2 & msg,
-  const std::string & name,
-  bool required,
-  std::string * error)
-{
-  const sensor_msgs::msg::PointField * match = nullptr;
-  for (const auto & field : msg.fields) {
-    if (field.name != name) {
-      continue;
-    }
-    if (match != nullptr) {
-      *error = "duplicate '" + name + "' field";
-      return false;
-    }
-    match = &field;
-  }
-  if (match == nullptr) {
-    if (required) {
-      *error = "missing required '" + name + "' field";
-      return false;
-    }
-    return true;
-  }
-  if (
-    match->datatype != sensor_msgs::msg::PointField::FLOAT32 ||
-    match->count < 1U)
-  {
-    *error = "field '" + name + "' must be FLOAT32 with count >= 1";
-    return false;
-  }
-  if (
-    msg.point_step < sizeof(float) ||
-    match->offset > msg.point_step - sizeof(float))
-  {
-    *error = "field '" + name + "' extends past point_step";
-    return false;
-  }
-  return true;
-}
-
-bool validatePointCloudLayout(
-  const sensor_msgs::msg::PointCloud2 & msg,
-  size_t * point_count,
-  std::string * error)
-{
-  *point_count = 0U;
-  error->clear();
-  if (msg.is_bigendian) {
-    *error = "big-endian PointCloud2 fields are not supported";
-    return false;
-  }
-  if (msg.width == 0U || msg.height == 0U) {
-    *error = "width and height must both be greater than zero";
-    return false;
-  }
-  if (msg.point_step == 0U) {
-    *error = "point_step must be greater than zero";
-    return false;
-  }
-
-  size_t packed_row_size = 0U;
-  if (!checkedMultiply(msg.width, msg.point_step, &packed_row_size)) {
-    *error = "width * point_step overflows size_t";
-    return false;
-  }
-  if (msg.row_step < packed_row_size) {
-    *error = "row_step must be at least width * point_step";
-    return false;
-  }
-
-  size_t expected_data_size = 0U;
-  if (!checkedMultiply(msg.row_step, msg.height, &expected_data_size)) {
-    *error = "row_step * height overflows size_t";
-    return false;
-  }
-  if (msg.data.size() != expected_data_size) {
-    *error = "data size must equal row_step * height";
-    return false;
-  }
-  if (!checkedMultiply(msg.width, msg.height, point_count)) {
-    *error = "width * height overflows size_t";
-    return false;
-  }
-  if (*point_count > std::numeric_limits<uint32_t>::max()) {
-    *error = "flattened cloud exceeds the PCL uint32 width limit";
-    return false;
-  }
-
-  const bool coordinates_valid =
-    validateFloatField(msg, "x", true, error) &&
-    validateFloatField(msg, "y", true, error) &&
-    validateFloatField(msg, "z", true, error) &&
-    validateFloatField(msg, "intensity", false, error) &&
-    validateFloatField(msg, "time", false, error);
-  if (!coordinates_valid) {
-    return false;
-  }
-
-  const bool has_normal =
-    pointCloudHasField(msg, "normal_x") ||
-    pointCloudHasField(msg, "normal_y") ||
-    pointCloudHasField(msg, "normal_z");
-  return !has_normal ||
-         (validateFloatField(msg, "normal_x", true, error) &&
-         validateFloatField(msg, "normal_y", true, error) &&
-         validateFloatField(msg, "normal_z", true, error));
-}
-
-sensor_msgs::msg::PointCloud2 packPointCloudRows(
-  const sensor_msgs::msg::PointCloud2 & msg)
-{
-  const size_t packed_row_size =
-    static_cast<size_t>(msg.width) * static_cast<size_t>(msg.point_step);
-  if (msg.row_step == packed_row_size) {
-    return msg;
-  }
-
-  sensor_msgs::msg::PointCloud2 packed = msg;
-  packed.row_step = static_cast<uint32_t>(packed_row_size);
-  packed.data.resize(packed_row_size * static_cast<size_t>(msg.height));
-  for (size_t row = 0U; row < msg.height; ++row) {
-    const auto source = msg.data.cbegin() + row * msg.row_step;
-    const auto destination = packed.data.begin() + row * packed_row_size;
-    std::copy_n(source, packed_row_size, destination);
-  }
-  return packed;
-}
-
-PointCloudExtractionResult extractPointCloudXYZIAndTimes(
-  const sensor_msgs::msg::PointCloud2 & msg,
-  size_t point_count)
+PointCloudExtractionResult extractPointCloudXYZIAndTimes(const sensor_msgs::msg::PointCloud2 & msg)
 {
   PointCloudExtractionResult result;
   const bool has_intensity_field = pointCloudHasField(msg, "intensity");
   const bool has_time_field = pointCloudHasField(msg, "time");
+  const auto point_count = static_cast<size_t>(msg.width) * static_cast<size_t>(msg.height);
   result.cloud->points.reserve(point_count);
   if (has_time_field) {
     result.point_times.reserve(point_count);
@@ -197,8 +75,7 @@ PointCloudExtractionResult extractPointCloudXYZIAndTimes(
     sensor_msgs::PointCloud2ConstIterator<float> iter_intensity(msg, "intensity");
     if (has_time_field) {
       sensor_msgs::PointCloud2ConstIterator<float> iter_time(msg, "time");
-      for (size_t index = 0U; index < point_count;
-        ++index,
+      for (; iter_x != iter_x.end();
         ++iter_x, ++iter_y, ++iter_z, ++iter_intensity, ++iter_time)
       {
         pcl::PointXYZI point;
@@ -210,8 +87,7 @@ PointCloudExtractionResult extractPointCloudXYZIAndTimes(
         result.point_times.push_back(*iter_time);
       }
     } else {
-      for (size_t index = 0U; index < point_count;
-        ++index,
+      for (; iter_x != iter_x.end();
         ++iter_x, ++iter_y, ++iter_z, ++iter_intensity)
       {
         pcl::PointXYZI point;
@@ -225,9 +101,7 @@ PointCloudExtractionResult extractPointCloudXYZIAndTimes(
   } else {
     if (has_time_field) {
       sensor_msgs::PointCloud2ConstIterator<float> iter_time(msg, "time");
-      for (size_t index = 0U; index < point_count;
-        ++index, ++iter_x, ++iter_y, ++iter_z, ++iter_time)
-      {
+      for (; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z, ++iter_time) {
         pcl::PointXYZI point;
         point.x = *iter_x;
         point.y = *iter_y;
@@ -237,7 +111,7 @@ PointCloudExtractionResult extractPointCloudXYZIAndTimes(
         result.point_times.push_back(*iter_time);
       }
     } else {
-      for (size_t index = 0U; index < point_count; ++index, ++iter_x, ++iter_y, ++iter_z) {
+      for (; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z) {
         pcl::PointXYZI point;
         point.x = *iter_x;
         point.y = *iter_y;
@@ -253,11 +127,107 @@ PointCloudExtractionResult extractPointCloudXYZIAndTimes(
   result.cloud->is_dense = msg.is_dense;
   return result;
 }
-}  // namespace
+
+const char * registrationFailureName(
+  const lidarslam::plugins::registration::FailureCode failure)
+{
+  using lidarslam::plugins::registration::FailureCode;
+  switch (failure) {
+    case FailureCode::kNone:
+      return "none";
+    case FailureCode::kNotConfigured:
+      return "not configured";
+    case FailureCode::kInvalidInput:
+      return "invalid input";
+    case FailureCode::kUnsupportedCapability:
+      return "unsupported capability";
+    case FailureCode::kAlignmentFailed:
+      return "alignment failed";
+    case FailureCode::kInternalError:
+      return "internal error";
+    case FailureCode::kCancelled:
+      return "cancelled";
+  }
+  return "unknown failure";
+}
+
+enum class SmallRegistrationVariant
+{
+  kUnknown,
+  kGicp,
+  kVgicp,
+};
+
+SmallRegistrationVariant smallRegistrationVariant(const std::string & class_id)
+{
+  if (
+    class_id == "lidarslam_builtin/SmallGicpPcl" ||
+    class_id == "lidarslam_default_plugins/SmallGicpPcl")
+  {
+    return SmallRegistrationVariant::kGicp;
+  }
+  if (
+    class_id == "lidarslam_builtin/SmallVGicpPcl" ||
+    class_id == "lidarslam_default_plugins/SmallVGicpPcl")
+  {
+    return SmallRegistrationVariant::kVgicp;
+  }
+  return SmallRegistrationVariant::kUnknown;
+}
+
+std::mutex g_resource_init_topic_hook_mutex;
+graphslam::ScanMatcherComponent::ResourceInitTopicHook g_resource_init_topic_hook;
+
+std::string resourceInitTopicForTest(const std::string & topic)
+{
+  graphslam::ScanMatcherComponent::ResourceInitTopicHook hook;
+  {
+    std::lock_guard<std::mutex> lock(g_resource_init_topic_hook_mutex);
+    hook = g_resource_init_topic_hook;
+  }
+  return hook ? hook(topic) : topic;
+}
+}
 
 namespace graphslam
 {
+std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
+makeHostBuiltinNdtRegistration();
+std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
+makeHostBuiltinGicpRegistration();
+#ifdef HAS_FAST_GICP
+std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
+makeHostBuiltinFastGicpRegistration();
+std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
+makeHostBuiltinFastVgicpRegistration();
+#endif
+#ifdef HAS_SMALL_GICP
+std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
+makeHostBuiltinSmallGicpRegistration();
+std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
+makeHostBuiltinSmallVgicpRegistration();
+#endif
+
+void ScanMatcherComponent::setResourceInitTopicHookForTest(ResourceInitTopicHook hook)
+{
+  std::lock_guard<std::mutex> lock(g_resource_init_topic_hook_mutex);
+  g_resource_init_topic_hook = std::move(hook);
+}
+
+void ScanMatcherComponent::clearResourceInitTopicHookForTest()
+{
+  std::lock_guard<std::mutex> lock(g_resource_init_topic_hook_mutex);
+  g_resource_init_topic_hook = ResourceInitTopicHook();
+}
+
 ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
+: ScanMatcherComponent(options, RegistrationConstruction::kBuiltIn)
+{
+}
+
+ScanMatcherComponent::ScanMatcherComponent(
+  const rclcpp::NodeOptions & options,
+  const RegistrationConstruction construction)
 : Node("scan_matcher", options),
   clock_(RCL_ROS_TIME),
   tfbuffer_(std::make_shared<rclcpp::Clock>(clock_)),
@@ -268,6 +238,8 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
   double ndt_resolution;
   int ndt_num_threads;
   double gicp_corr_dist_threshold;
+  const bool deferred_construction =
+    construction == RegistrationConstruction::kDeferredPluginInjection;
 
   declare_parameter("global_frame_id", "map");
   get_parameter("global_frame_id", global_frame_id_);
@@ -277,6 +249,77 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
   get_parameter("odom_frame_id", odom_frame_id_);
   declare_parameter("registration_method", "NDT");
   get_parameter("registration_method", registration_method_);
+  rcl_interfaces::msg::ParameterDescriptor registration_plugin_enable_descriptor;
+  registration_plugin_enable_descriptor.description =
+    "Explicit registration session preflight selector; immutable after startup";
+  registration_plugin_enable_descriptor.read_only = true;
+  declare_parameter(
+    "registration_plugin_enable", false, registration_plugin_enable_descriptor);
+  get_parameter("registration_plugin_enable", registration_plugin_enable_);
+
+  rcl_interfaces::msg::ParameterDescriptor registration_plugin_class_descriptor;
+  registration_plugin_class_descriptor.description =
+    "Explicit registration plugin class ID; immutable after startup";
+  registration_plugin_class_descriptor.read_only = true;
+  declare_parameter(
+    "registration_plugin_class", std::string(""), registration_plugin_class_descriptor);
+  get_parameter("registration_plugin_class", registration_plugin_class_);
+
+  rcl_interfaces::msg::ParameterDescriptor registration_plugin_external_descriptor;
+  registration_plugin_external_descriptor.description =
+    "Explicit risk acceptance for an external pluginlib DSO; immutable after startup";
+  registration_plugin_external_descriptor.read_only = true;
+  declare_parameter(
+    "registration_plugin_allow_external", false, registration_plugin_external_descriptor);
+  get_parameter("registration_plugin_allow_external", registration_plugin_allow_external_);
+
+  if (registration_plugin_enable_ != !registration_plugin_class_.empty()) {
+    throw std::runtime_error(
+            "registration_plugin_enable and registration_plugin_class must be set together; "
+            "no registration fallback is applied");
+  }
+  if (registration_plugin_allow_external_ && !registration_plugin_enable_) {
+    throw std::runtime_error(
+            "registration_plugin_allow_external requires registration_plugin_enable=true; "
+            "the selector is immutable after startup");
+  }
+  if (deferred_construction && !registration_plugin_enable_) {
+    throw std::runtime_error(
+            "kDeferredPluginInjection requires registration_plugin_enable=true and a non-empty "
+            "registration_plugin_class before publishers or sensor subscriptions are created");
+  }
+  const bool component_owned_preflight =
+    registration_plugin_enable_ && !deferred_construction;
+  const bool defer_builtin_registration =
+    deferred_construction || component_owned_preflight;
+  if (
+    component_owned_preflight && registration_method_ != "NDT" &&
+    registration_method_ != "GICP" && registration_method_ != "SMALL_GICP" &&
+    registration_method_ != "SMALL_VGICP" &&
+    !graphslam::registration_config::isFastGicpMethod(registration_method_))
+  {
+    throw std::runtime_error(
+            "registration plugin preflight supports NDT, GICP, SMALL_GICP, SMALL_VGICP, "
+            "FAST_GICP, and FAST_VGICP; other methods remain legacy or unavailable");
+  }
+  if (
+    component_owned_preflight &&
+    graphslam::registration_config::isSmallGicpMethod(registration_method_) &&
+    !graphslam::registration_config::smallGicpAvailable())
+  {
+    throw std::runtime_error(
+            "registration plugin preflight requested " + registration_method_ +
+            " but small_gicp is unavailable in this build; no fallback is applied");
+  }
+  if (
+    registration_plugin_enable_ &&
+    graphslam::registration_config::isFastGicpMethod(registration_method_) &&
+    !graphslam::registration_config::fastGicpAvailable())
+  {
+    throw std::runtime_error(
+            "registration plugin preflight requested " + registration_method_ +
+            " but fast_gicp is unavailable in this build; no fallback is applied");
+  }
   declare_parameter("ndt_resolution", 5.0);
   get_parameter("ndt_resolution", ndt_resolution);
   double ndt_step_size;
@@ -309,7 +352,7 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
   declare_parameter("scan_period", 0.1);
   get_parameter("scan_period", scan_period_);
   declare_parameter("map_publish_period", 15.0);
-  get_parameter("map_publish_period", map_publish_period_);  
+  get_parameter("map_publish_period", map_publish_period_);
   declare_parameter("num_targeted_cloud", 10);
   get_parameter("num_targeted_cloud", num_targeted_cloud_);
   if (num_targeted_cloud_ < 1) {
@@ -580,68 +623,216 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
   std::cout << "------------------" << std::endl;
 
   if (registration_method_ == "NDT") {
-
-    auto ndt = pcl::make_shared<
-      pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>>();
-    ndt->setResolution(ndt_resolution);
-    ndt->setTransformationEpsilon(ndt_transformation_epsilon_);
-    ndt->setMaximumIterations(ndt_max_iterations_);
-    ndt->setStepSize(ndt_step_size);
-    ndt->setOulierRatio(ndt_outlier_ratio_);
-    // ndt_omp
-    ndt->setNeighborhoodSearchMethod(pclomp::DIRECT7);
-    if (ndt_num_threads > 0) {ndt->setNumThreads(ndt_num_threads);}
-
-    registration_ = ndt;
+    if (defer_builtin_registration) {
+      RCLCPP_INFO(
+        get_logger(),
+        "external registration plugin preflight selected; deferring built-in NDT construction");
+    }
 
   } else if (registration_method_ == "GICP") {
-    auto gicp = pcl::make_shared<
-      pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>>();
-    gicp->setMaxCorrespondenceDistance(gicp_corr_dist_threshold);
-    gicp->setTransformationEpsilon(1e-8);
-    registration_ = gicp;
+    if (defer_builtin_registration) {
+      RCLCPP_INFO(
+        get_logger(),
+        "external registration plugin preflight selected; deferring built-in GICP construction");
+    }
 
   }
 #ifdef HAS_FAST_GICP
   else if (registration_method_ == "FAST_GICP") {
-    using FG = fast_gicp::FastGICP<pcl::PointXYZI, pcl::PointXYZI>;
-    auto fgicp = pcl::make_shared<FG>();
-    fgicp->setMaxCorrespondenceDistance(gicp_corr_dist_threshold);
-    fgicp->setTransformationEpsilon(1e-6);
-    fgicp->setMaximumIterations(ndt_max_iterations_);
-    if (ndt_num_threads > 0) { fgicp->setNumThreads(ndt_num_threads); }
-    registration_ = fgicp;
+    if (defer_builtin_registration) {
+      RCLCPP_INFO(
+        get_logger(),
+        "external registration plugin preflight selected; deferring built-in "
+        "FAST_GICP construction");
+    }
   } else if (registration_method_ == "FAST_VGICP") {
-    using FVG = fast_gicp::FastVGICP<pcl::PointXYZI, pcl::PointXYZI>;
-    auto fvgicp = pcl::make_shared<FVG>();
-    fvgicp->setMaxCorrespondenceDistance(gicp_corr_dist_threshold);
-    fvgicp->setTransformationEpsilon(1e-6);
-    fvgicp->setMaximumIterations(ndt_max_iterations_);
-    fvgicp->setResolution(ndt_resolution);
-    if (ndt_num_threads > 0) { fvgicp->setNumThreads(ndt_num_threads); }
-    registration_ = fvgicp;
+    if (defer_builtin_registration) {
+      RCLCPP_INFO(
+        get_logger(),
+        "external registration plugin preflight selected; deferring built-in "
+        "FAST_VGICP construction");
+    }
   }
 #endif
 #ifdef HAS_SMALL_GICP
   else if (registration_method_ == "SMALL_GICP" || registration_method_ == "SMALL_VGICP") {
-    using SG = small_gicp::RegistrationPCL<pcl::PointXYZI, pcl::PointXYZI>;
-    auto sg = pcl::make_shared<SG>();
-    if (registration_method_ == "SMALL_VGICP") {
-      sg->setRegistrationType("VGICP");
-      sg->setVoxelResolution(ndt_resolution);
-    } else {
-      sg->setRegistrationType("GICP");
+    if (defer_builtin_registration) {
+      RCLCPP_INFO(
+        get_logger(),
+        "external registration plugin preflight selected; deferring built-in %s construction",
+        registration_method_.c_str());
     }
-    sg->setMaxCorrespondenceDistance(gicp_corr_dist_threshold);
-    sg->setTransformationEpsilon(1e-6);
-    sg->setMaximumIterations(ndt_max_iterations_);
-    if (ndt_num_threads > 0) { sg->setNumThreads(ndt_num_threads); }
-    registration_ = sg;
   }
 #endif
   else {
-    RCLCPP_ERROR(get_logger(), "invalid registration method: %s", registration_method_.c_str());
+    if (graphslam::registration_config::isFastGicpMethod(registration_method_) &&
+      !graphslam::registration_config::fastGicpAvailable())
+    {
+      RCLCPP_ERROR(
+        get_logger(), "registration method '%s' unavailable: %s",
+        registration_method_.c_str(),
+        graphslam::registration_config::fastGicpUnavailableReason());
+    } else if (
+      graphslam::registration_config::isSmallGicpMethod(registration_method_) &&
+      !graphslam::registration_config::smallGicpAvailable())
+    {
+      RCLCPP_ERROR(
+        get_logger(), "registration method '%s' unavailable: %s",
+        registration_method_.c_str(),
+        graphslam::registration_config::smallGicpUnavailableReason());
+    } else {
+      RCLCPP_ERROR(get_logger(), "invalid registration method: %s", registration_method_.c_str());
+    }
     exit(1);
+  }
+
+  // The default selector uses the same host resolver, contract negotiation,
+  // and activation transaction as an explicitly injected plugin.  The
+  // factories remain in this translation unit so PCL/Eigen instantiation and
+  // all historical numeric defaults are unchanged; the resolver only adopts
+  // the selected host implementation and never sends a host ID through
+  // pluginlib.  Keep the transaction alive through resource initialization so
+  // a publisher/subscription exception can roll back the host-owned session.
+  std::unique_ptr<lidarslam::plugins::registration::shell::RegistrationActivationTransaction>
+  default_registration_activation;
+  if (!defer_builtin_registration) {
+    using lidarslam::plugins::registration::shell::HostBuiltinRegistration;
+    using lidarslam::plugins::registration::shell::LoadFailure;
+    using lidarslam::plugins::registration::shell::RegistrationActivationSlots;
+    using lidarslam::plugins::registration::shell::RegistrationResolver;
+    using graphslam::registration_config::RegistrationPreflightParameters;
+    using graphslam::registration_config::makeRegistrationPluginLoadRequest;
+
+    RegistrationPreflightParameters preflight_values;
+    preflight_values.method = registration_method_;
+    preflight_values.ndt_resolution = ndt_resolution;
+    preflight_values.ndt_transformation_epsilon = ndt_transformation_epsilon_;
+    preflight_values.ndt_max_iterations = ndt_max_iterations_;
+    preflight_values.ndt_step_size = ndt_step_size;
+    preflight_values.ndt_outlier_ratio = ndt_outlier_ratio_;
+    preflight_values.ndt_num_threads = ndt_num_threads;
+    preflight_values.gicp_maximum_correspondence_distance = gicp_corr_dist_threshold;
+    preflight_values.adaptive_correspondence_threshold = adaptive_correspondence_threshold_;
+    preflight_values.require_rotation_prior =
+      imu_ndt_prior_enable_ && imu_ndt_prior_weight_ > 0.0;
+    preflight_values.require_translation_prior =
+      imu_z_prior_enable_ && imu_z_prior_weight_ > 0.0;
+    if (registration_method_ == "NDT") {
+      preflight_values.class_id = "lidarslam_builtin/NdtOmp";
+    } else if (registration_method_ == "GICP") {
+      preflight_values.class_id = "lidarslam_builtin/GicpOmp";
+    } else if (registration_method_ == "FAST_GICP") {
+      preflight_values.class_id = "lidarslam_builtin/FastGicp";
+    } else if (registration_method_ == "FAST_VGICP") {
+      preflight_values.class_id = "lidarslam_builtin/FastVGicp";
+    } else if (registration_method_ == "SMALL_GICP") {
+      preflight_values.class_id = "lidarslam_builtin/SmallGicpPcl";
+    } else if (registration_method_ == "SMALL_VGICP") {
+      preflight_values.class_id = "lidarslam_builtin/SmallVGicpPcl";
+    }
+
+    lidarslam::plugins::registration::shell::LoadRequest request;
+    std::string preflight_error;
+    if (!makeRegistrationPluginLoadRequest(preflight_values, &request, &preflight_error)) {
+      throw std::runtime_error("default registration preflight request failed: " + preflight_error);
+    }
+
+    std::vector<HostBuiltinRegistration> host_builtins;
+    HostBuiltinRegistration host_ndt;
+    host_ndt.class_id = "lidarslam_builtin/NdtOmp";
+    host_ndt.factory = []() {return makeHostBuiltinNdtRegistration();};
+    host_ndt.metadata_class_id = "lidarslam_default_plugins/NdtOmp";
+    host_ndt.expected_descriptor_factory = []() {
+        return graphslam::registration_config::makeExpectedHostRegistrationDescriptor(
+          "lidarslam_builtin/NdtOmp");
+      };
+    host_builtins.push_back(host_ndt);
+
+    HostBuiltinRegistration host_gicp;
+    host_gicp.class_id = "lidarslam_builtin/GicpOmp";
+    host_gicp.factory = []() {return makeHostBuiltinGicpRegistration();};
+    host_gicp.metadata_class_id = "lidarslam_default_plugins/GicpOmp";
+    host_gicp.expected_descriptor_factory = []() {
+        return graphslam::registration_config::makeExpectedHostRegistrationDescriptor(
+          "lidarslam_builtin/GicpOmp");
+      };
+    host_builtins.push_back(host_gicp);
+#ifdef HAS_FAST_GICP
+    HostBuiltinRegistration host_fast_gicp;
+    host_fast_gicp.class_id = "lidarslam_builtin/FastGicp";
+    host_fast_gicp.factory = []() {return makeHostBuiltinFastGicpRegistration();};
+    host_fast_gicp.metadata_class_id = "lidarslam_default_plugins/FastGicp";
+    host_fast_gicp.expected_descriptor_factory = []() {
+        return graphslam::registration_config::makeExpectedHostRegistrationDescriptor(
+          "lidarslam_builtin/FastGicp");
+      };
+    host_builtins.push_back(host_fast_gicp);
+
+    HostBuiltinRegistration host_fast_vgicp;
+    host_fast_vgicp.class_id = "lidarslam_builtin/FastVGicp";
+    host_fast_vgicp.factory = []() {return makeHostBuiltinFastVgicpRegistration();};
+    host_fast_vgicp.metadata_class_id = "lidarslam_default_plugins/FastVGicp";
+    host_fast_vgicp.expected_descriptor_factory = []() {
+        return graphslam::registration_config::makeExpectedHostRegistrationDescriptor(
+          "lidarslam_builtin/FastVGicp");
+      };
+    host_builtins.push_back(host_fast_vgicp);
+#endif
+#ifdef HAS_SMALL_GICP
+    HostBuiltinRegistration host_small_gicp;
+    host_small_gicp.class_id = "lidarslam_builtin/SmallGicpPcl";
+    host_small_gicp.factory = []() {return makeHostBuiltinSmallGicpRegistration();};
+    host_small_gicp.metadata_class_id = "lidarslam_default_plugins/SmallGicpPcl";
+    host_small_gicp.expected_descriptor_factory = []() {
+        return graphslam::registration_config::makeExpectedHostRegistrationDescriptor(
+          "lidarslam_builtin/SmallGicpPcl");
+      };
+    host_builtins.push_back(host_small_gicp);
+
+    HostBuiltinRegistration host_small_vgicp;
+    host_small_vgicp.class_id = "lidarslam_builtin/SmallVGicpPcl";
+    host_small_vgicp.factory = []() {return makeHostBuiltinSmallVgicpRegistration();};
+    host_small_vgicp.metadata_class_id = "lidarslam_default_plugins/SmallVGicpPcl";
+    host_small_vgicp.expected_descriptor_factory = []() {
+        return graphslam::registration_config::makeExpectedHostRegistrationDescriptor(
+          "lidarslam_builtin/SmallVGicpPcl");
+      };
+    host_builtins.push_back(host_small_vgicp);
+#endif
+
+    RegistrationResolver resolver(std::move(host_builtins));
+    const auto loaded = resolver.resolve(request);
+    if (!loaded.ok()) {
+      throw std::runtime_error(
+              "default registration startup preflight failed [" +
+              std::to_string(static_cast<int>(loaded.failure.code)) + "]: " +
+              loaded.failure.message);
+    }
+    RegistrationActivationSlots activation_slots;
+    activation_slots.session = &registration_plugin_session_;
+    activation_slots.plugin = &registration_plugin_;
+    activation_slots.capabilities = &registration_plugin_capabilities_;
+    activation_slots.target_policy = &registration_plugin_target_policy_;
+    activation_slots.correspondence_metric = &registration_plugin_metric_;
+    default_registration_activation.reset(
+      new lidarslam::plugins::registration::shell::RegistrationActivationTransaction(
+        activation_slots));
+    LoadFailure activation_failure;
+    if (!default_registration_activation->prepare(loaded.session, &activation_failure) ||
+      !default_registration_activation->validate(
+        [](const lidarslam::plugins::registration::shell::RegistrationActivationSnapshot & candidate) {
+          if (!candidate.session || !candidate.plugin) {
+            return LoadFailure{
+              lidarslam::plugins::registration::shell::LoadFailureCode::kInvalidRequest,
+              "default registration activation candidate is null"};
+          }
+          return LoadFailure{};
+        }, &activation_failure) ||
+      !default_registration_activation->commit(&activation_failure))
+    {
+      throw std::runtime_error(
+              "default registration activation failed: " + activation_failure.message);
+    }
   }
 
   map_array_msg_.header.frame_id = global_frame_id_;
@@ -654,6 +845,164 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
   lidar_undistortion_.setUseOrientationForRotationDeskew(
     imu_rotation_deskew_use_orientation_);
 
+  // A deferred component has no subscriptions or publishers until the shell
+  // resolves, validates, and injects the requested session.  This closes the
+  // startup race in which a sensor callback could observe an unconfigured
+  // registration object.  The default constructor follows the unchanged
+  // built-in path immediately.
+  if (component_owned_preflight) {
+    using lidarslam::plugins::registration::shell::HostBuiltinRegistration;
+    using lidarslam::plugins::registration::shell::RegistrationResolver;
+    using graphslam::registration_config::RegistrationPreflightParameters;
+    using graphslam::registration_config::makeRegistrationPluginLoadRequest;
+
+    if (
+      !lidarslam::plugins::registration::shell::isHostBuiltinClassId(
+        registration_plugin_class_) && !registration_plugin_allow_external_)
+    {
+      throw std::runtime_error(
+              "external registration class '" + registration_plugin_class_ +
+              "' requires registration_plugin_allow_external=true; no pluginlib DSO is "
+              "loaded without explicit risk acceptance");
+    }
+
+    RegistrationPreflightParameters preflight_values;
+    preflight_values.method = registration_method_;
+    preflight_values.class_id = registration_plugin_class_;
+    preflight_values.ndt_resolution = ndt_resolution;
+    preflight_values.ndt_transformation_epsilon = ndt_transformation_epsilon_;
+    preflight_values.ndt_max_iterations = ndt_max_iterations_;
+    preflight_values.ndt_step_size = ndt_step_size;
+    preflight_values.ndt_outlier_ratio = ndt_outlier_ratio_;
+    preflight_values.ndt_num_threads = ndt_num_threads;
+    preflight_values.gicp_maximum_correspondence_distance = gicp_corr_dist_threshold;
+    preflight_values.adaptive_correspondence_threshold = adaptive_correspondence_threshold_;
+    preflight_values.require_rotation_prior =
+      imu_ndt_prior_enable_ && imu_ndt_prior_weight_ > 0.0;
+    preflight_values.require_translation_prior =
+      imu_z_prior_enable_ && imu_z_prior_weight_ > 0.0;
+
+    lidarslam::plugins::registration::shell::LoadRequest request;
+    std::string preflight_error;
+    if (!makeRegistrationPluginLoadRequest(preflight_values, &request, &preflight_error)) {
+      throw std::runtime_error("registration plugin preflight request failed: " + preflight_error);
+    }
+
+    std::vector<HostBuiltinRegistration> host_builtins;
+    HostBuiltinRegistration host_ndt;
+    host_ndt.class_id = "lidarslam_builtin/NdtOmp";
+    host_ndt.factory = []() {
+        return makeHostBuiltinNdtRegistration();
+      };
+    host_ndt.metadata_class_id = "lidarslam_default_plugins/NdtOmp";
+    host_ndt.expected_descriptor_factory = []() {
+        return graphslam::registration_config::makeExpectedHostRegistrationDescriptor(
+          "lidarslam_builtin/NdtOmp");
+      };
+    host_builtins.push_back(host_ndt);
+
+    HostBuiltinRegistration host_gicp;
+    host_gicp.class_id = "lidarslam_builtin/GicpOmp";
+    host_gicp.factory = []() {
+        return makeHostBuiltinGicpRegistration();
+      };
+    host_gicp.metadata_class_id = "lidarslam_default_plugins/GicpOmp";
+    host_gicp.expected_descriptor_factory = []() {
+        return graphslam::registration_config::makeExpectedHostRegistrationDescriptor(
+          "lidarslam_builtin/GicpOmp");
+      };
+    host_builtins.push_back(host_gicp);
+#ifdef HAS_FAST_GICP
+    HostBuiltinRegistration host_fast_gicp;
+    host_fast_gicp.class_id = "lidarslam_builtin/FastGicp";
+    host_fast_gicp.factory = []() {
+        return makeHostBuiltinFastGicpRegistration();
+      };
+    host_fast_gicp.metadata_class_id = "lidarslam_default_plugins/FastGicp";
+    host_fast_gicp.expected_descriptor_factory = []() {
+        return graphslam::registration_config::makeExpectedHostRegistrationDescriptor(
+          "lidarslam_builtin/FastGicp");
+      };
+    host_builtins.push_back(host_fast_gicp);
+
+    HostBuiltinRegistration host_fast_vgicp;
+    host_fast_vgicp.class_id = "lidarslam_builtin/FastVGicp";
+    host_fast_vgicp.factory = []() {
+        return makeHostBuiltinFastVgicpRegistration();
+      };
+    host_fast_vgicp.metadata_class_id = "lidarslam_default_plugins/FastVGicp";
+    host_fast_vgicp.expected_descriptor_factory = []() {
+        return graphslam::registration_config::makeExpectedHostRegistrationDescriptor(
+          "lidarslam_builtin/FastVGicp");
+      };
+    host_builtins.push_back(host_fast_vgicp);
+#endif
+#ifdef HAS_SMALL_GICP
+    HostBuiltinRegistration host_small_gicp;
+    host_small_gicp.class_id = "lidarslam_builtin/SmallGicpPcl";
+    host_small_gicp.factory = []() {
+        return makeHostBuiltinSmallGicpRegistration();
+      };
+    host_small_gicp.metadata_class_id = "lidarslam_default_plugins/SmallGicpPcl";
+    host_small_gicp.expected_descriptor_factory = []() {
+        return graphslam::registration_config::makeExpectedHostRegistrationDescriptor(
+          "lidarslam_builtin/SmallGicpPcl");
+      };
+    host_builtins.push_back(host_small_gicp);
+
+    HostBuiltinRegistration host_small_vgicp;
+    host_small_vgicp.class_id = "lidarslam_builtin/SmallVGicpPcl";
+    host_small_vgicp.factory = []() {
+        return makeHostBuiltinSmallVgicpRegistration();
+      };
+    host_small_vgicp.metadata_class_id = "lidarslam_default_plugins/SmallVGicpPcl";
+    host_small_vgicp.expected_descriptor_factory = []() {
+        return graphslam::registration_config::makeExpectedHostRegistrationDescriptor(
+          "lidarslam_builtin/SmallVGicpPcl");
+      };
+    host_builtins.push_back(host_small_vgicp);
+#endif
+    RegistrationResolver resolver(std::move(host_builtins));
+    const auto loaded = resolver.resolve(request);
+    if (!loaded.ok()) {
+      throw std::runtime_error(
+              "registration plugin startup preflight failed [" +
+              std::to_string(static_cast<int>(loaded.failure.code)) + "]: " +
+              loaded.failure.message);
+    }
+    std::string injection_error;
+    if (!setRegistrationPluginSession(loaded.session, &injection_error)) {
+      throw std::runtime_error(
+              "registration plugin startup injection failed: " + injection_error);
+    }
+  } else if (!defer_builtin_registration) {
+    try {
+      finalizeInitialization();
+    } catch (...) {
+      lidarslam::plugins::registration::shell::LoadFailure rollback_failure;
+      if (default_registration_activation &&
+        !default_registration_activation->rollback(&rollback_failure))
+      {
+        throw std::runtime_error(
+                "default registration rollback failed after resource initialization error: " +
+                rollback_failure.message);
+      }
+      throw;
+    }
+    registration_plugin_preflight_complete_ = true;
+  } else {
+    RCLCPP_INFO(
+      get_logger(),
+      "registration preflight pending for explicit offline class '%s'",
+      registration_plugin_class_.c_str());
+  }
+}
+
+void ScanMatcherComponent::finalizeInitialization()
+{
+  if (pubsub_initialized_) {
+    return;
+  }
   initializePubSub();
 
   if (set_initial_pose_) {
@@ -669,26 +1018,13 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
     msg->pose.orientation.z = initial_pose_qz_;
     msg->pose.orientation.w = initial_pose_qw_;
     current_pose_stamped_ = *msg;
-    map_update_commit_state_.reset(
-      Eigen::Vector3d(
-        current_pose_stamped_.pose.position.x,
-        current_pose_stamped_.pose.position.y,
-        current_pose_stamped_.pose.position.z));
     pose_pub_->publish(current_pose_stamped_);
     initial_pose_received_ = true;
 
     path_.poses.push_back(*msg);
   }
-
+  pubsub_initialized_ = true;
   RCLCPP_INFO(get_logger(), "initialization end");
-}
-
-ScanMatcherComponent::~ScanMatcherComponent()
-{
-  // updateMap captures this; keep the node alive until its worker is done.
-  if (mapping_thread_.joinable()) {
-    mapping_thread_.join();
-  }
 }
 
 void ScanMatcherComponent::initializePubSub()
@@ -705,11 +1041,9 @@ void ScanMatcherComponent::initializePubSub()
       RCLCPP_INFO(get_logger(), "initial_pose is received");
 
       current_pose_stamped_ = *msg;
-      map_update_commit_state_.reset(
-        Eigen::Vector3d(
-          current_pose_stamped_.pose.position.x,
-          current_pose_stamped_.pose.position.y,
-          current_pose_stamped_.pose.position.z));
+      previous_position_.x() = current_pose_stamped_.pose.position.x;
+      previous_position_.y() = current_pose_stamped_.pose.position.y;
+      previous_position_.z() = current_pose_stamped_.pose.position.z;
       initial_pose_received_ = true;
 
       pose_pub_->publish(current_pose_stamped_);
@@ -724,16 +1058,6 @@ void ScanMatcherComponent::initializePubSub()
         return;
       }
 
-      size_t point_count = 0U;
-      std::string layout_error;
-      if (!validatePointCloudLayout(*msg, &point_count, &layout_error)) {
-        RCLCPP_WARN_THROTTLE(
-          get_logger(), *get_clock(), 5000,
-          "[POINTCLOUD_LAYOUT_REJECTED] %s; the node remains active",
-          layout_error.c_str());
-        return;
-      }
-
       sensor_msgs::msg::PointCloud2 transformed_msg;
       try {
         tf2::TimePoint time_point = tf2::TimePoint(
@@ -741,29 +1065,13 @@ void ScanMatcherComponent::initializePubSub()
           std::chrono::nanoseconds(msg->header.stamp.nanosec));
         const geometry_msgs::msg::TransformStamped transform = tfbuffer_.lookupTransform(
           robot_frame_id_, msg->header.frame_id, time_point);
-        const sensor_msgs::msg::PointCloud2 packed_msg = packPointCloudRows(*msg);
-        tf2::doTransform(packed_msg, transformed_msg, transform); // TODO:slow now(https://github.com/ros/geometry2/pull/432)
+        tf2::doTransform(*msg, transformed_msg, transform); // TODO:slow now(https://github.com/ros/geometry2/pull/432)
       } catch (tf2::TransformException & e) {
         RCLCPP_ERROR(this->get_logger(), "%s", e.what());
         return;
-      } catch (const std::runtime_error & e) {
-        RCLCPP_WARN_THROTTLE(
-          get_logger(), *get_clock(), 5000,
-          "[POINTCLOUD_TRANSFORM_REJECTED] %s; the node remains active",
-          e.what());
-        return;
       }
 
-      PointCloudExtractionResult extracted;
-      try {
-        extracted = extractPointCloudXYZIAndTimes(transformed_msg, point_count);
-      } catch (const std::runtime_error & e) {
-        RCLCPP_WARN_THROTTLE(
-          get_logger(), *get_clock(), 5000,
-          "[POINTCLOUD_CONVERSION_REJECTED] %s; the node remains active",
-          e.what());
-        return;
-      }
+      PointCloudExtractionResult extracted = extractPointCloudXYZIAndTimes(transformed_msg);
       pcl::PointCloud<pcl::PointXYZI>::Ptr tmp_ptr = extracted.cloud;
       std::vector<float> point_times = std::move(extracted.point_times);
       int debug_cloud_frame_index = -1;
@@ -865,29 +1173,364 @@ void ScanMatcherComponent::initializePubSub()
 
   initial_pose_sub_ =
     create_subscription<geometry_msgs::msg::PoseStamped>(
-    "initial_pose", rclcpp::QoS(10), initial_pose_callback);
+    resourceInitTopicForTest("initial_pose"), rclcpp::QoS(10), initial_pose_callback);
 
   imu_sub_ =
     create_subscription<sensor_msgs::msg::Imu>(
-    "imu", rclcpp::SensorDataQoS(), imu_callback);
+    resourceInitTopicForTest("imu"), rclcpp::SensorDataQoS(), imu_callback);
 
   auto cloud_qos = rclcpp::SensorDataQoS();
   cloud_qos.keep_last(cloud_queue_depth_);
   input_cloud_sub_ =
     create_subscription<sensor_msgs::msg::PointCloud2>(
-    "input_cloud", cloud_qos, cloud_callback);
+    resourceInitTopicForTest("input_cloud"), cloud_qos, cloud_callback);
 
   // pub
   pose_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>(
-    "current_pose",
+    resourceInitTopicForTest("current_pose"),
     rclcpp::QoS(10));
-  map_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("map", rclcpp::QoS(10));
+  map_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(
+    resourceInitTopicForTest("map"), rclcpp::QoS(10));
   map_array_pub_ =
     create_publisher<lidarslam_msgs::msg::MapArray>(
-    "map_array", rclcpp::QoS(
+    resourceInitTopicForTest("map_array"), rclcpp::QoS(
       rclcpp::KeepLast(
         1)).reliable());
-  path_pub_ = create_publisher<nav_msgs::msg::Path>("path", rclcpp::QoS(10));
+  path_pub_ = create_publisher<nav_msgs::msg::Path>(
+    resourceInitTopicForTest("path"), rclcpp::QoS(10));
+}
+
+std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
+makeHostBuiltinNdtRegistration()
+{
+  // This allocation is intentionally in the legacy component TU.  Moving the
+  // concrete NDT construction to the offline runner would recreate the ODR
+  // and floating-point divergence that rejected the isolated plugin DSO.
+  return std::make_shared<lidarslam_default_plugins::NdtOmpRegistration>();
+}
+
+std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
+makeHostBuiltinGicpRegistration()
+{
+  // As with NDT, the concrete GICP object is constructed in this legacy
+  // component TU so pclomp/Eigen template instantiation remains baseline
+  // compatible.  This factory is only used by the deferred offline shell.
+  return std::make_shared<lidarslam_default_plugins::GicpOmpRegistration>();
+}
+
+#ifdef HAS_FAST_GICP
+std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
+makeHostBuiltinFastGicpRegistration()
+{
+  return std::make_shared<lidarslam_default_plugins::FastGicpRegistration>();
+}
+
+std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
+makeHostBuiltinFastVgicpRegistration()
+{
+  return std::make_shared<lidarslam_default_plugins::FastVgicpRegistration>();
+}
+#endif
+
+#ifdef HAS_SMALL_GICP
+std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
+makeHostBuiltinSmallGicpRegistration()
+{
+  return std::make_shared<lidarslam_default_plugins::SmallGicpRegistration>();
+}
+
+std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
+makeHostBuiltinSmallVgicpRegistration()
+{
+  return std::make_shared<lidarslam_default_plugins::SmallVgicpRegistration>();
+}
+#endif
+
+bool ScanMatcherComponent::setRegistrationPluginSession(
+  const std::shared_ptr<lidarslam::plugins::registration::shell::RegistrationPluginSession>
+  & session,
+  std::string * error)
+{
+  // Validate the selected legacy role before replacing the unified runtime slot.
+  const auto fail = [this, error](const std::string & message) {
+      if (error != nullptr) {
+        *error = message;
+      }
+      RCLCPP_ERROR(get_logger(), "registration plugin injection rejected: %s", message.c_str());
+      return false;
+    };
+
+  if (!registration_plugin_enable_ || registration_plugin_class_.empty()) {
+    return fail(
+      "registration plugin injection requires the immutable startup "
+      "parameters registration_plugin_enable=true and registration_plugin_class");
+  }
+  if (registration_plugin_preflight_complete_ || pubsub_initialized_) {
+    return fail(
+      "registration plugin replacement is disabled after startup preflight; runtime hot reload "
+      "is not supported");
+  }
+  if (
+    registration_method_ != "NDT" && registration_method_ != "GICP" &&
+    registration_method_ != "SMALL_GICP" && registration_method_ != "SMALL_VGICP" &&
+    !graphslam::registration_config::isFastGicpMethod(registration_method_))
+  {
+    return fail(
+      "the scanmatcher plugin boundary supports NDT, GICP, SMALL_GICP, SMALL_VGICP, "
+      "FAST_GICP, and FAST_VGICP only "
+      "(selected method: " + registration_method_ + ")");
+  }
+  if (initial_cloud_received_) {
+    return fail("the registration plugin session must be injected before the first sensor cloud");
+  }
+  if (!session || !session->plugin()) {
+    return fail("the registration plugin session or plugin object is null");
+  }
+  if (session->classId() != registration_plugin_class_) {
+    return fail(
+      "resolved registration plugin class '" + session->classId() +
+      "' does not match the immutable requested class '" + registration_plugin_class_ + "'");
+  }
+  if (
+    session->backendKind() ==
+    lidarslam::plugins::registration::shell::BackendKind::kPluginlib &&
+    !registration_plugin_allow_external_)
+  {
+    return fail(
+      "external pluginlib class '" + session->classId() +
+      "' requires explicit registration_plugin_allow_external=true; "
+      "the default host/built-in safety policy is unchanged");
+  }
+
+  const auto & capabilities = session->capabilities();
+  const std::string plugin_id = session->classId();
+  using lidarslam::plugins::registration::Capability;
+  using lidarslam::plugins::registration::TargetPolicy;
+  const auto require = [&fail, &capabilities, &plugin_id](
+    Capability capability, const char * name) {
+      if (!capabilities.has(capability)) {
+        return fail(
+          "plugin '" + plugin_id + "' is missing the required scanmatcher capability '" +
+          name + "'");
+      }
+      return true;
+    };
+
+  if (!require(Capability::kInitialGuess, "initial_guess")) {
+    return false;
+  }
+  if (!require(Capability::kAlignedSource, "aligned_source")) {
+    return false;
+  }
+  if (registration_method_ == "NDT") {
+    if (capabilities.targetPolicy() != TargetPolicy::kRequiresRawTarget) {
+      return fail(
+        "plugin target policy is incompatible with registration_method=NDT: "
+        "raw target is required");
+    }
+    if (
+      !capabilities.has(Capability::kMeanCorrespondenceDistance) ||
+      capabilities.correspondenceMetric() !=
+      lidarslam::plugins::registration::CorrespondenceMetric::kMeanDistance)
+    {
+      return fail(
+        "plugin correspondence metric is incompatible with registration_method=NDT: "
+        "mean distance is required");
+    }
+    if (adaptive_correspondence_threshold_ &&
+      !capabilities.has(Capability::kMaximumCorrespondenceDistance))
+    {
+      return fail(
+        "plugin is missing the required scanmatcher capability "
+        "'maximum_correspondence_distance' for adaptive_correspondence_threshold");
+    }
+    if (
+      imu_ndt_prior_enable_ && imu_ndt_prior_weight_ > 0.0 &&
+      !capabilities.has(Capability::kRotationPrior))
+    {
+      return fail(
+        "plugin is missing the required scanmatcher capability 'rotation_prior'");
+    }
+    if (
+      imu_z_prior_enable_ && imu_z_prior_weight_ > 0.0 &&
+      !capabilities.has(Capability::kTranslationPrior))
+    {
+      return fail(
+        "plugin is missing the required scanmatcher capability 'translation_prior'");
+    }
+  } else if (registration_method_ == "GICP") {
+    if (capabilities.targetPolicy() != TargetPolicy::kAcceptHostPrepared) {
+      return fail(
+        "plugin target policy is incompatible with registration_method=GICP: "
+        "host-prepared target is required");
+    }
+    if (
+      capabilities.correspondenceMetric() !=
+      lidarslam::plugins::registration::CorrespondenceMetric::kSquareRootFitnessProxy)
+    {
+      return fail(
+        "plugin correspondence metric is incompatible with registration_method=GICP: "
+        "square-root fitness proxy is required");
+    }
+    if (adaptive_correspondence_threshold_ &&
+      !capabilities.has(Capability::kMaximumCorrespondenceDistance))
+    {
+      return fail(
+        "plugin is missing the required scanmatcher capability "
+        "'maximum_correspondence_distance' for adaptive_correspondence_threshold");
+    }
+  } else {
+    if (capabilities.targetPolicy() != TargetPolicy::kAcceptHostPrepared) {
+      return fail(
+        "plugin target policy is incompatible with SMALL_GICP/SMALL_VGICP: "
+        "host-prepared target is required");
+    }
+    if (
+      capabilities.correspondenceMetric() !=
+      lidarslam::plugins::registration::CorrespondenceMetric::kSquareRootFitnessProxy)
+    {
+      return fail(
+        "plugin correspondence metric is incompatible with SMALL_GICP/SMALL_VGICP: "
+        "square-root fitness proxy is required");
+    }
+    if (adaptive_correspondence_threshold_ &&
+      !capabilities.has(Capability::kMaximumCorrespondenceDistance))
+    {
+      return fail(
+        "plugin is missing the required scanmatcher capability "
+        "'maximum_correspondence_distance' for adaptive_correspondence_threshold");
+    }
+    const SmallRegistrationVariant selected_variant =
+      smallRegistrationVariant(plugin_id);
+    if (selected_variant == SmallRegistrationVariant::kUnknown) {
+      return fail(
+        "cannot verify the SMALL_GICP/SMALL_VGICP variant for plugin class '" + plugin_id +
+        "'; only the canonical SmallGicpPcl/SmallVGicpPcl IDs are accepted until a typed "
+        "variant capability is added");
+    }
+    if (
+      registration_method_ == "SMALL_GICP" &&
+      selected_variant == SmallRegistrationVariant::kVgicp)
+    {
+      return fail(
+        "plugin class '" + plugin_id +
+        "' is SMALL_VGICP but registration_method=SMALL_GICP; selector mismatch is a hard failure");
+    }
+    if (
+      registration_method_ == "SMALL_VGICP" &&
+      selected_variant == SmallRegistrationVariant::kGicp)
+    {
+      return fail(
+        "plugin class '" + plugin_id +
+        "' is SMALL_GICP but registration_method=SMALL_VGICP; selector mismatch is a hard failure");
+    }
+  }
+
+  // All selector, metadata, capability, and configuration checks above are
+  // candidate-only.  Keep the host-owned runtime slot untouched until the
+  // ROS publisher/subscription barrier has completed successfully.  The
+  // transaction does not (and cannot) undo constructor/static-initializer
+  // side effects inside an external DSO; its rollback boundary is the
+  // host-owned session, plugin, and cached contract state.
+  using lidarslam::plugins::registration::shell::LoadFailure;
+  using lidarslam::plugins::registration::shell::RegistrationActivationSlots;
+  using lidarslam::plugins::registration::shell::RegistrationActivationTransaction;
+  RegistrationActivationSlots activation_slots;
+  activation_slots.session = &registration_plugin_session_;
+  activation_slots.plugin = &registration_plugin_;
+  activation_slots.capabilities = &registration_plugin_capabilities_;
+  activation_slots.target_policy = &registration_plugin_target_policy_;
+  activation_slots.correspondence_metric = &registration_plugin_metric_;
+  RegistrationActivationTransaction activation(activation_slots);
+  LoadFailure activation_failure;
+  if (!activation.prepare(session, &activation_failure)) {
+    return fail("registration plugin activation prepare failed: " + activation_failure.message);
+  }
+  if (!activation.validate(
+      [](const lidarslam::plugins::registration::shell::RegistrationActivationSnapshot & candidate) {
+        if (!candidate.session || !candidate.plugin) {
+          return LoadFailure{
+            lidarslam::plugins::registration::shell::LoadFailureCode::kInvalidRequest,
+            "registration activation candidate became null during validation"};
+        }
+        return LoadFailure{};
+      }, &activation_failure))
+  {
+    return fail("registration plugin activation validation failed: " + activation_failure.message);
+  }
+
+  const auto clear_partial_startup_pubsub = [this]() {
+      // setRegistrationPluginSession is a startup-only boundary, so this
+      // path cannot replace an already-live pub/sub graph.  If ROS resource
+      // creation throws after one resource was allocated, release every
+      // partially-created handle before the uncommitted candidate is
+      // destroyed; no half-initialized graph is left available for retry.
+      initial_pose_sub_.reset();
+      imu_sub_.reset();
+      input_cloud_sub_.reset();
+      pose_pub_.reset();
+      map_pub_.reset();
+      map_array_pub_.reset();
+      path_pub_.reset();
+      pubsub_initialized_ = false;
+    };
+
+  // Commit the host-owned slot before exposing ROS resources.  If resource
+  // creation throws, rollback() below restores the previous host state before
+  // the transaction releases the candidate loader lease.
+  if (!activation.commit(&activation_failure)) {
+    return fail("registration plugin activation commit failed: " + activation_failure.message);
+  }
+
+  try {
+    finalizeInitialization();
+  } catch (const std::exception & exception) {
+    clear_partial_startup_pubsub();
+    LoadFailure rollback_failure;
+    if (!activation.rollback(&rollback_failure)) {
+      return fail(
+        "registration plugin startup rollback failed after initialization exception: " +
+        rollback_failure.message);
+    }
+    return fail(
+      "registration plugin startup preflight could not initialize the frontend: " +
+      std::string(exception.what()));
+  } catch (...) {
+    clear_partial_startup_pubsub();
+    LoadFailure rollback_failure;
+    if (!activation.rollback(&rollback_failure)) {
+      return fail(
+        "registration plugin startup rollback failed after unknown initialization exception: " +
+        rollback_failure.message);
+    }
+    return fail(
+      "registration plugin startup preflight could not initialize the frontend: unknown error");
+  }
+  registration_alignment_result_ =
+    lidarslam::plugins::registration::AlignmentResult();
+  registration_plugin_preflight_complete_ = true;
+
+  const auto & metadata = session->metadata();
+  const auto host_path_or_marker = [](const std::string & path) {
+      return path.empty() ? std::string("<host-resident>") : path;
+    };
+  RCLCPP_INFO(
+    get_logger(),
+    "registration preflight provenance: backend=%s class=%s implementation=%s "
+    "api=%u.%u license=%s capabilities=0x%llx library=%s manifest=%s",
+    lidarslam::plugins::registration::shell::backendKindName(session->backendKind()),
+    session->classId().c_str(), metadata.implementation_version.c_str(),
+    static_cast<unsigned int>(metadata.api_version.major),
+    static_cast<unsigned int>(metadata.api_version.minor), metadata.license.c_str(),
+    static_cast<unsigned long long>(session->capabilities().bits()),
+    host_path_or_marker(session->libraryPath()).c_str(),
+    host_path_or_marker(session->pluginManifestPath()).c_str());
+
+  RCLCPP_WARN(
+    get_logger(),
+    "using opt-in registration plugin '%s' for %s scan matching; no fallback is enabled",
+    session->classId().c_str(), registration_method_.c_str());
+  return true;
 }
 
 bool ScanMatcherComponent::reserveDebugCloudDumpFrame(int * frame_index)
@@ -1014,12 +1657,10 @@ bool ScanMatcherComponent::initializeMap(const pcl::PointCloud <pcl::PointXYZI>:
 {
   RCLCPP_INFO(get_logger(), "create a first map");
   pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_ptr(new pcl::PointCloud<pcl::PointXYZI>());
-  if (!filterVoxelGridSafely(
-      tmp_ptr, vg_size_for_map_, *cloud_ptr, "initial_map",
-      "vg_size_for_map", false))
-  {
-    return false;
-  }
+  pcl::VoxelGrid<pcl::PointXYZI> voxel_grid;
+  voxel_grid.setLeafSize(vg_size_for_map_, vg_size_for_map_, vg_size_for_map_);
+  voxel_grid.setInputCloud(tmp_ptr);
+  voxel_grid.filter(*cloud_ptr);
   if (cloud_ptr->size() < static_cast<size_t>(min_points_for_scan_)) {
     RCLCPP_WARN(
       get_logger(),
@@ -1045,7 +1686,9 @@ bool ScanMatcherComponent::initializeMap(const pcl::PointCloud <pcl::PointXYZI>:
     voxel_hash_map_->update(transformed_cloud_ptr, init_pos);
   }
 
-  registration_->setInputTarget(transformed_cloud_ptr);
+  if (!setRegistrationTarget(transformed_cloud_ptr, "initial map")) {
+    return false;
+  }
 
   // map (global)
   sensor_msgs::msg::PointCloud2 map_msg;
@@ -1081,63 +1724,42 @@ void ScanMatcherComponent::receiveCloud(
   if (mapping_flag_ && mapping_future_.valid()) {
     auto status = mapping_future_.wait_for(0s);
     if (status == std::future_status::ready) {
-      bool map_update_succeeded = false;
-      try {
-        map_update_succeeded = mapping_future_.get();
-      } catch (const std::exception & error) {
-        RCLCPP_ERROR(
-          get_logger(),
-          "[MAP_UPDATE_FUTURE_REJECTED] asynchronous map update failed: %s; "
-          "the node remains active and the distance threshold was not consumed",
-          error.what());
-      } catch (...) {
-        RCLCPP_ERROR(
-          get_logger(),
-          "[MAP_UPDATE_FUTURE_REJECTED] asynchronous map update failed with an "
-          "unknown exception; the node remains active and the distance threshold "
-          "was not consumed");
-      }
-      if (mapping_thread_.joinable()) {
-        mapping_thread_.join();
-      }
-      mapping_flag_ = false;
-      map_update_commit_state_.complete(map_update_succeeded);
+      mapping_future_.get();
       pcl::PointCloud<pcl::PointXYZI>::Ptr targeted_cloud_ptr;
       {
         std::lock_guard<std::mutex> lock(mtx_);
-        if (map_update_succeeded && is_map_updated_ == true) {
+        if (is_map_updated_ == true) {
           targeted_cloud_ptr.reset(new pcl::PointCloud<pcl::PointXYZI>(targeted_cloud_));
-          is_map_updated_ = false;
-        } else if (!map_update_succeeded) {
           is_map_updated_ = false;
         }
       }
       if (targeted_cloud_ptr) {
+        bool target_refresh_failed = false;
         if (!pose_acceptance_state_.recovery_target_active) {
-          if (registration_method_ == "NDT") {
-            registration_->setInputTarget(targeted_cloud_ptr);
-          } else {
-            pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_targeted_cloud_ptr(
-              new pcl::PointCloud<pcl::PointXYZI>());
-            if (filterVoxelGridSafely(
-                targeted_cloud_ptr, vg_size_for_input_, *filtered_targeted_cloud_ptr,
-                "registration_target", "vg_size_for_input", true))
-            {
-              registration_->setInputTarget(filtered_targeted_cloud_ptr);
-            }
-          }
+          target_refresh_failed = !setRegistrationTargetFromMap(
+            targeted_cloud_ptr, "map update");
         }
+        if (target_refresh_failed) {
+          mapping_flag_ = false;
+          if (mapping_thread_.joinable()) {
+            mapping_thread_.join();
+          }
+          RCLCPP_ERROR(get_logger(), "scan skipped: map target refresh failed");
+          return;
+        }
+      }
+      mapping_flag_ = false;
+      if (mapping_thread_.joinable()) {
+        mapping_thread_.join();
       }
     }
   }
 
   pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_cloud_ptr(new pcl::PointCloud<pcl::PointXYZI>());
-  if (!filterVoxelGridSafely(
-      cloud_ptr, vg_size_for_input_, *filtered_cloud_ptr, "input_scan",
-      "vg_size_for_input", true))
-  {
-    return;
-  }
+  pcl::VoxelGrid<pcl::PointXYZI> voxel_grid;
+  voxel_grid.setLeafSize(vg_size_for_input_, vg_size_for_input_, vg_size_for_input_);
+  voxel_grid.setInputCloud(cloud_ptr);
+  voxel_grid.filter(*filtered_cloud_ptr);
   if (filtered_cloud_ptr->size() < static_cast<size_t>(min_points_for_scan_)) {
     RCLCPP_WARN(
       get_logger(),
@@ -1146,8 +1768,6 @@ void ScanMatcherComponent::receiveCloud(
       min_points_for_scan_);
     return;
   }
-  registration_->setInputSource(filtered_cloud_ptr);
-
   Eigen::Matrix4f sim_trans = getTransformation(current_pose_stamped_.pose);
 
   const pose_prediction::ImuPredictionConfig imu_prediction_config = makeImuPredictionConfig();
@@ -1218,100 +1838,102 @@ void ScanMatcherComponent::receiveCloud(
     }
   }
 
-  // Set IMU rotation prior for NDT cost function
-  if (
-    imu_ndt_prior_enable_ && imu_ndt_prior_weight_ > 0.0 &&
-    use_imu_ && latest_imu_orientation_valid_ && cloud_imu_reference_valid_ &&
-    registration_method_ == "NDT")
-  {
-    const double imu_age = std::abs((stamp - latest_imu_stamp_).seconds());
-    if (imu_age <= imu_pose_prediction_max_age_) {
-      // IMU-predicted rotation (previous pose + IMU delta) as Euler angles
-      // matching NDT's internal convention (XYZ intrinsic)
-      const Eigen::Vector3d prior_rpy = pose_prediction::imuPredictedRotationRpy(
-        imu_observation,
-        current_orientation_quat);
-      auto ndt_ptr = pcl::dynamic_pointer_cast<
-        pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>>(registration_);
-      if (ndt_ptr) {
-        ndt_ptr->setRotationPrior(prior_rpy, imu_ndt_prior_weight_,
-          imu_ndt_prior_roll_pitch_only_);
-      }
-    }
-  }
-
-  // Set IMU Z-translation prior: constrain z-drift using gravity direction
-  if (imu_z_prior_enable_ && imu_z_prior_weight_ > 0.0 && registration_method_ == "NDT") {
-    auto ndt_ptr = pcl::dynamic_pointer_cast<
-      pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>>(registration_);
-    if (ndt_ptr) {
-      // Use current z as prior (resist z changes between consecutive frames)
-      Eigen::Vector3d z_prior(
-        sim_trans(0, 3), sim_trans(1, 3), sim_trans(2, 3));
-      Eigen::Vector3d weights(0.0, 0.0, imu_z_prior_weight_);  // z-only
-      ndt_ptr->setTranslationPrior(z_prior, weights);
-    }
-  }
-
-  // Set adaptive correspondence distance before alignment (all methods)
-  if (adaptive_correspondence_threshold_ && adaptive_corr_dist_ema_ > 0.0) {
-    double max_dist = map_update_policy::adaptiveMaxCorrespondenceDistance(
-      adaptive_corr_dist_multiplier_, adaptive_corr_dist_ema_);
-    if (registration_method_ == "NDT") {
-      auto ndt_ptr = pcl::dynamic_pointer_cast<
-        pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>>(registration_);
-      if (ndt_ptr) {
-        ndt_ptr->setMaxCorrespondenceDistance(max_dist);
-      }
-    } else {
-      registration_->setMaxCorrespondenceDistance(max_dist);
-    }
-  }
-
+  const bool use_registration_plugin = static_cast<bool>(registration_plugin_session_);
   pcl::PointCloud<pcl::PointXYZI>::Ptr output_cloud(new pcl::PointCloud<pcl::PointXYZI>);
+  double mean_correspondence_distance = 0.0;
   rclcpp::Clock system_clock;
   rclcpp::Time time_align_start = system_clock.now();
-  registration_->align(*output_cloud, sim_trans);
+
+  if (!use_registration_plugin) {
+    RCLCPP_ERROR(get_logger(), "registration session is unavailable; scan rejected");
+    return;
+  }
+  {
+    lidarslam::plugins::registration::AlignmentRequest request;
+    request.source = filtered_cloud_ptr;
+    request.initial_guess_enabled = true;
+    request.initial_guess = sim_trans;
+
+    // IMU-predicted rotation (previous pose + IMU delta) as Euler angles
+    // matching NDT's internal convention (XYZ intrinsic).
+    if (
+      imu_ndt_prior_enable_ && imu_ndt_prior_weight_ > 0.0 && use_imu_ &&
+      latest_imu_orientation_valid_ && cloud_imu_reference_valid_ &&
+      registration_plugin_capabilities_.has(
+        lidarslam::plugins::registration::Capability::kRotationPrior))
+    {
+      const double imu_age = std::abs((stamp - latest_imu_stamp_).seconds());
+      if (imu_age <= imu_pose_prediction_max_age_) {
+        request.rotation_prior.enabled = true;
+        request.rotation_prior.roll_pitch_yaw = pose_prediction::imuPredictedRotationRpy(
+          imu_observation,
+          current_orientation_quat);
+        request.rotation_prior.weight = imu_ndt_prior_weight_;
+        request.rotation_prior.roll_pitch_only = imu_ndt_prior_roll_pitch_only_;
+      }
+    }
+
+    // Use current z as a prior (resist z changes between consecutive frames).
+    if (
+      imu_z_prior_enable_ && imu_z_prior_weight_ > 0.0 &&
+      registration_plugin_capabilities_.has(
+        lidarslam::plugins::registration::Capability::kTranslationPrior))
+    {
+      request.translation_prior.enabled = true;
+      request.translation_prior.position = Eigen::Vector3d(
+        sim_trans(0, 3), sim_trans(1, 3), sim_trans(2, 3));
+      request.translation_prior.weights = Eigen::Vector3d(0.0, 0.0, imu_z_prior_weight_);
+    }
+
+    if (adaptive_correspondence_threshold_ && adaptive_corr_dist_ema_ > 0.0) {
+      request.maximum_correspondence_distance_enabled = true;
+      request.maximum_correspondence_distance = map_update_policy::adaptiveMaxCorrespondenceDistance(
+        adaptive_corr_dist_multiplier_, adaptive_corr_dist_ema_);
+    }
+
+    time_align_start = system_clock.now();
+    // Every supported selector, including the host-built-in defaults, enters
+    // through the session-owned processing boundary.  There is no raw PCL or
+    // raw RegistrationPlugin fallback after startup activation.
+    registration_alignment_result_ = registration_plugin_session_->align(request);
+    if (
+      registration_alignment_result_.failure !=
+      lidarslam::plugins::registration::FailureCode::kNone ||
+      !registration_alignment_result_.aligned_source)
+    {
+      RCLCPP_ERROR(
+        get_logger(),
+        "%s registration plugin failed (%s): %s",
+        registration_method_.c_str(),
+        registrationFailureName(registration_alignment_result_.failure),
+        registration_alignment_result_.diagnostics.detail.c_str());
+      registration_alignment_result_.aligned_source.reset();
+      return;
+    }
+    output_cloud = registration_alignment_result_.aligned_source;
+    registration_alignment_result_.aligned_source.reset();
+    if (!registrationRuntimeMetricValue(
+        registration_alignment_result_, registration_plugin_metric_,
+        &mean_correspondence_distance))
+    {
+      RCLCPP_ERROR(
+        get_logger(),
+        "%s registration plugin returned no valid '%s' correspondence metric",
+        registration_method_.c_str(),
+        registration_plugin_metric_ ==
+        lidarslam::plugins::registration::CorrespondenceMetric::kMeanDistance ?
+        "mean distance" : "square-root fitness");
+      return;
+    }
+  }
   rclcpp::Time time_align_end = system_clock.now();
 
-  // Clear rotation prior after alignment (NDT only)
-  if (registration_method_ == "NDT") {
-    auto ndt_ptr = pcl::dynamic_pointer_cast<
-      pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>>(registration_);
-    if (ndt_ptr) {
-      if (imu_ndt_prior_enable_) {
-        ndt_ptr->clearRotationPrior();
-      }
-      if (imu_z_prior_enable_) {
-        ndt_ptr->clearTranslationPrior();
-      }
-    }
-  }
-
-  // Update adaptive correspondence distance EMA after alignment (all methods)
   if (adaptive_correspondence_threshold_) {
-    double mean_corr = 0.0;
-    if (registration_method_ == "NDT") {
-      auto ndt_ptr = pcl::dynamic_pointer_cast<
-        pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>>(registration_);
-      if (ndt_ptr) {
-        mean_corr = ndt_ptr->getLastMeanCorrespondenceDistance();
-        ndt_ptr->setMaxCorrespondenceDistance(0.0);  // Reset for next frame
-      }
-    } else {
-      // For GICP/VGICP methods: use sqrt(fitness) as proxy for mean correspondence distance
-      double fitness = registration_->getFitnessScore();
-      if (fitness > 0.0) {
-        mean_corr = std::sqrt(fitness);
-      }
-      registration_->setMaxCorrespondenceDistance(
-        std::numeric_limits<double>::max());  // Reset for next frame
-    }
     adaptive_corr_dist_ema_ = map_update_policy::updateAdaptiveCorrespondenceEma(
-      adaptive_corr_dist_ema_, mean_corr, adaptive_corr_dist_ema_alpha_);
+      adaptive_corr_dist_ema_, mean_correspondence_distance, adaptive_corr_dist_ema_alpha_);
   }
 
-  Eigen::Matrix4f final_transformation = registration_->getFinalTransformation();
+  const Eigen::Matrix4f final_transformation = registration_alignment_result_.final_transformation;
 
 
   publishMapAndPose(cloud_ptr, final_transformation, stamp);
@@ -1336,23 +1958,19 @@ void ScanMatcherComponent::receiveCloud(
   std::cout << "number of filtered cloud points: " << filtered_cloud_ptr->size() << std::endl;
   std::cout << "initial transformation:" << std::endl;
   std::cout << sim_trans << std::endl;
-  std::cout << "has converged: " << registration_->hasConverged() << std::endl;
-  std::cout << "fitness score: " << registration_->getFitnessScore() << std::endl;
+  const bool debug_has_converged = registration_alignment_result_.converged;
+  const double debug_fitness_score = registration_alignment_result_.fitness_score;
+  std::cout << "has converged: " << debug_has_converged << std::endl;
+  std::cout << "fitness score: " << debug_fitness_score << std::endl;
   std::cout << "final transformation:" << std::endl;
   std::cout << final_transformation << std::endl;
   std::cout << "rpy" << std::endl;
   std::cout << "roll:" << roll * 180 / M_PI << "," <<
     "pitch:" << pitch * 180 / M_PI << "," <<
     "yaw:" << yaw * 180 / M_PI << std::endl;
-  int num_submaps;
-  double latest_distance;
-  {
-    std::lock_guard<std::mutex> lock(mtx_);
-    num_submaps = map_array_msg_.submaps.size();
-    latest_distance = latest_distance_;
-  }
+  int num_submaps = map_array_msg_.submaps.size();
   std::cout << "num_submaps:" << num_submaps << std::endl;
-  std::cout << "moving distance:" << latest_distance << std::endl;
+  std::cout << "moving distance:" << latest_distance_ << std::endl;
   std::cout << "---------------------------------------------------------" << std::endl;
 }
 
@@ -1366,8 +1984,8 @@ void ScanMatcherComponent::publishMapAndPose(
   Eigen::Matrix3d rot_mat = final_transformation.block<3, 3>(0, 0).cast<double>();
   Eigen::Quaterniond quat_eig(rot_mat);
   geometry_msgs::msg::Quaternion quat_msg = tf2::toMsg(quat_eig);
-  const bool has_converged = registration_->hasConverged();
-  const double fitness_score = registration_->getFitnessScore();
+  const bool has_converged = registration_alignment_result_.converged;
+  const double fitness_score = registration_alignment_result_.fitness_score;
   pose_acceptance::Input acceptance_input;
   acceptance_input.position = position;
   acceptance_input.orientation = quat_msg;
@@ -1462,91 +2080,43 @@ void ScanMatcherComponent::publishMapAndPose(
   path_.poses.push_back(publish_pose);
   path_pub_->publish(path_);
 
-  trans_ = map_update_commit_state_.distanceTo(accepted_position);
+  trans_ = (accepted_position - previous_position_).norm();
   if (
     map_update_policy::shouldTriggerMapUpdate(
       trans_, trans_for_mapupdate_, mapping_flag_, suppress_map_update))
   {
     geometry_msgs::msg::PoseStamped current_pose_stamped;
     current_pose_stamped = current_pose_stamped_;
-    const double distance_increment = trans_;
-    map_update_commit_state_.begin(accepted_position);
+    previous_position_ = accepted_position;
     const bool use_async_map_update = map_update_policy::useAsyncMapUpdate(
       async_map_update_, async_map_update_warmup_submaps_,
       static_cast<int>(map_array_msg_.submaps.size()));
     if (use_async_map_update) {
-      try {
-        mapping_task_ =
-          std::packaged_task<bool()>(
-          std::bind(
-            &ScanMatcherComponent::updateMapSafely, this, cloud_ptr,
-            final_transformation, current_pose_stamped, distance_increment));
-        mapping_future_ = mapping_task_.get_future();
-        mapping_thread_ = std::thread(std::move(std::ref(mapping_task_)));
-        mapping_flag_ = true;
-      } catch (const std::exception & error) {
-        map_update_commit_state_.complete(false);
-        mapping_flag_ = false;
-        RCLCPP_ERROR(
-          get_logger(),
-          "[MAP_UPDATE_WORKER_START_REJECTED] could not start asynchronous map update: "
-          "%s; the node remains active and the distance threshold was not consumed",
-          error.what());
-      } catch (...) {
-        map_update_commit_state_.complete(false);
-        mapping_flag_ = false;
-        RCLCPP_ERROR(
-          get_logger(),
-          "[MAP_UPDATE_WORKER_START_REJECTED] could not start asynchronous map update "
-          "because of an unknown exception; the node remains active and the distance "
-          "threshold was not consumed");
-      }
+      mapping_task_ =
+        std::packaged_task<void()>(
+        std::bind(
+          &ScanMatcherComponent::updateMap, this, cloud_ptr,
+          final_transformation, current_pose_stamped));
+      mapping_future_ = mapping_task_.get_future();
+      mapping_thread_ = std::thread(std::move(std::ref(mapping_task_)));
+      mapping_flag_ = true;
     } else {
-      const bool map_update_succeeded = updateMapSafely(
-        cloud_ptr, final_transformation, current_pose_stamped, distance_increment);
-      map_update_commit_state_.complete(map_update_succeeded);
+      updateMap(cloud_ptr, final_transformation, current_pose_stamped);
       mapping_flag_ = false;
     }
   }
 }
 
-bool ScanMatcherComponent::updateMapSafely(
+void ScanMatcherComponent::updateMap(
   const pcl::PointCloud<pcl::PointXYZI>::ConstPtr cloud_ptr,
   const Eigen::Matrix4f final_transformation,
-  const geometry_msgs::msg::PoseStamped current_pose_stamped,
-  const double distance_increment)
-{
-  try {
-    return updateMap(
-      cloud_ptr, final_transformation, current_pose_stamped, distance_increment);
-  } catch (const std::exception & error) {
-    RCLCPP_ERROR(
-      get_logger(),
-      "[MAP_UPDATE_EXCEPTION_REJECTED] map update failed: %s; the node remains "
-      "active and the distance threshold was not consumed",
-      error.what());
-  } catch (...) {
-    RCLCPP_ERROR(
-      get_logger(),
-      "[MAP_UPDATE_EXCEPTION_REJECTED] map update failed with an unknown exception; "
-      "the node remains active and the distance threshold was not consumed");
-  }
-  return false;
-}
-
-bool ScanMatcherComponent::updateMap(
-  const pcl::PointCloud<pcl::PointXYZI>::ConstPtr cloud_ptr,
-  const Eigen::Matrix4f final_transformation,
-  const geometry_msgs::msg::PoseStamped current_pose_stamped,
-  const double distance_increment)
+  const geometry_msgs::msg::PoseStamped current_pose_stamped)
 {
   pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_cloud_ptr(new pcl::PointCloud<pcl::PointXYZI>());
-  if (!filterVoxelGridSafely(
-      cloud_ptr, vg_size_for_map_, *filtered_cloud_ptr, "map_update",
-      "vg_size_for_map", true))
-  {
-    return false;
-  }
+  pcl::VoxelGrid<pcl::PointXYZI> voxel_grid;
+  voxel_grid.setLeafSize(vg_size_for_map_, vg_size_for_map_, vg_size_for_map_);
+  voxel_grid.setInputCloud(cloud_ptr);
+  voxel_grid.filter(*filtered_cloud_ptr);
 
   pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_cloud_ptr(new pcl::PointCloud<pcl::PointXYZI>());
   pcl::transformPointCloud(*filtered_cloud_ptr, *transformed_cloud_ptr, final_transformation);
@@ -1560,15 +2130,13 @@ bool ScanMatcherComponent::updateMap(
   lidarslam_msgs::msg::SubMap submap;
   submap.header.stamp = current_pose_stamped.header.stamp;
   submap.header.frame_id = global_frame_id_;
+  latest_distance_ += trans_;
+  submap.distance = latest_distance_;
   submap.pose = current_pose_stamped.pose;
   submap.cloud = cloud_msg;
   lidarslam_msgs::msg::MapArray map_array_snapshot;
   {
     std::lock_guard<std::mutex> lock(mtx_);
-
-    // Attribute distance to the scan that launched this update, not a later scan.
-    latest_distance_ += distance_increment;
-    submap.distance = latest_distance_;
 
     if (use_voxel_hash_map_ && voxel_hash_map_) {
       // VoxelHashMap mode: add points and build target from nearby voxels
@@ -1618,28 +2186,14 @@ bool ScanMatcherComponent::updateMap(
     map_array_snapshot = map_array_msg_;
     is_map_updated_ = true;
   }
-  try {
-    map_array_pub_->publish(map_array_snapshot);
+  map_array_pub_->publish(map_array_snapshot);
 
-    rclcpp::Time map_time = clock_.now();
-    double dt = map_time.seconds() - last_map_time_.seconds();
-    if (map_update_policy::shouldPublishMap(dt, map_publish_period_)) {
-      publishMap(map_array_snapshot, global_frame_id_);
-      last_map_time_ = map_time;
-    }
-  } catch (const std::exception & error) {
-    RCLCPP_ERROR(
-      get_logger(),
-      "[MAP_UPDATE_PUBLISH_FAILED] map state was committed but publication failed: %s; "
-      "the node remains active",
-      error.what());
-  } catch (...) {
-    RCLCPP_ERROR(
-      get_logger(),
-      "[MAP_UPDATE_PUBLISH_FAILED] map state was committed but publication failed with "
-      "an unknown exception; the node remains active");
+  rclcpp::Time map_time = clock_.now();
+  double dt = map_time.seconds() - last_map_time_.seconds();
+  if (map_update_policy::shouldPublishMap(dt, map_publish_period_)) {
+    publishMap(map_array_snapshot, global_frame_id_);
+    last_map_time_ = map_time;
   }
-  return true;
 }
 
 // Decode, transform into the map frame, and append the selected submaps to
@@ -1717,45 +2271,63 @@ bool ScanMatcherComponent::refreshRegistrationTargetFromTargetedCloud()
     RCLCPP_WARN(get_logger(), "POSE_REJECT_RECOVERY skipped: recovery target is empty");
     return false;
   }
-  if (registration_method_ == "NDT") {
-    registration_->setInputTarget(targeted_cloud_ptr);
-  } else {
-    pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_targeted_cloud_ptr(
-      new pcl::PointCloud<pcl::PointXYZI>());
-    if (!filterVoxelGridSafely(
-        targeted_cloud_ptr, vg_size_for_input_, *filtered_targeted_cloud_ptr,
-        "recovery_target", "vg_size_for_input", true))
-    {
-      return false;
-    }
-    registration_->setInputTarget(filtered_targeted_cloud_ptr);
+  if (!setRegistrationTargetFromMap(targeted_cloud_ptr, "recovery")) {
+    return false;
   }
   return true;
 }
 
-bool ScanMatcherComponent::filterVoxelGridSafely(
-  pcl::PointCloud<pcl::PointXYZI>::ConstPtr input,
-  double leaf_size,
-  pcl::PointCloud<pcl::PointXYZI> & output,
-  const char * stage,
-  const char * parameter_name,
-  bool throttle_warning)
+bool ScanMatcherComponent::setRegistrationTarget(
+  const pcl::PointCloud<pcl::PointXYZI>::ConstPtr & target,
+  const char * context)
 {
-  const voxel_grid_safety::Report report =
-    voxel_grid_safety::filter<pcl::PointXYZI>(input, leaf_size, output);
-  if (report.safe()) {
-    return true;
+  if (!registration_plugin_session_) {
+    RCLCPP_ERROR(
+      get_logger(), "registration target update failed (%s): session is unavailable", context);
+    return false;
+  }
+  std::string error;
+  const bool accepted = registration_plugin_session_->setInputTarget(target, &error);
+  if (!accepted) {
+    RCLCPP_ERROR(
+      get_logger(), "registration plugin target update failed (%s): %s",
+      context, error.c_str());
+    return false;
+  }
+  return true;
+}
+
+bool ScanMatcherComponent::setRegistrationTargetFromMap(
+  const pcl::PointCloud<pcl::PointXYZI>::ConstPtr & target,
+  const char * context)
+{
+  if (registration_plugin_session_) {
+    if (registrationRuntimeUsesRawTarget(registration_plugin_target_policy_)) {
+      return setRegistrationTarget(target, context);
+    }
+    if (!registrationRuntimeUsesHostPreparedTarget(registration_plugin_target_policy_)) {
+      RCLCPP_ERROR(
+        get_logger(),
+        "registration plugin target update failed (%s): unsupported target policy",
+        context);
+      return false;
+    }
+  } else {
+    RCLCPP_ERROR(
+      get_logger(), "registration target policy unavailable (%s): session is not active", context);
+    return false;
   }
 
-  const std::string message = voxel_grid_safety::formatRejection(
-    report, stage, parameter_name);
-  if (throttle_warning) {
-    RCLCPP_WARN_THROTTLE(
-      get_logger(), *get_clock(), 5000, "%s", message.c_str());
-  } else {
-    RCLCPP_WARN(get_logger(), "%s", message.c_str());
-  }
-  return false;
+  // GICP-family registrations and host-prepared plugins retain the historical
+  // map-refresh voxel policy.  The initial map path is already prepared and
+  // calls setRegistrationTarget directly.
+  pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_target(
+    new pcl::PointCloud<pcl::PointXYZI>());
+  pcl::VoxelGrid<pcl::PointXYZI> voxel_grid;
+  voxel_grid.setLeafSize(vg_size_for_input_, vg_size_for_input_, vg_size_for_input_);
+  voxel_grid.setInputCloud(target);
+  voxel_grid.filter(*filtered_target);
+  return setRegistrationTarget(filtered_target, context);
 }
 
 const char * ScanMatcherComponent::trackingStateName(TrackingState state) const

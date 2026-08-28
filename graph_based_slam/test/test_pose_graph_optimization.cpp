@@ -32,6 +32,7 @@
 
 #include <gtest/gtest.h>
 
+#include <array>
 #include <cstring>
 #include <vector>
 
@@ -87,6 +88,16 @@ LoopConstraint makeClosingLoop()
   return loop;
 }
 
+std::array<double, 36> makeWeakYCovariance()
+{
+  std::array<double, 36> covariance {};
+  for (int i = 0; i < 6; ++i) {
+    covariance[static_cast<size_t>(i * 6 + i)] = 1.0e-3;
+  }
+  covariance[7] = 1.0e3;
+  return covariance;
+}
+
 TEST(PoseGraphOptimization, LoopClosurePullsDriftedEndpointHome)
 {
   const auto submaps = makeDriftedChain();
@@ -123,6 +134,31 @@ TEST(PoseGraphOptimization, NoConstraintsBeyondOdometryKeepsChainShape)
     EXPECT_LT((result.poses[i].translation() - submaps[i].pose.translation()).norm(), 1e-6)
       << "node " << i << " moved without any loop/IMU/GNSS constraint";
   }
+}
+
+TEST(PoseGraphOptimization, DegeneracyWeightingLetsLoopCorrectWeakAxis)
+{
+  auto submaps = makeDriftedChain();
+  for (auto & submap : submaps) {
+    submap.odometry_covariance = makeWeakYCovariance();
+  }
+
+  AdjacentEdgeConfig legacy_config;
+  const auto legacy = optimizePoseGraph(
+    submaps, {makeClosingLoop()}, {}, {}, legacy_config, LoopEdgeConfig{},
+    ImuEdgeConfig{}, Chi2Collection::NONE);
+
+  AdjacentEdgeConfig weighted_config;
+  weighted_config.covariance_weighting.enabled = true;
+  weighted_config.covariance_weighting.degenerate_information_scale = 0.1;
+  const auto weighted = optimizePoseGraph(
+    submaps, {makeClosingLoop()}, {}, {}, weighted_config, LoopEdgeConfig{},
+    ImuEdgeConfig{}, Chi2Collection::NONE);
+
+  const double legacy_endpoint_y = std::abs(legacy.poses.back().translation().y());
+  const double weighted_endpoint_y = std::abs(weighted.poses.back().translation().y());
+  EXPECT_LT(weighted_endpoint_y, legacy_endpoint_y)
+    << "a competing loop must be able to correct more of a frontend-degenerate direction";
 }
 
 TEST(PoseGraphOptimization, SameInputsGiveBitwiseIdenticalPoses)

@@ -146,6 +146,48 @@ promotion across MID-360, HILTI, and RTK-SLAM surveyed references. Commands,
 replay, and adoption records:
 [Benchmarking and release gate](docs/benchmarking.md#slam-candidate-regression).
 
+## Open-source benchmark results
+
+On the same HILTI 2022 `exp04` LiDAR/IMU input and CPU-only host, the competitive
+profile recorded **34.7% lower median APE RMSE than GLIM** over three completed
+historical runs:
+
+| System | Median APE RMSE | Median processing RTF | Maximum peak RSS |
+| --- | ---: | ---: | ---: |
+| **lidarslam_ros2** | **0.0565 m** | 0.993 | **586.83 MB** |
+| GLIM CPU | 0.0866 m | **0.244** | 690.88 MB |
+
+This is a scoped HILTI `exp04` trajectory-accuracy and peak-memory win; GLIM
+wins runtime. It is not an overall-SOTA claim. Normal development needs only
+one new run:
+
+```bash
+python3 scripts/run_ours_competitive_benchmark.py \
+  --bag <hilti-exp04-ros2-bag> \
+  --reference-tum <common-six-checkpoints.tum> \
+  --reference-meta <common-six-checkpoints.json> \
+  --rko-param configs/hilti2022/rko_lio_hilti2022_pandar_competitive_v2.yaml \
+  --lidarslam-param configs/hilti2022/lidarslam_competitive_v2.yaml \
+  --output output/hilti_exp04_ours_n1 --runs 1
+```
+
+The GLIM CPU counterpart is:
+
+```bash
+python3 scripts/run_glim_benchmark.py \
+  --bag <hilti-exp04-ros2-bag> \
+  --output output/hilti_exp04_glim_n1 --runs 1
+```
+
+Exact scoring rules, revisions, checkpoint policy, and map-quality limitations
+are in [Comparison](docs/comparison.md#same-input-hilti-2022-exp04-vs-glim-cpu).
+
+In a separate `n=1` development measurement, task-local correspondence
+reduction kept the 1,258-pose frontend trajectory byte-identical while mean ICP
+time moved from 21.60 ms to 20.92 ms and frontend wall time from 47.51 s to
+46.55 s. These timing deltas are directional optimization evidence; see the
+[SOTA product development plan](docs/roadmap/sota-product-development-2026-08.md#2026-08-28-development-checkpoint-n1).
+
 ## Tunnel and fog mapping without degeneracy collapse
 
 On the ~500 m self-similar Fyllingsdalen tunnel from the [NTNU LiDAR degeneracy datasets](https://github.com/ntnu-arl/lidar_degeneracy_datasets),
@@ -191,7 +233,7 @@ Details and optional MID-360 / production-bundle gates: [docs/benchmarking.md](d
 - **Getting started**: [Getting Started](docs/getting-started.md) · [Distribution](docs/distribution.md) · [Autoware quickstart](docs/autoware-quickstart.md) · [Operator workflows](docs/workflows.md) · [Autoware Foxglove](docs/autoware-foxglove.md)
 - **Pipelines**: [Autoware-compatible map authoring](docs/autoware-map-authoring.md)
 - **Benchmarking**: [Benchmarking and release gate](docs/benchmarking.md) · [Comparison](docs/comparison.md)
-- **Project**: [Product contract](docs/product-contract.md) · [v1.0 readiness](docs/v1-readiness.md) · [Independent first-map validation](docs/external-first-map-validation.md) · [v0.9.1 RC notes](docs/releases/v0.9.1.md) · [v0.9 roadmap](docs/roadmap/v0.9.md) · [Contributing](CONTRIBUTING.md) · [Support](SUPPORT.md) · [Security](SECURITY.md) · [Governance](GOVERNANCE.md) · [Changelog](CHANGELOG.md) · [Releasing](RELEASING.md)
+- **Project**: [SOTA product development plan](docs/roadmap/sota-product-development-2026-08.md) · [Product contract](docs/product-contract.md) · [v1.0 readiness](docs/v1-readiness.md) · [Independent first-map validation](docs/external-first-map-validation.md) · [v0.9.1 RC notes](docs/releases/v0.9.1.md) · [v0.9 roadmap](docs/roadmap/v0.9.md) · [Contributing](CONTRIBUTING.md) · [Support](SUPPORT.md) · [Security](SECURITY.md) · [Governance](GOVERNANCE.md) · [Changelog](CHANGELOG.md) · [Releasing](RELEASING.md)
 
 Preview the doc site locally: `python3 -m mkdocs serve`.
 

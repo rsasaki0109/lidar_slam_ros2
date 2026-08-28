@@ -136,6 +136,84 @@ Source artifacts:
 - `scripts/release_profiles.yaml` (profile definitions)
 - `output/kitti_dev_<timestamp>/kitti_dev_report.md` (generated locally, KITTI LO baseline)
 
+## Same-input HILTI 2022 exp04 vs GLIM CPU
+
+This is the strongest directly comparable OSS result for the current
+competitive `lidarslam_ros2` profile. Both systems used the same HILTI 2022
+`exp04` ROS 2 bag bytes, LiDAR--IMU calibration, CPU-only host, and the same six
+surveyed checkpoints. GLIM's trajectory starts after its three-second IMU
+initialization, so the earlier first checkpoint was excluded for both systems
+instead of being clamped or extrapolated. APE is SE(3)-aligned position RMSE;
+all aggregate values below are from three complete runs.
+
+| System | APE RMSE median (range), m | Processing RTF median | Peak RSS maximum, MB | Completion |
+| --- | ---: | ---: | ---: | ---: |
+| **lidarslam_ros2** | **0.056536** (identical across runs) | 0.993 | **586.83** | 3/3 |
+| GLIM CPU | 0.086624 (0.084876--0.086702) | **0.2437** | 690.88 | 3/3 |
+
+The `lidarslam_ros2` trajectory error is 34.7% lower and its maximum peak RSS
+is 15.0% lower. GLIM is substantially faster. Our individual processing RTFs
+were `1.094`, `0.993`, and `0.977`, so the median meets 1.0 while the worst run
+does not. GLIM completed with 1,228 poses per run; `lidarslam_ros2` completed
+with 1,258 poses and ended within 0.0173 seconds of the bag end.
+
+The result does not establish complete map-quality superiority. At 0.1 m
+common downsampling, `lidarslam_ros2` had better mean plane thickness
+(`0.06081` vs `0.07911` m), but GLIM had slightly better p95 thickness
+(`0.12169` vs `0.12504` m) and substantially greater planar coverage
+(`0.43030` vs `0.17949`). Consequently this README claims a trajectory and
+peak-memory win on this sequence, not a universal system-level victory.
+
+Reproducibility identifiers:
+
+- HILTI bag SHA-256: `d1117a4c6e4c3626a3039e48719ec6e39af34b0a95f5a9807163bc717229c8ee`
+- common six-checkpoint SHA-256: `537b7e0f13f223a07f8329cc2b7080e33dc2765a13293d67a7eb3312090db1b8`
+- GLIM core v1.2.2: `faa264a1bce1bda406f73457e35511f56cdc2eaa`
+- GLIM ROS 2: `4a9e7a4cb084967c8525a1be529ad3ba2a118ae7`
+- runner and complete research record:
+  [`competitive-slam-plan-2026-07.md`](research/competitive-slam-plan-2026-07.md#glim-cpu-exp04-baseline)
+
+## Voxel-SLAM v17 research candidate vs pinned OSS rivals
+
+This separate experiment evaluates a weak-axis/bounded-map Voxel-SLAM
+derivative. It is not the default `RKO-LIO + graph_based_slam` release path.
+The comparison used the common exposed SOTA-v5 references and frozen
+interpolating scorer. Values are median per-sequence APE RMSE in metres from
+three complete repetitions; the final column is the geometric mean across the
+three datasets.
+
+| System | NavINST Indoor02 | Oxford Spires Keble 05 | UrbanNav HK Tunnel 1 | Geometric mean |
+| --- | ---: | ---: | ---: | ---: |
+| **v17 candidate** | 0.17486 | 0.13949 | **488.22566** | **2.2836** |
+| GLIM | 1.52860 | **0.11316** | 757.80951 | 5.0779 |
+| Point-LIO | 0.65142 | 0.13626 | 638.93868 | 3.8388 |
+| FAST-LIO2 | 0.84663 | 0.52470 | 757.42790 | 6.9576 |
+| fixed Voxel-SLAM | **0.16664** | 0.14671 | 818.79944 | 2.7160 |
+
+Relative to the pinned rivals, v17's geometric-mean APE is 55.0% lower than
+GLIM, 40.5% lower than Point-LIO, 67.2% lower than FAST-LIO2, and 15.9% lower
+than fixed Voxel-SLAM. All nine v17 runs completed; maximum processing RTF was
+`0.83623`, maximum peak RSS was `274.50 MB`, and the frontend-only experiment
+accepted zero loop edges.
+
+Important limitations:
+
+- These datasets became exposed development data after the SOTA-v5 evaluation;
+  this is repeatable research evidence, not a fresh blind benchmark.
+- v17 loses Oxford to GLIM by about 23% and narrowly loses NavINST to fixed
+  Voxel-SLAM. The aggregate win must not be presented as a per-sequence sweep.
+- The hundreds-of-metres UrbanNav APE values mean every compared system still
+  struggles badly with the tunnel's longitudinal weak axis.
+- v17 is a research frontend with its built-in loop closure/HBA disabled. It
+  has not passed the map-geometry and fresh-holdout gates required for a SOTA
+  claim and is not shipped as the default public workflow.
+
+The reproducible candidate is fixed Voxel-SLAM revision
+`70fc8a28d63823d5989ff184daeea0787b672398` plus
+`weak_axis_bounded_map.patch` (SHA-256
+`62f6e1c5d055106b08b4037267f6b6ac7d8b1c06757719b763b7107c47795b25`).
+The frozen run configuration used replay rate `1.2` and CPU set `2-7`.
+
 ## Current Default Position
 
 The current tagged-release position is:

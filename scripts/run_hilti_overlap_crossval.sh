@@ -10,7 +10,9 @@ Usage:
   bash scripts/run_hilti_overlap_crossval.sh [options]
 
 Options:
-  --sequence exp01|exp07|all   Sequence to evaluate (default: all)
+  --sequence exp01|exp02|exp03|exp07|exp21|all
+                                Sequence to evaluate (default: all; all keeps the
+                                established exp01+exp07 suite)
   --dataset-root <dir>         HILTI dataset root
   --output-root <dir>          Evidence root (default: external SSD)
   --setup <setup.bash>         Workspace setup
@@ -77,9 +79,12 @@ done
 
 case "${SEQUENCE}" in
   exp01) SEQUENCES=(exp01) ;;
+  exp02) SEQUENCES=(exp02) ;;
+  exp03) SEQUENCES=(exp03) ;;
   exp07) SEQUENCES=(exp07) ;;
+  exp21) SEQUENCES=(exp21) ;;
   all) SEQUENCES=(exp01 exp07) ;;
-  *) die "unknown sequence: ${SEQUENCE} (known: exp01, exp07, all)" ;;
+  *) die "unknown sequence: ${SEQUENCE} (known: exp01, exp02, exp03, exp07, exp21, all)" ;;
 esac
 [[ "${RUNS}" =~ ^[1-9][0-9]*$ ]] || die "--runs must be a positive integer"
 [[ "${ROS_DOMAIN_BASE}" =~ ^[0-9]+$ ]] || die "--ros-domain-base must be an integer"
@@ -223,8 +228,17 @@ for sequence in "${SEQUENCES[@]}"; do
     exp01)
       slug=exp01_construction_ground_level
       ;;
+    exp02)
+      slug=exp02_construction_multilevel
+      ;;
+    exp03)
+      slug=exp03_construction_stairs
+      ;;
     exp07)
       slug=exp07_long_corridor
+      ;;
+    exp21)
+      slug=exp21_outside_building
       ;;
   esac
   bag="${DATASET_ROOT}/${sequence}_ros2"

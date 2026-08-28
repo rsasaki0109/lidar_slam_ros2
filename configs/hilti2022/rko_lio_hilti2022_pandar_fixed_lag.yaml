@@ -1,0 +1,32 @@
+# Candidate: piecewise gyro deskew plus bounded multi-scan pose refinement.
+extrinsic_imu2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+extrinsic_lidar2base_quat_xyzw_xyz: [0.7071068, -0.7071068, 0.0, 0.0, -0.001, -0.00855, 0.055]
+initialization_phase: true
+deskew: true
+piecewise_gyro_deskew: true
+fixed_lag_multiscan: true
+fixed_lag_window_size: 6
+fixed_lag_neighbor_scans: 3
+fixed_lag_pairwise_max_iterations: 5
+fixed_lag_scan_constraint_weight: 0.05
+fixed_lag_odometry_prior_weight: 1.0
+fixed_lag_pairwise_max_translation_m: 0.10
+fixed_lag_pairwise_max_rotation_deg: 1.5
+fixed_lag_pairwise_min_correspondences: 100
+fixed_lag_pairwise_min_inlier_ratio: 0.60
+fixed_lag_pairwise_min_error_reduction: 0.01
+fixed_lag_max_pose_correction_m: 0.0005
+fixed_lag_max_pose_correction_deg: 0.005
+fixed_lag_max_latest_pose_correction_m: 0.01
+fixed_lag_max_latest_pose_correction_deg: 0.10
+fixed_lag_fix_latest_pose: true
+fixed_lag_huber_delta_m: 0.15
+fixed_lag_map_max_error_ratio: 1.005
+fixed_lag_map_min_correspondence_ratio: 0.99
+voxel_size: 0.25
+min_range: 0.7
+max_range: 100.0
+double_downsample: true
+enable_kidnap_relocalization: false
+reset_on_registration_failure: false
+relocalize_after_scan_gap: false

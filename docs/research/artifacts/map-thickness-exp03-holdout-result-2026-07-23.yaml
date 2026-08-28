@@ -1,0 +1,92 @@
+schema_version: 1
+sequence: exp03_construction_stairs
+evaluation_role: untouched_holdout_single_frozen_profile
+candidate_manifest: map-thickness-ndt-guard03-candidate-2026-07-23.yaml
+candidate_manifest_pre_holdout_sha256: d1d76b9dbd7c3c2d3fb5d276b44d371fe62bf4f73ce0daf46a4c5afcfb645b5f
+parameters_changed_after_observing_holdout: false
+evidence_root: /media/sasaki/aiueo/benchmarks/map_thickness_exp03_holdout_20260723/exp03
+
+frozen_input:
+  exact_odom_cloud_pairs: 3095
+  duration_s: 160.537192426
+  bag_size_gib: 1.7
+
+even_map:
+  input_scans: 1548
+  submaps: 133
+  travel_m: 207.1
+  loop_edges: 2
+  occupied_points: 6250188
+  fused_surfel_points: 5595598
+  fallback_points: 654590
+  selective_output_points: 4347940
+  elapsed_s: 212.09
+  peak_rss_kib: 2904580
+  rtf: 1.321136
+  repeat_elapsed_s: 215.30
+  repeat_peak_rss_kib: 2904448
+  nine_primary_artifacts_byte_identical: true
+
+geometry:
+  baseline_mean_thickness_m: 0.052662440
+  candidate_mean_thickness_m: 0.035356915
+  mean_change_percent: -32.86122898976955
+  baseline_p95_thickness_m: 0.106008994
+  candidate_p95_thickness_m: 0.077071068
+  p95_change_percent: -27.2976140118828
+  baseline_planar_coverage: 0.094449920
+  candidate_planar_coverage: 0.311300294
+  coverage_change_percent: 229.59296736302153
+
+ndt_and_trajectory:
+  odd_query_scans: 1547
+  baseline_fitness_mean_m2: 0.10042507894068464
+  candidate_fitness_mean_m2: 0.0864143109060268
+  fitness_mean_change_percent: -13.951463302242662
+  baseline_fitness_p95_m2: 0.31725272602402355
+  candidate_fitness_p95_m2: 0.2666716984270446
+  fitness_p95_change_percent: -15.943449322212844
+  baseline_ape_rmse_m: 0.9378601634795998
+  candidate_ape_rmse_m: 0.9380920932507328
+  ape_rmse_change_percent: 0.024729675079981916
+  baseline_rpe_rmse_m: 0.7499408793222987
+  candidate_rpe_rmse_m: 0.7501553364036974
+  rpe_rmse_change_percent: 0.028596531714941698
+  candidate_elapsed_s: 76.37
+  candidate_peak_rss_kib: 1215512
+  repeat_elapsed_s: 69.52
+  repeat_peak_rss_kib: 1216728
+  target_pcd_byte_identical: true
+  candidate_tum_byte_identical: true
+  candidate_csv_byte_identical: true
+
+sha256:
+  baseline_quality_report: b03cd1f68af44ef8a3986b189c57e1dd824c07d54b201b95153b434d184bef66
+  candidate_quality_report: 750cda0214b2f5f9cf9bd65e445eb10a87c07f95ae536ddc96620a255a5c043a
+  target_pcd: 05c8e2a0d10e24fc75809042b56f0721890f18970a82a78dde409b901c977aa1
+  candidate_tum: 7ee945b16ae95cdb4b8b955bf0420dfc426c5403be7e745bdec3668a8246c4bc
+  candidate_csv: 96f67d0e6741955130857783958882d5990122aac3fe1469d8e42364d750036a
+  ape_rpe_report: a0b8cd3f3761e76e0d14dc7c82ebfafcc0d72121048071cdf3f129bc8ca2b1a2
+
+verdict:
+  geometry_gate: pass
+  coverage_gate: pass
+  ndt_mean_gate: pass
+  ndt_p95_gate: pass
+  ape_gate: pass
+  rpe_gate: pass
+  resource_gate: pass
+  determinism_gate: pass
+  overall: pass
+
+five_sequence_macro_after_holdout:
+  ndt_mean_change_percent: -12.29985463470111
+  ndt_p95_change_percent: -12.386033003110967
+  ape_rmse_change_percent: 0.4392826969285579
+  rpe_rmse_change_percent: 0.3349161500625941
+
+release_note: >-
+  The frozen profile passes the untouched exp03 adoption gate and four of five
+  sequences pass mean NDT individually. exp01 remains at -8.4185% mean NDT,
+  so the release stays default-off until the every-sequence versus macro policy
+  is explicitly resolved.

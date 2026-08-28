@@ -1,0 +1,47 @@
+{
+  "bootstrap": {
+    "confidence": 0.95,
+    "resamples": 100000,
+    "seed": 20260822,
+    "statistic": "mean_paired_wall_overhead_percent"
+  },
+  "gate": {
+    "bootstrap_ci95_upper_percent_max": 5.0,
+    "median_abs_overhead_percent_max": 2.0
+  },
+  "measurement": {
+    "clock": "monotonic",
+    "cpu_clock": "resource.RUSAGE_SELF",
+    "network": "none",
+    "sampler_scheduler_nice": 10,
+    "sampler_interval_ms": 250,
+    "startup_excluded": true
+  },
+  "order": "AB_BA_alternating",
+  "raw_run_markers": [
+    "docker_exit_status.txt",
+    "mode.txt",
+    "workload_time.json"
+  ],
+  "aggregation": {
+    "missing_marker_policy": "fail_closed_before_numeric_aggregation",
+    "checksum_policy": "all_runs_same_fixed_workload_checksum"
+  },
+  "optimization": {
+    "proc_enumeration": "os.scandir",
+    "pid_start_time_guard": "cross_sample_single_stat_read",
+    "process_rss_definition_unchanged": true,
+    "self_exclusion_unchanged": true,
+    "pid_reuse_checks_unchanged": true
+  },
+  "repeats": 20,
+  "same_cpuset": "0-7",
+  "same_image": true,
+  "schema_version": 3,
+  "status": "preregistered_not_measured",
+  "workload": {
+    "model": "fixed_work_count_cpu",
+    "worker_count": 8,
+    "work_items_per_worker": 8000000
+  }
+}

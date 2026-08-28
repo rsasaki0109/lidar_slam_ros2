@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<library path="lidarslam_registration_plugin_template">
+  <class
+    name="lidarslam_registration_plugin_template/Identity"
+    type="lidarslam_registration_plugin_template::IdentityRegistration"
+    base_class_type="lidarslam::plugins::registration::RegistrationPlugin">
+    <description>
+      C++14 identity registration template for contract and clean-install tests.
+    </description>
+  </class>
+</library>

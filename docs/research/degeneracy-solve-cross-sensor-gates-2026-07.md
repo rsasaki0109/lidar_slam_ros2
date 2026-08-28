@@ -78,6 +78,13 @@ Track weak translation axes in the world-frame tangent space across scans:
 4. fall back to the legacy geometric update while unconfirmed;
 5. expose streak, matched cosine, and intervention counts in diagnostics.
 
+This candidate was implemented and evaluated in
+[`persistent-degeneracy-gate-2026-07.md`](persistent-degeneracy-gate-2026-07.md).
+It reduced the MID-360 trajectory delta from 5.891 m to 0.530 m while keeping
+HILTI exp07 near its default-off baseline, but did not meet the cross-sensor
+adoption gate. Persistence alone is therefore retained as an opt-in research
+path, not promoted to the default solve.
+
 Tune only the persistence length and cosine threshold on HILTI exp07. Then run
 MID-360 first as the hard safety holdout, followed by untouched HILTI exp01 and
 exp04. Promotion still requires the Phase 2 determinism and resource gates.

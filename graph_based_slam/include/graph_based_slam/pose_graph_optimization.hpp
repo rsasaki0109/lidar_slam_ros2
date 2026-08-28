@@ -38,6 +38,7 @@
 // results match the pre-extraction behaviour bit for bit.
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <memory>
 #include <sstream>
@@ -58,6 +59,7 @@
 #ifndef GRAPH_BASED_SLAM_WITH_G2O
 #define GRAPH_BASED_SLAM_WITH_G2O 1
 #endif
+#include "graph_based_slam/adjacent_edge_covariance_weighting.hpp"
 #include "graph_based_slam/loop_edge_robustifier.hpp"
 #include "graph_based_slam/plane_revisit_edge.hpp"
 
@@ -69,6 +71,7 @@ namespace pose_graph
 struct SubmapNode
 {
   Eigen::Isometry3d pose {Eigen::Isometry3d::Identity()};
+  std::array<double, 36> odometry_covariance {};
 };
 
 struct LoopConstraint
@@ -114,6 +117,7 @@ struct AdjacentEdgeConfig
   double info_weight {1000.0};
   double info_weight_trans {1000.0};
   double info_weight_rot {1000.0};
+  degeneracy::AdjacentEdgeCovarianceWeightingConfig covariance_weighting {};
 };
 
 struct LoopEdgeConfig
@@ -207,6 +211,10 @@ inline OptimizationResult optimizePoseGraph(
           const double edge_weight = adjacent_cfg.info_weight / sep_d;
           info_mat = Eigen::Matrix<double, 6, 6>::Identity() * edge_weight;
         }
+        const degeneracy::AdjacentEdgeCovarianceWeightingResult covariance_weighting =
+          degeneracy::weightAdjacentEdgeFromCovariance(
+          info_mat, submaps[i].odometry_covariance, adjacent_cfg.covariance_weighting);
+        info_mat = covariance_weighting.information;
         g2o::EdgeSE3 * edge_se3 = new g2o::EdgeSE3();
         edge_se3->setMeasurement(relative_pose);
         edge_se3->setInformation(info_mat);

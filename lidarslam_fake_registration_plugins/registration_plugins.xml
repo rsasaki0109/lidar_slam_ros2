@@ -1,0 +1,45 @@
+<?xml version="1.0"?>
+<library path="lidarslam_fake_registration_plugins">
+  <class
+    name="lidarslam_fake_registration_plugins/Identity"
+    type="lidarslam_fake_registration_plugins::IdentityRegistration"
+    base_class_type="lidarslam::plugins::registration::RegistrationPlugin">
+    <description>Deterministic identity registration plugin for external consumer tests.</description>
+  </class>
+  <class
+    name="lidarslam_fake_registration_plugins/NoGuess"
+    type="lidarslam_fake_registration_plugins::NoGuessRegistration"
+    base_class_type="lidarslam::plugins::registration::RegistrationPlugin">
+    <description>Plugin that intentionally omits initial-guess capability.</description>
+  </class>
+  <class
+    name="lidarslam_fake_registration_plugins/BadApi"
+    type="lidarslam_fake_registration_plugins::BadApiRegistration"
+    base_class_type="lidarslam::plugins::registration::RegistrationPlugin">
+    <description>Plugin with an incompatible API major for negative tests.</description>
+  </class>
+  <class
+    name="lidarslam_fake_registration_plugins/BadMetadata"
+    type="lidarslam_fake_registration_plugins::BadMetadataRegistration"
+    base_class_type="lidarslam::plugins::registration::RegistrationPlugin">
+    <description>Plugin with invalid metadata for negative tests.</description>
+  </class>
+  <class
+    name="lidarslam_fake_registration_plugins/Rejecting"
+    type="lidarslam_fake_registration_plugins::RejectingRegistration"
+    base_class_type="lidarslam::plugins::registration::RegistrationPlugin">
+    <description>Plugin that rejects configuration with a typed shell diagnostic.</description>
+  </class>
+  <class
+    name="lidarslam_fake_registration_plugins/Unlicensed"
+    type="lidarslam_fake_registration_plugins::UnlicensedRegistration"
+    base_class_type="lidarslam::plugins::registration::RegistrationPlugin">
+    <description>Plugin with a disallowed license for policy tests.</description>
+  </class>
+  <class
+    name="lidarslam_fake_registration_plugins/ConstructorProbe"
+    type="lidarslam_fake_registration_plugins::ConstructorProbeRegistration"
+    base_class_type="lidarslam::plugins::registration::RegistrationPlugin">
+    <description>Test fixture that records constructor entry for pre-load gate tests.</description>
+  </class>
+</library>

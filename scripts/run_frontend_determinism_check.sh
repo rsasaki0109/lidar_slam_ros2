@@ -14,6 +14,9 @@ set -euo pipefail
 #     [--params lidarslam/param/lidarslam.yaml] \
 #     [--runs 3] [--max-clouds 0] \
 #     [--ros-domain-base 120] \
+#     [--save-map] \
+#     [--registration-method NDT|GICP] \
+#     [--registration-plugin-class lidarslam_builtin/NdtOmp] \
 #     [--resume] \
 #     [--output-dir output/frontend_determinism_<timestamp>] \
 #     [--reference-tum demo_data/ntu_viral/tnp_01/leica_pose.tum]
@@ -33,6 +36,9 @@ RUNS=3
 MAX_CLOUDS=0
 OUTPUT_DIR="${REPO_ROOT}/output/frontend_determinism_$(date +%Y%m%d_%H%M%S)"
 REFERENCE_TUM=""
+SAVE_MAP=false
+REGISTRATION_METHOD=""
+REGISTRATION_PLUGIN_CLASS=""
 RESUME=false
 ROS_DOMAIN_BASE=120
 
@@ -46,6 +52,9 @@ while [[ $# -gt 0 ]]; do
     --max-clouds) MAX_CLOUDS="$2"; shift 2 ;;
     --output-dir) OUTPUT_DIR="$2"; shift 2 ;;
     --reference-tum) REFERENCE_TUM="$2"; shift 2 ;;
+    --save-map) SAVE_MAP=true; shift ;;
+    --registration-method) REGISTRATION_METHOD="$2"; shift 2 ;;
+    --registration-plugin-class) REGISTRATION_PLUGIN_CLASS="$2"; shift 2 ;;
     --ros-domain-base) ROS_DOMAIN_BASE="$2"; shift 2 ;;
     --resume) RESUME=true; shift ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
@@ -77,6 +86,9 @@ echo "imu_topic:   ${IMU_TOPIC:-<none>}"
 echo "params:      ${PARAMS}"
 echo "runs:        ${RUNS}"
 echo "max_clouds:  ${MAX_CLOUDS}"
+echo "save_map:    ${SAVE_MAP}"
+echo "registration_method: ${REGISTRATION_METHOD:-<params-file default>}"
+echo "plugin:      ${REGISTRATION_PLUGIN_CLASS:-<legacy same-TU>}"
 echo "out:         ${OUTPUT_DIR}"
 
 for i in $(seq 1 "${RUNS}"); do
@@ -86,7 +98,8 @@ for i in $(seq 1 "${RUNS}"); do
   if [[ "${RESUME}" == true && \
         -f "${run_dir}/.complete" && \
         -s "${run_dir}/trajectory_frontend.tum" && \
-        -s "${run_dir}/submaps_frontend.csv" ]]; then
+        -s "${run_dir}/submaps_frontend.csv" && \
+        ( "${SAVE_MAP}" != true || -s "${run_dir}/map.pcd" ) ]]; then
     echo "reuse complete run ${i}: ${run_dir}"
     continue
   fi
@@ -94,6 +107,20 @@ for i in $(seq 1 "${RUNS}"); do
   imu_topic_args=()
   if [[ -n "${IMU_TOPIC}" ]]; then
     imu_topic_args=(-p imu_topic:="${IMU_TOPIC}")
+  fi
+  map_output_args=()
+  if [[ "${SAVE_MAP}" == true ]]; then
+    map_output_args=(-p map_output_path:="${run_dir}/map.pcd")
+  fi
+  registration_plugin_args=()
+  if [[ -n "${REGISTRATION_PLUGIN_CLASS}" ]]; then
+    registration_plugin_args=(
+      -p registration_plugin_enable:=true
+      -p registration_plugin_class:="${REGISTRATION_PLUGIN_CLASS}")
+  fi
+  registration_method_args=()
+  if [[ -n "${REGISTRATION_METHOD}" ]]; then
+    registration_method_args=(-p registration_method:="${REGISTRATION_METHOD}")
   fi
   # A direct bag callback still constructs ROS publishers. Give every run a
   # private local DDS domain so a stale runner cannot inject wall-clock poses
@@ -106,11 +133,17 @@ for i in $(seq 1 "${RUNS}"); do
     -p bag_path:="${BAG}" \
     -p cloud_topic:="${CLOUD_TOPIC}" \
     "${imu_topic_args[@]}" \
+    "${map_output_args[@]}" \
+    "${registration_plugin_args[@]}" \
+    "${registration_method_args[@]}" \
     -p max_clouds:="${MAX_CLOUDS}" \
     -p output_dir:="${run_dir}" \
     > "${run_dir}/runner.log" 2>&1
   touch "${run_dir}/.complete"
   md5sum "${run_dir}/trajectory_frontend.tum" "${run_dir}/submaps_frontend.csv"
+  if [[ "${SAVE_MAP}" == true ]]; then
+    md5sum "${run_dir}/map.pcd"
+  fi
   if [[ -n "${REFERENCE_TUM}" ]]; then
     python3 "${SCRIPT_DIR}/ape_from_tum.py" \
       --ref "${REFERENCE_TUM}" \
@@ -131,6 +164,7 @@ ape_rmse_for_run() {
 echo "--- verdict"
 traj_ref="${OUTPUT_DIR}/run1/trajectory_frontend.tum"
 submaps_ref="${OUTPUT_DIR}/run1/submaps_frontend.csv"
+map_ref="${OUTPUT_DIR}/run1/map.pcd"
 pose_count=$(wc -l < "${traj_ref}")
 submap_count=$(($(wc -l < "${submaps_ref}") - 1))
 status=0
@@ -145,12 +179,24 @@ for i in $(seq 2 "${RUNS}"); do
     diff "${submaps_ref}" "${OUTPUT_DIR}/run${i}/submaps_frontend.csv" | head -10 || true
     status=1
   fi
+  if [[ "${SAVE_MAP}" == true && ! -f "${OUTPUT_DIR}/run${i}/map.pcd" ]]; then
+    echo "MISSING (map PCD): run${i}"
+    status=1
+  elif [[ "${SAVE_MAP}" == true ]] && ! cmp -s "${map_ref}" "${OUTPUT_DIR}/run${i}/map.pcd"; then
+    echo "MISMATCH (map PCD): run1 vs run${i}"
+    status=1
+  fi
 done
 
 summary="${OUTPUT_DIR}/frontend_determinism_summary.md"
 {
-  echo "| run | ape_rmse | n_poses | n_submaps | trajectory_md5 | submaps_md5 |"
-  echo "| --- | ---: | ---: | ---: | --- | --- |"
+  if [[ "${SAVE_MAP}" == true ]]; then
+    echo "| run | ape_rmse | n_poses | n_submaps | trajectory_md5 | submaps_md5 | map_md5 |"
+    echo "| --- | ---: | ---: | ---: | --- | --- | --- |"
+  else
+    echo "| run | ape_rmse | n_poses | n_submaps | trajectory_md5 | submaps_md5 |"
+    echo "| --- | ---: | ---: | ---: | --- | --- |"
+  fi
   for i in $(seq 1 "${RUNS}"); do
     run_dir="${OUTPUT_DIR}/run${i}"
     n_poses=$(wc -l < "${run_dir}/trajectory_frontend.tum")
@@ -158,19 +204,31 @@ summary="${OUTPUT_DIR}/frontend_determinism_summary.md"
     traj_md5=$(md5sum "${run_dir}/trajectory_frontend.tum" | cut -c1-12)
     submaps_md5=$(md5sum "${run_dir}/submaps_frontend.csv" | cut -c1-12)
     rmse=$(ape_rmse_for_run "${run_dir}")
-    echo "| run${i} | ${rmse:-n/a} | ${n_poses} | ${n_submaps} | \`${traj_md5}\` | \`${submaps_md5}\` |"
+    if [[ "${SAVE_MAP}" == true ]]; then
+      map_md5=$(md5sum "${run_dir}/map.pcd" | cut -c1-12)
+      echo "| run${i} | ${rmse:-n/a} | ${n_poses} | ${n_submaps} | \`${traj_md5}\` | \`${submaps_md5}\` | \`${map_md5}\` |"
+    else
+      echo "| run${i} | ${rmse:-n/a} | ${n_poses} | ${n_submaps} | \`${traj_md5}\` | \`${submaps_md5}\` |"
+    fi
   done
   echo ""
   if [[ ${status} -eq 0 ]]; then
     echo "frontend_trajectories_identical: true"
     echo "submap_streams_identical: true"
+    if [[ "${SAVE_MAP}" == true ]]; then
+      echo "map_pcds_identical: true"
+    fi
   else
-    echo "frontend_trajectories_or_submap_streams_identical: false"
+    echo "frontend_trajectories_submap_streams_or_map_pcds_identical: false"
   fi
 } | tee "${summary}"
 
 if [[ ${status} -eq 0 ]]; then
-  echo "FRONTEND_DETERMINISM_OK: ${RUNS} runs produced byte-identical trajectory_frontend.tum and submaps_frontend.csv (${pose_count} poses, ${submap_count} submaps)"
+  if [[ "${SAVE_MAP}" == true ]]; then
+    echo "FRONTEND_DETERMINISM_OK: ${RUNS} runs produced byte-identical trajectory_frontend.tum, submaps_frontend.csv, and map.pcd (${pose_count} poses, ${submap_count} submaps)"
+  else
+    echo "FRONTEND_DETERMINISM_OK: ${RUNS} runs produced byte-identical trajectory_frontend.tum and submaps_frontend.csv (${pose_count} poses, ${submap_count} submaps)"
+  fi
 else
   echo "FRONTEND_DETERMINISM_FAILED"
 fi

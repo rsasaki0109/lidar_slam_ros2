@@ -38,6 +38,10 @@ def test_capture_wraps_arbitrary_command_and_records_both_backend_topics():
     source = SCRIPT.read_text()
 
     assert 'COMMAND=("$@")' in source
+    assert '--include-unpublished-topics' in source
+    assert '--storage-preset-profile fastwrite' in source
+    assert '--max-cache-size 1073741824' in source
+    assert '--qos-profile-overrides-path' in source
     assert '/rko_lio/odometry /rko_lio/frame' in source
     assert 'COMMAND_STATUS=$?' in source
     assert 'exit "${COMMAND_STATUS}"' in source

@@ -62,89 +62,92 @@ extern "C" {
 #include "scanmatcher/map_update_policy.hpp"
 #include "scanmatcher/pose_acceptance.hpp"
 #include "scanmatcher/pose_prediction.hpp"
+#include "scanmatcher/registration_runtime.hpp"
 #include "scanmatcher/voxel_hash_map.hpp"
 
-#include <pclomp/ndt_omp.h>
-#include <pclomp/ndt_omp_impl.hpp>
-#include <pclomp/voxel_grid_covariance_omp.h>
-#include <pclomp/voxel_grid_covariance_omp_impl.hpp>
-#include <pclomp/gicp_omp.h>
-#include <pclomp/gicp_omp_impl.hpp>
-#ifdef HAS_FAST_GICP
-#include <fast_gicp/gicp/fast_gicp.hpp>
-#include <fast_gicp/gicp/fast_vgicp.hpp>
-#endif
-#ifdef HAS_SMALL_GICP
-#include <small_gicp/pcl/pcl_registration.hpp>
-#endif
-
 #include <mutex>
+#include <memory>
+#include <functional>
+#include <string>
 #include <thread>
 #include <future>
 
 #include <pcl_conversions/pcl_conversions.h>
 
+namespace lidarslam
+{
+namespace plugins
+{
+namespace registration
+{
+namespace shell
+{
+class RegistrationPluginSession;
+}
+class RegistrationPlugin;
+}  // namespace registration
+}  // namespace plugins
+}  // namespace lidarslam
+
 namespace graphslam
 {
-  namespace detail
-  {
-    class MapUpdateCommitState
-    {
-public:
-      void reset(const Eigen::Vector3d & position)
-      {
-        committed_position_ = position;
-        pending_ = false;
-      }
-
-      double distanceTo(const Eigen::Vector3d & position) const
-      {
-        return (position - committed_position_).norm();
-      }
-
-      void begin(const Eigen::Vector3d & position)
-      {
-        pending_position_ = position;
-        pending_ = true;
-      }
-
-      bool complete(bool succeeded)
-      {
-        if (!pending_) {
-          return false;
-        }
-        if (succeeded) {
-          committed_position_ = pending_position_;
-        }
-        pending_ = false;
-        return true;
-      }
-
-      const Eigen::Vector3d & committedPosition() const
-      {
-        return committed_position_;
-      }
-
-      bool pending() const
-      {
-        return pending_;
-      }
-
-private:
-      Eigen::Vector3d committed_position_ {Eigen::Vector3d::Zero()};
-      Eigen::Vector3d pending_position_ {Eigen::Vector3d::Zero()};
-      bool pending_ {false};
-    };
-  }  // namespace detail
+enum class RegistrationConstruction
+{
+  kBuiltIn,
+  kDeferredPluginInjection,
+};
 
   class ScanMatcherComponent: public rclcpp::Node
   {
 public:
+    // Test-only seam for exercising the real rclcpp resource creation
+    // boundary.  It is deliberately not a ROS parameter and is empty by
+    // default, so a user cannot enable it through startup configuration.
+    // The hook may only rewrite a resource name; rclcpp still performs the
+    // actual create_subscription/create_publisher validation and exception
+    // path.  External DSO constructor/static-initializer side effects remain
+    // outside the host rollback guarantee.
+    using ResourceInitTopicHook = std::function<std::string(const std::string &)>;
+
+    GS_SM_PUBLIC
+    static void setResourceInitTopicHookForTest(ResourceInitTopicHook hook);
+
+    GS_SM_PUBLIC
+    static void clearResourceInitTopicHookForTest();
+
     GS_SM_PUBLIC
     explicit ScanMatcherComponent(const rclcpp::NodeOptions & options);
 
     GS_SM_PUBLIC
-    ~ScanMatcherComponent() override;
+    ScanMatcherComponent(
+      const rclcpp::NodeOptions & options,
+      RegistrationConstruction construction);
+
+    // Explicit startup shell boundary for deferred/offline construction.  The
+    // component-owned one-argument constructor resolves its immutable selector
+    // before creating publishers/subscriptions; this overload lets an offline
+    // shell inject an already-resolved session at the same startup barrier.
+    GS_SM_PUBLIC
+    bool setRegistrationPluginSession(
+      const std::shared_ptr<lidarslam::plugins::registration::shell::RegistrationPluginSession>
+      & session,
+      std::string * error = nullptr);
+
+    // True only after an explicitly enabled component-owned or deferred
+    // session has passed the startup contract and publishers/subscribers have
+    // been created. Runtime replacement is intentionally unsupported.
+    GS_SM_PUBLIC
+    bool registrationPluginPreflightComplete() const
+    {
+      return registration_plugin_preflight_complete_;
+    }
+
+    GS_SM_PUBLIC
+    std::shared_ptr<lidarslam::plugins::registration::shell::RegistrationPluginSession>
+    registrationPluginSession() const
+    {
+      return registration_plugin_session_;
+    }
 
 private:
     using TrackingState = pose_acceptance::TrackingState;
@@ -158,7 +161,21 @@ private:
     std::string robot_frame_id_;
     std::string odom_frame_id_;
 
-    pcl::Registration<pcl::PointXYZI, pcl::PointXYZI>::Ptr registration_;
+    // Single registration-plugin runtime slot.  Declaration order keeps the
+    // session (and its ClassLoader) alive until after the plugin pointer is
+    // released during component destruction.  The cached contract fields are
+    // copied at configuration time so the scan hot path never branches on a
+    // plugin class ID.
+    std::shared_ptr<lidarslam::plugins::registration::shell::RegistrationPluginSession>
+      registration_plugin_session_;
+    std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
+      registration_plugin_;
+    lidarslam::plugins::registration::AlignmentResult registration_alignment_result_;
+    lidarslam::plugins::registration::Capabilities registration_plugin_capabilities_;
+    lidarslam::plugins::registration::TargetPolicy registration_plugin_target_policy_ {
+      lidarslam::plugins::registration::TargetPolicy::kAcceptHostPrepared};
+    lidarslam::plugins::registration::CorrespondenceMetric registration_plugin_metric_ {
+      lidarslam::plugins::registration::CorrespondenceMetric::kUnavailable};
 
     rclcpp::Subscription < geometry_msgs::msg::PoseStamped > ::SharedPtr initial_pose_sub_;
     rclcpp::Subscription < sensor_msgs::msg::Imu > ::SharedPtr imu_sub_;
@@ -170,8 +187,8 @@ private:
     bool mapping_flag_ {false};
     bool is_map_updated_ {false};
     std::thread mapping_thread_;
-    std::packaged_task < bool() > mapping_task_;
-    std::future < bool > mapping_future_;
+    std::packaged_task < void() > mapping_task_;
+    std::future < void > mapping_future_;
 
     geometry_msgs::msg::PoseStamped current_pose_stamped_;
     lidarslam_msgs::msg::MapArray map_array_msg_;
@@ -182,6 +199,7 @@ private:
     rclcpp::Publisher < nav_msgs::msg::Path > ::SharedPtr path_pub_;
 
     void initializePubSub();
+    void finalizeInitialization();
     bool initializeMap(const pcl::PointCloud <pcl::PointXYZI>::Ptr & cloud_ptr, const std_msgs::msg::Header & header);
     void receiveCloud(
       const pcl::PointCloud < pcl::PointXYZI> ::ConstPtr & input_cloud_ptr,
@@ -199,28 +217,14 @@ private:
       const rclcpp::Time stamp,
       int frame_index,
       const std::string & stage);
-    bool filterVoxelGridSafely(
-      pcl::PointCloud<pcl::PointXYZI>::ConstPtr input,
-      double leaf_size,
-      pcl::PointCloud<pcl::PointXYZI> & output,
-      const char * stage,
-      const char * parameter_name,
-      bool throttle_warning);
     Eigen::Matrix4f getTransformation(const geometry_msgs::msg::Pose pose);
     pose_prediction::ImuPredictionConfig makeImuPredictionConfig() const;
     pose_acceptance::Config makePoseAcceptanceConfig() const;
     void publishMap(const lidarslam_msgs::msg::MapArray & map_array_msg, const std::string & map_frame_id);
-    bool updateMap(
+    void updateMap(
       const pcl::PointCloud < pcl::PointXYZI > ::ConstPtr cloud_ptr,
       const Eigen::Matrix4f final_transformation,
-      const geometry_msgs::msg::PoseStamped current_pose_stamped,
-      const double distance_increment
-    );
-    bool updateMapSafely(
-      const pcl::PointCloud < pcl::PointXYZI > ::ConstPtr cloud_ptr,
-      const Eigen::Matrix4f final_transformation,
-      const geometry_msgs::msg::PoseStamped current_pose_stamped,
-      const double distance_increment
+      const geometry_msgs::msg::PoseStamped current_pose_stamped
     );
     bool refreshRegistrationTargetFromTargetedCloud();
     void appendTransformedSubmaps(const std::vector<int> & submap_indices);
@@ -229,9 +233,20 @@ private:
       const rclcpp::Time stamp
     );
     const char * trackingStateName(TrackingState state) const;
+    bool setRegistrationTarget(
+      const pcl::PointCloud<pcl::PointXYZI>::ConstPtr & target,
+      const char * context);
+    bool setRegistrationTargetFromMap(
+      const pcl::PointCloud<pcl::PointXYZI>::ConstPtr & target,
+      const char * context);
 
     bool initial_pose_received_ {false};
     bool initial_cloud_received_ {false};
+    bool registration_plugin_enable_ {false};
+    bool registration_plugin_allow_external_ {false};
+    bool registration_plugin_preflight_complete_ {false};
+    bool pubsub_initialized_ {false};
+    std::string registration_plugin_class_;
 
     // setting parameter
     std::string registration_method_;
@@ -325,7 +340,7 @@ private:
     pose_acceptance::State pose_acceptance_state_;
 
     // map
-    detail::MapUpdateCommitState map_update_commit_state_;
+    Eigen::Vector3d previous_position_;
     double trans_;
     double latest_distance_ {0};
 
@@ -356,6 +371,37 @@ private:
     LidarUndistortion lidar_undistortion_;
 
   };
+
+// The factory body lives in scanmatcher_component.cpp, alongside the same-TU
+// pclomp template instantiation.  Offline shells may register it with the
+// hybrid resolver without constructing NDT in their own TU.
+GS_SM_PUBLIC
+std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
+makeHostBuiltinNdtRegistration();
+
+GS_SM_PUBLIC
+std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
+makeHostBuiltinGicpRegistration();
+
+#ifdef HAS_FAST_GICP
+GS_SM_PUBLIC
+std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
+makeHostBuiltinFastGicpRegistration();
+
+GS_SM_PUBLIC
+std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
+makeHostBuiltinFastVgicpRegistration();
+#endif
+
+#ifdef HAS_SMALL_GICP
+GS_SM_PUBLIC
+std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
+makeHostBuiltinSmallGicpRegistration();
+
+GS_SM_PUBLIC
+std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
+makeHostBuiltinSmallVgicpRegistration();
+#endif
 } // namespace graphslam
 
 #endif  //GS_SM_COMPONENT_H_INCLUDED

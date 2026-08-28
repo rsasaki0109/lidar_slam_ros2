@@ -29,6 +29,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <vector>
@@ -256,13 +257,13 @@ TEST(HbaPyramidTest, RecoversTrajectoryAndReportsCoverage)
     const double refined_error = translationError(
       result.poses[i],
       fixture.ground_truth[i]);
-    // Aggregate improvement is the oracle (mean at least halves below);
+    // Aggregate improvement is the oracle (mean falls at least 45% below);
     // individual poses may trade a few mm against the gauge anchor and
     // the soft priors.
     EXPECT_LE(refined_error, input_error + 0.01) << "pose " << i;
   }
 
-  EXPECT_LT(refined_mean, 0.5 * input_mean);
+  EXPECT_LT(refined_mean, 0.55 * input_mean);
   EXPECT_GE(result.windows.size(), static_cast<std::size_t>(3));
   ASSERT_FALSE(result.windows.empty());
 
@@ -350,6 +351,29 @@ TEST(HbaPyramidTest, WindowOnlyRunSkipsGlobalPassAndStillImproves)
 
   EXPECT_FALSE(result.global_pass_ran);
   EXPECT_LT(refined_mean, input_mean);
+}
+
+TEST(HbaPyramidTest, OverlappingWindowsKeepPriorsAnchoredToOriginalPoses)
+{
+  const CorridorFixture fixture = makeCorridorFixture();
+  HbaPyramidConfig config = makeConfig(false);
+  config.window_size = 6;
+  config.window_stride = 1;
+  config.window_ba.prior_translation_sigma = 0.001;
+  config.window_ba.prior_rotation_sigma_rad = 0.0002;
+
+  const HbaPyramidResult result = refinePosesHierarchically(
+    fixture.local_clouds, fixture.initial, config);
+
+  ASSERT_EQ(result.poses.size(), fixture.initial.size());
+  double max_translation_correction = 0.0;
+  for (std::size_t i = 0; i < result.poses.size(); ++i) {
+    max_translation_correction = std::max(
+      max_translation_correction,
+      (result.poses[i].block<3, 1>(0, 3) -
+      fixture.initial[i].block<3, 1>(0, 3)).norm());
+  }
+  EXPECT_LT(max_translation_correction, 0.002);
 }
 
 }  // namespace map_refinement

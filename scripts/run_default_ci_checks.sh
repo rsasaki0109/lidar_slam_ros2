@@ -12,8 +12,10 @@ Options:
   --help                       Show this help
 
 This script verifies the default permissive-license workflow for this repository:
-  - build: ndt_omp_ros2, lidarslam_msgs, scanmatcher, graph_based_slam, lidarslam, rko_lio
-  - test:  lidarslam_msgs, scanmatcher, graph_based_slam, lidarslam
+  - build: registration contracts/plugins, ndt_omp_ros2, lidarslam_msgs,
+            scanmatcher, graph_based_slam, lidarslam, rko_lio
+  - test:  registration contracts/plugins, lidarslam_msgs, scanmatcher,
+            graph_based_slam, lidarslam
 EOF
 }
 
@@ -92,13 +94,22 @@ if ! command -v ros2 >/dev/null 2>&1; then
 fi
 
 BUILD_TARGETS=(
+  lidarslam_plugin_interfaces
+  lidarslam_default_plugins
+  lidarslam_fake_registration_plugins
+  lidarslam_registration_loader
+  scanmatcher
   lidarslam
   rko_lio
 )
 
 TEST_TARGETS=(
-  lidarslam_msgs
+  lidarslam_plugin_interfaces
+  lidarslam_default_plugins
+  lidarslam_fake_registration_plugins
+  lidarslam_registration_loader
   scanmatcher
+  lidarslam_msgs
   graph_based_slam
   lidarslam
 )
