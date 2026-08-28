@@ -8,6 +8,7 @@
   <license>BSD-2-Clause</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
+  <build_depend>python3</build_depend>
 
   <depend>rclcpp</depend>
   <depend>rclcpp_components</depend>
@@ -28,6 +29,8 @@
   <depend>lidarslam_default_plugins</depend>
   <depend>libg2o</depend>
   <depend>libpcl-all-dev</depend>
+  <exec_depend>python3</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
