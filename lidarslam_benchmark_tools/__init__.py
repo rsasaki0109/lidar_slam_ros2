@@ -24,7 +24,7 @@ PACKAGE_SURFACE_SCHEMA: Final[str] = 'lidarslam-benchmark-python-surface-v1'
 _PACKAGE_DIR = Path(__file__).resolve().parent
 _SOURCE_SCRIPTS_DIR = _PACKAGE_DIR.parent / 'scripts'
 _SOURCE_SURFACE = _SOURCE_SCRIPTS_DIR.is_dir() and (
-    _SOURCE_SCRIPTS_DIR / 'benchmark_phase_contract.py'
+    _SOURCE_SCRIPTS_DIR / 'verify_autoware_map.py'
 ).is_file()
 
 # In a source checkout the package contains only this metadata file.  Extend
