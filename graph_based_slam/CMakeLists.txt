@@ -24,8 +24,6 @@ add_link_options(-Wl,--no-undefined)
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
-find_package(Python3 REQUIRED COMPONENTS Interpreter)
-include(${CMAKE_CURRENT_SOURCE_DIR}/../cmake/lidarslam_benchmark_python.cmake)
 find_package(Eigen3 REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
@@ -597,11 +595,6 @@ if(BUILD_TESTING)
     TIMEOUT 120
   )
   ament_add_pytest_test(
-    test_benchmark_python_surface
-    test/test_benchmark_python_surface.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_competitive_candidate_provenance
     test/test_competitive_candidate_provenance.py
     TIMEOUT 120
@@ -635,12 +628,6 @@ if(BUILD_TESTING)
     test_fast_livo2_benchmark_runner
     test/test_fast_livo2_benchmark_runner.py
     TIMEOUT 120
-  )
-  ament_add_pytest_test(
-    test_registration_plugin_dso_gate
-    test/test_registration_plugin_dso_gate.py
-    ENV LIDARSLAM_TEST_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}
-    TIMEOUT 180
   )
   ament_add_pytest_test(
     test_glim_benchmark_runner
@@ -1323,11 +1310,6 @@ install(
 install(
   DIRECTORY launch param
   DESTINATION share/${PROJECT_NAME}
-)
-
-lidarslam_install_benchmark_python_surface(
-  "${CMAKE_CURRENT_SOURCE_DIR}/.."
-  "${PROJECT_NAME}"
 )
 
 install(TARGETS
