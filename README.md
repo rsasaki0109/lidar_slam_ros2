@@ -53,8 +53,8 @@ flowchart LR
 
 ## Quickstart
 
-Not sure which path fits your setup? Start with the
-[Getting Started guide](docs/getting-started.md).
+For the shortest automatic path, run `bash scripts/run_first_map.sh`; it checks the
+environment and selects source or Docker. See [Getting Started](docs/getting-started.md), or add `--dry-run`.
 
 ### Try it with Docker (one command, no build)
 
@@ -147,6 +147,40 @@ profile recorded **34.7% lower median APE RMSE than GLIM** over three runs:
 | **lidarslam_ros2** | **0.0565 m** | 0.993 | **586.83 MB** |
 | GLIM CPU | 0.0866 m | **0.244** | 690.88 MB |
 
+This is a scoped win on HILTI `exp04`: `lidarslam_ros2` wins trajectory APE
+and peak memory, while GLIM wins runtime. It is not an overall-SOTA claim.
+The table preserves the completed three-run historical comparison; normal
+development needs only one new run. Reproduce one `lidarslam_ros2` sample with:
+
+```bash
+python3 scripts/run_ours_competitive_benchmark.py \
+  --bag <hilti-exp04-ros2-bag> \
+  --reference-tum <common-six-checkpoints.tum> \
+  --reference-meta <common-six-checkpoints.json> \
+  --rko-param configs/hilti2022/rko_lio_hilti2022_pandar_competitive_v2.yaml \
+  --lidarslam-param configs/hilti2022/lidarslam_competitive_v2.yaml \
+  --output output/hilti_exp04_ours_n1 --runs 1
+```
+
+The GLIM CPU counterpart is:
+
+```bash
+python3 scripts/run_glim_benchmark.py \
+  --bag <hilti-exp04-ros2-bag> \
+  --output output/hilti_exp04_glim_n1 --runs 1
+```
+
+Exact scoring rules, revisions, checkpoint policy, map-quality limitations, and
+the historical evidence are documented in
+[Comparison](docs/comparison.md#same-input-hilti-2022-exp04-vs-glim-cpu).
+
+In a separate `n=1` development measurement, task-local correspondence
+reduction kept the 1,258-pose frontend trajectory byte-identical while mean ICP
+time moved from 21.60 ms to 20.92 ms and frontend wall time from 47.51 s to
+46.55 s. These timing deltas are directional optimization evidence, not a
+statistical or cross-system claim; see the
+[SOTA product development plan](docs/roadmap/sota-product-development-2026-08.md#2026-08-28-development-checkpoint-n1).
+
 The separate Voxel-SLAM `v17` research candidate also achieved the lowest
 geometric-mean APE across NavINST, Oxford, and UrbanNav: **2.2836 m**, versus
 GLIM `5.0779`, Point-LIO `3.8388`, FAST-LIO2 `6.9576`, and fixed Voxel-SLAM
@@ -154,6 +188,9 @@ GLIM `5.0779`, Point-LIO `3.8388`, FAST-LIO2 `6.9576`, and fixed Voxel-SLAM
 not win every sequence, and is not fresh-blind evidence. Exact revisions,
 per-sequence results, input hashes, resource results, map limitations, and
 reproduction notes are in [Comparison](docs/comparison.md#voxel-slam-v17-research-candidate-vs-pinned-oss-rivals).
+
+<!-- BEGIN GENERATED COMPETITIVE CLAIM PUBLICATION -->
+<!-- END GENERATED COMPETITIVE CLAIM PUBLICATION -->
 
 ## Accuracy
 
@@ -188,7 +225,7 @@ Details and optional MID-360 / production-bundle gates: [docs/benchmarking.md](d
 - **Getting started**: [Getting Started](docs/getting-started.md) · [Autoware quickstart](docs/autoware-quickstart.md) · [Operator workflows](docs/workflows.md) · [Autoware Foxglove](docs/autoware-foxglove.md)
 - **Pipelines**: [Autoware-compatible map authoring](docs/autoware-map-authoring.md)
 - **Benchmarking**: [Benchmarking and release gate](docs/benchmarking.md) · [Comparison](docs/comparison.md)
-- **Project**: [v0.2.2 release notes](docs/releases/v0.2.2.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Releasing](RELEASING.md)
+- **Project**: [SOTA product development plan](docs/roadmap/sota-product-development-2026-08.md) · [v0.2.2 release notes](docs/releases/v0.2.2.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Releasing](RELEASING.md)
 
 Preview the doc site locally: `python3 -m mkdocs serve`.
 

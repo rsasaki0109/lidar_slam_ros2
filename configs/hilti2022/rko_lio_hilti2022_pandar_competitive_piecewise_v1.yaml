@@ -1,0 +1,23 @@
+# Bounded exp04 development candidate: competitive-v2 plus deterministic
+# piecewise gyro deskew.  This changes exactly one estimator knob relative to
+# rko_lio_hilti2022_pandar_competitive_v2.yaml.  The old piecewise-only replay
+# reached 0.052948 m all-seven-point APE but was not realtime; this candidate
+# retains the competitive-v2 ICP budget, keypoint density, and transport queue
+# so accuracy and runtime can be evaluated together in one quiescent n=1 run.
+# It is not a release default or publication profile.
+extrinsic_imu2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+extrinsic_lidar2base_quat_xyzw_xyz: [0.7071068, -0.7071068, 0.0, 0.0, -0.001, -0.00855, 0.055]
+initialization_phase: true
+deskew: true
+piecewise_gyro_deskew: true
+voxel_size: 0.25
+min_range: 0.7
+max_range: 100.0
+double_downsample: true
+enable_kidnap_relocalization: false
+reset_on_registration_failure: false
+relocalize_after_scan_gap: false
+max_iterations: 50
+convergence_criterion: 3.0e-5
+icp_keypoint_voxel_multiplier: 2.25
+publisher_queue_depth: 128

@@ -8,9 +8,10 @@ import json
 from pathlib import Path
 from typing import Any
 
+from lidarslam_benchmark_tools import module_path, package_root
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-VERIFY_SCRIPT = REPO_ROOT / 'scripts' / 'verify_autoware_map.py'
+REPO_ROOT = package_root()
+VERIFY_SCRIPT = module_path('verify_autoware_map')
 
 
 def _load_verify_module():
