@@ -128,7 +128,7 @@ def _match_with_tolerance(
     # checkpoints, or HILTI-style submap-rate corrected trajectories) scored
     # against a downsampled trajectory, and to reproduce the dataset's own
     # max_dt; it suppresses the silent dropping of checkpoints that have no
-    # estimate pose within 0.15 s (see plan.md Sec. 2.4 / 11.3: an
+    # estimate pose within 0.15 s (see docs/research/project-plan-archive.md Sec. 2.4 / 11.3: an
     # under-tolerant match silently drops sparse reference points and biases
     # the reported error).
     if match_tolerance is not None:
@@ -143,7 +143,7 @@ def _match_diagnostics(
     ref_rows: list[dict[str, float]],
     pairs: list[tuple[dict[str, float], dict[str, float]]],
 ) -> dict[str, Any]:
-    """Diagnostics that make silent-drop bias visible (plan.md Sec. 2.4 /
+    """Diagnostics that make silent-drop bias visible (docs/research/project-plan-archive.md Sec. 2.4 /
     11.3): how many reference points were actually paired, how many were
     rejected (no estimate pose within tolerance), and how stale the worst
     matched pair is in time.

@@ -1,4 +1,9 @@
-# lidarslam-ros2 総合計画書
+# lidarslam-ros2 総合計画書（履歴アーカイブ）
+
+> この文書は2026年前半の開発記録です。現在の計画とリリース状態は
+> [`docs/roadmap/v0.9.md`](../roadmap/v0.9.md) と
+> [`docs/v1-readiness.md`](../v1-readiness.md)
+> を参照してください。
 
 ## 1. プロジェクト概要
 
@@ -29,7 +34,7 @@ IMU/GNSS 誤ブロック重み / tie-break 欠落 / GNSS yaw 整合 = 初の
 georeferenced マップ）、god object 分解（純ヘッダ 19+4 本、テスト 1100 超）。
 
 **v0.7 完了（2026-06-13, PR #264–#279）**: オフラインマップリファインメント
-+ マップ品質ゲート（map authoring の SOTA、[`docs/roadmap/v0.7.md`](docs/roadmap/v0.7.md)）。
++ マップ品質ゲート（map authoring の SOTA、[`docs/roadmap/v0.7.md`](../roadmap/v0.7.md)）。
 Phase 0 legacy timer 削除（#265、md5 不変で挙動保存証明）→ Phase 1 凍結
 マップ品質メトリクス（MME/平面厚/coverage、optimizer が自分の審判を
 動かせないよう先に凍結、#266/#267）→ Phase 2 clean-room（BSD-2、論文
@@ -59,7 +64,7 @@ note: 疎な submap 軌跡は補間でなく submap 時刻で採点すべき（�
 
 2026-04 の LO ベースライン整備＋small_gicp KITTI スイープのハマりどころ（空 TUM の
 QoS 不一致 / launch override 順 / 短尺 bag fallback）と再現コマンドは
-[`docs/research/kitti-lo-tuning-2026-04.md`](docs/research/kitti-lo-tuning-2026-04.md)
+[`docs/research/kitti-lo-tuning-2026-04.md`](kitti-lo-tuning-2026-04.md)
 に集約。
 
 **現状（live）**: 公開推奨は引き続き RKO-LIO + graph_based_slam。KITTI / Velodyne-only
@@ -73,7 +78,7 @@ QoS 不一致 / launch override 順 / 短尺 bag fallback）と再現コマン�
 13 PR で develop 投入した opt-in triangle descriptor stack（NTU / MID-360 / Newer の
 3-dataset ablation、max_pairs=16 sweet spot、RANSAC cost isolation、≥3-run variance
 discipline、PR #159-#189）の研究記録は
-[`docs/research/triangle-stack-2026-05-summary.md`](docs/research/triangle-stack-2026-05-summary.md)
+[`docs/research/triangle-stack-2026-05-summary.md`](triangle-stack-2026-05-summary.md)
 に集約。
 
 **現状（live）**: 全プリセットで default-off（opt-in）。3-dataset で variance-bounded、
@@ -357,7 +362,7 @@ distance-threshold で submap が作られない時間帯に落ち、最寄り s
 - **回避策**: offline_node (RKO-LIO) でバッグを内部読み込み（既定パスはこれ）
 - **根本解決**: FastDDS のシェアードメモリ設定、またはゼロコピー転送
 - ユーザー向けの失敗モード解説・CycloneDDS + kernel チューニング・intra-process
-  composition の状況は [`docs/dds-tuning.md`](docs/dds-tuning.md) に集約（v0.4 §F）。
+  composition の状況は [`docs/dds-tuning.md`](../dds-tuning.md) に集約（v0.4 §F）。
 
 ### 7.2 MID-360 (固体 LiDAR) の限界
 - 非 360 FOV のため Scan Context が無効
@@ -393,8 +398,8 @@ distance-threshold で submap が作られない時間帯に落ち、最寄り s
 | 0a | ~~v0.5 outdoor config 調整 → stadtgarten 再 run~~ | ✅ 2026-06-11 解決。`double_downsample: false` で 3.903→0.835m、outdoor preset 化（§11.8 A） |
 | 0b | ~~v0.5 indoor pair を blocking 昇格 + mid360_vs_glim 降格~~ | ✅ PR #228。4/4 seq 計測、indoor blocking、glim は report-only canary（§11.8 C） |
 | 0c | **bloom リリース実行（P2-7 後半）** | repo 側 prep 完了（0.5.0 整列 + ランブック `docs/rosdistro-release.md`）。残り = ndt_omp_ros2 fork PR #11 マージ（整備 PR 作成済み）→ 先行 bloom → 本体 bloom → ros/rosdistro PR（maintainer の GitHub 操作が必要、§13） |
-| 0f | ~~v0.6 決定論 core/shell リファクタリング~~ | ✅ 2026-06-12 完遂（PR #237–#263、tag v0.6.0 + pre-release）。全フェーズゲート PASS: 両基盤 3-run バイト一致（backend + frontend）、event-driven default 化、純ヘッダ 19+4 本。詳細 [`docs/roadmap/v0.6.md`](docs/roadmap/v0.6.md)、[`docs/releases/v0.6.0.md`](docs/releases/v0.6.0.md) |
-| 0g | ~~v0.7 マップリファインメント + 品質ゲート~~ | ✅ 2026-06-13 完遂（PR #264–#279）。Phase 0–3 全 PASS: clean-room 階層平面 BA、holdout 検証済み blocking 閾値、refine default-on、実 GT 3 基盤で APE+マップ同時改善、クロージング full gate green。詳細 [`docs/roadmap/v0.7.md`](docs/roadmap/v0.7.md)、[`docs/research/byte-reproducible-map-authoring.md`](docs/research/byte-reproducible-map-authoring.md) |
+| 0f | ~~v0.6 決定論 core/shell リファクタリング~~ | ✅ 2026-06-12 完遂（PR #237–#263、tag v0.6.0 + pre-release）。全フェーズゲート PASS: 両基盤 3-run バイト一致（backend + frontend）、event-driven default 化、純ヘッダ 19+4 本。詳細 [`docs/roadmap/v0.6.md`](../roadmap/v0.6.md)、[`docs/releases/v0.6.0.md`](../releases/v0.6.0.md) |
+| 0g | ~~v0.7 マップリファインメント + 品質ゲート~~ | ✅ 2026-06-13 完遂（PR #264–#279）。Phase 0–3 全 PASS: clean-room 階層平面 BA、holdout 検証済み blocking 閾値、refine default-on、実 GT 3 基盤で APE+マップ同時改善、クロージング full gate green。詳細 [`docs/roadmap/v0.7.md`](../roadmap/v0.7.md)、[`docs/research/byte-reproducible-map-authoring.md`](byte-reproducible-map-authoring.md) |
 | 0h | **v0.7 Phase 4: HILTI 2022 外部 mm-GT 基盤（進行中）** | exp01 6.6cm / exp07 long corridor 0.32m（退化、§2.4、task #18、PR #280/#282）。両者ループゼロで backend パススルー（正常）。残り = 他 construction 系列 / sparse corrected 軌跡の採点改善 / **exp07 退化を v0.8 degeneracy registration の検証基盤に** |
 | 0d | ~~D1 8-vs-16 再現性ベンチ~~ | ✅ 2026-06-11 実施（GLIM MID-360 bag、3 run × {off/16, on/16, on/8}）。on/16 は APE 実質無回帰（差 0.06m ≪ noise 0.40m）だが分散縮小なし（σ 0.066→0.259）、on/8 arm の 2 実行で loop 試行ゼロ。mp8 の系統的 regression 署名は消滅し乱高下に置換（スケジューリング主要因子と整合、根本原因の証明ではない）。**default off 維持で D1 完全クローズ**（§1.2、research summary） |
 | 0e | **発信（P2-8）** | ghcr ワンコマンド + lanelet2 完全バンドル + 実 GT 数値が揃い、発信material は完成状態。ROS Discourse / Reddit / X はユーザー本人が実施。事前に B2 social preview 設定（Web UI 1 分） |
@@ -489,7 +494,7 @@ map_origin:
 inside-out 戦略で 10 PR（#168-#177）投入した操作員向け session pipeline
 （foundation / analyzer / dashboard / record / readiness / public-RKO / session /
 bundle layer）+ ament lint の罠 + 重要ファイル + 3DGS QA candidate の詳細は
-[`docs/research/mid360-robot-toolkit-2026-05.md`](docs/research/mid360-robot-toolkit-2026-05.md)
+[`docs/research/mid360-robot-toolkit-2026-05.md`](mid360-robot-toolkit-2026-05.md)
 に集約。
 
 **現状（live）**: develop に landed（81 mid360 scripts + runbook smoke test +
@@ -507,7 +512,7 @@ v0.4 の locked 決定 #1「MID-360 evidence は実 GT を狙う」を v0.5 で�
 cross-validation, `ape_rmse_vs_reference_m`, pass 4.00）で、これは accuracy ではなく
 *agreement* しか測れない（両系統が共有する系統誤差は不可視）。これを**独立 GT 付き
 データセット + `ape_rmse_gt_m`**（NTU VIRAL / Newer College と同じ土俵）に置換するのが
-v0.5 の背骨。詳細な live ドキュメントは [`docs/roadmap/v0.5.md`](docs/roadmap/v0.5.md)。
+v0.5 の背骨。詳細な live ドキュメントは [`docs/roadmap/v0.5.md`](../roadmap/v0.5.md)。
 
 ### 11.1 経緯と再 scope
 - 当初 D-GT-1 を「robotic total station の自前撮影」に決定（屋内 loop を保つ最強 GT）。

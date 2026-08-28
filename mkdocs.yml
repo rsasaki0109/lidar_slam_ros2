@@ -70,6 +70,7 @@ nav:
   - Autoware Quickstart: autoware-quickstart.md
   - Autoware Foxglove: autoware-foxglove.md
   - Operator Workflows: workflows.md
+  - Repository Layout: repository-layout.md
   - Degeneracy Resilience Guide: degeneracy-guide.md
   - Graph SLAM Architecture: graph-slam-architecture.md
   - Registration Plugin API: architecture/registration-plugin-api.md

@@ -22,13 +22,7 @@ from typing import Any
 import yaml
 
 
-ROOT = Path(__file__).resolve().parent
-sys.path.insert(0, str(ROOT / 'scripts'))
-
-import run_sota_v2_blind_suite as suite  # noqa: E402
-from competitive_candidate_provenance import (  # noqa: E402
-    verify_candidate_manifest,
-)
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def atomic_write_json(path: Path, value: dict[str, Any]) -> None:
@@ -57,8 +51,17 @@ def require_equal(label: str, actual: Any, expected: Any) -> None:
 
 
 def validated_resume_state(args: argparse.Namespace) -> tuple[
-        dict[str, Any], dict[str, Any], list[dict[str, Any]], Path]:
+        dict[str, Any], dict[str, Any], list[dict[str, Any]], Path, Any]:
     """Validate all freezes and the recorded stage prefix without mutation."""
+    sys.path.insert(0, str(ROOT / 'scripts'))
+    try:
+        import run_sota_v2_blind_suite as suite
+        from competitive_candidate_provenance import verify_candidate_manifest
+    except ModuleNotFoundError as error:
+        raise RuntimeError(
+            'the archived SOTA-v2 recovery dependencies are not present in '
+            'this revision') from error
+
     status_path = args.output / 'orchestration.json'
     if not status_path.is_file():
         raise ValueError(f'missing orchestration status: {status_path}')
@@ -96,7 +99,7 @@ def validated_resume_state(args: argparse.Namespace) -> tuple[
             raise ValueError(f'stage {index} is not a completed record')
     if not any(int(row['returncode']) != 0 for row in plan['stages']):
         raise ValueError('resume requires at least one recorded stage failure')
-    return plan, profile, stages, status_path
+    return plan, profile, stages, status_path, suite
 
 
 def main() -> int:
@@ -115,7 +118,7 @@ def main() -> int:
                  'fast_livo2_asset_root', 'output'):
         setattr(args, name, getattr(args, name).resolve())
 
-    plan, profile, stages, status_path = validated_resume_state(args)
+    plan, profile, stages, status_path, suite = validated_resume_state(args)
     next_index = len(plan['stages'])
     summary = {
         'recorded_stage_count': next_index,

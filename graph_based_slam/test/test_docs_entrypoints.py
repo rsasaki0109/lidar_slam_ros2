@@ -2556,3 +2556,20 @@ def test_glim_usability_scorecard_is_neutral_and_release_bundled():
     assert 'overall winner' in document
     assert "'docs/usability-scorecard.md'" in bundle
     assert "'scripts/check_usability_scorecard.py'" in bundle
+
+
+def test_repository_root_has_no_ad_hoc_code_or_generated_artifacts():
+    """Keep implementation and generated evidence out of the project root."""
+    misplaced = sorted(
+        path.name
+        for path in REPO_ROOT.iterdir()
+        if path.is_file() and path.suffix in {'.json', '.py', '.txt'}
+    )
+
+    assert misplaced == []
+    assert (REPO_ROOT / 'scripts' / 'recovery'
+            / 'sota_v2_resume_after_stage_failure.py').is_file()
+    assert (REPO_ROOT / 'docs' / 'research'
+            / 'project-plan-archive.md').is_file()
+    assert (REPO_ROOT / 'docs' / 'research' / 'artifacts'
+            / 'scored_summary_fast_track_7point.json').is_file()
