@@ -1762,7 +1762,7 @@ def test_docs_cover_autoware_and_release_gate_keywords():
         ndt_review_evidence
     )
     assert '109/109 passing' in ndt_review_evidence
-    assert 'f3dbc0eeb3d4fc77bfe9c91ddbec9039a40c56f2e0bff4bae2bf6ef461b37cec' in (
+    assert 'cc20099b00751c46e7fd7d333bcba0d6b59fe3e77323b1b6915ff4fad48db4fc' in (
         ndt_review_evidence
     )
     assert 'corrected ten-file patch replaces all seventeen direct' in (
