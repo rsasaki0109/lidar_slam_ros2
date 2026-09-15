@@ -111,13 +111,16 @@ inline void fromRosMsgPointXYZI(
 
   // PointXYZ and PointXYZI have the same x/y/z offsets and point stride in
   // PCL. Build the mapping for PointXYZ (which has no intensity tag), then
-  // apply it directly to the zero-initialized PointXYZI output. This avoids an
-  // intermediate cloud and keeps the fallback to one binary copy pass.
+  // apply it directly to the zero-initialized PointXYZI output. The data is
+  // attached to the PCLPointCloud2 so the three-argument fromPCLPointCloud2
+  // overload can be used on every supported PCL version (Humble ships 1.12,
+  // which lacks the later data-pointer overload).
   pcl::PCLPointCloud2 pcl_cloud;
   pcl_conversions::copyPointCloud2MetaData(message, pcl_cloud);
   pcl::MsgFieldMap field_map;
   pcl::createMapping<pcl::PointXYZ>(pcl_cloud.fields, field_map);
-  pcl::fromPCLPointCloud2(pcl_cloud, output, field_map, message.data.data());
+  pcl_cloud.data = message.data;
+  pcl::fromPCLPointCloud2(pcl_cloud, output, field_map);
 }
 
 }  // namespace pointcloud2_conversion
