@@ -36,6 +36,8 @@ jobs:
     name: pinned MID-360 real ENOSPC
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    env:
+      PYTHONPATH: ${{ github.workspace }}
 
     steps:
       - name: Check out repository

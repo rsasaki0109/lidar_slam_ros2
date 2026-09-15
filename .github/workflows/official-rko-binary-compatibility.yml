@@ -25,7 +25,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  RKO_RELEASE_VERSION: 0.3.2-1
+  RKO_RELEASE_VERSION: 0.4.0-1
+  PYTHONPATH: ${{ github.workspace }}
 
 jobs:
   pinned-mid360:

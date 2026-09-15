@@ -62,6 +62,7 @@ jobs:
       TARGET_CHANNEL: ${{ inputs.target_channel }}
       INSTALL_MODE: ${{ inputs.mode }}
       BASELINE_VERSION: ${{ inputs.baseline_version }}
+      PYTHONPATH: ${{ github.workspace }}
 
     steps:
       - name: Install evidence tooling

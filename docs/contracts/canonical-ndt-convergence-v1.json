@@ -61,16 +61,21 @@
     "provider_after": "ndt_omp",
     "patch": {
       "path": "packaging/ndt_omp/lidarslam-canonical-ndt-transition.patch",
-      "sha256": "c090b8f2228b21dcf30650114f9638f38497ca5a0214e3e6063a53aa7bef66b1",
+      "sha256": "a4ed0382c25134d51a26079b937db314a7dab457cc42712e97a6b8e223bdbe12",
       "paths": [
         "graph_based_slam/CMakeLists.txt",
         "graph_based_slam/package.xml",
+        "graph_based_slam/test/test_backend_core.cpp",
+        "graph_based_slam/test/test_backend_registration_preflight.cpp",
+        "lidarslam_default_plugins/CMakeLists.txt",
+        "lidarslam_default_plugins/include/lidarslam_default_plugins/ndt_omp_registration_impl.ipp",
+        "lidarslam_default_plugins/package.xml",
+        "lidarslam_default_plugins/test/test_ndt_omp_registration.cpp",
         "scanmatcher/CMakeLists.txt",
-        "scanmatcher/package.xml",
-        "scanmatcher/src/scanmatcher_component.cpp"
+        "scanmatcher/package.xml"
       ],
-      "additions": 12,
-      "deletions": 12
+      "additions": 23,
+      "deletions": 23
     },
     "consumer_replacements": [
       {
@@ -80,6 +85,16 @@
       },
       {
         "path": "graph_based_slam/package.xml",
+        "before_count": 1,
+        "after_count": 0
+      },
+      {
+        "path": "lidarslam_default_plugins/CMakeLists.txt",
+        "before_count": 5,
+        "after_count": 0
+      },
+      {
+        "path": "lidarslam_default_plugins/package.xml",
         "before_count": 1,
         "after_count": 0
       },
@@ -95,7 +110,7 @@
       }
     ],
     "spelling_correction": {
-      "path": "scanmatcher/src/scanmatcher_component.cpp",
+      "path": "lidarslam_default_plugins/include/lidarslam_default_plugins/ndt_omp_registration_impl.ipp",
       "before": "setOulierRatio",
       "after": "setOutlierRatio"
     }

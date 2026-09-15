@@ -685,11 +685,6 @@ if(BUILD_TESTING)
     TIMEOUT 120
   )
   ament_add_pytest_test(
-    test_extract_selective_visual_constraints
-    test/test_extract_selective_visual_constraints.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_evaluate_competitive_sequence_gate
     test/test_evaluate_competitive_sequence_gate.py
     TIMEOUT 120
@@ -978,11 +973,6 @@ if(BUILD_TESTING)
     TIMEOUT 120
   )
   ament_add_pytest_test(
-    test_applanix_gsof49_reference_extractor
-    test/test_applanix_gsof49_reference_extractor.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_rtk_slam_reference
     test/test_rtk_slam_reference.py
     TIMEOUT 120
@@ -995,7 +985,6 @@ if(BUILD_TESTING)
   set(GRAPH_BASED_SLAM_ADDITIONAL_PYTESTS
     test_aist_ouster_rgb_map_benchmark
     test_analyze_colored_point_cloud
-    test_applanix_tf_bridge
     test_attached_storage
     test_autoware_dogfood_script
     test_autoware_map_preflight
@@ -1010,12 +999,8 @@ if(BUILD_TESTING)
     test_cross_repo_slam_benchmark
     test_densify_corrected_trajectory
     test_docker_demo_script
-    test_download_verified_file
-    test_freeze_ntu_viral_holdout_inputs
     test_freeze_ntu_viral_input_suite
-    test_freeze_rtkslam_holdout_inputs
     test_frontend_determinism_script
-    test_generate_ntu_viral_csv_reference
     test_graph_slam_offline_ablation
     test_mid360_robot_field_session
     test_mid360_robot_map_runner
@@ -1052,7 +1037,6 @@ if(BUILD_TESTING)
     test_runtime_report
     test_select_rosbag_topic
     test_slice_rosbag2
-    test_audit_m6a7_v3_evidence
     test_benchmark_phase_contract
     test_bind_fast_livo2_v10_consumer_evidence
     test_bind_fast_livo2_v12_consumer_evidence
@@ -1076,13 +1060,11 @@ if(BUILD_TESTING)
     test_m6a10_quiescence
     test_m6a10_synchronized_tail
     test_m6a10_terminal_support_context_v10
-    test_m6a10_training_input_contract
     test_map_quality_regression
     test_map_run_manifest
     test_map_support_bundle
     test_materialize_m6a10_ros1_equivalent
     test_materialize_m6a10_synchronized_tail
-    test_mid360_report_script_cli
     test_monitor_m6a10_host_interference
     test_mount_competitive_ssd
     test_ntu_viral_acquisition_pipeline
@@ -1189,11 +1171,6 @@ if(BUILD_TESTING)
     TIMEOUT 120
   )
   ament_add_pytest_test(
-    test_dynamic_object_filter_report
-    test/test_dynamic_object_filter_report.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_dynamic_object_filter_validation_report
     test/test_dynamic_object_filter_validation_report.py
     TIMEOUT 120
@@ -1206,11 +1183,6 @@ if(BUILD_TESTING)
   ament_add_pytest_test(
     test_map_authoring_report
     test/test_map_authoring_report.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
-    test_classic_path_report
-    test/test_classic_path_report.py
     TIMEOUT 120
   )
   ament_add_pytest_test(

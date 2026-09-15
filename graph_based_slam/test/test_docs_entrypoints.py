@@ -487,7 +487,7 @@ def test_getting_started_chooser_limits_the_first_decision_to_three_goals():
         assert advanced_action not in chooser
         assert advanced_action in continuing
 
-    assert '[v0.9.0 stable release](releases/v0.9.0.md)' in docs_index
+    assert '[v0.9.0 stable](releases/v0.9.0.md)' in docs_index
     assert 'v0.9.0 stable release candidate' not in docs_index
 
 
@@ -1439,13 +1439,13 @@ def test_release_metadata_and_core_package_versions_match(tmp_path: Path):
     assert 'assets/stylesheets/extra.css' in mkdocs_config
     assert 'Getting Started: getting-started.md' in mkdocs_config
     assert '日本語クイックスタート: getting-started-ja.md' in mkdocs_config
-    assert 'GLIM usability scorecard: usability-scorecard.md' in mkdocs_config
+    assert 'GLIM Usability Scorecard: usability-scorecard.md' in mkdocs_config
     assert 'Product Contract: product-contract.md' in mkdocs_config
     assert 'v1.0 Readiness: v1-readiness.md' in mkdocs_config
-    assert 'Golden-path CLI: golden-path-cli.md' in mkdocs_config
-    assert 'CLI compatibility: cli-compatibility.md' in mkdocs_config
-    assert 'Distribution and installed CLI: distribution.md' in mkdocs_config
-    assert 'Operational reliability: operational-reliability.md' in mkdocs_config
+    assert 'Golden-Path CLI: golden-path-cli.md' in mkdocs_config
+    assert 'CLI Compatibility: cli-compatibility.md' in mkdocs_config
+    assert 'Distribution and Installed CLI: distribution.md' in mkdocs_config
+    assert 'Operational Reliability: operational-reliability.md' in mkdocs_config
     assert (
         'Named-hardware soak evidence: evidence/real-data-soak-2026-07-28.md'
         in mkdocs_config
@@ -1455,14 +1455,14 @@ def test_release_metadata_and_core_package_versions_match(tmp_path: Path):
         in mkdocs_config
     )
     assert (
-        'Independent first-map validation: external-first-map-validation.md'
+        'Independent First-Map Validation: external-first-map-validation.md'
         in mkdocs_config
     )
     assert (
         'CLI install evidence: evidence/cli-v1-install-2026-07-28.md'
         in mkdocs_config
     )
-    assert 'Pinned real-data E2E: real-data-e2e.md' in mkdocs_config
+    assert 'Pinned Real-data E2E: real-data-e2e.md' in mkdocs_config
     assert 'Autoware-Compatible Map Authoring: autoware-map-authoring.md' in mkdocs_config
     assert 'Autoware Foxglove: autoware-foxglove.md' in mkdocs_config
     assert 'Benchmarking And Release Gate: benchmarking.md' in mkdocs_config
@@ -1762,10 +1762,10 @@ def test_docs_cover_autoware_and_release_gate_keywords():
         ndt_review_evidence
     )
     assert '109/109 passing' in ndt_review_evidence
-    assert 'c090b8f2228b21dcf30650114f9638f38497ca5a0214e3e6063a53aa7bef66b1' in (
+    assert 'a4ed0382c25134d51a26079b937db314a7dab457cc42712e97a6b8e223bdbe12' in (
         ndt_review_evidence
     )
-    assert 'corrected five-file patch replaces all eleven direct' in (
+    assert 'corrected ten-file patch replaces all seventeen direct' in (
         ndt_review_evidence
     )
     assert 'graph_based_slam' in ndt_review_evidence
@@ -1900,10 +1900,10 @@ def test_canonical_map_authoring_page_has_one_beginner_contract():
         map_doc
     )
     assert (
-        'href="autoware-map-authoring.html">Map Your Bag</a>'
+        'href="autoware-map-authoring.html">Map my bag</a>'
         in docs_index
     )
-    assert '<h3>Advanced Autoware Compatibility</h3>' in docs_index
+    assert '<h3>Autoware map authoring</h3>' in docs_index
     assert 'href="autoware-quickstart.html">Run The Quickstart</a>' not in (
         docs_index
     )
@@ -2018,7 +2018,7 @@ def test_official_rko_binary_gate_is_release_shaped_and_version_pinned():
     )
     release_doc = ROSDISTRO_RELEASE_DOC.read_text(encoding='utf-8')
 
-    assert 'RKO_RELEASE_VERSION: 0.3.2-1' in workflow
+    assert 'RKO_RELEASE_VERSION: 0.4.0-1' in workflow
     assert 'ros2-testing-apt-source' in workflow
     assert '/etc/apt/sources.list.d/ros2-testing.list' not in workflow
     assert '- develop' in workflow

@@ -1,7 +1,8 @@
 diff --git a/graph_based_slam/CMakeLists.txt b/graph_based_slam/CMakeLists.txt
 --- a/graph_based_slam/CMakeLists.txt
 +++ b/graph_based_slam/CMakeLists.txt
-@@ -39,6 +39,6 @@ find_package(lidarslam_msgs REQUIRED)
+@@ -39,7 +39,7 @@ find_package(pcl_conversions REQUIRED)
+ find_package(lidarslam_msgs REQUIRED)
  find_package(message_filters REQUIRED)
  find_package(rosbag2_cpp REQUIRED)
 -find_package(ndt_omp_ros2 REQUIRED)
@@ -9,7 +10,7 @@ diff --git a/graph_based_slam/CMakeLists.txt b/graph_based_slam/CMakeLists.txt
  find_package(PCL REQUIRED)
  find_package(g2o QUIET
    COMPONENTS
-@@ -126,7 +126,7 @@ set_target_properties(graph_slam_application PROPERTIES POSITION_INDEPENDENT_CO
+@@ -126,7 +126,7 @@ set_target_properties(graph_slam_application PROPERTIES POSITION_INDEPENDENT_COD
  target_include_directories(
    graph_slam_application PUBLIC include ${EIGEN3_INCLUDE_DIR} ${PCL_INCLUDE_DIRS}
  )
@@ -45,7 +46,7 @@ diff --git a/graph_based_slam/CMakeLists.txt b/graph_based_slam/CMakeLists.txt
      target_link_libraries(test_registration_determinism ${PCL_LIBRARIES})
    endif()
    ament_add_gtest(
-@@ -1279,7 +1279,7 @@ ament_target_dependencies(graph_based_slam_component
+@@ -1328,7 +1328,7 @@ ament_target_dependencies(graph_based_slam_component
    std_srvs
    lidarslam_msgs
    message_filters
@@ -54,7 +55,7 @@ diff --git a/graph_based_slam/CMakeLists.txt b/graph_based_slam/CMakeLists.txt
  )
  
  target_link_libraries(graph_based_slam_component
-@@ -1345,7 +1345,7 @@ ament_target_dependencies(graph_slam_offline_runner
+@@ -1394,7 +1394,7 @@ ament_target_dependencies(graph_slam_offline_runner
    pcl_conversions
    nav_msgs
    sensor_msgs
@@ -75,48 +76,162 @@ diff --git a/graph_based_slam/package.xml b/graph_based_slam/package.xml
    <depend>libg2o</depend>
    <depend>libpcl-all-dev</depend>
  
+diff --git a/graph_based_slam/test/test_backend_core.cpp b/graph_based_slam/test/test_backend_core.cpp
+--- a/graph_based_slam/test/test_backend_core.cpp
++++ b/graph_based_slam/test/test_backend_core.cpp
+@@ -401,7 +401,7 @@ struct SearchHarness
+     ndt.setResolution(2.0F);
+     ndt.setMaximumIterations(35);
+     ndt.setStepSize(0.1);
+-    ndt.setOulierRatio(0.55);
++    ndt.setOutlierRatio(0.55);
+     ndt.setTransformationEpsilon(0.01);
+     voxelgrid.setLeafSize(0.2f, 0.2f, 0.2f);
+   }
+diff --git a/graph_based_slam/test/test_backend_registration_preflight.cpp b/graph_based_slam/test/test_backend_registration_preflight.cpp
+--- a/graph_based_slam/test/test_backend_registration_preflight.cpp
++++ b/graph_based_slam/test/test_backend_registration_preflight.cpp
+@@ -248,7 +248,7 @@ TEST(BackendRegistrationAdapter, NdtHostAdapterMatchesDirectPclFixture)
+   direct.setTransformationEpsilon(0.01);
+   direct.setMaximumIterations(35);
+   direct.setStepSize(0.1);
+-  direct.setOulierRatio(0.55);
++  direct.setOutlierRatio(0.55);
+   direct.setNeighborhoodSearchMethod(pclomp::DIRECT7);
+   direct.setNumThreads(1);
+   direct.setInputSource(source);
+diff --git a/lidarslam_default_plugins/CMakeLists.txt b/lidarslam_default_plugins/CMakeLists.txt
+--- a/lidarslam_default_plugins/CMakeLists.txt
++++ b/lidarslam_default_plugins/CMakeLists.txt
+@@ -24,7 +24,7 @@ find_package(PCL REQUIRED)
+ find_package(OpenMP)
+ find_package(pluginlib REQUIRED)
+ find_package(lidarslam_plugin_interfaces REQUIRED)
+-find_package(ndt_omp_ros2 REQUIRED)
++find_package(ndt_omp REQUIRED)
+ find_package(fast_gicp QUIET)
+ find_package(small_gicp QUIET)
+ 
+@@ -128,7 +128,7 @@ ament_target_dependencies(${PROJECT_NAME}
+   Eigen3
+   pluginlib
+   lidarslam_plugin_interfaces
+-  ndt_omp_ros2
++  ndt_omp
+ )
+ 
+ if(PCL_DEFINITIONS)
+@@ -160,7 +160,7 @@ if(BUILD_TESTING)
+     ament_target_dependencies(test_ndt_omp_registration
+       Eigen3
+       lidarslam_plugin_interfaces
+-      ndt_omp_ros2
++      ndt_omp
+     )
+     if(OpenMP_CXX_FOUND)
+       target_link_libraries(test_ndt_omp_registration OpenMP::OpenMP_CXX)
+@@ -183,7 +183,7 @@ if(BUILD_TESTING)
+     ament_target_dependencies(test_gicp_omp_registration
+       Eigen3
+       lidarslam_plugin_interfaces
+-      ndt_omp_ros2
++      ndt_omp
+     )
+     if(OpenMP_CXX_FOUND)
+       target_link_libraries(test_gicp_omp_registration OpenMP::OpenMP_CXX)
+@@ -262,7 +262,7 @@ endif()
+ if(small_gicp_FOUND)
+   ament_export_libraries(lidarslam_small_gicp_plugins)
+ endif()
+-ament_export_dependencies(Eigen3 PCL pluginlib lidarslam_plugin_interfaces ndt_omp_ros2)
++ament_export_dependencies(Eigen3 PCL pluginlib lidarslam_plugin_interfaces ndt_omp)
+ if(fast_gicp_FOUND)
+   ament_export_dependencies(fast_gicp)
+   pluginlib_export_plugin_description_file(
+diff --git a/lidarslam_default_plugins/include/lidarslam_default_plugins/ndt_omp_registration_impl.ipp b/lidarslam_default_plugins/include/lidarslam_default_plugins/ndt_omp_registration_impl.ipp
+--- a/lidarslam_default_plugins/include/lidarslam_default_plugins/ndt_omp_registration_impl.ipp
++++ b/lidarslam_default_plugins/include/lidarslam_default_plugins/ndt_omp_registration_impl.ipp
+@@ -47,7 +47,7 @@
+ #include <vector>
+ 
+ #include <pclomp/ndt_omp.h>  // NOLINT(build/include_order)
+-// ndt_omp_ros2 is header-only at the template call sites.  Keep these includes
++// ndt_omp is header-only at the template call sites.  Keep these includes
+ // here (rather than in the public adapter header) so the public API remains
+ // independent of pclomp implementation details.
+ #include <pclomp/ndt_omp_impl.hpp>  // NOLINT(build/include_order)
+@@ -272,7 +272,7 @@ CachedNdt::Ptr makeConfiguredNdt(const NdtConfiguration & configuration)
+   ndt->setTransformationEpsilon(configuration.transformation_epsilon);
+   ndt->setMaximumIterations(configuration.maximum_iterations);
+   ndt->setStepSize(configuration.step_size);
+-  ndt->setOulierRatio(configuration.outlier_ratio);
++  ndt->setOutlierRatio(configuration.outlier_ratio);
+   ndt->setNeighborhoodSearchMethod(pclomp::DIRECT7);
+   if (configuration.num_threads > 0) {
+     ndt->setNumThreads(configuration.num_threads);
+diff --git a/lidarslam_default_plugins/package.xml b/lidarslam_default_plugins/package.xml
+--- a/lidarslam_default_plugins/package.xml
++++ b/lidarslam_default_plugins/package.xml
+@@ -13,7 +13,7 @@
+   <depend>libpcl-all-dev</depend>
+   <depend>pluginlib</depend>
+   <depend>lidarslam_plugin_interfaces</depend>
+-  <depend>ndt_omp_ros2</depend>
++  <depend>ndt_omp</depend>
+ 
+   <!-- Optional build-time dependency.  FAST adapters and their plugin
+        manifest are exported only when fast_gicp is found; this package must
+diff --git a/lidarslam_default_plugins/test/test_ndt_omp_registration.cpp b/lidarslam_default_plugins/test/test_ndt_omp_registration.cpp
+--- a/lidarslam_default_plugins/test/test_ndt_omp_registration.cpp
++++ b/lidarslam_default_plugins/test/test_ndt_omp_registration.cpp
+@@ -44,7 +44,7 @@
+ #include <pcl/point_cloud.h>  // NOLINT(build/include_order)
+ #include <pcl/point_types.h>  // NOLINT(build/include_order)
+ #include <pclomp/ndt_omp.h>  // NOLINT(build/include_order)
+-// ndt_omp_ros2 installs the template implementation in its include tree.
++// ndt_omp installs the template implementation in its include tree.
+ #include <pclomp/ndt_omp_impl.hpp>  // NOLINT(build/include_order)
+ #include <pclomp/voxel_grid_covariance_omp_impl.hpp>  // NOLINT(build/include_order)
+ 
+@@ -185,7 +185,7 @@ DirectResult runDirect(
+   ndt.setTransformationEpsilon(0.01);
+   ndt.setMaximumIterations(35);
+   ndt.setStepSize(0.1);
+-  ndt.setOulierRatio(0.55);
++  ndt.setOutlierRatio(0.55);
+   ndt.setNeighborhoodSearchMethod(pclomp::DIRECT7);
+   ndt.setInputSource(source);
+   ndt.setInputTarget(target);
 diff --git a/scanmatcher/CMakeLists.txt b/scanmatcher/CMakeLists.txt
 --- a/scanmatcher/CMakeLists.txt
 +++ b/scanmatcher/CMakeLists.txt
-@@ -32,7 +32,7 @@ find_package(tf2_geometry_msgs REQUIRED)
+@@ -35,7 +35,7 @@ find_package(tf2_geometry_msgs REQUIRED)
  find_package(tf2_eigen REQUIRED)
  find_package(pcl_conversions REQUIRED)
  find_package(lidarslam_msgs REQUIRED)
 -find_package(ndt_omp_ros2 REQUIRED)
 +find_package(ndt_omp REQUIRED)
- find_package(fast_gicp QUIET)
- find_package(small_gicp QUIET)
- find_package(PCL REQUIRED)
-@@ -50,7 +50,7 @@ set(dependencies
+ find_package(lidarslam_plugin_interfaces REQUIRED)
+ find_package(lidarslam_default_plugins REQUIRED)
+ find_package(lidarslam_registration_loader REQUIRED)
+@@ -59,7 +59,7 @@ set(dependencies
    sensor_msgs
    nav_msgs
    lidarslam_msgs
 -  ndt_omp_ros2
 +  ndt_omp
+   lidarslam_plugin_interfaces
+   lidarslam_registration_loader
  )
- 
- if(fast_gicp_FOUND)
 diff --git a/scanmatcher/package.xml b/scanmatcher/package.xml
 --- a/scanmatcher/package.xml
 +++ b/scanmatcher/package.xml
-@@ -24,7 +24,7 @@
+@@ -27,7 +27,7 @@
    <depend>message_filters</depend>
    <depend>lidarslam_msgs</depend>
    <depend>rosbag2_cpp</depend>
 -  <depend>ndt_omp_ros2</depend>
 +  <depend>ndt_omp</depend>
-   <!-- Optional: fast_gicp and small_gicp (from Thirdparty) -->
-   <!-- <depend>fast_gicp</depend> -->
-   <!-- <depend>small_gicp</depend> -->
-diff --git a/scanmatcher/src/scanmatcher_component.cpp b/scanmatcher/src/scanmatcher_component.cpp
---- a/scanmatcher/src/scanmatcher_component.cpp
-+++ b/scanmatcher/src/scanmatcher_component.cpp
-@@ -441,7 +441,7 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
-     ndt->setTransformationEpsilon(ndt_transformation_epsilon_);
-     ndt->setMaximumIterations(ndt_max_iterations_);
-     ndt->setStepSize(ndt_step_size);
--    ndt->setOulierRatio(ndt_outlier_ratio_);
-+    ndt->setOutlierRatio(ndt_outlier_ratio_);
-     // ndt_omp
-     ndt->setNeighborhoodSearchMethod(pclomp::DIRECT7);
-     if (ndt_num_threads > 0) {ndt->setNumThreads(ndt_num_threads);}
+   <depend>lidarslam_plugin_interfaces</depend>
+   <depend>lidarslam_default_plugins</depend>
+   <depend>lidarslam_registration_loader</depend>

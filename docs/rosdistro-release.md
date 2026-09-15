@@ -140,11 +140,12 @@ canonical-package `scanmatcher` build also passes all 109 tests. The parent has 
 its registration ownership and casts to the PCL shared-pointer API, so the
 post-upstream transition patch is limited to dependency-name replacement and
 the upstream spelling of `setOutlierRatio`; that patch has SHA-256
-`c090b8f2228b21dcf30650114f9638f38497ca5a0214e3e6063a53aa7bef66b1`.
-It covers both direct consumers: two `scanmatcher` build references, seven
-`graph_based_slam` build references, and both package manifests. The complete
-four-package canonical workspace builds and installs without the fork on the
-network-isolated Humble and Jazzy images.
+`a4ed0382c25134d51a26079b937db314a7dab457cc42712e97a6b8e223bdbe12`.
+It covers all three direct consumers: two `scanmatcher` build references,
+seven `graph_based_slam` build references, five `lidarslam_default_plugins`
+build references, and all three package manifests. The complete canonical
+workspace builds and installs without the fork on the network-isolated
+Humble and Jazzy images.
 The exact implementation and verification record is in the
 [2026-08-12 review audit](evidence/ndt-omp-release-review-2026-08-12.md).
 The

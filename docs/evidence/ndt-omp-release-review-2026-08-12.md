@@ -159,7 +159,7 @@ prepared against exact `koide3/ndt_omp` commit
   rather than transplanting the fork's thread-local accumulator.
 
 The checked-in contract and read-only checker bind the exact upstream commit,
-patch hash, five-path inventory, API markers, test names, parent-consumer
+patch hash, ten-path inventory, API markers, test names, parent-consumer
 inventory, and no-write authority boundary:
 
 ```bash
@@ -202,13 +202,15 @@ the existing `ndt_omp_ros2` build remains compatible with that modernization.
 
 The remaining canonical switch is captured separately as
 `packaging/ndt_omp/lidarslam-canonical-ndt-transition.patch` (SHA-256
-`c090b8f2228b21dcf30650114f9638f38497ca5a0214e3e6063a53aa7bef66b1`).
+`a4ed0382c25134d51a26079b937db314a7dab457cc42712e97a6b8e223bdbe12`).
 The earlier three-file draft was incomplete: `graph_based_slam` also directly
 declared canonical-provider requirements in its manifest and seven CMake
-locations. The corrected five-file patch replaces all eleven direct
-dependency references across both consumers and corrects the fork-only
-outlier-setter spelling. The fail-closed checker compares those counts with
-the live parent files and rejects omission or drift.
+locations, and the registration-plugin package carries the fork dependency
+as well. The corrected ten-file patch replaces all seventeen direct
+dependency references across three consumers and corrects the fork-only
+outlier-setter spelling in the production adapter and its callers. The
+fail-closed checker compares those counts with the live parent files and
+rejects omission or drift.
 
 Verification completed locally:
 
