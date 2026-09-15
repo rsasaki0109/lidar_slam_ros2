@@ -913,7 +913,7 @@ int main(int argc, char ** argv)
   std::unique_ptr<RegistrationResolver> registration_resolver;
   std::shared_ptr<RegistrationPluginSession> registration_plugin_session;
   std::shared_ptr<RegistrationPlugin> registration_plugin_owner;
-  boost::shared_ptr<pcl::Registration<pcl::PointXYZI, pcl::PointXYZI>> legacy_registration;
+  pcl::Registration<pcl::PointXYZI, pcl::PointXYZI>::Ptr legacy_registration;
   std::shared_ptr<graphslam::backend_registration::PclRegistrationAdapter>
   legacy_registration_bridge;
   RegistrationPlugin * registration_plugin = nullptr;
@@ -1025,7 +1025,7 @@ int main(int argc, char ** argv)
     }
     legacy_registration_bridge =
       std::make_shared<graphslam::backend_registration::PclRegistrationAdapter>(
-      legacy_registration, "lidarslam_builtin/LegacyBackendGicp");
+      *legacy_registration, "lidarslam_builtin/LegacyBackendGicp");
     const std::shared_ptr<RegistrationPlugin> candidate_owner = legacy_registration_bridge;
     lidarslam::plugins::registration::shell::LoadRequest request;
     request.class_id = "lidarslam_builtin/LegacyBackendGicp";
@@ -1540,7 +1540,7 @@ int main(int argc, char ** argv)
     const graphslam::pose_graph::OptimizationResult result =
       graphslam::pose_graph::optimizePoseGraph(
       submap_nodes, loop_constraints, {}, {}, adjacent_config, loop_config, imu_config,
-      graphslam::pose_graph::Chi2Collection::NONE, true, 10, std::string(),
+      graphslam::pose_graph::Chi2Collection::NONE, true, 10,
       plane_revisit_result.constraints);
     optimized_poses = result.poses;
     if (use_plane_revisit_constraints) {

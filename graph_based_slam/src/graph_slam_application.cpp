@@ -30,6 +30,7 @@
 #include "graph_based_slam/graph_slam_application.hpp"
 
 #include <algorithm>
+#include <memory>
 #include <mutex>
 #include <sstream>
 #include <stdexcept>
@@ -38,6 +39,7 @@
 #include "graph_based_slam/loop_search_schedule.hpp"
 #include "graph_based_slam/map_saver.hpp"
 #include "graph_based_slam/registration_factory.hpp"
+#include "graph_based_slam/registration_plugin_adapter.hpp"
 
 namespace graphslam
 {
@@ -65,6 +67,8 @@ public:
     if (!registration) {
       throw std::invalid_argument("unknown registration_method: " + config.registration_method);
     }
+    registration_bridge =
+      std::make_shared<backend_registration::PclRegistrationAdapter>(*registration);
     const float voxel_leaf_size = static_cast<float>(config.voxel_leaf_size);
     voxelgrid.setLeafSize(voxel_leaf_size, voxel_leaf_size, voxel_leaf_size);
     backend.configure(config.descriptors);
@@ -105,6 +109,7 @@ public:
   GraphSlamApplicationConfig config;
   backend_core::BackendCore backend;
   pcl::Registration<pcl::PointXYZI, pcl::PointXYZI>::Ptr registration;
+  std::shared_ptr<backend_registration::PclRegistrationAdapter> registration_bridge;
   pcl::VoxelGrid<pcl::PointXYZI> voxelgrid;
   ThreeDBBSLoopVerifier three_d_bbs_verifier;
   mutable std::mutex mutex;
@@ -148,7 +153,7 @@ std::vector<LoopSearchEvent> GraphSlamApplication::processSubmaps(
         ordered_submaps.begin(), ordered_submaps.begin() + engine_->next_query_index + 1);
       event.search_output = engine_->backend.searchLoopForSubmap(
         visible, engine_->next_query_index, engine_->config.loop_search, raw_cloud_provider,
-        *engine_->registration, engine_->voxelgrid, engine_->three_d_bbs_verifier);
+        *engine_->registration_bridge, engine_->voxelgrid, engine_->three_d_bbs_verifier);
       if (event.search_output.proposal.found) {
         LoopEdge edge;
         edge.pair_id = event.search_output.proposal.pair_id;

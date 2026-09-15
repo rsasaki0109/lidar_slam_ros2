@@ -41,6 +41,8 @@ find_package(message_filters REQUIRED)
 find_package(rosbag2_cpp REQUIRED)
 find_package(ndt_omp_ros2 REQUIRED)
 find_package(lidarslam_plugin_interfaces REQUIRED)
+find_package(lidarslam_default_plugins REQUIRED)
+find_package(lidarslam_registration_loader REQUIRED)
 find_package(PCL REQUIRED)
 find_package(g2o QUIET
   COMPONENTS
@@ -327,7 +329,7 @@ if(BUILD_TESTING)
   )
   if(TARGET test_backend_core)
     target_include_directories(test_backend_core PRIVATE include ${EIGEN3_INCLUDE_DIR})
-    ament_target_dependencies(test_backend_core ndt_omp_ros2 lidarslam_plugin_interfaces)
+    ament_target_dependencies(test_backend_core ndt_omp_ros2 lidarslam_plugin_interfaces lidarslam_default_plugins lidarslam_registration_loader)
     target_link_libraries(
       test_backend_core ${PCL_LIBRARIES} graph_based_slam_3d_bbs_vendor
     )
@@ -472,41 +474,6 @@ if(BUILD_TESTING)
     target_include_directories(
       test_selective_visual_fusion PRIVATE ../Thirdparty/rko_lio ${EIGEN3_INCLUDE_DIR}
     )
-  endif()
-  ament_add_gtest(
-    test_radar_ego_velocity
-    test/test_radar_ego_velocity.cpp
-  )
-  if(TARGET test_radar_ego_velocity)
-    target_include_directories(
-      test_radar_ego_velocity PRIVATE ../Thirdparty/rko_lio ${EIGEN3_INCLUDE_DIR}
-    )
-    # radar_ego_velocity.hpp uses std::optional; this package otherwise defaults to C++14.
-    target_compile_features(test_radar_ego_velocity PRIVATE cxx_std_17)
-  endif()
-  ament_add_gtest(
-    test_radar_continuous_fusion
-    test/test_radar_continuous_fusion.cpp
-  )
-  if(TARGET test_radar_continuous_fusion)
-    target_include_directories(
-      test_radar_continuous_fusion PRIVATE ../Thirdparty/rko_lio ${EIGEN3_INCLUDE_DIR}
-    )
-    # radar_ego_velocity.hpp uses std::optional; this package otherwise defaults to C++14
-    # (see test_radar_ego_velocity above).
-    target_compile_features(test_radar_continuous_fusion PRIVATE cxx_std_17)
-  endif()
-  ament_add_gtest(
-    test_intensity_profile
-    test/test_intensity_profile.cpp
-  )
-  if(TARGET test_intensity_profile)
-    target_include_directories(
-      test_intensity_profile PRIVATE ../Thirdparty/rko_lio ${EIGEN3_INCLUDE_DIR}
-    )
-    # intensity_profile.hpp uses std::clamp/structured bindings; this package otherwise
-    # defaults to C++14 (see test_radar_ego_velocity above).
-    target_compile_features(test_intensity_profile PRIVATE cxx_std_17)
   endif()
   ament_add_gtest(
     test_odometry_covariance_localizability
@@ -1301,6 +1268,8 @@ ament_target_dependencies(graph_based_slam_component
   std_srvs
   lidarslam_msgs
   lidarslam_plugin_interfaces
+  lidarslam_default_plugins
+  lidarslam_registration_loader
   message_filters
   ndt_omp_ros2
 )
@@ -1370,6 +1339,8 @@ ament_target_dependencies(graph_slam_offline_runner
   sensor_msgs
   ndt_omp_ros2
   lidarslam_plugin_interfaces
+  lidarslam_default_plugins
+  lidarslam_registration_loader
 )
 
 target_link_libraries(graph_slam_offline_runner

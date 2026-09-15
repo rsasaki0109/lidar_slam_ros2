@@ -77,6 +77,22 @@ makeLoopRegistration(const std::string & method, double ndt_resolution, int ndt_
   return nullptr;
 }
 
+// Legacy host-built GICP used by the offline runner's compatibility bridge.
+// Kept separate so the numeric defaults exactly match the historical PCL
+// construction that the plugin API documents.
+inline pcl::Registration<pcl::PointXYZI, pcl::PointXYZI>::Ptr
+makeLegacyGicpRegistration()
+{
+  auto gicp = pcl::make_shared<
+    pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>>();
+  gicp->setMaxCorrespondenceDistance(30);
+  gicp->setMaximumIterations(100);
+  gicp->setTransformationEpsilon(1e-8);
+  gicp->setEuclideanFitnessEpsilon(1e-6);
+  gicp->setRANSACIterations(0);
+  return gicp;
+}
+
 }  // namespace backend_core
 }  // namespace graphslam
 
