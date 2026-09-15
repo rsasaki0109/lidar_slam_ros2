@@ -25,9 +25,9 @@ gate used for the default permissive workflow.
 The final competitive suite gate accepts a claim only when the evidence
 declares one canonical bundle root and a deterministic
 `competitive_slam_evidence_bundle` manifest.  The verifier is
-[`scripts/verify_competitive_evidence_bundle.py`](../scripts/verify_competitive_evidence_bundle.py),
+[`scripts/verify_competitive_evidence_bundle.py`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/scripts/verify_competitive_evidence_bundle.py),
 and its manifest shape is registered in
-[`competitive_evidence_bundle_v1.schema.json`](../configs/slam_benchmark_profiles/competitive_evidence_bundle_v1.schema.json).
+[`competitive_evidence_bundle_v1.schema.json`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/configs/slam_benchmark_profiles/competitive_evidence_bundle_v1.schema.json).
 It reopens the required `input`, `result`, `config`, `calibration`,
 `revision`, `scorer`, `trajectory`, `resource`, `map_metric`, and `failure`
 artifacts, checking normalized paths, root containment, regular-file and
@@ -67,7 +67,7 @@ evidence.
 ### Deterministic bundle composition
 
 Already-scored, non-GT evidence can be materialized with
-[`scripts/compose_competitive_evidence_bundle.py`](../scripts/compose_competitive_evidence_bundle.py).
+[`scripts/compose_competitive_evidence_bundle.py`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/scripts/compose_competitive_evidence_bundle.py).
 The composition spec must provide the evidence receipt, all ten global artifact
 roles, and an explicit `run_artifact_bindings` entry for every
 `(system, dataset, run_index)`.  Each source descriptor names an absolute,
@@ -85,9 +85,9 @@ sealing the new root.  Without an independently authorized holdout chain the
 result is intentionally `NOT_READY` and `claim_eligible: false`:
 
 The machine-readable input contract is
-[`competitive_evidence_bundle_composer_v1.schema.json`](../configs/slam_benchmark_profiles/competitive_evidence_bundle_composer_v1.schema.json);
+[`competitive_evidence_bundle_composer_v1.schema.json`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/configs/slam_benchmark_profiles/competitive_evidence_bundle_composer_v1.schema.json);
 the output manifest remains governed by
-[`competitive_evidence_bundle_v1.schema.json`](../configs/slam_benchmark_profiles/competitive_evidence_bundle_v1.schema.json).
+[`competitive_evidence_bundle_v1.schema.json`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/configs/slam_benchmark_profiles/competitive_evidence_bundle_v1.schema.json).
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 env -u PYTHONPATH \
@@ -108,15 +108,15 @@ overwritten.
 ### Post-score handoff from real campaign results
 
 The older
-[`scripts/compose_competitive_result.py`](../scripts/compose_competitive_result.py)
+[`scripts/compose_competitive_result.py`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/scripts/compose_competitive_result.py)
 is an aggregate/report writer.  Its legacy result does not identify every
 `(system, dataset, run_index)` trajectory, map, resource receipt, or canonical
 `competitive_run_score_v1` byte record, so it is not a claim-bundle input.
 After an independently authorized scorer has finished, the additive
-[`scripts/prepare_competitive_evidence_bundle_handoff.py`](../scripts/prepare_competitive_evidence_bundle_handoff.py)
+[`scripts/prepare_competitive_evidence_bundle_handoff.py`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/scripts/prepare_competitive_evidence_bundle_handoff.py)
 converts the already-scored v2 evidence into the missing handoff without
 running the scorer.  Its request schema is
-[`competitive_evidence_bundle_handoff_v1.schema.json`](../configs/slam_benchmark_profiles/competitive_evidence_bundle_handoff_v1.schema.json).
+[`competitive_evidence_bundle_handoff_v1.schema.json`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/configs/slam_benchmark_profiles/competitive_evidence_bundle_handoff_v1.schema.json).
 
 The request must contain an explicit source descriptor (absolute root,
 normalized relative path, expected byte count, and SHA-256) for all ten global
@@ -158,7 +158,7 @@ and explicitly record `claim_eligible: false`.
 
 The v2 suite gate performs a second, claim-only reopen of the registered
 execution-selection receipt through
-[`scripts/check_competitive_execution_selection.py`](../scripts/check_competitive_execution_selection.py).
+[`scripts/check_competitive_execution_selection.py`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/scripts/check_competitive_execution_selection.py).
 The receipt path and SHA-256 registration check alone is not an execution
 freeze proof.  This preflight must also validate the bytes and identities for
 every pinned input/calibration/config/runner/scorer/resource file, system
@@ -1157,9 +1157,9 @@ complete equal thread policy can be explicitly frozen.
 
 The dataset-source closure now carries a second distinct GT family as a
 metadata-only preregistration:
-[`ntu_viral_selection_2026-08.yaml`](../configs/slam_benchmark_profiles/ntu_viral_selection_2026-08.yaml)
+[`ntu_viral_selection_2026-08.yaml`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/configs/slam_benchmark_profiles/ntu_viral_selection_2026-08.yaml)
 and its strict schema
-[`ntu_viral_selection_v1.schema.json`](../configs/slam_benchmark_profiles/ntu_viral_selection_v1.schema.json).
+[`ntu_viral_selection_v1.schema.json`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/configs/slam_benchmark_profiles/ntu_viral_selection_v1.schema.json).
 The selection is deliberately `NOT_READY`; adding a family declaration does
 not count it as a PASS family. Claim eligibility still requires at least two
 families whose every evaluation-eligible sequence has recorded and
@@ -1270,7 +1270,7 @@ ceiling is bound to that source and cannot be relaxed independently.  The
 95% bootstrap/CI requirement is scoped to APE only; RSS makes no CI claim and
 uses the preregistered deterministic maximum.  The policy shape is registered
 in
-[`competitive_memory_gate_v1.schema.json`](../configs/slam_benchmark_profiles/competitive_memory_gate_v1.schema.json).
+[`competitive_memory_gate_v1.schema.json`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/configs/slam_benchmark_profiles/competitive_memory_gate_v1.schema.json).
 These checks do not open ground truth or invoke a scorer, and existing
 benchmark evidence is not upgraded by this code.
 
@@ -1302,9 +1302,9 @@ The local verifier is
 `scripts/competitive_holdout_authorization.py`, integrated into
 `scripts/verify_competitive_evidence_bundle.py` and the v2 suite claim gate.
 Its schema is
-[`competitive_fresh_holdout_authorization_v1.schema.json`](../configs/slam_benchmark_profiles/competitive_fresh_holdout_authorization_v1.schema.json).
+[`competitive_fresh_holdout_authorization_v1.schema.json`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/configs/slam_benchmark_profiles/competitive_fresh_holdout_authorization_v1.schema.json).
 The profile-side trust-store shape is specified by
-[`competitive_external_attestation_trust_store_v1.schema.json`](../configs/slam_benchmark_profiles/competitive_external_attestation_trust_store_v1.schema.json).
+[`competitive_external_attestation_trust_store_v1.schema.json`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/configs/slam_benchmark_profiles/competitive_external_attestation_trust_store_v1.schema.json).
 Fresh immutable dataset IDs/hashes are also checked disjoint from historical,
 bring-up, development, and regression partitions; shared calibration hashes
 are intentionally not treated as dataset overlap.

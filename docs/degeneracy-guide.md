@@ -12,7 +12,7 @@ numbers below come from
 (NTNU LiDAR Degeneracy Datasets fog/tunnel sequences, plus a HILTI 2022
 exp07 negative-result check). Read that page for the full methodology.
 
-![NTNU tunnel SLAM map: top view and gravity-alignment before/after side view](../lidarslam/images/tunnel_degeneracy_map.png)
+![NTNU tunnel SLAM map: top view and gravity-alignment before/after side view](assets/images/tunnel_degeneracy_map.png)
 
 On the ~500 m self-similar Fyllingsdalen tunnel, the plain frontend covers
 98.7 m before along-axis degeneracy freezes it. The opt-in presets map the

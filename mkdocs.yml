@@ -3,6 +3,7 @@ site_description: ROS 2 LiDAR SLAM docs for pointcloud-map authoring, benchmarki
 site_url: https://rsasaki0109.github.io/lidar_slam_ros2/
 repo_url: https://github.com/rsasaki0109/lidar_slam_ros2
 repo_name: rsasaki0109/lidar_slam_ros2
+edit_uri: edit/develop/docs/
 docs_dir: docs
 use_directory_urls: false
 extra_css:
@@ -13,6 +14,16 @@ markdown_extensions:
   - attr_list
   - md_in_html
   - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
 
 theme:
   name: material
@@ -21,113 +32,158 @@ theme:
     text: IBM Plex Sans
     code: IBM Plex Mono
   features:
-    - navigation.sections
+    - navigation.instant
+    - navigation.instant.progress
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.tabs.sticky
     - navigation.top
+    - navigation.footer
+    - navigation.indexes
+    - toc.follow
+    - search.suggest
+    - search.highlight
     - content.code.copy
+    - content.code.annotate
+    - content.action.edit
   palette:
-    - scheme: default
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
       primary: teal
       accent: amber
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: amber
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
   icon:
     repo: fontawesome/brands/github
 
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/rsasaki0109/lidar_slam_ros2
+
 nav:
   - Home: index.md
-  - Getting Started: getting-started.md
-  - 日本語クイックスタート: getting-started-ja.md
-  - Product Contract: product-contract.md
-  - v1.0 Readiness: v1-readiness.md
-  - G0 Readiness Dashboard: g0-readiness.md
-  - Product Draft Review Routing: review-routing.md
-  - Weekly growth scorecard: growth-scorecard.md
-  - G0 clean-candidate audit: evidence/growth/g0-clean-candidate-audit-2026-08-11.md
-  - Current G0 action packet: evidence/growth/g0-current-action-packet-2026-08-14.md
-  - G0 external-action decision: evidence/growth/g0-external-action-decision-packet-2026-08-11.md
-  - Community contributor backlog: evidence/growth/community-contributor-backlog-2026-08-11.md
-  - Contributor Python test evidence: evidence/growth/contributor-python-test-entrypoint-2026-08-11.md
-  - Open-issue triage proposal: evidence/growth/open-issue-triage-proposal-2026-08-11.md
-  - Comparable onboarding trials: onboarding-trials.md
-  - Onboarding trial execution: onboarding-trial-execution.md
-  - GLIM usability scorecard: usability-scorecard.md
-  - Docker onboarding probe evidence: evidence/onboarding/docker-machine-probes-2026-08-10.md
-  - MID-360 fixture pilot evidence: evidence/onboarding/mid360-onboarding-fixture-pilot-2026-08-10.md
-  - MID-360 fixture publication review: evidence/onboarding/mid360-fixture-publication-review-2026-08-11.md
-  - Public dataset acquisition hardening: evidence/onboarding/public-dataset-acquisition-hardening-2026-08-11.md
-  - Published fixture audit gate: evidence/onboarding/published-fixture-audit-gate-2026-08-11.md
-  - Runtime image slimming evidence: evidence/onboarding/runtime-image-slimming-2026-08-11.md
-  - Golden-path CLI: golden-path-cli.md
-  - CLI compatibility: cli-compatibility.md
-  - CLI install evidence: evidence/cli-v1-install-2026-07-28.md
-  - Operational reliability: operational-reliability.md
-  - VoxelGrid overflow safety evidence: evidence/voxel-grid-overflow-safety-2026-08-11.md
-  - Named-hardware soak evidence: evidence/real-data-soak-2026-07-28.md
-  - Docker first-map evidence: evidence/docker-first-map-2026-07-28.md
-  - Independent first-map validation: external-first-map-validation.md
-  - Install upgrade evidence: evidence/install-upgrade-2026-07-28.md
-  - Pinned real-data E2E: real-data-e2e.md
-  - Distribution and installed CLI: distribution.md
-  - Autoware-Compatible Map Authoring: autoware-map-authoring.md
-  - Autoware Quickstart: autoware-quickstart.md
-  - Autoware Foxglove: autoware-foxglove.md
-  - Operator Workflows: workflows.md
-  - Repository Layout: repository-layout.md
-  - Degeneracy Resilience Guide: degeneracy-guide.md
-  - Graph SLAM Architecture: graph-slam-architecture.md
-  - Registration Plugin API: architecture/registration-plugin-api.md
-  - Registration Plugin Authoring: registration-plugin-authoring.md
-  - 3DGS Photoreal Map: 3dgs-map-tutorial.md
-  - 3DGS Map Viewer: 3dgs-viewer.md
-  - Benchmarking And Release Gate: benchmarking.md
-  - Benchmark Python Surface: benchmark-python-surface.md
-  - RKO-LIO voxel compatibility evidence: evidence/rko-voxel-compatibility-2026-07-31.md
-  - Leo Drive packet benchmark evidence: evidence/leo-drive-packet-benchmark-2026-07-30.md
-  - rosdistro Binary Release: rosdistro-release.md
-  - DDS / Large-Message Tuning: dds-tuning.md
-  - Comparison: comparison.md
-  - Architecture:
-      - Registration Plugin API: architecture/registration-plugin-api.md
-      - Registration Plugin Matrix Audit: architecture/registration-plugin-matrix-audit-2026-08.md
-      - Registration Plugin Release Campaign: architecture/registration-plugin-release-campaign-2026-08.md
-      - M6a10 Benchmark Phase Contract: architecture/benchmark-phase-contract-m6a10.md
+
+  - Get Started:
+      - Getting Started: getting-started.md
+      - 日本語クイックスタート: getting-started-ja.md
+      - Product Contract: product-contract.md
+      - Distribution and Installed CLI: distribution.md
+      - Golden-Path CLI: golden-path-cli.md
+      - CLI Compatibility: cli-compatibility.md
+      - Operator Workflows: workflows.md
+      - Autoware-Compatible Map Authoring: autoware-map-authoring.md
+      - Autoware Foxglove: autoware-foxglove.md
+      - Autoware Quickstart (Advanced): autoware-quickstart.md
+      - DDS / Large-Message Tuning: dds-tuning.md
+
+  - Guides:
+      - Degeneracy Resilience Guide: degeneracy-guide.md
+      - Graph SLAM Architecture: graph-slam-architecture.md
       - Registration Plugin Authoring: registration-plugin-authoring.md
-      - GLIM Clean-Room Phase 2 API Audit: architecture/glim-clean-room-adapter-phase2-api-audit-2026-08.md
-      - GLIM Clean-Room Phase 3a Conversion: architecture/glim-clean-room-adapter-phase3a-conversion-2026-08.md
-      - GLIM Clean-Room Phase 3b Runtime: architecture/glim-clean-room-adapter-phase3b-runtime-2026-08.md
-      - GLIM Clean-Room Phase 3c Map Output: architecture/glim-clean-room-adapter-phase3c-map-2026-08.md
-      - GLIM Clean-Room Phase 3d r3 Apt Allowlist: architecture/glim-clean-room-adapter-phase3d-r3-apt-allowlist-2026-08.md
-      - GLIM Clean-Room Phase 3d r3 Machine Handoff and Response Review: architecture/glim-clean-room-adapter-phase3d-r3-machine-handoff-2026-08.md
-      - GLIM Clean-Room Phase 3d Jazzy Live ROS 2: architecture/glim-clean-room-adapter-phase3d-ros2-live-2026-08.md
-      - GLIM Clean-Room Phase 3d r3 Candidate: architecture/glim-clean-room-adapter-phase3d-r3-candidate-2026-08.md
-      - Competitive Claim Publication: architecture/competitive-claim-publication-2026-08.md
-      - Competitive Pre-Execution Audit: architecture/competitive-pre-execution-audit-2026-08.md
-      - Competitive Execution Selection r3 Candidate: architecture/competitive-execution-selection-r3-2026-08.md
-      - Competitive Execution Selection r3 External Capture: architecture/competitive-execution-selection-r3-external-capture-2026-08.md
-      - Competitive Execution Machine Identity PoP: architecture/competitive-execution-machine-identity-pop-2026-08.md
-      - Competitive Rival Legal Provenance Capture: architecture/competitive-rival-legal-provenance-capture-2026-08.md
-      - Competitive Rival Source Closure r3 Candidate: architecture/competitive-rival-source-closure-r3-candidate-2026-08.md
-      - Competitive Rival Source Closure r3 Custodian Response: architecture/competitive-rival-source-closure-r3-custodian-response-2026-08.md
-      - SMALL GICP HILTI exp04 Gate: architecture/small-gicp-hilti-exp04-gate-2026-08.md
-      - SMALL GICP MID-360 Gate: architecture/small-gicp-mid360-gate-2026-08.md
-      - SMALL GICP external DSO ODR Gate: architecture/small-gicp-external-dso-odr-gate-2026-08.md
-  - Roadmaps:
-      - SOTA Product Development: roadmap/sota-product-development-2026-08.md
-      - Extensible OSS Architecture: roadmap/extensible-architecture-2026-08.md
-      - 1,000 Stars: roadmap/1000-stars.md
-      - 2026–2029 Operating Plan: roadmap/1000-stars-2026-2029.md
-      - Quarterly Health Review Template: roadmap/1000-stars-quarterly-review-template.md
-      - v0.9 Product Foundation: roadmap/v0.9.md
-  - Social:
-      - v0.9.1 Candidate Media Kit: social/autoware_map_authoring_post_v0.9.1.md
-  - Releases:
-      - v0.9.1: releases/v0.9.1.md
-      - v0.9.0: releases/v0.9.0.md
-      - v0.7.0: releases/v0.7.0.md
-      - v0.6.0: releases/v0.6.0.md
-      - v0.5.0: releases/v0.5.0.md
-      - v0.3.0: releases/v0.3.0.md
-      - v0.2.2: releases/v0.2.2.md
-      - v0.2.1: releases/v0.2.1.md
-      - v0.2.0: releases/v0.2.0.md
-  - Research:
-      - Byte-Reproducible Map Authoring: research/byte-reproducible-map-authoring.md
-      - Triangle Stack (2026-05): research/triangle-stack-2026-05-summary.md
+      - Registration Plugin API: architecture/registration-plugin-api.md
+      - 3DGS Photoreal Map: 3dgs-map-tutorial.md
+      - 3DGS Map Viewer: 3dgs-viewer.md
+      - Jetson MID-360 Robot Runbook: jetson-mid360-robot-runbook.md
+      - Jetson MID-360 Robot Scope: jetson-mid360-robot-scope.md
+      - Jetson MID-360 Static TF Worksheet: jetson-mid360-static-tf-worksheet.md
+      - Repository Layout: repository-layout.md
+
+  - Benchmarking:
+      - Benchmarking And Release Gate: benchmarking.md
+      - Benchmark Python Surface: benchmark-python-surface.md
+      - Comparison: comparison.md
+      - rosdistro Binary Release: rosdistro-release.md
+      - Operational Reliability: operational-reliability.md
+      - Pinned Real-data E2E: real-data-e2e.md
+      - Independent First-Map Validation: external-first-map-validation.md
+      - v1.0 Readiness: v1-readiness.md
+
+  - Project:
+      - Readiness & Growth:
+          - G0 Readiness Dashboard: g0-readiness.md
+          - Product Draft Review Routing: review-routing.md
+          - Weekly Growth Scorecard: growth-scorecard.md
+          - Comparable Onboarding Trials: onboarding-trials.md
+          - Onboarding Trial Execution: onboarding-trial-execution.md
+          - GLIM Usability Scorecard: usability-scorecard.md
+      - Roadmaps:
+          - SOTA Product Development: roadmap/sota-product-development-2026-08.md
+          - Extensible OSS Architecture: roadmap/extensible-architecture-2026-08.md
+          - 1,000 Stars: roadmap/1000-stars.md
+          - 2026–2029 Operating Plan: roadmap/1000-stars-2026-2029.md
+          - Quarterly Health Review Template: roadmap/1000-stars-quarterly-review-template.md
+          - v0.9 Product Foundation: roadmap/v0.9.md
+      - Architecture:
+          - Registration Plugin Matrix Audit: architecture/registration-plugin-matrix-audit-2026-08.md
+          - Registration Plugin Release Campaign: architecture/registration-plugin-release-campaign-2026-08.md
+          - M6a10 Benchmark Phase Contract: architecture/benchmark-phase-contract-m6a10.md
+          - GLIM Clean-Room Phase 2 API Audit: architecture/glim-clean-room-adapter-phase2-api-audit-2026-08.md
+          - GLIM Clean-Room Phase 3a Conversion: architecture/glim-clean-room-adapter-phase3a-conversion-2026-08.md
+          - GLIM Clean-Room Phase 3b Runtime: architecture/glim-clean-room-adapter-phase3b-runtime-2026-08.md
+          - GLIM Clean-Room Phase 3c Map Output: architecture/glim-clean-room-adapter-phase3c-map-2026-08.md
+          - GLIM Clean-Room Phase 3d r3 Apt Allowlist: architecture/glim-clean-room-adapter-phase3d-r3-apt-allowlist-2026-08.md
+          - GLIM Clean-Room Phase 3d r3 Machine Handoff: architecture/glim-clean-room-adapter-phase3d-r3-machine-handoff-2026-08.md
+          - GLIM Clean-Room Phase 3d Jazzy Live ROS 2: architecture/glim-clean-room-adapter-phase3d-ros2-live-2026-08.md
+          - GLIM Clean-Room Phase 3d r3 Candidate: architecture/glim-clean-room-adapter-phase3d-r3-candidate-2026-08.md
+          - Competitive Claim Publication: architecture/competitive-claim-publication-2026-08.md
+          - Competitive Pre-Execution Audit: architecture/competitive-pre-execution-audit-2026-08.md
+          - Competitive Execution Selection r3 Candidate: architecture/competitive-execution-selection-r3-2026-08.md
+          - Competitive Execution Selection r3 External Capture: architecture/competitive-execution-selection-r3-external-capture-2026-08.md
+          - Competitive Execution Machine Identity PoP: architecture/competitive-execution-machine-identity-pop-2026-08.md
+          - Competitive Rival Legal Provenance Capture: architecture/competitive-rival-legal-provenance-capture-2026-08.md
+          - Competitive Rival Source Closure r3 Candidate: architecture/competitive-rival-source-closure-r3-candidate-2026-08.md
+          - Competitive Rival Source Closure r3 Custodian Response: architecture/competitive-rival-source-closure-r3-custodian-response-2026-08.md
+          - SMALL GICP HILTI exp04 Gate: architecture/small-gicp-hilti-exp04-gate-2026-08.md
+          - SMALL GICP MID-360 Gate: architecture/small-gicp-mid360-gate-2026-08.md
+          - SMALL GICP external DSO ODR Gate: architecture/small-gicp-external-dso-odr-gate-2026-08.md
+      - Research:
+          - Byte-Reproducible Map Authoring: research/byte-reproducible-map-authoring.md
+          - Triangle Stack (2026-05): research/triangle-stack-2026-05-summary.md
+      - Evidence:
+          - Growth:
+              - G0 clean-candidate audit: evidence/growth/g0-clean-candidate-audit-2026-08-11.md
+              - Current G0 action packet: evidence/growth/g0-current-action-packet-2026-08-14.md
+              - G0 external-action decision: evidence/growth/g0-external-action-decision-packet-2026-08-11.md
+              - Community contributor backlog: evidence/growth/community-contributor-backlog-2026-08-11.md
+              - Contributor Python test entrypoint: evidence/growth/contributor-python-test-entrypoint-2026-08-11.md
+              - Open-issue triage proposal: evidence/growth/open-issue-triage-proposal-2026-08-11.md
+          - Onboarding:
+              - Docker onboarding probes: evidence/onboarding/docker-machine-probes-2026-08-10.md
+              - MID-360 fixture pilot: evidence/onboarding/mid360-onboarding-fixture-pilot-2026-08-10.md
+              - MID-360 fixture publication review: evidence/onboarding/mid360-fixture-publication-review-2026-08-11.md
+              - Public dataset acquisition hardening: evidence/onboarding/public-dataset-acquisition-hardening-2026-08-11.md
+              - Published fixture audit gate: evidence/onboarding/published-fixture-audit-gate-2026-08-11.md
+              - Runtime image slimming: evidence/onboarding/runtime-image-slimming-2026-08-11.md
+          - Release & Runtime:
+              - CLI install evidence: evidence/cli-v1-install-2026-07-28.md
+              - Install upgrade evidence: evidence/install-upgrade-2026-07-28.md
+              - Docker first-map evidence: evidence/docker-first-map-2026-07-28.md
+              - Named-hardware soak evidence: evidence/real-data-soak-2026-07-28.md
+              - VoxelGrid overflow safety: evidence/voxel-grid-overflow-safety-2026-08-11.md
+              - RKO-LIO voxel compatibility: evidence/rko-voxel-compatibility-2026-07-31.md
+              - Leo Drive packet benchmark: evidence/leo-drive-packet-benchmark-2026-07-30.md
+      - Releases:
+          - v0.9.1: releases/v0.9.1.md
+          - v0.9.0: releases/v0.9.0.md
+          - v0.7.0: releases/v0.7.0.md
+          - v0.6.0: releases/v0.6.0.md
+          - v0.5.0: releases/v0.5.0.md
+          - v0.3.0: releases/v0.3.0.md
+          - v0.2.2: releases/v0.2.2.md
+          - v0.2.1: releases/v0.2.1.md
+          - v0.2.0: releases/v0.2.0.md
+      - Social:
+          - v0.9.1 Candidate Media Kit: social/autoware_map_authoring_post_v0.9.1.md
