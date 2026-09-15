@@ -40,6 +40,7 @@ find_package(lidarslam_msgs REQUIRED)
 find_package(message_filters REQUIRED)
 find_package(rosbag2_cpp REQUIRED)
 find_package(ndt_omp_ros2 REQUIRED)
+find_package(lidarslam_plugin_interfaces REQUIRED)
 find_package(PCL REQUIRED)
 find_package(g2o QUIET
   COMPONENTS
@@ -126,7 +127,7 @@ set_target_properties(graph_slam_application PROPERTIES POSITION_INDEPENDENT_COD
 target_include_directories(
   graph_slam_application PUBLIC include ${EIGEN3_INCLUDE_DIR} ${PCL_INCLUDE_DIRS}
 )
-ament_target_dependencies(graph_slam_application ndt_omp_ros2)
+ament_target_dependencies(graph_slam_application ndt_omp_ros2 lidarslam_plugin_interfaces)
 target_link_libraries(
   graph_slam_application
   ${PCL_LIBRARIES}
@@ -326,7 +327,7 @@ if(BUILD_TESTING)
   )
   if(TARGET test_backend_core)
     target_include_directories(test_backend_core PRIVATE include ${EIGEN3_INCLUDE_DIR})
-    ament_target_dependencies(test_backend_core ndt_omp_ros2)
+    ament_target_dependencies(test_backend_core ndt_omp_ros2 lidarslam_plugin_interfaces)
     target_link_libraries(
       test_backend_core ${PCL_LIBRARIES} graph_based_slam_3d_bbs_vendor
     )
@@ -340,7 +341,7 @@ if(BUILD_TESTING)
     target_include_directories(
       test_graph_slam_application PRIVATE include ${EIGEN3_INCLUDE_DIR}
     )
-    ament_target_dependencies(test_graph_slam_application ndt_omp_ros2)
+    ament_target_dependencies(test_graph_slam_application ndt_omp_ros2 lidarslam_plugin_interfaces)
     target_link_libraries(
       test_graph_slam_application
       graph_slam_application
@@ -1299,6 +1300,7 @@ ament_target_dependencies(graph_based_slam_component
   nav_msgs
   std_srvs
   lidarslam_msgs
+  lidarslam_plugin_interfaces
   message_filters
   ndt_omp_ros2
 )
@@ -1367,6 +1369,7 @@ ament_target_dependencies(graph_slam_offline_runner
   nav_msgs
   sensor_msgs
   ndt_omp_ros2
+  lidarslam_plugin_interfaces
 )
 
 target_link_libraries(graph_slam_offline_runner
@@ -1394,7 +1397,7 @@ if(BUILD_TESTING)
       test_graph_slam_composition PRIVATE src include ${EIGEN3_INCLUDE_DIR}
     )
     target_link_libraries(test_graph_slam_composition graph_based_slam_component)
-    ament_target_dependencies(test_graph_slam_composition rclcpp)
+    ament_target_dependencies(test_graph_slam_composition rclcpp lidarslam_plugin_interfaces)
   endif()
 endif()
 
