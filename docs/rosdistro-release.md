@@ -140,7 +140,7 @@ canonical-package `scanmatcher` build also passes all 109 tests. The parent has 
 its registration ownership and casts to the PCL shared-pointer API, so the
 post-upstream transition patch is limited to dependency-name replacement and
 the upstream spelling of `setOutlierRatio`; that patch has SHA-256
-`a4ed0382c25134d51a26079b937db314a7dab457cc42712e97a6b8e223bdbe12`.
+`f3dbc0eeb3d4fc77bfe9c91ddbec9039a40c56f2e0bff4bae2bf6ef461b37cec`.
 It covers all three direct consumers: two `scanmatcher` build references,
 seven `graph_based_slam` build references, five `lidarslam_default_plugins`
 build references, and all three package manifests. The complete canonical

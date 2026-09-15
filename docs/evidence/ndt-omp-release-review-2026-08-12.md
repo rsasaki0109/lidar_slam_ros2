@@ -202,7 +202,7 @@ the existing `ndt_omp_ros2` build remains compatible with that modernization.
 
 The remaining canonical switch is captured separately as
 `packaging/ndt_omp/lidarslam-canonical-ndt-transition.patch` (SHA-256
-`a4ed0382c25134d51a26079b937db314a7dab457cc42712e97a6b8e223bdbe12`).
+`f3dbc0eeb3d4fc77bfe9c91ddbec9039a40c56f2e0bff4bae2bf6ef461b37cec`).
 The earlier three-file draft was incomplete: `graph_based_slam` also directly
 declared canonical-provider requirements in its manifest and seven CMake
 locations, and the registration-plugin package carries the fork dependency
