@@ -472,4 +472,16 @@ install(
   DESTINATION share/${PROJECT_NAME}/product/completions
 )
 
+# The product CLI subcommands import the installed benchmark Python surface
+# (lidarslam_benchmark_tools) from lib/python.../site-packages.  ament does not
+# add that directory to PYTHONPATH automatically for a manually installed
+# package, so register an environment hook (the same dsv that
+# ament_python_install_package writes) to keep the installed CLI importable
+# from a plainly sourced shell.
+set(_BENCHMARK_PYTHON_HOOK
+    "${CMAKE_CURRENT_BINARY_DIR}/lidarslam_benchmark_pythonpath.dsv")
+file(WRITE "${_BENCHMARK_PYTHON_HOOK}"
+    "prepend-non-duplicate;PYTHONPATH;lib/python${Python3_VERSION_MAJOR}.${Python3_VERSION_MINOR}/site-packages\n")
+ament_environment_hooks("${_BENCHMARK_PYTHON_HOOK}")
+
 ament_package()
