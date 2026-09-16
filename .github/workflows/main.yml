@@ -25,6 +25,8 @@ jobs:
     name: docs and release metadata
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    env:
+      PYTHONPATH: ${{ github.workspace }}
 
     steps:
       - name: Check out repository

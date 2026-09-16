@@ -117,6 +117,10 @@ jobs:
             --packages-select \
               ndt_omp_ros2 \
               lidarslam_msgs \
+              lidarslam_plugin_interfaces \
+              lidarslam_registration_loader \
+              lidarslam_default_plugins \
+              lidarslam_fake_registration_plugins \
               scanmatcher \
               graph_based_slam \
               lidarslam \
