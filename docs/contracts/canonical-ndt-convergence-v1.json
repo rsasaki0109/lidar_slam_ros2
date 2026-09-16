@@ -61,7 +61,7 @@
     "provider_after": "ndt_omp",
     "patch": {
       "path": "packaging/ndt_omp/lidarslam-canonical-ndt-transition.patch",
-      "sha256": "cc20099b00751c46e7fd7d333bcba0d6b59fe3e77323b1b6915ff4fad48db4fc",
+      "sha256": "046530c562c108afe49b24162eb1099b4de03f094abaf3ddcde2a8837dfce109",
       "paths": [
         "graph_based_slam/CMakeLists.txt",
         "graph_based_slam/package.xml",
