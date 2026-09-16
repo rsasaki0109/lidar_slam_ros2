@@ -43,7 +43,7 @@ PAYLOAD_SHA256 = "2c1c9b86fadc0d1d83e7874542f92ff33b99b23421397374ecd9e880ad1b73
 PROFILE_PATH = Path(
     "configs/slam_benchmark_profiles/fast_livo2_m6a10_v12_formal_ready.yaml"
 )
-PROFILE_SHA256 = "675996a7a5fd81d59d752de4bbea1d4373487a17d03ee085aa08ae9493a0b28d"
+PROFILE_SHA256 = "0dd8b6b2f04685ddd1b63f6b2354f57d3e96ba38cf28453c331c7e134015f75b"
 FOCUSED_TEST_PATH = Path(
     "graph_based_slam/test/test_fast_livo2_m6a10_v12_no_input_gate.py"
 )

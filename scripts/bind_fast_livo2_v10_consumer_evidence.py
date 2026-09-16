@@ -25,7 +25,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 PROFILE_PATH = ROOT / 'configs/slam_benchmark_profiles/fast_livo2_m6a10_v10_formal.yaml'
 PROFILE_SHA256 = (
-    'f706f41b0a985347ff98e4953532590c7a9c8c2d75db355e53cfb558f95bc459')
+    '918099b1bf6a3ae82040957fde879931113a25a17093f04a1df06c375368108d')
 PROFILE_KEY = 'm6a10_fast_livo2_v2c_v10'
 PROFILE_SCHEMA_VERSION = 3
 PROFILE_SYSTEM = 'fast_livo2'

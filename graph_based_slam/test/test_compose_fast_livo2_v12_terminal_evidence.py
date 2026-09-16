@@ -47,7 +47,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 PROFILE = ROOT / 'configs/slam_benchmark_profiles/fast_livo2_m6a10_v12_formal_ready.yaml'
-PROFILE_SHA = '675996a7a5fd81d59d752de4bbea1d4373487a17d03ee085aa08ae9493a0b28d'
+PROFILE_SHA = '0dd8b6b2f04685ddd1b63f6b2354f57d3e96ba38cf28453c331c7e134015f75b'
 COMPOSITOR_SCRIPT = ROOT / 'scripts/compose_fast_livo2_v12_terminal_evidence.py'
 BINDER_SCRIPT = ROOT / 'scripts/bind_fast_livo2_v12_consumer_evidence.py'
 

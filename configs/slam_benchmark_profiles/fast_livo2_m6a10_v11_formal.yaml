@@ -10,7 +10,7 @@ preregistration:
   formal_replay_forbidden: true
   created_at_utc: '2026-08-23T00:00:00Z'
   predecessor_profile: configs/slam_benchmark_profiles/fast_livo2_m6a10_v10_formal.yaml
-  predecessor_profile_sha256: f706f41b0a985347ff98e4953532590c7a9c8c2d75db355e53cfb558f95bc459
+  predecessor_profile_sha256: 918099b1bf6a3ae82040957fde879931113a25a17093f04a1df06c375368108d
   predecessor_closure_path: /media/user/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_v10_formal_replay3_20260823T112240Z_agentv10formal/closure_receipt.json
   predecessor_closure_sha256: 16d1ee5bd55588391e3019bcdd7828c85f74c484f314f64a4dcc8a95a300fb05
   predecessor_status: FAIL_CLOSED
@@ -26,7 +26,7 @@ competitive_slam_profile:
     result: null
     predecessor:
       profile_path: configs/slam_benchmark_profiles/fast_livo2_m6a10_v10_formal.yaml
-      profile_sha256: f706f41b0a985347ff98e4953532590c7a9c8c2d75db355e53cfb558f95bc459
+      profile_sha256: 918099b1bf6a3ae82040957fde879931113a25a17093f04a1df06c375368108d
       closure_path: /media/user/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_v10_formal_replay3_20260823T112240Z_agentv10formal/closure_receipt.json
       closure_sha256: 16d1ee5bd55588391e3019bcdd7828c85f74c484f314f64a4dcc8a95a300fb05
       outcome: FAIL_CLOSED_container_process_failure

@@ -8,7 +8,7 @@ set -Eeuo pipefail
 EXPECTED_CONTRACT='m6a10-online-compute-v5-terminal-nonlidar-at-or-after-boundary'
 EXPECTED_PHASE_MODE='unpaced_ack'
 EXPECTED_PROFILE_PATH='configs/slam_benchmark_profiles/fast_livo2_m6a10_v12_formal_ready.yaml'
-EXPECTED_PROFILE_SHA256='675996a7a5fd81d59d752de4bbea1d4373487a17d03ee085aa08ae9493a0b28d'
+EXPECTED_PROFILE_SHA256='0dd8b6b2f04685ddd1b63f6b2354f57d3e96ba38cf28453c331c7e134015f75b'
 EXPECTED_BAG_PATH='/input/ntu_viral.bag'
 EXPECTED_BAG_BYTES='11290464091'
 EXPECTED_BAG_SHA256='5bc7c6a0e5088aa3f733377a3e597705b075b1ec5ca5be272b75636a0b697310'

@@ -46,7 +46,7 @@ import lidarslam_benchmark_tools.check_m6a10_quiescence as _quiescence  # noqa: 
 PROFILE_PATH = ROOT / "configs/slam_benchmark_profiles/fast_livo2_m6a10_v12_formal_candidate.yaml"
 PROFILE_SHA256 = "05534888b7f58bca5a2778dfedefefecb04828f63a8414f8b9c21dc4b3bd0ad3"
 READY_PROFILE_PATH = ROOT / "configs/slam_benchmark_profiles/fast_livo2_m6a10_v12_formal_ready.yaml"
-READY_PROFILE_SHA256 = "675996a7a5fd81d59d752de4bbea1d4373487a17d03ee085aa08ae9493a0b28d"
+READY_PROFILE_SHA256 = "0dd8b6b2f04685ddd1b63f6b2354f57d3e96ba38cf28453c331c7e134015f75b"
 PROFILE_KEY = "m6a10_fast_livo2_v2c_v12_formal_candidate"
 PHASE_CONTRACT = "m6a10-online-compute-v5-terminal-nonlidar-at-or-after-boundary"
 TRANSPORT_CONTRACT = "m6a10-v12-callback-ack-transport-outstanding-v1"
@@ -106,7 +106,7 @@ HOST_GATE_RECEIPT_SHA256 = "3a603bc4ece0e9167b0b3943df6be569f2e64bce196beb18da29
 HOST_GATE_SIDECAR_SHA256 = "ff50620daf076ed357032111d33197da1903b840605fa34259f3880ae0e49f66"
 
 SOURCE_PINS = {
-    "v12_ready_profile": ("configs/slam_benchmark_profiles/fast_livo2_m6a10_v12_formal_ready.yaml", "675996a7a5fd81d59d752de4bbea1d4373487a17d03ee085aa08ae9493a0b28d"),
+    "v12_ready_profile": ("configs/slam_benchmark_profiles/fast_livo2_m6a10_v12_formal_ready.yaml", "0dd8b6b2f04685ddd1b63f6b2354f57d3e96ba38cf28453c331c7e134015f75b"),
     "v12_delta_patch": ("docker/patches/fast_livo2.m6a10-v2c-v12-nonlidar-boundary-transport.patch", "39c77535a7557365dac6b0f2c99849038b29670a57c3101be3a39138317c6333"),
     "v12_build_script": ("scripts/build_fast_livo2_m6a10_v12_image.sh", "4a88bbfd68d5b021b5b3a194f42cfbae67816b31c92e1bb0036b10ed6b62e41b"),
     "v12_dockerfile": ("docker/fast_livo2_m6a10_v12.Dockerfile", "f579d6b09868a67fa33c626d23295de41c5517490f7849c2fafdb52203aaae26"),

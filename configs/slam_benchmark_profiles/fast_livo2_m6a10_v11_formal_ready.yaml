@@ -15,7 +15,7 @@ preregistration:
   predecessor_profile_sha256: e8980198e52604bb7dca0d1c1ecb91b6ce4f8b95b1dea3bb80ad4db8cd382296
   predecessor_status: SUPERSEDED_CANDIDATE_NOT_RUNTIME_READY
   v10_predecessor_profile: configs/slam_benchmark_profiles/fast_livo2_m6a10_v10_formal.yaml
-  v10_predecessor_profile_sha256: f706f41b0a985347ff98e4953532590c7a9c8c2d75db355e53cfb558f95bc459
+  v10_predecessor_profile_sha256: 918099b1bf6a3ae82040957fde879931113a25a17093f04a1df06c375368108d
   v10_predecessor_closure_path: /media/user/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_v10_formal_replay3_20260823T112240Z_agentv10formal/closure_receipt.json
   v10_predecessor_closure_sha256: 16d1ee5bd55588391e3019bcdd7828c85f74c484f314f64a4dcc8a95a300fb05
   image_build_not_run: false
@@ -38,7 +38,7 @@ competitive_slam_profile:
       status: SUPERSEDED_CANDIDATE_NOT_RUNTIME_READY
     v10_lineage:
       profile_path: configs/slam_benchmark_profiles/fast_livo2_m6a10_v10_formal.yaml
-      profile_sha256: f706f41b0a985347ff98e4953532590c7a9c8c2d75db355e53cfb558f95bc459
+      profile_sha256: 918099b1bf6a3ae82040957fde879931113a25a17093f04a1df06c375368108d
       closure_path: /media/user/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_v10_formal_replay3_20260823T112240Z_agentv10formal/closure_receipt.json
       closure_sha256: 16d1ee5bd55588391e3019bcdd7828c85f74c484f314f64a4dcc8a95a300fb05
       outcome: FAIL_CLOSED_container_process_failure
