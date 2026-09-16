@@ -46,6 +46,11 @@ fi
 SETUP_CANDIDATES=()
 if [[ "${SOURCE_LAYOUT}" == true ]]; then
   REPO_ROOT=$(cd "${SCRIPT_DIR}/.." && pwd)
+  # Expose the source benchmark Python package so the product CLI subcommands
+  # can import lidarslam_benchmark_tools from a plainly sourced shell.  The
+  # source package projects scripts/ and tools/; the manually installed
+  # copy is intentionally left off PYTHONPATH to avoid shadowing it.
+  export PYTHONPATH="${REPO_ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
   REPO_PARENT=$(dirname "${REPO_ROOT}")
   if [[ "$(basename "${REPO_PARENT}")" == "src" ]]; then
     SETUP_CANDIDATES+=("$(dirname "${REPO_PARENT}")/install/setup.bash")
