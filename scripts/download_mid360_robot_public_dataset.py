@@ -10,16 +10,26 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from lidarslam_benchmark_tools.mid360_robot_public_datasets import (
-    PublicDatasetIntake,
-    PublicDatasetIntakeOptions,
-    payload_to_json,
-    public_dataset_payload,
-    public_dataset_registry,
-    render_public_dataset_intake_markdown,
-    render_public_dataset_list,
-)
-from lidarslam_benchmark_tools.mid360_robot_tools import payload_to_json
+try:
+    from lidarslam_benchmark_tools.mid360_robot_public_datasets import (
+        PublicDatasetIntake,
+        PublicDatasetIntakeOptions,
+        payload_to_json,
+        public_dataset_payload,
+        public_dataset_registry,
+        render_public_dataset_intake_markdown,
+        render_public_dataset_list,
+    )
+except ModuleNotFoundError:  # source/curated runtime without the package surface
+    from mid360_robot_public_datasets import (
+        PublicDatasetIntake,
+        PublicDatasetIntakeOptions,
+        payload_to_json,
+        public_dataset_payload,
+        public_dataset_registry,
+        render_public_dataset_intake_markdown,
+        render_public_dataset_list,
+    )
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent

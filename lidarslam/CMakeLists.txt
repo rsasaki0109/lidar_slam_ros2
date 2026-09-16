@@ -429,6 +429,13 @@ install(
   FILES_MATCHING
   PATTERN "*.py"
 )
+# tools/gaussian_splatting/ still owns the render-path helper (the colored_map
+# projection does not provide it); install it so the installed benchmark
+# surface can import lidarslam_benchmark_tools.gaussian_splatting.render_path.
+install(
+  FILES ${CMAKE_CURRENT_SOURCE_DIR}/../tools/gaussian_splatting/render_path.py
+  DESTINATION ${_BENCHMARK_PYTHON_DIR}/lidarslam_benchmark_tools/gaussian_splatting
+)
 install(
   FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/../VERSION

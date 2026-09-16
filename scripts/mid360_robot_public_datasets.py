@@ -21,8 +21,6 @@ from typing import Any, BinaryIO, TextIO
 
 import yaml
 
-from lidarslam_benchmark_tools.mid360_robot_tools import payload_to_json
-
 
 PUBLIC_DATASET_INTAKE_JSON = 'mid360_robot_public_dataset_intake.json'
 PUBLIC_DATASET_INTAKE_MARKDOWN = 'mid360_robot_public_dataset_intake.md'

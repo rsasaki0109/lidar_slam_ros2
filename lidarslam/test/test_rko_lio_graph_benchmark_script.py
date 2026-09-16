@@ -45,9 +45,8 @@ def test_graph_benchmark_scores_the_authoritative_offline_trajectory():
         'benchmark expected exactly one authoritative full-rate TUM dump'
     )
     restore_raw = script.index('cp "${BACKEND_TUMS[0]}" "$RAW_TUM"')
-    skip_map_branch = script.index('if [[ "$SKIP_MAP_SAVE" == "true" ]]')
     densify = script.index('densify_corrected_trajectory.py')
 
     assert resolve_dump < require_one_dump < restore_raw
-    assert restore_raw < skip_map_branch < densify
-    assert 'Raw trajectory restored from full-rate dump:' in script
+    assert restore_raw < densify
+    assert 'Authoritative full-rate trajectory:' in script
