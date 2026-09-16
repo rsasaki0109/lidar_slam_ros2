@@ -1429,6 +1429,17 @@ install(
   DESTINATION share/${PROJECT_NAME}
 )
 
+# Installed benchmark modules resolve profiles through
+# lidarslam_benchmark_tools.package_root(), i.e. share/graph_based_slam, so
+# install the profile/configuration tree alongside the package.
+install(
+  DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../configs/slam_benchmark_profiles/
+  DESTINATION share/${PROJECT_NAME}/configs/slam_benchmark_profiles
+  FILES_MATCHING
+  PATTERN "*.yaml"
+  PATTERN "*.json"
+)
+
 install(TARGETS
   graph_based_slam_component
   ARCHIVE DESTINATION lib
