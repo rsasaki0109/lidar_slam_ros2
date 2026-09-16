@@ -476,6 +476,41 @@ if(BUILD_TESTING)
     )
   endif()
   ament_add_gtest(
+    test_radar_ego_velocity
+    test/test_radar_ego_velocity.cpp
+  )
+  if(TARGET test_radar_ego_velocity)
+    target_include_directories(
+      test_radar_ego_velocity PRIVATE ../Thirdparty/rko_lio ${EIGEN3_INCLUDE_DIR}
+    )
+    # radar_ego_velocity.hpp uses std::optional; this package otherwise defaults to C++14.
+    target_compile_features(test_radar_ego_velocity PRIVATE cxx_std_17)
+  endif()
+  ament_add_gtest(
+    test_radar_continuous_fusion
+    test/test_radar_continuous_fusion.cpp
+  )
+  if(TARGET test_radar_continuous_fusion)
+    target_include_directories(
+      test_radar_continuous_fusion PRIVATE ../Thirdparty/rko_lio ${EIGEN3_INCLUDE_DIR}
+    )
+    # radar_ego_velocity.hpp uses std::optional; this package otherwise defaults to C++14
+    # (see test_radar_ego_velocity above).
+    target_compile_features(test_radar_continuous_fusion PRIVATE cxx_std_17)
+  endif()
+  ament_add_gtest(
+    test_intensity_profile
+    test/test_intensity_profile.cpp
+  )
+  if(TARGET test_intensity_profile)
+    target_include_directories(
+      test_intensity_profile PRIVATE ../Thirdparty/rko_lio ${EIGEN3_INCLUDE_DIR}
+    )
+    # intensity_profile.hpp uses std::clamp/structured bindings; this package otherwise
+    # defaults to C++14 (see test_radar_ego_velocity above).
+    target_compile_features(test_intensity_profile PRIVATE cxx_std_17)
+  endif()
+  ament_add_gtest(
     test_odometry_covariance_localizability
     test/test_odometry_covariance_localizability.cpp
   )
