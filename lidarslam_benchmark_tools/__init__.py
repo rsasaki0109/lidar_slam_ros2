@@ -49,6 +49,15 @@ def package_root() -> Path:
     """
     if _SOURCE_SURFACE:
         return _SOURCE_SCRIPTS_DIR.parent
+    # A split (non-merged) install places graph_based_slam in a sibling prefix
+    # rather than under this package's own prefix; consult the active ament
+    # prefix path before falling back to the package's own directory tree.
+    for prefix in os.environ.get('AMENT_PREFIX_PATH', '').split(os.pathsep):
+        if not prefix:
+            continue
+        installed_root = Path(prefix) / 'share' / 'graph_based_slam'
+        if installed_root.is_dir():
+            return installed_root
     for candidate in (_PACKAGE_DIR, *_PACKAGE_DIR.parents):
         installed_root = candidate / 'share' / 'graph_based_slam'
         if installed_root.is_dir():
