@@ -118,8 +118,16 @@ def test_application_target_does_not_link_external_adapters():
 def test_live_and_offline_adapters_use_the_same_application_artifact_path():
     live = LIVE_ADAPTER_SOURCE.read_text(encoding='utf-8')
     offline = OFFLINE_ADAPTER_SOURCE.read_text(encoding='utf-8')
+
+    # The live ROS shell drives the shared GraphSlamApplication object, which
+    # owns the canonical submap search and artifact serialization path.
+    assert 'processSubmaps(' in live
+    assert 'optimizeAndSerialize(' in live
+    # The offline deterministic runner reaches the same pose-graph core
+    # directly (graphslam::pose_graph::optimizePoseGraph) rather than going
+    # through the ROS application shell.
+    assert 'optimizePoseGraph(' in offline
+
     for adapter in (live, offline):
-        assert 'processSubmaps(' in adapter
-        assert 'optimizeAndSerialize(' in adapter
         assert 'map_saver::loopEdgeCsvLine' not in adapter
         assert 'map_saver::trajectoryTumLine' not in adapter

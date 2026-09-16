@@ -36,6 +36,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import subprocess
 
 import yaml
 
@@ -45,6 +46,14 @@ PROFILE_PATH = (
     ROOT / 'configs' / 'slam_benchmark_profiles' / 'competitive_slam_v1.yaml'
 )
 HILTI_RKO_PATH = ROOT / 'configs' / 'hilti2022' / 'rko_lio_hilti2022_pandar.yaml'
+EXECUTION_RECEIPT_PATH = ROOT / 'configs' / 'slam_benchmark_profiles' / (
+    'competitive_execution_selection_2026-08.yaml')
+EXECUTION_CHECKER_PATH = ROOT / 'scripts' / 'check_competitive_execution_selection.py'
+_CHECKER_SPEC = importlib.util.spec_from_file_location(
+    'competitive_execution_selection_checker', EXECUTION_CHECKER_PATH)
+assert _CHECKER_SPEC.loader is not None
+_CHECKER = importlib.util.module_from_spec(_CHECKER_SPEC)
+_CHECKER_SPEC.loader.exec_module(_CHECKER)
 
 
 def _profile():

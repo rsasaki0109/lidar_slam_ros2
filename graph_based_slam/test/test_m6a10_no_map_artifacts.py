@@ -37,6 +37,7 @@ RUNNER = ROOT / 'scripts' / 'run_rko_lio_graph_benchmark.sh'
 WRAPPER = ROOT / 'scripts' / 'ours_container_gt_blind_run.sh'
 LAUNCH = ROOT / 'lidarslam' / 'launch' / 'rko_lio_slam.launch.py'
 GRAPH_COMPONENT = ROOT / 'graph_based_slam' / 'src' / 'graph_based_slam_component.cpp'
+GRAPH_COMPONENT_IMPL = ROOT / 'graph_based_slam' / 'src' / 'graph_slam_ros_adapter.cpp'
 
 
 def _map_assertion_function() -> str:
@@ -96,12 +97,13 @@ def test_skip_map_is_an_explicit_benchmark_only_launch_override():
 
 
 def test_v1_failure_origin_is_loop_pose_adjustment_map_save_branch():
-    component = GRAPH_COMPONENT.read_text(encoding='utf-8')
+    component = GRAPH_COMPONENT_IMPL.read_text(encoding='utf-8')
 
-    assert 'doPoseAdjustment(map_array_msg, loop_edges, use_save_map_in_loop_)' in component
+    assert 'doPoseAdjustment(map_array_msg, true);' in component
     assert 'if (do_save_map) {' in component
     assert 'saveGridDividedMap(map_to_save);' in component
-    assert 'writeMapBundleArtifacts(map_array_msg, loop_edges, opt_result.poses);' in component
+    assert 'writeMapBundleArtifacts(' in component
+    assert 'map_array_msg, application_result.artifacts, opt_result.poses);' in component
     assert 'writeDegeneracyReport();' in component
 
 
