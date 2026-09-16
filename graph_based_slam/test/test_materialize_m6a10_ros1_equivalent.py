@@ -50,6 +50,14 @@ MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 
 
+if not MODULE.CONVERTER_PATH.is_file():
+    pytest.skip(
+        'rosbags-convert is not installed on PATH; the ROS1 equivalence '
+        'contract needs the conversion CLI',
+        allow_module_level=True,
+    )
+
+
 COUNTS = {
     '/imu/imu': 1,
     '/left/image_raw': 1,

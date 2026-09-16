@@ -45,6 +45,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 from typing import Any, Callable, Mapping, Sequence
@@ -74,7 +75,8 @@ MATERIALIZATION_CONTRACT_ID = 'm6a10-v2a-synchronized-tail-materialization-v1'
 ANALYZER_CONTRACT_ID = 'm6a10-v2a-synchronized-tail-v1'
 CONVERTER = 'rosbags-convert'
 CONVERTER_VERSION = '0.11.0'
-CONVERTER_PATH = Path('/home/sasaki/.local/bin/rosbags-convert')
+CONVERTER_PATH = Path(
+    shutil.which(CONVERTER) or (Path.home() / '.local' / 'bin' / CONVERTER))
 COMPARATOR_PATH = SCRIPTS / 'compare_rosbag_semantic_inputs.py'
 COMPARATOR_RELATIVE_PATH = 'scripts/compare_rosbag_semantic_inputs.py'
 GENERATOR_RELATIVE_PATH = 'scripts/materialize_m6a10_synchronized_tail.py'
