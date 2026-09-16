@@ -97,6 +97,8 @@ def test_v2_drain_fixture_pass_and_timeout_are_distinct_fail_closed_states():
     assert 'write_benchmark_drain_diagnostic(' in offline_node
     assert '"timeout", "benchmark drain timeout before lidar buffer became empty"' in offline_node
     assert 'exit_status = diagnostic_written ? 124 : 1' in offline_node
+
+
 def test_threaded_node_supports_opt_in_output_backpressure():
     threaded_header = (RKO_ROS_DIR / 'threaded_node.hpp').read_text(encoding='utf-8')
     threaded_cpp = (RKO_ROS_DIR / 'threaded_node.cpp').read_text(encoding='utf-8')

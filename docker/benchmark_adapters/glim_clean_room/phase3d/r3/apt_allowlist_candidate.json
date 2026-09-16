@@ -498,14 +498,14 @@
       },
       "discovery": {
         "discovery_id": "registration-plugin-rosdep-discovery-20260827-11",
-        "root": "/media/sasaki/aiueo1/benchmarks/registration-plugin-rosdep-discovery-20260827-11",
+        "root": "/media/user/aiueo1/benchmarks/registration-plugin-rosdep-discovery-20260827-11",
         "receipt": {
-          "path": "/media/sasaki/aiueo1/benchmarks/registration-plugin-rosdep-discovery-20260827-11/registration_plugin_rosdep_discovery.receipt.json",
+          "path": "/media/user/aiueo1/benchmarks/registration-plugin-rosdep-discovery-20260827-11/registration_plugin_rosdep_discovery.receipt.json",
           "sha256": "c9bfbd31a61a95a9263e8b46f7ffdb99f4353daa672ed8bd85d647065b7ac780",
           "canonical_sha256": "80724060f8b94b724416c84f0cd25bdc8dbad95b2c79a0faa5005dea26a700a7"
         },
         "profile": {
-          "path": "/home/sasaki/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2/configs/slam_benchmark_profiles/registration_plugin_matrix_current_2026-08.json",
+          "path": "/home/user/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2/configs/slam_benchmark_profiles/registration_plugin_matrix_current_2026-08.json",
           "sha256": "6f4faf87ff7a81dabe75141d0335367a7f0cd3ae39ee74d878aaf68da4888c86"
         },
         "image": {

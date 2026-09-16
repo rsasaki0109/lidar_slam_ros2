@@ -29,7 +29,7 @@ independent external-DSO/ODR promotion gate.
 
 | item | value |
 | --- | --- |
-| rosbag2 | `/media/sasaki/aiueo1/datasets/mid360_public/driving_slam_mid360/extracted/rosbag2_2024_04_16-14_17_01/rosbag2_2024_04_16-14_17_01` |
+| rosbag2 | `/media/user/aiueo1/datasets/mid360_public/driving_slam_mid360/extracted/rosbag2_2024_04_16-14_17_01/rosbag2_2024_04_16-14_17_01` |
 | LiDAR topic | `/livox/lidar` |
 | IMU topic | `/livox/imu` |
 | bag duration | 277.166836670 s |

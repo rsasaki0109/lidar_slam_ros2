@@ -37,10 +37,10 @@ planar_map_filter_min_retained_ratio: 0.90
 ```
 
 Input artifact:
-`/media/sasaki/aiueo/benchmarks/competitive_ours/exp04_map_leaf_0p1_20260715_v1/map.pcd`
+`/media/user/aiueo/benchmarks/competitive_ours/exp04_map_leaf_0p1_20260715_v1/map.pcd`
 
 Candidate artifact:
-`/media/sasaki/aiueo/benchmarks/competitive_ours/exp04_planar_map_filter_0p1_n3_s0p24_20260715_v1`
+`/media/user/aiueo/benchmarks/competitive_ours/exp04_planar_map_filter_0p1_n3_s0p24_20260715_v1`
 
 The candidate retained 1,556,077 / 1,714,401 points (90.765%). All three
 common-evaluator runs produced byte-identical reports

@@ -8,7 +8,7 @@ track also failed and remains separate from the primary LiDAR–IMU claim.
 The exact machine-readable plan is
 `configs/slam_benchmark_profiles/sota_v6_development_recovery_plan.yaml`.
 Its evidence source is the SHA-256-bound SOTA-v5 bundle at
-`/home/sasaki/workspace/old_~2026/lidarslam_ws/sota_v5_evidence_bundle_6284e1d6`.
+`/home/user/workspace/old_~2026/lidarslam_ws/sota_v5_evidence_bundle_6284e1d6`.
 
 ## What the result says
 
@@ -778,7 +778,7 @@ candidate. Fresh holdout remains unopened.
 The recovery-plan gate for fresh cross-dataset holdouts requires at least
 three dataset families absent from every prior training, development,
 validation, and holdout ledger. A bounded audit of the mounted dataset
-inventory (`/media/sasaki/aiueo/datasets`) and the repository history
+inventory (`/media/user/aiueo/datasets`) and the repository history
 narrowed the candidate space.
 
 Every LiDAR-IMU dataset already present is consumed:
@@ -1170,8 +1170,8 @@ separate workstream.
 ## Sensor-only visual motion feasibility result (2026-08-10)
 
 The first diagnostic implementation is now recorded in
-[`scripts/diagnose_visual_longitudinal_observable.py`](/home/sasaki/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/scripts/diagnose_visual_longitudinal_observable.py:1), with three synthetic contract tests in
-[`tests/test_diagnose_visual_longitudinal_observable.py`](/home/sasaki/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/tests/test_diagnose_visual_longitudinal_observable.py:1). It streams the original ROS1/ROS2 bags, decodes only the selected camera and LiDAR topics, and writes no derived bag or trajectory. The fixed configuration used `stride=1`, `max_sync_sec=0.08`, 1.5 px essential RANSAC threshold, 500 projected features, and 2,000 deterministic LiDAR points per scan. `stride=1` is required here because `stride=10` produced approximately one-second camera gaps in NavINST and invalidated the KLT assumption; this is a sampling contract, not threshold tuning.
+[`scripts/diagnose_visual_longitudinal_observable.py`](/home/user/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/scripts/diagnose_visual_longitudinal_observable.py:1), with three synthetic contract tests in
+[`tests/test_diagnose_visual_longitudinal_observable.py`](/home/user/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/tests/test_diagnose_visual_longitudinal_observable.py:1). It streams the original ROS1/ROS2 bags, decodes only the selected camera and LiDAR topics, and writes no derived bag or trajectory. The fixed configuration used `stride=1`, `max_sync_sec=0.08`, 1.5 px essential RANSAC threshold, 500 projected features, and 2,000 deterministic LiDAR points per scan. `stride=1` is required here because `stride=10` produced approximately one-second camera gaps in NavINST and invalidated the KLT assumption; this is a sampling contract, not threshold tuning.
 
 The scale solver was corrected before the full run. The original robust Gauss--Newton update could move from a lower-cost approximately `0.3 m` solution to its artificial `0.001 m` lower bound. The replacement uses a bounded coarse global search followed by a one-dimensional projective scale equation with IRLS. The contract test suite passed `3 passed`; Python compilation and `git diff --check` also passed.
 
@@ -1183,7 +1183,7 @@ The full frozen visual inputs produced this sensor-motion result with the same c
 | Oxford Spires Keble 05 | 11,544 / 5,834 | 9,177 | 8,285 | 90.3% | 4,240 | 0.973 | 0.06873 | 1.310 | 0.00351 | `GO_SENSOR_MOTION` |
 | UrbanNav HK Tunnel 1 | 5,970 / 3,982 | 4,789 | 2,191 | 45.8% | 280 | 0.849 | 0.31250 | 4.145 | 0.01286 | `GO_SENSOR_MOTION` |
 
-The accepted pairs are all within the fixed 80 ms camera--LiDAR matching bound; rejected records are retained in the report as time-mismatch, track, or pose-inlier counts. No ground-truth, identity, reference trajectory, or map metric was opened. The small JSON reports are under `/media/sasaki/aiueo/benchmarks/sota_v5/diagnostics/visual_longitudinal_v38_preflight/`.
+The accepted pairs are all within the fixed 80 ms camera--LiDAR matching bound; rejected records are retained in the report as time-mismatch, track, or pose-inlier counts. No ground-truth, identity, reference trajectory, or map metric was opened. The small JSON reports are under `/media/user/aiueo/benchmarks/sota_v5/diagnostics/visual_longitudinal_v38_preflight/`.
 
 This closes only the independent metric camera-motion sub-gate. The full weak-axis gate remains **pending**: the script currently reports the motion direction in the calibrated base frame, but does not yet join each pair to the runtime gravity-orthogonal LiDAR weak eigenvector and its state attitude. Existing v36 sensor-only diagnostics provide the next join target: the fixed v36 onset rule had zero qualifying rows in NavINST and Oxford and 1,146 rows with a maximum 127-row streak in UrbanNav. UrbanNav's visual motion direction was predominantly base `y` (median absolute component `0.991`), which is a promising nonzero signal but is not counted as a completed weak-axis projection until the timestamped attitude join is implemented.
 
@@ -1192,8 +1192,8 @@ Next action is therefore a report-only timestamp/attitude join using the existin
 ## Runtime weak-axis join result and implementation boundary (2026-08-10)
 
 The report-only join is implemented in
-[`scripts/join_visual_weak_axis_diagnostic.py`](/home/sasaki/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/scripts/join_visual_weak_axis_diagnostic.py:1), with contract coverage in
-[`tests/test_join_visual_weak_axis_diagnostic.py`](/home/sasaki/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/tests/test_join_visual_weak_axis_diagnostic.py:1). It uses runtime odometry attitude, the v36 weak-eigen diagnostic, and an initial five-second IMU gravity estimate. It never opens a reference trajectory or ground-truth file. A v36 NavINST CSV had timestamp precision collapsed to one value; the join detected this and used an explicit runtime-position-aligned scan-order offset of `9`, with `3.2e-9 m` median alignment error. Oxford and UrbanNav used precise timestamp joins.
+[`scripts/join_visual_weak_axis_diagnostic.py`](/home/user/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/scripts/join_visual_weak_axis_diagnostic.py:1), with contract coverage in
+[`tests/test_join_visual_weak_axis_diagnostic.py`](/home/user/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/tests/test_join_visual_weak_axis_diagnostic.py:1). It uses runtime odometry attitude, the v36 weak-eigen diagnostic, and an initial five-second IMU gravity estimate. It never opens a reference trajectory or ground-truth file. A v36 NavINST CSV had timestamp precision collapsed to one value; the join detected this and used an explicit runtime-position-aligned scan-order offset of `9`, with `3.2e-9 m` median alignment error. Oxford and UrbanNav used precise timestamp joins.
 
 The same weak-axis definition (`evalue0/evalue1 < 0.2`, gravity-orthogonal weak norm `>=0.9`, pair/runtime join `<=80 ms`) gave:
 
@@ -1205,12 +1205,12 @@ The same weak-axis definition (`evalue0/evalue1 < 0.2`, gravity-orthogonal weak 
 
 For UrbanNav, the weak-axis projection absolute median is `4.115 m/s`, p10 `1.315 m/s`, and p90 `7.985 m/s`; the maximum join residual is `75.6 ms` and p95 is `29.0 ms`. The nonzero threshold was `0.1 m/s`; the separate `3.0 m/s` threshold is the frozen v36 strong-motion reference. The result supports a weak-axis-only observation: NavINST and Oxford remain unchanged because their runtime diagnostics are well-conditioned or too short-lived, while UrbanNav has the required sustained nonzero signal. These are sensor-only results, not accuracy claims.
 
-The full sensor feasibility boundary is therefore **passed for a conditional weak-axis route**: metric visual motion is available on all three tracks, the visual observation is suppressed on well-conditioned directions, and UrbanNav supplies the sustained weak-axis case. The next authorized implementation step is only the source/unit contract for an isolated scalar shadow observation with bounded/stale checks. It must not replace the full visual pose prior, write `x_curr.ba`, or affect the v17 primary path until a separate one-repetition screen is explicitly completed. The join reports are under `/media/sasaki/aiueo/benchmarks/sota_v5/diagnostics/visual_longitudinal_v38_preflight/`.
+The full sensor feasibility boundary is therefore **passed for a conditional weak-axis route**: metric visual motion is available on all three tracks, the visual observation is suppressed on well-conditioned directions, and UrbanNav supplies the sustained weak-axis case. The next authorized implementation step is only the source/unit contract for an isolated scalar shadow observation with bounded/stale checks. It must not replace the full visual pose prior, write `x_curr.ba`, or affect the v17 primary path until a separate one-repetition screen is explicitly completed. The join reports are under `/media/user/aiueo/benchmarks/sota_v5/diagnostics/visual_longitudinal_v38_preflight/`.
 
 ## Isolated scalar shadow source/unit contract (2026-08-10)
 
 The conditional route now has a source-side contract in
-[`docker/patches/voxel_slam_dev/v38_visual_longitudinal_shadow.patch`](/home/sasaki/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/docker/patches/voxel_slam_dev/v38_visual_longitudinal_shadow.patch:1). The patch is derived from the frozen v17 source and is disabled by default. It adds only an isolated scalar shadow observation record containing `stamp_sec`, signed metric `velocity_mps`, and normalized `confidence`; it does not alter the inertial pose, velocity, position, or bias state.
+[`docker/patches/voxel_slam_dev/v38_visual_longitudinal_shadow.patch`](/home/user/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/docker/patches/voxel_slam_dev/v38_visual_longitudinal_shadow.patch:1). The patch is derived from the frozen v17 source and is disabled by default. It adds only an isolated scalar shadow observation record containing `stamp_sec`, signed metric `velocity_mps`, and normalized `confidence`; it does not alter the inertial pose, velocity, position, or bias state.
 
 The receiver accepts an observation only when the feature is enabled, all values are finite, confidence is in `[0,1]`, speed is within the configured bound (`20 m/s` default), and the measurement timestamp is finite, not in the future, and no older than the configured `0.2 s` maximum age. Reset clears the shadow validity and counter. No ROS topic, camera producer, estimator correction, or output consumer is wired yet; this is intentionally a source/unit boundary, not a candidate runtime or accuracy experiment.
 
@@ -1219,10 +1219,10 @@ The patch checker and initial contract tests pass (`12 passed` across the v38 ca
 ## Report-only scalar producer result (2026-08-10)
 
 The producer adapter is implemented in
-[`scripts/emit_visual_weak_axis_shadow.py`](/home/sasaki/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/scripts/emit_visual_weak_axis_shadow.py:1), and the join now exposes deterministic per-scan observations in
-[`scripts/join_visual_weak_axis_diagnostic.py`](/home/sasaki/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/scripts/join_visual_weak_axis_diagnostic.py:1). The adapter consumes only the ground-truth-free pair report and the passed weak-axis join report. It emits the exact receiver fields `stamp_sec` (seconds), signed `velocity_mps` (m/s), and normalized `confidence` (`[0,1]`), plus provenance metadata; it does not publish a ROS topic or call the estimator.
+[`scripts/emit_visual_weak_axis_shadow.py`](/home/user/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/scripts/emit_visual_weak_axis_shadow.py:1), and the join now exposes deterministic per-scan observations in
+[`scripts/join_visual_weak_axis_diagnostic.py`](/home/user/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/scripts/join_visual_weak_axis_diagnostic.py:1). The adapter consumes only the ground-truth-free pair report and the passed weak-axis join report. It emits the exact receiver fields `stamp_sec` (seconds), signed `velocity_mps` (m/s), and normalized `confidence` (`[0,1]`), plus provenance metadata; it does not publish a ROS topic or call the estimator.
 
-Using the existing UrbanNav reports, the detailed join contained `675` weak-eligible per-scan observations. With the receiver speed bound `20 m/s` and producer confidence floor `0.2`, `534` observations were emitted and `141` were rejected at the confidence bound. The emitted confidence range was `0.2000`--`0.7039` with median `0.3850`. The generated report is `/media/sasaki/aiueo/benchmarks/sota_v5/diagnostics/visual_longitudinal_v38_preflight/urbannav_visual_weak_axis_shadow_v38.json`; the detailed join is `/media/sasaki/aiueo/benchmarks/sota_v5/diagnostics/visual_longitudinal_v38_preflight/urbannav_weak_join_v3.json`.
+Using the existing UrbanNav reports, the detailed join contained `675` weak-eligible per-scan observations. With the receiver speed bound `20 m/s` and producer confidence floor `0.2`, `534` observations were emitted and `141` were rejected at the confidence bound. The emitted confidence range was `0.2000`--`0.7039` with median `0.3850`. The generated report is `/media/user/aiueo/benchmarks/sota_v5/diagnostics/visual_longitudinal_v38_preflight/urbannav_visual_weak_axis_shadow_v38.json`; the detailed join is `/media/user/aiueo/benchmarks/sota_v5/diagnostics/visual_longitudinal_v38_preflight/urbannav_weak_join_v3.json`.
 
 The adapter contract tests, join tests, visual diagnostic tests, v38 patch tests, and patch checker pass (`14 passed` in the combined Python suite); compilation and `git diff --check` pass. This completes the report-only producer boundary. A runtime camera/ROS bridge, Voxel correction consumer, and one-repetition accuracy screen are still intentionally not executed because the v38 source patch remains a disabled shadow receiver with no estimator-state mutation. v17 remains primary and no fresh holdout or ground-truth input has been opened.
 
@@ -1238,7 +1238,7 @@ The corrected fixed-configuration sensor-only results are:
 | Oxford Spires Keble 05 | 8,285 | 0.973 | 0.06873 | 1.310 | 2 | 2 | 0 | no-go |
 | UrbanNav HK Tunnel 1 | 2,191 | 0.849 | 0.31250 | 4.145 | 775 | 89 | 40 | `GO_WEAK_AXIS_PROJECTION` |
 
-The corrected UrbanNav join has projection absolute median `4.137 m/s`, p10 `1.315 m/s`, p90 `8.035 m/s`, join maximum `75.6 ms`, p95 `29.0 ms`, and positive weak-axis/runtime-velocity alignment median `6.127 m/s`. The corrected producer again emits `534` observations from `675`, with `141` rejected below confidence `0.2`. The final report is `/media/sasaki/aiueo/benchmarks/sota_v5/diagnostics/visual_longitudinal_v38_preflight/urbannav_visual_weak_axis_shadow_v41.json` and the join is `/media/sasaki/aiueo/benchmarks/sota_v5/diagnostics/visual_longitudinal_v38_preflight/urbannav_weak_join_v41_signed.json`.
+The corrected UrbanNav join has projection absolute median `4.137 m/s`, p10 `1.315 m/s`, p90 `8.035 m/s`, join maximum `75.6 ms`, p95 `29.0 ms`, and positive weak-axis/runtime-velocity alignment median `6.127 m/s`. The corrected producer again emits `534` observations from `675`, with `141` rejected below confidence `0.2`. The final report is `/media/user/aiueo/benchmarks/sota_v5/diagnostics/visual_longitudinal_v38_preflight/urbannav_visual_weak_axis_shadow_v41.json` and the join is `/media/user/aiueo/benchmarks/sota_v5/diagnostics/visual_longitudinal_v38_preflight/urbannav_weak_join_v41_signed.json`.
 
 The candidate-only source patch was expanded to an opt-in `geometry_msgs/Vector3Stamped` receiver and a bounded weak-axis-speed consumer: source timestamp in the header, signed m/s in `vector.x`, confidence in `vector.y`, gain `0.25`, and maximum weak-speed change `0.5 m/s` per update. The receiver remains disabled by default; only the v38 UrbanNav config enables it. The image built successfully as `sota-voxel-slam-v38:repo-v38@sha256:3b8fb3c48bbc3e1d3eca0dbbc9a1cfa2da6097aa0939815da7af242c382b5d42`, with patch SHA `fe9c313a9cacaffce333f9518f4c0c26cf955741dc9c44961ade9995b6a6e3b8`.
 
@@ -1250,7 +1250,7 @@ The corrected v38 route therefore **fails the one-repetition accuracy and resour
 
 The v38 failure was reproduced without opening any reference trajectory. The
 ground-truth-free audit in
-[`scripts/audit_visual_shadow_runtime.py`](/home/sasaki/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/scripts/audit_visual_shadow_runtime.py:1)
+[`scripts/audit_visual_shadow_runtime.py`](/home/user/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/scripts/audit_visual_shadow_runtime.py:1)
 compares only the behavior-preserving v37 output, the rejected v38 output, the
 frozen visual payload, and the v38 source patch. It found all four prohibited
 runtime properties: wall-clock rather than estimator-state timing, repeated
@@ -1262,20 +1262,20 @@ after `124.002/126.708/132.211/220.987 s`, reached a maximum of
 `1,823.210 m`, and increased path length from `4,572.247 m` to `5,113.177 m`.
 The audit decision is `FAIL_VISUAL_SHADOW_RUNTIME_CONTRACT`; its retained
 report is
-`/home/sasaki/workspace/old_~2026/lidarslam_ws/sota_v6_v39_output_shadow_20260810/v38_runtime_audit.json`.
+`/home/user/workspace/old_~2026/lidarslam_ws/sota_v6_v39_output_shadow_20260810/v38_runtime_audit.json`.
 
 v39 tests the narrowest safe alternative: a deterministic output-only shadow
 trajectory. The mapper, map, inertial state, and baseline orientation are
 immutable. The producer in
-[`scripts/emit_visual_velocity_vector_shadow.py`](/home/sasaki/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/scripts/emit_visual_velocity_vector_shadow.py:1)
+[`scripts/emit_visual_velocity_vector_shadow.py`](/home/user/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/scripts/emit_visual_velocity_vector_shadow.py:1)
 keeps the complete calibrated base-frame velocity vector. The consumer in
-[`scripts/compose_visual_longitudinal_shadow_trajectory.py`](/home/sasaki/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/scripts/compose_visual_longitudinal_shadow_trajectory.py:1)
+[`scripts/compose_visual_longitudinal_shadow_trajectory.py`](/home/user/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/scripts/compose_visual_longitudinal_shadow_trajectory.py:1)
 projects each observation against the timestamp-matched behavior-preserving
 state, consumes it at most once, and changes only the weak component of a new
 output trajectory. The same world-frame translation is applied to the
 reference-point output while its orientation is preserved. The fixed global
 configuration is
-[`configs/voxel_slam_v39/output_only_visual_shadow.yaml`](/home/sasaki/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/configs/voxel_slam_v39/output_only_visual_shadow.yaml:1):
+[`configs/voxel_slam_v39/output_only_visual_shadow.yaml`](/home/user/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/configs/voxel_slam_v39/output_only_visual_shadow.yaml:1):
 eigenvalue ratio `<0.2`, horizontal weak norm `>=0.9`, baseline weak speed
 `>=3 m/s`, five consecutive scans, `80 ms` join, `200 ms` maximum age, gain
 `0.25`, and maximum change `0.5 m/s` per accepted observation. No dataset
@@ -1308,7 +1308,7 @@ accuracy gate and is rejected**. No gain, threshold, sign, or timing parameter
 is retuned after this result; no three-repetition or map-geometry gate is run,
 and no fresh holdout is opened. v17 remains the primary baseline. All v39
 evidence is retained under
-`/home/sasaki/workspace/old_~2026/lidarslam_ws/sota_v6_v39_output_shadow_20260810/`.
+`/home/user/workspace/old_~2026/lidarslam_ws/sota_v6_v39_output_shadow_20260810/`.
 
 The visual weak-axis route is now a retired negative control on these consumed
 development sequences. Its remaining value is architectural: output isolation
@@ -1325,7 +1325,7 @@ keyframe. It also omitted the dense odometry chain and anchor prior. Changing
 the ID namespace would therefore have hidden the defect rather than fixed it.
 
 The ground-truth-free audit in
-[`scripts/audit_v40_gba_graph_contract.py`](/home/sasaki/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/scripts/audit_v40_gba_graph_contract.py:1)
+[`scripts/audit_v40_gba_graph_contract.py`](/home/user/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/scripts/audit_v40_gba_graph_contract.py:1)
 replayed the fixed `window=10`, `stride=1`, `minimum distance=5 m` selection
 against behavior-preserving trajectories. All IDs were unique, strictly
 increasing, and within the source-scan range:
@@ -1337,14 +1337,14 @@ increasing, and within the source-scan range:
 | UrbanNav HK Tunnel 1 | 3,980 | 313 | 9-3,979 | 3,667 | 0 | 3,979 | `GO_FULL_SCAN_GRAPH_RESTORATION_NO_ID_REMAP` |
 
 The reports are retained under
-`/home/sasaki/workspace/old_~2026/lidarslam_ws/sota_v6_v40_gba_graph_audit_20260810/`.
+`/home/user/workspace/old_~2026/lidarslam_ws/sota_v6_v40_gba_graph_audit_20260810/`.
 Their SHA-256 values are `33237d60...` (NavINST), `6ad4352d...`
 (Oxford), and `267929cb...` (UrbanNav). Synthetic contracts cover contiguous,
 dropped/noncontiguous, duplicate, and out-of-range IDs without mutating a
 trajectory or map.
 
 The opt-in/default-off
-[`docker/patches/voxel_slam_dev/v40.patch`](/home/sasaki/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/docker/patches/voxel_slam_dev/v40.patch:1)
+[`docker/patches/voxel_slam_dev/v40.patch`](/home/user/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/docker/patches/voxel_slam_dev/v40.patch:1)
 (SHA-256 `890c351d05938921c427c577ce89f348c5ee39f393bf6a9e890724c1a6b3b4e6`)
 restores every scan as a graph variable, adds `N-1` odometry factors and a
 prior on scan zero, and fails closed on invalid keyframe IDs or variances. The
@@ -1374,7 +1374,7 @@ run record correctly leaves `peak_rss_mb=null` rather than presenting the
 sample as a persisted peak.
 
 The retained runtime evidence is under
-`/home/sasaki/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v40/oxford_spires_keble_05/runtime_v40_full_scan_gba/`.
+`/home/user/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v40/oxford_spires_keble_05/runtime_v40_full_scan_gba/`.
 The sealed SHA-256 values are `bc96b13b...` for `summary.json`, `23a924e7...`
 for `run.json`, `470597c3...` for the raw trajectory, and `52bbea4e...` for
 `mapper.log`. `accuracy_ground_truth_accessed=false` and
@@ -1409,7 +1409,7 @@ runtime guard adds flushed stage/RSS/HWM markers, a global 330 MiB ceiling,
 and a 30 s backend deadline. Cancellation skips GTSAM writeback and map-topic
 publication, then saves the unchanged state so the runtime harness can close
 normally. The patch is
-[`docker/patches/voxel_slam_dev/v41.patch`](/home/sasaki/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/docker/patches/voxel_slam_dev/v41.patch:1)
+[`docker/patches/voxel_slam_dev/v41.patch`](/home/user/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/docker/patches/voxel_slam_dev/v41.patch:1)
 (SHA-256 `69dcfede4d80fcabc4bc04d8846d4297f116798eb68ed8f2fc9d098a0d776c77`),
 the patched source SHA-256 is
 `e6516064abe6a16876af2b9b3e7cfb61519d992562b96f64bec484a5f963d66e`,
@@ -1458,8 +1458,8 @@ v17 fallback identity; its decision is
 `REJECT_V41_RESOURCE_GATE_RETIRE_BUILTIN_HBA` and its report SHA-256 is
 `34a1e57c9af83fdb748fd0e05689b7268075488ca3f662951f94f166e54cf90c`.
 All evidence is retained under
-`/home/sasaki/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v41/` and
-`/home/sasaki/workspace/old_~2026/lidarslam_ws/sota_v6_v41_gba_lifecycle_audit_20260810/`.
+`/home/user/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v41/` and
+`/home/user/workspace/old_~2026/lidarslam_ws/sota_v6_v41_gba_lifecycle_audit_20260810/`.
 
 v41 therefore fixes shutdown, observability, and fail-closed behavior, but
 **fails the RSS gate and produces no map improvement**. The built-in HBA route
@@ -1542,7 +1542,7 @@ The report-only invariant also passed. State/map SHA-256 pairs remained
 `4162962d...`/`be95206f...`, `7f531a41...`/`2d088933...`, and
 `d91e54f0...`/`87caad98...` for NavINST, Oxford, and UrbanNav. No trajectory,
 pose graph, or map output was written. The aggregate report is retained under
-`/home/sasaki/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v42_streaming_pose_graph_audit_20260810/`;
+`/home/user/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v42_streaming_pose_graph_audit_20260810/`;
 its file SHA-256 is
 `b00ccca9d286d9239ff76b0a67e6ab8d1fdfa508b65b9c0a04764a0647d156cd`
 and its deterministic payload SHA-256 is
@@ -1602,7 +1602,7 @@ repeatability.
 State/map SHA-256 pairs remained `4162962d...`/`be95206f...`,
 `7f531a41...`/`2d088933...`, and `d91e54f0...`/`87caad98...`. No trajectory,
 map, matcher, or pose-graph output was produced. Evidence is retained under
-`/home/sasaki/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v43_place_identity_audit_20260810/`.
+`/home/user/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v43_place_identity_audit_20260810/`.
 The aggregate file SHA-256 is
 `a43885ffa7ab8d2ca8859e76a0cbcb67895a44433b690856a4ade521ebb92596`,
 and its deterministic payload SHA-256 is
@@ -1620,7 +1620,7 @@ v17 remains primary; accuracy, map scoring, and fresh holdout stay closed.
 The v43 retained-PCD measurement remains valid, but its source-availability
 inference is superseded. A later read-only inventory found exact-byte copies
 of all three canonical ROS1 bags under
-`/media/sasaki/aiueo/benchmarks/quarantine/opencode_inputs_20260810/`.
+`/media/user/aiueo/benchmarks/quarantine/opencode_inputs_20260810/`.
 Their SHA-256 values exactly match the original run bindings:
 `b8afd9649a310669...` for NavINST, `8e7660e600f1f527...` for Oxford, and
 `95524232d9a4c278...` for UrbanNav. Thus the saved v17 PCD chunks do contain
@@ -1680,7 +1680,7 @@ There are zero legacy survivors and zero new verified constraints.
 
 The 18 v43b synthetic contracts and the complete v40–v43b regression set
 pass (`70 passed`). The aggregate evidence is retained under
-`/home/sasaki/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v43b_raw_intensity_identity_audit_20260810/`.
+`/home/user/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v43b_raw_intensity_identity_audit_20260810/`.
 Its file SHA-256 is
 `f6bd29ec58b78079751bcd19fd676ddafc28a1fc04eb80aef5ef939654900c65`,
 and its deterministic aggregate payload SHA-256 is
@@ -1751,7 +1751,7 @@ offset; it does not imply that the sensor observed a return at the exact scan
 origin. The rejected contract is preserved byte-for-byte as
 `configs/sota_v6/development/v44_raw_lidar_imu_readiness_rejected_preflight.json`,
 and the original report remains under
-`/home/sasaki/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v44_raw_lidar_imu_readiness_20260810/`.
+`/home/user/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v44_raw_lidar_imu_readiness_20260810/`.
 Before reading any Oxford or UrbanNav score, v44a replaced that invalid
 invariant with the exact `uint32` non-negative-offset schema plus mandatory
 equality to each sealed normalization timing digest. No observed performance
@@ -1775,7 +1775,7 @@ between repetitions for each sequence: `6c611320...`, `90b1cba5...`, and
 regression set pass (`88 passed`).
 
 Aggregate evidence is retained under
-`/home/sasaki/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v44a_raw_lidar_imu_readiness_20260810/`.
+`/home/user/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v44a_raw_lidar_imu_readiness_20260810/`.
 The aggregate file SHA-256 is
 `532b62ad534cb533c1ecfaa735a844f68dfb38a0a4c5184ef598ab98f3b959fb`,
 and its deterministic aggregate payload SHA-256 is
@@ -1861,7 +1861,7 @@ Static validation was executed twice. Both reports bind the same contract and
 validator hashes and have the identical deterministic payload SHA-256
 `2ba8e5d7f5191658d4ced36aecf56514f10210ec78f2b2c380eca22585d3db4f`.
 Evidence is retained under
-`/home/sasaki/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v44b_fixed_lag_architecture_20260810/`.
+`/home/user/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v44b_fixed_lag_architecture_20260810/`.
 The aggregate file SHA-256 is
 `9bc723886d3faa067de979e203eb9e49d534b2252fb733e05f08de386fb64407`,
 and its deterministic aggregate payload SHA-256 is
@@ -1903,7 +1903,7 @@ However, the full pytest host already occupied 131--143 MiB before the
 synthetic harness began, so the original 128 MiB absolute ceiling rejected
 embedded tests before any v44c allocation. The preliminary evidence remains
 preserved under
-`/home/sasaki/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v44c_fixed_lag_synthetic_contracts_20260810/`;
+`/home/user/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v44c_fixed_lag_synthetic_contracts_20260810/`;
 its aggregate file SHA-256 is
 `f3cb78a04efad5615bc37d9ee32242b64238375c71bb21b7a52f1401d6e0a55f`
 and its aggregate payload SHA-256 is
@@ -1951,7 +1951,7 @@ and combined case payload SHA-256
 `7c6fd8e106885f90c1fc1627939212bfaf454c6692ae9be15aa1abb06ea593d2`.
 They began at 37.10--37.14 MiB RSS, peaked at 42.47--42.55 MiB, and added
 5.34--5.45 MiB. Evidence is retained under
-`/home/sasaki/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v44c1_fixed_lag_synthetic_contracts_20260810/`.
+`/home/user/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v44c1_fixed_lag_synthetic_contracts_20260810/`.
 The run file SHA-256 values are
 `33825a159c396bf8a62d6001e1afdd07044add65b2f51204d7da5c96f1a4c6db`
 and
@@ -2053,7 +2053,7 @@ SHA-256
 `9a7bf365e5a90e0f0a1b1296b358305277091059d0ea8bb3beece45fdea2b7d2`.
 They began at 34.38--34.40 MiB RSS, peaked at 50.45--50.46 MiB, and added
 16.06--16.07 MiB. Evidence is retained under
-`/home/sasaki/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v44d_fixed_lag_shadow_source_audit_20260810/`.
+`/home/user/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v44d_fixed_lag_shadow_source_audit_20260810/`.
 The two report file SHA-256 values are
 `1b6aeba274d75329ac69d58bba0f1991309aee93966d10dcc7cb089718be333d`
 and
@@ -2142,7 +2142,7 @@ and
 `30a9ba4a02399278e2682e9acdd45daeab82f038eb8b1cebb30763d5491082a4`.
 They began at 34.63--34.73 MiB RSS, peaked at 43.16--43.23 MiB, and added
 8.50--8.53 MiB. Evidence is retained under
-`/home/sasaki/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v44e_raw_shadow_replay_contract_20260810/`.
+`/home/user/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v44e_raw_shadow_replay_contract_20260810/`.
 The aggregate JSON SHA-256 is
 `5d3516edcadea924c5481688666edddec2db7b2be61eaa5cf42f7c52cc278181`,
 and its deterministic aggregate payload SHA-256 is
@@ -2219,7 +2219,7 @@ The aggregate JSON SHA-256 is
 and its deterministic aggregate payload SHA-256 is
 `f9a9b25e746f49f5b2dc9665dba1a8019c59bfb2b044897f0561750a1da31073`.
 Evidence is under
-`/home/sasaki/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v44f_raw_shadow_replay_execution_audit_20260810/`.
+`/home/user/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v44f_raw_shadow_replay_execution_audit_20260810/`.
 
 The sealed route decision is
 **`REJECT_V44_STAGE4_RAW_SHADOW_REPLAY_RESOURCE_GATE`**. Raw replay
@@ -2257,7 +2257,7 @@ Two definition audits passed all 15 checks with identical deterministic report
 payload SHA-256
 `3a057ba8ad418a64a0639af04f046b98ec51fb8e12821cbcf28668113169d8a7`.
 The retained aggregate is under
-`/home/sasaki/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v44g_failure_profile_contract_20260813/`,
+`/home/user/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v44g_failure_profile_contract_20260813/`,
 has file SHA-256
 `6964094a85c746bee7f4081ee3173d6db21d604fe6ea9ed518d6955f01405610`, and
 deterministic aggregate payload SHA-256

@@ -62,13 +62,13 @@ rejected.
 Artifacts:
 
 - HILTI accepted research profile:
-  `/media/sasaki/aiueo/benchmarks/hilti_exp07_persistent_degeneracy_20260714_v2`
+  `/media/user/aiueo/benchmarks/hilti_exp07_persistent_degeneracy_20260714_v2`
 - HILTI strict-tracking rejection:
-  `/media/sasaki/aiueo/benchmarks/hilti_exp07_persistent_degeneracy_20260714_v1`
+  `/media/user/aiueo/benchmarks/hilti_exp07_persistent_degeneracy_20260714_v1`
 - HILTI motion-alignment rejection:
-  `/media/sasaki/aiueo/benchmarks/hilti_exp07_persistent_degeneracy_20260714_v3`
+  `/media/user/aiueo/benchmarks/hilti_exp07_persistent_degeneracy_20260714_v3`
 - MID-360 accepted-profile safety run:
-  `/media/sasaki/aiueo/benchmarks/mid360_public/persistent_degeneracy_20260714_v1`
+  `/media/user/aiueo/benchmarks/mid360_public/persistent_degeneracy_20260714_v1`
 
 ## Runtime and memory
 

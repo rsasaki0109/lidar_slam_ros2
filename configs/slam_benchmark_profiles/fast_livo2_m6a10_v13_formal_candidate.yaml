@@ -38,7 +38,7 @@ image:
   id: sha256:03dfa4c3e7c3f1ea9160ba2276ea23bfbdef43d441bc8afc628f907bd50743a7
 
 input:
-  path: /media/sasaki/aiueo1/datasets/ntu_viral_release/tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag
+  path: /media/user/aiueo1/datasets/ntu_viral_release/tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag
   bytes: 11290464091
   sha256: 5bc7c6a0e5088aa3f733377a3e597705b075b1ec5ca5be272b75636a0b697310
   opened: false
@@ -57,26 +57,26 @@ lineage:
     path: scripts/fast_livo2_m6a10_v12_formal_container_run.sh
     sha256: 32fce2c054b92f0d695fd4d32c7737ab75dd3a467fdee1c579c82c63398894e6
   v12_image_build_receipt:
-    path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v12_build_20260823T161850Z_agentv12/build_identity.receipt.json
+    path: /media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v12_build_20260823T161850Z_agentv12/build_identity.receipt.json
     sha256: e0e5c924025a24083661a6838bc5af28f07c34c419ce6e103c37890ed1382dda
   v12_no_input_attempt6:
-    path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v12_dual_service_attempt6_20260823T175000Z_agentv12/no_input_dual_evidence.receipt.json
+    path: /media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v12_dual_service_attempt6_20260823T175000Z_agentv12/no_input_dual_evidence.receipt.json
     sha256: c5afa2452f96588bf46dc7f0d0b4504e816d0069bbd3a107009eb2c3beac0b45
     sidecar_sha256: 076cd96e10c78d0bf73a6a7ed66d3549aaa2dd0f75c7503d5d88e19237d608e3
   v12_host_evidence:
-    path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v12_host_evidence_gate_20260823T180718Z_agentv12/host_evidence_gate.receipt.json
+    path: /media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v12_host_evidence_gate_20260823T180718Z_agentv12/host_evidence_gate.receipt.json
     sha256: 3a603bc4ece0e9167b0b3943df6be569f2e64bce196beb18da29ff09ad69f643
     sidecar_sha256: ff50620daf076ed357032111d33197da1903b840605fa34259f3880ae0e49f66
   v13_persistence_gate:
-    path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v13_persistence_20260823T192720Z_agentv13/persistence_gate.receipt.json
+    path: /media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v13_persistence_20260823T192720Z_agentv13/persistence_gate.receipt.json
     sha256: 18998f6177418eaf7e98fe517691d0642d59ac48f2faeb9b45ef0bc8fef62c72
     sidecar_sha256: 1988676efabdf1276ca3bb635f784941d2539aa15f58f94a8f249bcb730eabb7
     marker_sha256: 2a0c9a7168b2618139bbd3924090df20301d780ffee68fec8eba9d548be2606d
     stderr_sha256: e3f2071dce4642529794c0e2a7d90bde68fcbf523508f9d891ba7c9262bba6ba
     feeder_receipt_sha256: ac45a26be1f2d1aeefef5fc2f9660c028c7aeff60d56d3ac965e82e8b00a5e67
   v12_failed_formal_attempt:
-    root: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v12_formal_replay_20260823T190641Z_agentv12
-    closure_path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v12_formal_replay_20260823T190641Z_agentv12/closure_receipt.json
+    root: /media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v12_formal_replay_20260823T190641Z_agentv12
+    closure_path: /media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v12_formal_replay_20260823T190641Z_agentv12/closure_receipt.json
     closure_sha256: 499e739ecba7f79eefcc1a50f9d7c88c6860ae441b4c037acdf58e7ada82111c
     inspect_sha256: f82008ca5a12f88279d13168a354066fec052548b9afdf038c9b31acaf786316
     logs_sha256: 9ebcdbb9936de7138db2039a90ae8a4e94cd17a269937bfe4b223a5afb4ae048

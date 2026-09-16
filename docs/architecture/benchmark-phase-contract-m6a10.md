@@ -116,13 +116,13 @@ The contract and runner parser are covered by synthetic tests for ordering,
 RTF calculation, exact coverage, drop/overflow rejection, signal-like
 nonzero exits, and atomic output. A GT-blind NTU Viral public/training replay
 was then attempted using the identity receipt
-`/media/sasaki/aiueo/benchmarks/m6a10_training_20260822/ntu_tnp01_identity.json`
+`/media/user/aiueo/benchmarks/m6a10_training_20260822/ntu_tnp01_identity.json`
 (raw ROS 1 bag SHA-256
 `817dad98fc922832c539d41c8f45583cc2674471e6d4772801ac0c40daa9fa71`,
 canonical ROS 2 tree SHA-256
 `c694c720d9f925a2094658891485016f40cfcfd84ea8c626dee80d9bca01e73e`).
 The machine summary is
-`/media/sasaki/aiueo/benchmarks/m6a10_training_20260822/ntu_tnp01_training_validation_summary.json`
+`/media/user/aiueo/benchmarks/m6a10_training_20260822/ntu_tnp01_training_validation_summary.json`
 (SHA-256
 `4217a4b07f5ff85148e7433be1b9fef51e35d843a98bbb287d6f9c010c254177`).
 
@@ -181,7 +181,7 @@ the execution preflight receipt is
 
 The single fixed10 consumer attempt was then fail-closed before runner start.
 Its five-second quiescence receipt is
-`/media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_fixed10_20260823/quiescence.json`,
+`/media/user/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_fixed10_20260823/quiescence.json`,
 SHA-256
 `b3dc7ed143452e605f6315361fa7f3a909051bb05894b5e20c27737ffb754476`.
 The observed CPU busy ratio was `98.04853640230172%` against a `5%` limit;
@@ -222,7 +222,7 @@ never opens GT or invokes a scorer.
 The preregistered profile pin is
 `competitive_slam_v1.yaml`'s `m6a10-v2a-synchronized-tail-v1` contract. The
 NTU dry-run receipt is
-`/media/sasaki/aiueo1/benchmarks/m6a10_training_20260822/synchronized_tail_dryrun.iD9dIn/receipt.json`
+`/media/user/aiueo1/benchmarks/m6a10_training_20260822/synchronized_tail_dryrun.iD9dIn/receipt.json`
 (SHA-256
 `31072befe0ee816cfe09ee600f0ed604fd361a26e863e9bc51e5edab6f5f66d3`). It
 passed with 225102 IMU messages, 5794 LiDAR messages, 5793 eligible scans,
@@ -241,7 +241,7 @@ contract test is
 status is `ros2_materialized_verified_ros1_pending`.
 
 The fixed10 receipt is external to the bag at
-`/media/sasaki/aiueo1/benchmarks/m6a10_training_20260822/synchronized_tail_materialization_v1_fixed10/receipt.json`
+`/media/user/aiueo1/benchmarks/m6a10_training_20260822/synchronized_tail_materialization_v1_fixed10/receipt.json`
 (SHA-256
 `62defcf7a1b5cdadee666de44b09f71f8e011551ea93e37eec51b64a333cae9f`). It
 records a 236688-record input and a 236687-record output, with 225102 IMU,
@@ -279,7 +279,7 @@ the old analyzer/materialization contract-ID mismatch and an internal
 
 FAST-LIVO2 remains a separate ROS 1 transport and has not been converted. Its
 preregistered destination is
-`/media/sasaki/aiueo1/datasets/ntu_viral_release/tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag`.
+`/media/user/aiueo1/datasets/ntu_viral_release/tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag`.
 Conversion must stage the exact final `.bag` basename inside the sibling
 `.staging` container, so the pinned command is:
 
@@ -305,7 +305,7 @@ The one fixed10-v1 ours replay is retained as immutable `FAIL_CLOSED`. Its
 consumer and phase evidence were `PASS`, but the run output contained 18
 forbidden map artifacts despite `--skip-map-save`; the independent
 verification receipt is
-`/media/sasaki/aiueo1/benchmarks/m6a10_training_20260822/ours_m6a10_v2a_unpaced_ack_fixed10_v1/evidence/independent_verification_final.json`
+`/media/user/aiueo1/benchmarks/m6a10_training_20260822/ours_m6a10_v2a_unpaced_ack_fixed10_v1/evidence/independent_verification_final.json`
 (SHA-256
 `ce0211f2e55e09ed2e8cb9f0692daf2dc5ebdf0f6707942292734bd542f35a0e`) and the
 output tree SHA-256 is
@@ -359,7 +359,7 @@ bounded drain poll, and `/m6a10/consumer_finalize` writes final evidence only
 after the internal deques reach zero.
 
 The dedicated runner binds only
-`/media/sasaki/aiueo1/datasets/ntu_viral_release/tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag`
+`/media/user/aiueo1/datasets/ntu_viral_release/tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag`
 to `/input/raw_input.bag:ro`; the input parent, calibration, GT, scorer, and
 map output are not mounted. The source patch uses subscriber capacity one in
 the opt-in path and keeps the mapper's internal `std::deque` buffers
@@ -392,7 +392,7 @@ The observed image is
 `m6a10-v2c-20260823-fast-livo2-fixed2:competitive-v1`, ID/digest
 `sha256:89f6baeca8bc3691ed8465d0e19fd962cce708053cd28c8a4eebabb5b841f0ea`.
 Its immutable build receipt is
-`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/`
+`/media/user/aiueo1/benchmarks/competitive_build_evidence/`
 `m6a10-v2c-fast-livo2-build-20260823-fixed2/build_receipt.json` (SHA-256
 `db29eab240852d6f7fd926f51aefc66547c72fb0e8a1193b978e3d34b65c8926`).
 No bag replay, GT access, scoring, or runtime observation is authorized by
@@ -400,7 +400,7 @@ this build gate.
 
 The separate execution-identity preflight also passed without mounting the
 bag. Its immutable receipt is
-`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/`
+`/media/user/aiueo1/benchmarks/competitive_build_evidence/`
 `m6a10-v2c-execution-preflight-20260823-final/identity_preflight.json` (SHA-256
 `dcf53b48f0d3b2aab90a20ce345e08331a9512e6feefbc12e8333d9ea399b1c5`). The
 preflight producer is `scripts/preflight_fast_livo2_m6a10_v2c.py` (SHA-256
@@ -442,7 +442,7 @@ uses a stable container name and cidfile, and atomically records a
   state and is removed only after its run receipt is persisted; an interrupted
   supervisor does not signal or remove it, so another supervisor can reconnect
   by name/cidfile. The v5 output root is
-`/media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_fixed10_v5`;
+`/media/user/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_fixed10_v5`;
 its status is `preregistered_not_executed` and its image is explicitly marked
 `rebuild_required_for_observability_label`. No v5 quiescence or replay has
 been started.

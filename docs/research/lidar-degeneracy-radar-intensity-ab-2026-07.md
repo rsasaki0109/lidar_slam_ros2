@@ -21,7 +21,7 @@ GT が無いため指標は始点–終点ずれ (fog はループ収録、真�
 | **tunnel** | **radar 両ゲート併用** | **到達 457.05 m (−8.6%)** | 477.4 m | Hessian prior 1981 + 不一致補正 1011 scan |
 | tunnel | intensity プロファイル拘束 | 到達 98.69 m | 233.8 m | 適用 278 scan、改善なし (下記) |
 
-公式 run: `/media/sasaki/aiueo/benchmarks/lidar_degeneracy_datasets_v1/runs/`
+公式 run: `/media/user/aiueo/benchmarks/lidar_degeneracy_datasets_v1/runs/`
 (`fog_rko_lio_radar_disagreement_v1`, `tunnel_rko_lio_radar_disagreement_v1`,
 `tunnel_rko_lio_intensity_v1` ほか)。radar 入り rosbag2 は同 `ros2_radar/{fog,tunnel}`
 (`normalize_lidar_degeneracy_rosbag.py --radar-input` で生成、LiDAR/IMU は既存 bag と
@@ -112,7 +112,7 @@ mm-GT のある HILTI 2022 exp07 (長い自己相似廊下、baseline APE 0.318 
 環境 (fog) では有害。default-off の環境別オプトインが正しい運用。対策候補
 (未実装): min_correlation 引き上げ、profile 長短縮、weight < 1 の減衰、
 シフト分布の多峰性検出によるエイリアス棄却。
-benchmark: `/media/sasaki/aiueo/benchmarks/hilti_exp07_intensity_disagreement_20260717/`。
+benchmark: `/media/user/aiueo/benchmarks/hilti_exp07_intensity_disagreement_20260717/`。
 
 ## 実装 (Thirdparty/rko_lio、全て default-off で既存挙動バイト同一)
 

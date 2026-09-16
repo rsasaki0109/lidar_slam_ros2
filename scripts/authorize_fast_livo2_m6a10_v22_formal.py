@@ -30,20 +30,20 @@ V22_GATE_TEST_SHA256 = "b6a34f8cb3a73fe95a93a1bba4927d7c29544ddc930151f79d0ce683
 V17_IMAGE_TAG = "m6a10-v2c-v17-retryable-abort-correction-20260823t224017z-fast-livo2-benchmark:ros1-pinned"
 V17_IMAGE_ID = "sha256:f1432426af64e76d9ad9c655a8727d35c2fb0a03753502ada3b21187638f747c"
 V17_BUILD_RECEIPT_PATH = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v17_build_correction_20260823T224017Z_agentv17/build_identity.receipt.json"
 )
 V17_BUILD_RECEIPT_SHA256 = "23811d4200f9ed3ac464083ef339eb6d0437815ffdd82a2f37cc4180195bc2f7"
 V17_BUILD_SIDECAR_SHA256 = "76e9859832412f0310e685b376324ff53ce4dbe033d2d440fce940421b1de15b"
 V17_NO_INPUT_RECEIPT_PATH = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v17_no_input_correction2_20260823T225359Z_agentv17/no_input.receipt.json"
 )
 V17_NO_INPUT_RECEIPT_SHA256 = "ac1df6f390ad3e348e572ced668f4971bc05ac835c55cc83fef9ea4ad5fa3d74"
 V17_NO_INPUT_SIDECAR_SHA256 = "8dfa1520c1e2024af3f0710de4ee8c38c9cf4a1402389891ac77d423d1848164"
 
 V21_CLEANUP_RECEIPT_PATH = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v21_formal_replay_20260824T012000Z_agentv21formal/cleanup_correction.receipt.json"
 )
 V21_CLEANUP_RECEIPT_SHA256 = "3e68466eda1b22954bd7e81b132ea2b6decb7b72e0e745ed88d82ce4e1bb8988"
@@ -59,13 +59,13 @@ V21_LAUNCHER_PATH = ROOT / "scripts/run_fast_livo2_m6a10_v21_formal.py"
 V21_LAUNCHER_SHA256 = "d702dee5039f032c47ecd839ea251f71ee321bd2ea6b319211a3f03e73da887c"
 
 V22_SUCCESS_RECEIPT_PATH = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v22_synthetic_success_20260824T023200Z_agentv22/synthetic_gate.receipt.json"
 )
 V22_SUCCESS_RECEIPT_SHA256 = "87a054210b36d6015272a177d6c1d86f4535bee3334a6b1bf6ee06bf595899d0"
 V22_SUCCESS_SIDECAR_SHA256 = "0537e9b3db974af501fc1f3f11a8fef60ea4647c90db66170e1f798980dcdce2"
 V22_FAILURE_RECEIPT_PATH = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v22_synthetic_failure_20260824T023300Z_agentv22/synthetic_gate.receipt.json"
 )
 V22_FAILURE_RECEIPT_SHA256 = "73b37d869af9460c10d97e74c5e424bd831959eae1aea32eafcfbaf35088998f"

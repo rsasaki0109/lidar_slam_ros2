@@ -8,7 +8,7 @@
     "readiness_contract_sha256": "a71d9271d200e86537cb6f8b25e21662ffe120258e749e6dff17a77e6d1a162b",
     "source_binding_path": "configs/sota_v6/development/v44_raw_lidar_imu_sources_20260810.json",
     "source_binding_sha256": "002cc82fcd86a70fb774e1e3f576b41cbe86b849eabcfc6406e98cb26232ff1d",
-    "readiness_aggregate_path": "/home/sasaki/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v44a_raw_lidar_imu_readiness_20260810/aggregate.json",
+    "readiness_aggregate_path": "/home/user/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v44a_raw_lidar_imu_readiness_20260810/aggregate.json",
     "readiness_aggregate_sha256": "532b62ad534cb533c1ecfaa735a844f68dfb38a0a4c5184ef598ab98f3b959fb",
     "required_readiness_contract_id": "v44a-raw-lidar-imu-readiness-20260810",
     "required_readiness_decision": "AUTHORIZE_V44_FIXED_LAG_ARCHITECTURE_DEFINITION"

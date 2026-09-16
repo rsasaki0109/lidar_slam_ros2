@@ -35,7 +35,9 @@ import hashlib
 import importlib.util
 import json
 from pathlib import Path
+import subprocess
 
+import pytest
 import yaml
 
 
@@ -665,7 +667,8 @@ def test_v2_claim_request_requires_fresh_holdout_authorization_chain():
 
 
 def test_v2_claim_request_reopens_execution_selection_preflight():
-    """A claim cannot rely on receipt path/SHA alone.
+    """
+    A claim cannot rely on receipt path/SHA alone.
 
     The synthetic fixture intentionally lacks the production execution
     identity closure.  The claim path must nevertheless invoke the full
@@ -795,6 +798,8 @@ def test_v2_score_artifact_digest_changes_with_scored_metric():
     assert first != second
     assert len(first) == 64
     assert len(second) == 64
+
+
 def test_formal_profile_has_all_holdout_inputs_frozen():
     result = MODULE.evaluate(_gates(), CONTRACT)
     assert result['checks']['all_holdout_inputs_frozen'] is True

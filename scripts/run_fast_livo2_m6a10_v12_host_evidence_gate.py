@@ -26,7 +26,7 @@ from typing import Any, Callable, Mapping, Optional, Sequence
 ROOT = Path(__file__).resolve().parents[1]
 
 ATTEMPT6_ROOT = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v12_dual_service_attempt6_20260823T175000Z_agentv12"
 )
 ATTEMPT6_RECEIPT = ATTEMPT6_ROOT / "no_input_dual_evidence.receipt.json"

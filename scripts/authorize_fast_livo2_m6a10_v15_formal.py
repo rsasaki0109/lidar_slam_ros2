@@ -43,7 +43,7 @@ TRANSPORT_CONTRACT = "m6a10-v12-callback-ack-transport-outstanding-v1"
 EXPECTED_COUNTS = {"lidar": 5793, "imu": 225102, "image": 5792}
 EXPECTED_MESSAGES = 236687
 INPUT_PATH = (
-    "/media/sasaki/aiueo1/datasets/ntu_viral_release/"
+    "/media/user/aiueo1/datasets/ntu_viral_release/"
     "tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag"
 )
 INPUT_BYTES = 11290464091
@@ -62,21 +62,21 @@ WRAPPER_SHA256 = "d3ab90871422100aa2d89e2469ac413c69346300e2766cc2cc88096e9b45e8
 V12_PATCH_PATH = ROOT / "docker/patches/fast_livo2.m6a10-v2c-v12-nonlidar-boundary-transport.patch"
 V12_PATCH_SHA256 = "39c77535a7557365dac6b0f2c99849038b29670a57c3101be3a39138317c6333"
 BUILD_RECEIPT_PATH = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v15_build_20260823T203230Z_agentv15_correction/"
     "build_identity.receipt.json"
 )
 BUILD_RECEIPT_SHA256 = "5005c8d392a8591bdfcda8e1de31be3a550a39c61ed22a3ae48455e1a05bce40"
 BUILD_RECEIPT_SIDECAR_SHA256 = "6940f5762e87bf9f08752b950f12de2ae8423c9b0217841e212af56f61a04c65"
 NO_INPUT_PASS_RECEIPT_PATH = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v15_no_input_correction_20260823T204349Z_agentv15/"
     "no_input_correction.receipt.json"
 )
 NO_INPUT_PASS_RECEIPT_SHA256 = "e5e1703b6cfcd6b10c9703af06f7d89ede2c638519b285d3ae12152b3e63b5ff"
 NO_INPUT_PASS_SIDECAR_SHA256 = "d2cf11c36fb203d3972daeef9f9c2f0fe462a82dfac19070a822c6672fb086a3"
 PRIOR_NO_INPUT_FAIL_RECEIPT_PATH = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v15_build_20260823T203230Z_agentv15_correction/"
     "no_input_identity.receipt.json"
 )
@@ -85,7 +85,7 @@ PRIOR_NO_INPUT_FAIL_SIDECAR_SHA256 = "197ee62c79b397d9f7ef6c6d6be40f1063584dea7c
 PRIOR_NO_INPUT_FAIL_LOG_PATH = PRIOR_NO_INPUT_FAIL_RECEIPT_PATH.with_name("no_input_identity.log")
 PRIOR_NO_INPUT_FAIL_LOG_SHA256 = "004af952222b8a1ba4378aafb904f0a192b1ba306d421c1fb76d769fa4c2612c"
 PRIOR_VALIDATOR_FAIL_RECEIPT_PATH = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v15_no_input_correction_20260823T203806Z_agentv15/"
     "no_input_correction.receipt.json"
 )

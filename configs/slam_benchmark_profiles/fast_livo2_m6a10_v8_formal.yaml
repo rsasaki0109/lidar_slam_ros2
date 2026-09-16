@@ -13,29 +13,29 @@ preregistration:
   predecessor_profile: configs/slam_benchmark_profiles/fast_livo2_m6a10_v7_formal.yaml
   predecessor_profile_sha256: 9d9bb60b38245d32d0461f2a2ed15e12013b40512b510580fce56efa6922b01c
   predecessor_closure_sha256: a4e36e2fd56085f14f3d5c7fcea56a2f6e6c3586d3b2d957557eeac3835e171b
-  build_receipt_path: /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-fast-livo2-v8servicequeue-20260823/build_receipt.json
+  build_receipt_path: /media/user/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-fast-livo2-v8servicequeue-20260823/build_receipt.json
   build_receipt_sha256: a7eaeb638e8aedc2ccb1f6db1beccd575258d419c4068948df0b39cc5c2dfb7c
-  strict_handshake_receipt_path: /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-service-handshake-v8servicequeue-20260823/strict_handshake_receipt.json
+  strict_handshake_receipt_path: /media/user/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-service-handshake-v8servicequeue-20260823/strict_handshake_receipt.json
   strict_handshake_receipt_sha256: 883149c733f01a52719d8756e774f956d2324ce1e972a26b5390bf9b9626f653
-  identity_preflight_receipt_path: /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-execution-preflight-v8servicequeue-20260823/identity_preflight.json
+  identity_preflight_receipt_path: /media/user/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-execution-preflight-v8servicequeue-20260823/identity_preflight.json
   identity_preflight_receipt_sha256: 777e1fa53e0a611db38a5bd3ab8ab2b4f88049bb923d86aeb0d04e77e883fb7b
   image_tag: m6a10-v2c-v8-service-queue-fast-livo2-benchmark:ros1-pinned
   image_id: sha256:5d9139a2e9eb827798fd2e8dbdb561c5d9647ee0d662f086407858793b0d8774
   quiescence_attempts:
     - name: initial
-      receipt_path: /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-execution-quiescence-v8servicequeue-20260823/quiescence.json
+      receipt_path: /media/user/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-execution-quiescence-v8servicequeue-20260823/quiescence.json
       receipt_sha256: a5e1e448334ba1e1d4a293ae583aa0e38d02cfad31743f68c1c05b9a15bbff8d
       status: FAIL_CLOSED
       runner_start_allowed: false
       retained: true
     - name: retry1_fresh_unique_root
-      receipt_path: /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-execution-quiescence-v8servicequeue-20260823-retry1/quiescence.json
+      receipt_path: /media/user/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-execution-quiescence-v8servicequeue-20260823-retry1/quiescence.json
       receipt_sha256: 5562a977d27a2bc35a43bc660e1c518467afa6dceada37d123ecef69f4b7b09e
       status: PASS
       runner_start_allowed: true
       retained: true
   selected_quiescence_attempt: retry1_fresh_unique_root
-  selected_quiescence_receipt_path: /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-execution-quiescence-v8servicequeue-20260823-retry1/quiescence.json
+  selected_quiescence_receipt_path: /media/user/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-execution-quiescence-v8servicequeue-20260823-retry1/quiescence.json
   selected_quiescence_receipt_sha256: 5562a977d27a2bc35a43bc660e1c518467afa6dceada37d123ecef69f4b7b09e
   only_selected_pass_allows_runner_start: true
 competitive_slam_profile:
@@ -47,14 +47,14 @@ competitive_slam_profile:
     predecessor:
       profile_path: configs/slam_benchmark_profiles/fast_livo2_m6a10_v7_formal.yaml
       profile_sha256: 9d9bb60b38245d32d0461f2a2ed15e12013b40512b510580fce56efa6922b01c
-      closure_receipt_path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_formal_replay_v7_20260823T1058JST/closure_receipt.json
+      closure_receipt_path: /media/user/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_formal_replay_v7_20260823T1058JST/closure_receipt.json
       closure_receipt_sha256: a4e36e2fd56085f14f3d5c7fcea56a2f6e6c3586d3b2d957557eeac3835e171b
       status: FAIL_CLOSED
       failure_kind: consumer_status_rpc_timeout_before_first_ack
       failure_stage: feeder_status_rpc_before_first_publish
       result: null
     input:
-      path: /media/sasaki/aiueo1/datasets/ntu_viral_release/tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag
+      path: /media/user/aiueo1/datasets/ntu_viral_release/tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag
       bytes: 11290464091
       sha256: 5bc7c6a0e5088aa3f733377a3e597705b075b1ec5ca5be272b75636a0b697310
       expected_messages: 236687
@@ -101,9 +101,9 @@ competitive_slam_profile:
       status: build_passed_not_executed
       image_reuse_forbidden: true
       build_required: false
-      build_receipt_path: /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-fast-livo2-v8servicequeue-20260823/build_receipt.json
+      build_receipt_path: /media/user/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-fast-livo2-v8servicequeue-20260823/build_receipt.json
       build_receipt_sha256: a7eaeb638e8aedc2ccb1f6db1beccd575258d419c4068948df0b39cc5c2dfb7c
-      identity_preflight_path: /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-execution-preflight-v8servicequeue-20260823/identity_preflight.json
+      identity_preflight_path: /media/user/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-execution-preflight-v8servicequeue-20260823/identity_preflight.json
       identity_preflight_sha256: 777e1fa53e0a611db38a5bd3ab8ab2b4f88049bb923d86aeb0d04e77e883fb7b
       identity_preflight_status: PASS
       image_inspect_sha256: 0b6b12896412aead4eb180b18f2e28641fe1a3bd10f626e9222906852c529530
@@ -126,7 +126,7 @@ competitive_slam_profile:
         bash scripts/build_fast_livo2_m6a10_v8_image.sh
       gate: scripts/preflight_fast_livo2_m6a10_v2c_v8_handshake.py
       gate_contract: m6a10-v2c-fast-livo2-service-queue-handshake-v1
-      receipt_path: /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-fast-livo2-v8servicequeue-20260823/build_receipt.json
+      receipt_path: /media/user/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-fast-livo2-v8servicequeue-20260823/build_receipt.json
       receipt_sha256: a7eaeb638e8aedc2ccb1f6db1beccd575258d419c4068948df0b39cc5c2dfb7c
     handshake_preflight:
       script_path: scripts/preflight_fast_livo2_m6a10_v2c_v8_handshake.py
@@ -145,7 +145,7 @@ competitive_slam_profile:
       network: none
       rootfs: read_only
       host_mounts: []
-      receipt_path: /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-service-handshake-v8servicequeue-20260823/strict_handshake_receipt.json
+      receipt_path: /media/user/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-service-handshake-v8servicequeue-20260823/strict_handshake_receipt.json
       receipt_sha256: 883149c733f01a52719d8756e774f956d2324ce1e972a26b5390bf9b9626f653
     feeder:
       path: scripts/fast_livo2_m6a10_feeder.py
@@ -185,37 +185,37 @@ competitive_slam_profile:
       replay_started: false
     build_gate:
       status: PASS
-      receipt_path: /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-fast-livo2-v8servicequeue-20260823/build_receipt.json
+      receipt_path: /media/user/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-fast-livo2-v8servicequeue-20260823/build_receipt.json
       receipt_sha256: a7eaeb638e8aedc2ccb1f6db1beccd575258d419c4068948df0b39cc5c2dfb7c
     identity_gate:
       status: PASS
-      receipt_path: /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-execution-preflight-v8servicequeue-20260823/identity_preflight.json
+      receipt_path: /media/user/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-execution-preflight-v8servicequeue-20260823/identity_preflight.json
       receipt_sha256: 777e1fa53e0a611db38a5bd3ab8ab2b4f88049bb923d86aeb0d04e77e883fb7b
       image_id: sha256:5d9139a2e9eb827798fd2e8dbdb561c5d9647ee0d662f086407858793b0d8774
     handshake_gate:
       status: PASS
-      receipt_path: /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-service-handshake-v8servicequeue-20260823/strict_handshake_receipt.json
+      receipt_path: /media/user/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-service-handshake-v8servicequeue-20260823/strict_handshake_receipt.json
       receipt_sha256: 883149c733f01a52719d8756e774f956d2324ce1e972a26b5390bf9b9626f653
     quiescence_gate:
       initial:
         status: FAIL_CLOSED
-        receipt_path: /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-execution-quiescence-v8servicequeue-20260823/quiescence.json
+        receipt_path: /media/user/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-execution-quiescence-v8servicequeue-20260823/quiescence.json
         receipt_sha256: a5e1e448334ba1e1d4a293ae583aa0e38d02cfad31743f68c1c05b9a15bbff8d
         runner_start_allowed: false
         retained: true
       retry1:
         status: PASS
-        receipt_path: /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-execution-quiescence-v8servicequeue-20260823-retry1/quiescence.json
+        receipt_path: /media/user/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-execution-quiescence-v8servicequeue-20260823-retry1/quiescence.json
         receipt_sha256: 5562a977d27a2bc35a43bc660e1c518467afa6dceada37d123ecef69f4b7b09e
         runner_start_allowed: true
         retained: true
       selected_attempt: retry1
       only_selected_pass_allows_runner_start: true
     output:
-      root: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_formal_replay_v8_service_queue_20260823T1228JST
+      root: /media/user/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_formal_replay_v8_service_queue_20260823T1228JST
       overwrite_existing: false
       repetitions: 1
       retry_count: 0
-      preregistration_path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_formal_replay_v8_service_queue_20260823T1228JST/preregistration.json
-      run_dir: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_formal_replay_v8_service_queue_20260823T1228JST/run_01
+      preregistration_path: /media/user/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_formal_replay_v8_service_queue_20260823T1228JST/preregistration.json
+      run_dir: /media/user/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_formal_replay_v8_service_queue_20260823T1228JST/run_01
       result: null

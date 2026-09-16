@@ -547,7 +547,7 @@ def test_m6a10_fixed10_v2_failure_and_v3_quiescence_are_bound():
         'status': 'FAIL_CLOSED',
         'failure_kind': 'runner_not_started_after_preflight',
         'receipt_path': (
-            '/media/sasaki/aiueo1/benchmarks/m6a10_training_20260822/'
+            '/media/user/aiueo1/benchmarks/m6a10_training_20260822/'
             'ours_m6a10_v2a_unpaced_ack_fixed10_v6/'
             'runner_not_started_after_preflight.json'),
         'receipt_sha256': (
@@ -589,12 +589,12 @@ def test_m6a10_fixed10_v7_identity_failure_is_bound():
         'status': 'FAIL_CLOSED',
         'failure_kind': 'IDENTITY_PREFLIGHT_FAIL_CLOSED',
         'receipt_path': (
-            '/media/sasaki/aiueo1/benchmarks/m6a10_training_20260822/'
+            '/media/user/aiueo1/benchmarks/m6a10_training_20260822/'
             'ours_m6a10_v2a_unpaced_ack_fixed10_v7/closure_receipt.json'),
         'receipt_sha256': (
             'fffba96d21721c5b811fb7710d3d77889e81e0c8bfb4ffcb8957f6c94bce57da'),
         'attempt_root_marker_path': (
-            '/media/sasaki/aiueo1/benchmarks/m6a10_training_20260822/'
+            '/media/user/aiueo1/benchmarks/m6a10_training_20260822/'
             'ours_m6a10_v2a_unpaced_ack_fixed10_v7/attempt_root_marker.json'),
         'attempt_root_marker_sha256': (
             '02aac87246c4e1792ce680c66245e1cefc7cad2fe673dadacebe9e760d77a4ec'),

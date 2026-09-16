@@ -27,7 +27,8 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 
-"""Shared pytest configuration for the graph_based_slam test tree.
+"""
+Shared pytest configuration for the graph_based_slam test tree.
 
 The competitive execution-selection contract is a preregistration snapshot:
 ``configs/slam_benchmark_profiles/competitive_execution_selection_2026-08.yaml``

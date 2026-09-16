@@ -35,7 +35,7 @@ _extra_forbidden_processes = base._extra_forbidden_processes
 PROFILE_PATH = ROOT / "configs/slam_benchmark_profiles/fast_livo2_m6a10_v13_formal_candidate.yaml"
 PROFILE_SHA256 = "53d49adf595ae1783f741e264351dca45e2b17b6c91e9259f3e5fa5d036060ab"
 PERSISTENCE_RECEIPT_PATH = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v13_persistence_20260823T192720Z_agentv13/"
     "persistence_gate.receipt.json"
 )

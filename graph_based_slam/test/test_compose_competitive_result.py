@@ -35,7 +35,6 @@ import json
 from pathlib import Path
 
 import pytest
-import yaml
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -146,6 +145,8 @@ def test_compose_propagates_two_layer_execution_identity(tmp_path):
             'execution_receipt_file_sha256': ('b' * 63) + str(index),
         })
     trajectory.write_text(json.dumps(document))
+
+
 def test_legacy_calibration_archive_hash_remains_explicitly_supported(tmp_path):
     manifest, reference, machine, trajectory, mapping = _inputs(tmp_path)
     document = json.loads(manifest.read_text())

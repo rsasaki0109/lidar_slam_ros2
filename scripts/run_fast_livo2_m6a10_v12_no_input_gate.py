@@ -48,7 +48,7 @@ FOCUSED_TEST_PATH = Path(
     "graph_based_slam/test/test_fast_livo2_m6a10_v12_no_input_gate.py"
 )
 BUILD_RECEIPT_PATH = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v12_build_20260823T161850Z_agentv12/"
     "build_identity.receipt.json"
 )
@@ -88,7 +88,7 @@ PRIOR_ATTEMPTS = [
     {
         "attempt_index": 1,
         "path": Path(
-            "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+            "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
             "fast_livo2_v2c_v12_dual_service_20260823T163503Z_agentv12/"
             "no_input_dual_evidence.receipt.json"
         ),
@@ -98,12 +98,12 @@ PRIOR_ATTEMPTS = [
         "exit_code": 0,
         "cause_evidence": {
             "argv_path": Path(
-                "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+                "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
                 "fast_livo2_v2c_v12_dual_service_20260823T163503Z_agentv12/"
                 "docker_argv.json"
             ),
             "argv_sidecar_path": Path(
-                "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+                "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
                 "fast_livo2_v2c_v12_dual_service_20260823T163503Z_agentv12/"
                 "docker_argv.sha256"
             ),
@@ -115,7 +115,7 @@ PRIOR_ATTEMPTS = [
     {
         "attempt_index": 2,
         "path": Path(
-            "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+            "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
             "fast_livo2_v2c_v12_dual_service_attempt2_20260823T163846Z_agentv12/"
             "no_input_dual_evidence_attempt2.receipt.json"
         ),
@@ -125,12 +125,12 @@ PRIOR_ATTEMPTS = [
         "exit_code": 143,
         "cause_evidence": {
             "argv_path": Path(
-                "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+                "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
                 "fast_livo2_v2c_v12_dual_service_attempt2_20260823T163846Z_agentv12/"
                 "docker_exec_argv.json"
             ),
             "argv_sidecar_path": Path(
-                "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+                "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
                 "fast_livo2_v2c_v12_dual_service_attempt2_20260823T163846Z_agentv12/"
                 "docker_exec_argv.sha256"
             ),
@@ -138,7 +138,7 @@ PRIOR_ATTEMPTS = [
             "argv_canonical_sha256": "46ddde7b79679087a5180fcfe5ea512e9a18e40bf67627bddecf3d3a31b748ff",
             "argv_sidecar_sha256": "c5caadec81eb66fc1540070dcafdbe905c8b646af5695a5ae931d7f7c25ba2c9",
             "log_path": Path(
-                "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+                "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
                 "fast_livo2_v2c_v12_dual_service_attempt2_20260823T163846Z_agentv12/"
                 "docker_exec.log"
             ),
@@ -148,7 +148,7 @@ PRIOR_ATTEMPTS = [
     {
         "attempt_index": 3,
         "path": Path(
-            "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+            "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
             "fast_livo2_v2c_v12_dual_service_attempt3_20260823T172100Z_agentv12/"
             "no_input_dual_evidence.receipt.json"
         ),
@@ -171,7 +171,7 @@ PRIOR_ATTEMPTS = [
     {
         "attempt_index": 4,
         "path": Path(
-            "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+            "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
             "fast_livo2_v2c_v12_dual_service_attempt4_20260823T173000Z_agentv12/"
             "no_input_dual_evidence.receipt.json"
         ),
@@ -194,7 +194,7 @@ PRIOR_ATTEMPTS = [
     {
         "attempt_index": 5,
         "path": Path(
-            "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+            "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
             "fast_livo2_v2c_v12_dual_service_attempt5_20260823T174000Z_agentv12/"
             "no_input_dual_evidence.receipt.json"
         ),

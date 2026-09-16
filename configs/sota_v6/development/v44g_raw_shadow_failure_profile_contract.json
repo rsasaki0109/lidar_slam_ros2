@@ -5,36 +5,36 @@
   "rationale": "Define a bounded diagnostic profile for the sealed v44f first-scan resource failure without reopening a raw bag or continuing replay. The profile must retain the attempted RSS and processing RTF and fixed decoder, reorder, and core wall-time phases before applying the unchanged v44e gate.",
   "prerequisites": {
     "v44f_audit": {
-      "path": "/home/sasaki/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/configs/sota_v6/development/v44f_raw_shadow_replay_execution_audit.json",
+      "path": "/home/user/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/configs/sota_v6/development/v44f_raw_shadow_replay_execution_audit.json",
       "sha256": "3da6877b93a386fe875bfefc3844d9105e1cb90ec5820ac86ae7364d97f330b7",
       "bytes": 5833,
       "required_contract_id": "v44f-raw-shadow-replay-execution-audit-20260810"
     },
     "v44f_aggregate": {
-      "path": "/home/sasaki/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v44f_raw_shadow_replay_execution_audit_20260810/aggregate.json",
+      "path": "/home/user/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v44f_raw_shadow_replay_execution_audit_20260810/aggregate.json",
       "sha256": "9b4dbbaede2239ae619594b6c84ee0f33b7fc89e360bfac777a5c37c37a2e2eb",
       "bytes": 1624,
       "required_payload_sha256": "f9a9b25e746f49f5b2dc9665dba1a8019c59bfb2b044897f0561750a1da31073",
       "required_decision": "REJECT_V44_STAGE4_RAW_SHADOW_REPLAY_RESOURCE_GATE"
     },
     "v44e_contract": {
-      "path": "/home/sasaki/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/configs/sota_v6/development/v44e_raw_shadow_replay_execution_contract.json",
+      "path": "/home/user/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/configs/sota_v6/development/v44e_raw_shadow_replay_execution_contract.json",
       "sha256": "08d7f8850f5081fd18d58a860cae3d9566846605460dadb37660b3c3111d1692",
       "bytes": 19349,
       "required_contract_id": "v44e-raw-shadow-replay-execution-20260810"
     },
     "adapter": {
-      "path": "/home/sasaki/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/scripts/v44_raw_shadow_replay_adapter.py",
+      "path": "/home/user/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/scripts/v44_raw_shadow_replay_adapter.py",
       "sha256": "6fbf16d811a5bcf26c2cac9190f0557844cd3596cf7704cfdc016c7080ddf0ee",
       "bytes": 38242
     },
     "estimator_core": {
-      "path": "/home/sasaki/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/scripts/v44_fixed_lag_shadow_estimator.py",
+      "path": "/home/user/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/scripts/v44_fixed_lag_shadow_estimator.py",
       "sha256": "c353cce1cde17e45ea1244871da8a7077f10b28055f8c8cdfae49a5bddaf8ee9",
       "bytes": 108847
     },
     "auditor": {
-      "path": "/home/sasaki/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/scripts/audit_v44g_raw_shadow_failure_profile.py",
+      "path": "/home/user/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2_kaizen_review/scripts/audit_v44g_raw_shadow_failure_profile.py",
       "sha256": "d03f1ee399815f04401ab7cadaf5ca7234b662dc133357ae3ec9d1a7901a0839",
       "required_contract_id": "v44g-raw-shadow-failure-profile-contract-20260813"
     }

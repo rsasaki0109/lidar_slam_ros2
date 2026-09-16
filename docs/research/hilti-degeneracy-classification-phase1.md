@@ -52,7 +52,7 @@ anisotropic odometry covariance (Thirdparty/rko_lio `d6c767d`,
 `degeneracy_diagnostics_csv_path` / `save_degeneracy_report` set on
 `graph_based_slam` (via a param-file override of `lidarslam/param/lidarslam.yaml`,
 kept outside the repo under
-`/media/sasaki/aiueo/lidarslam_work/output/v0.8_phase1_classification/`):
+`/media/user/aiueo/lidarslam_work/output/v0.8_phase1_classification/`):
 
 | sequence | environment | scans (available) | artifacts |
 |---|---|---:|---|
@@ -306,7 +306,7 @@ bash scripts/run_release_readiness_checks.sh \
 ```
 
 Artifacts backing every number in this note (kept off-repo, external disk):
-`/media/sasaki/aiueo/lidarslam_work/output/v0.8_phase1_classification/{exp07_run,exp01_run}/`.
+`/media/user/aiueo/lidarslam_work/output/v0.8_phase1_classification/{exp07_run,exp01_run}/`.
 
 ## 7. Phase 1 gate status (`docs/roadmap/v0.8.md` §5)
 

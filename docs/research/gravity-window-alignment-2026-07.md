@@ -83,7 +83,7 @@ candidate).
 
 Frontend-only, `configs/hilti2022/rko_lio_hilti2022_pandar.yaml` /
 `lidarslam/param/rko_lio_mid360.yaml` wrapped as ROS params, OFF vs ON with
-gain 0.2. Artifacts: `/media/sasaki/aiueo/benchmarks/gravity_alignment_holdout_20260726`.
+gain 0.2. Artifacts: `/media/user/aiueo/benchmarks/gravity_alignment_holdout_20260726`.
 
 | holdout | result |
 |---|---|

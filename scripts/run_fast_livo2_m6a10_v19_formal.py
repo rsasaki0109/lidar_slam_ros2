@@ -43,31 +43,31 @@ V17_PROFILE_PATH = ROOT / "configs/slam_benchmark_profiles/fast_livo2_m6a10_v17_
 V17_PROFILE_SHA256 = "62200ef736b7bb720cd56e1182c2e054eb24848c4aee90783c9c749d2177cd41"
 V17_IMAGE_TAG = "m6a10-v2c-v17-retryable-abort-correction-20260823t224017z-fast-livo2-benchmark:ros1-pinned"
 V17_IMAGE_ID = "sha256:f1432426af64e76d9ad9c655a8727d35c2fb0a03753502ada3b21187638f747c"
-V17_BUILD_RECEIPT_PATH = Path("/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v17_build_correction_20260823T224017Z_agentv17/build_identity.receipt.json")
+V17_BUILD_RECEIPT_PATH = Path("/media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v17_build_correction_20260823T224017Z_agentv17/build_identity.receipt.json")
 V17_BUILD_RECEIPT_SHA256 = "23811d4200f9ed3ac464083ef339eb6d0437815ffdd82a2f37cc4180195bc2f7"
-V17_NO_INPUT_RECEIPT_PATH = Path("/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v17_no_input_correction2_20260823T225359Z_agentv17/no_input.receipt.json")
+V17_NO_INPUT_RECEIPT_PATH = Path("/media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v17_no_input_correction2_20260823T225359Z_agentv17/no_input.receipt.json")
 V17_NO_INPUT_RECEIPT_SHA256 = "ac1df6f390ad3e348e572ced668f4971bc05ac835c55cc83fef9ea4ad5fa3d74"
 AUTHORIZER_PATH = ROOT / "scripts/authorize_fast_livo2_m6a10_v19_formal.py"
-AUTHORIZATION_PATH = Path("/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v19_formal_authorization_20260824T005300Z_agentv19/formal_authorization.receipt.json")
-AUTHORIZED_ATTEMPT_ROOT = Path("/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v19_formal_replay_20260824T005300Z_agentv19formal")
+AUTHORIZATION_PATH = Path("/media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v19_formal_authorization_20260824T005300Z_agentv19/formal_authorization.receipt.json")
+AUTHORIZED_ATTEMPT_ROOT = Path("/media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v19_formal_replay_20260824T005300Z_agentv19formal")
 AUTHORIZATION_CONTRACT = "m6a10-v19-formal-exact-root-authorization-v1"
 V18B_AUTHORIZATION_PATH = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v18_formal_authorization_20260824T003000Z_agentv18b/"
     "formal_authorization.receipt.json"
 )
 V18B_AUTHORIZATION_SHA256 = "78fc1ea039f4c8725a773a81dafca64486341a14eb4c052ddbba3f8d1ee3a291"
 V18B_AUTHORIZATION_SIDECAR_SHA256 = "14a84f3fd29b829d151214e3dd611215c07eb4e92511a8bb2ebd727d0d4cef80"
 V18B_CLOSURE_PATH = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v18_formal_replay_20260824T003000Z_agentv18bformal/"
     "closure_receipt.json"
 )
 V18B_CLOSURE_SHA256 = "1e532bbf58c5bfffc7315a2b228342228c96fc45fe799bd2a0893605841550fd"
 V18B_CLOSURE_SIDECAR_SHA256 = "267dbf0ac1426645f2cac2e1a5c639c942c51e72c063da64ce57201eabfc1901"
-V18B_ATTEMPT_ROOT = "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v18_formal_replay_20260824T003000Z_agentv18bformal"
+V18B_ATTEMPT_ROOT = "/media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v18_formal_replay_20260824T003000Z_agentv18bformal"
 INPUT_PATH = (
-    "/media/sasaki/aiueo1/datasets/ntu_viral_release/"
+    "/media/user/aiueo1/datasets/ntu_viral_release/"
     "tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag"
 )
 WATCHDOG_SECONDS = 1200

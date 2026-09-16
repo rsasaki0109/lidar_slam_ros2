@@ -10,7 +10,7 @@
     "synthetic_contract_path": "configs/sota_v6/development/v44c1_fixed_lag_synthetic_contracts.json",
     "synthetic_contract_sha256": "e5e8a8a3ae8d7e6b17ae8c7c6580751ac3bee8ff914ba80274222617aedb6c92",
     "required_synthetic_contract_id": "v44c1-fixed-lag-synthetic-contracts-20260810",
-    "synthetic_aggregate_path": "/home/sasaki/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v44c1_fixed_lag_synthetic_contracts_20260810/aggregate.json",
+    "synthetic_aggregate_path": "/home/user/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v44c1_fixed_lag_synthetic_contracts_20260810/aggregate.json",
     "synthetic_aggregate_sha256": "18dc483ae4a924608d16ed3f47b7dd5bb812f6baea027d931d7f2010287bf663",
     "required_synthetic_aggregate_payload_sha256": "c89f1cf5fcece0799afd7d897423bf17ee850b85156706f2fc34cd68c00e4c6f",
     "required_synthetic_decision": "AUTHORIZE_V44_STAGE4_REPORT_ONLY_SHADOW_IMPLEMENTATION"

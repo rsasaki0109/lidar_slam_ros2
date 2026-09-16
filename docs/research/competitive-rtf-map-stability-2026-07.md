@@ -16,7 +16,7 @@ Artifact roots referenced below live under the current session's scratchpad,
 `/tmp/claude-1000/-home-sasaki-workspace-old--2026-lidarslam-ws/46461ed0-b97c-42ed-a883-a0ed626b4411/scratchpad/{rtf-instrument,nn-opt,icp-conv,reg-downsample,candidate-consol,loop-off,queue-stab,map-shrink,qos-fix,qdepth-reliable}/`.
 This is `/tmp` and ephemeral; every number below was re-verified against
 these files during this write-up, but permanent evidence should be
-regenerated under `/media/sasaki/aiueo/benchmarks/...` before the freeze.
+regenerated under `/media/user/aiueo/benchmarks/...` before the freeze.
 
 ## 1. Motivation: why the frontend, not the algorithm
 

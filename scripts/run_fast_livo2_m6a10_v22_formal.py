@@ -34,7 +34,7 @@ V22_WRAPPER_PATH = authorizer.V22_WRAPPER_PATH
 V22_WRAPPER_SHA256 = authorizer.V22_WRAPPER_SHA256
 IMAGE_TAG = authorizer.V17_IMAGE_TAG
 IMAGE_ID = authorizer.V17_IMAGE_ID
-INPUT_PATH = "/media/sasaki/aiueo1/datasets/ntu_viral_release/tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag"
+INPUT_PATH = "/media/user/aiueo1/datasets/ntu_viral_release/tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag"
 WATCHDOG_SECONDS = 1200
 
 

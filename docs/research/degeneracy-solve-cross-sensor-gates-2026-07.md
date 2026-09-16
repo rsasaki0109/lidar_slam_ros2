@@ -51,12 +51,12 @@ adoptable fix because exp07 becomes worse than default-off.
 
 Artifacts:
 
-- `/media/sasaki/aiueo/benchmarks/mid360_public/degeneracy_consistency_gate_20260714`
-- `/media/sasaki/aiueo/benchmarks/mid360_public/degeneracy_consistency_gate_v2_20260714`
-- `/media/sasaki/aiueo/benchmarks/mid360_public/degeneracy_consistency_gate_v3_20260714`
-- `/media/sasaki/aiueo/benchmarks/mid360_public/degeneracy_translation_gate_20260714`
-- `/media/sasaki/aiueo/benchmarks/hilti_exp07_degeneracy_consistency_gate_v2_20260714`
-- `/media/sasaki/aiueo/benchmarks/hilti_exp07_degeneracy_consistency_gate_v3_20260714`
+- `/media/user/aiueo/benchmarks/mid360_public/degeneracy_consistency_gate_20260714`
+- `/media/user/aiueo/benchmarks/mid360_public/degeneracy_consistency_gate_v2_20260714`
+- `/media/user/aiueo/benchmarks/mid360_public/degeneracy_consistency_gate_v3_20260714`
+- `/media/user/aiueo/benchmarks/mid360_public/degeneracy_translation_gate_20260714`
+- `/media/user/aiueo/benchmarks/hilti_exp07_degeneracy_consistency_gate_v2_20260714`
+- `/media/user/aiueo/benchmarks/hilti_exp07_degeneracy_consistency_gate_v3_20260714`
 
 ## Why translation fraction is insufficient
 

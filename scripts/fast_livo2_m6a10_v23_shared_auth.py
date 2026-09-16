@@ -36,33 +36,33 @@ import lidarslam_benchmark_tools.run_fast_livo2_m6a10_v22_formal as v22_launcher
 
 SHARED_AUTH_CONTRACT = "m6a10-v23-shared-formal-authorization-v1"
 V22_AUTHORIZATION_RECEIPT_PATH = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v22_formal_authorization2_20260824T041708Z_agentv22/"
     "formal_authorization.receipt.json"
 )
 V22_AUTHORIZATION_SHA256 = "73076240a13335040945c70e1c5b69287f7277e92e6d96948a444e2ec4ae66c4"
 V22_AUTHORIZATION_SIDECAR_SHA256 = "ca069e5c95e99fe3249942e35a4dc21325b424ce85c1be85dffafda2dc333cc1"
 V22_ATTEMPT_ROOT = (
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v22_formal_replay2_20260824T041708Z_agentv22formal"
 )
 
 V23_SYNTHETIC_AUTHORIZATION_RECEIPT_PATH = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v23_synthetic_runtime_authorization_20260824T044145Z_agentv23/"
     "synthetic_runtime_authorization.receipt.json"
 )
 V23_SYNTHETIC_AUTHORIZATION_SHA256 = "909b736466c28d1bad32412856984f4c5c7b75b82cae51a22d62911e717fec3b"
 V23_SYNTHETIC_AUTHORIZATION_SIDECAR_SHA256 = "960aa2a813085b01c50b1fc2bec5f2e552c650bc8e3b203caddfdb2d4fa9933b"
 V23_SYNTHETIC_RUNTIME_ROOT = (
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v23_synthetic_runtime_20260824T044145Z_agentv23"
 )
 V23_SYNTHETIC_AUTHORIZER_PATH = ROOT / "scripts/authorize_fast_livo2_m6a10_v23_synthetic_runtime.py"
 V23_SYNTHETIC_AUTHORIZER_SHA256 = "3db08ba29a75173c7aad9cfd2b3751b22276d466707872229ade74e5717268ce"
 
 V22_PRIOR_AUTHORIZATION_RECEIPT_PATH = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v22_formal_authorization_20260824T024547Z_agentv22/"
     "formal_authorization.receipt.json"
 )

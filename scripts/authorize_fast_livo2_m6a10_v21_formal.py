@@ -36,12 +36,12 @@ WINDOW_SECONDS = previous.WINDOW_SECONDS
 MAX_BUSY_PERCENT = previous.MAX_BUSY_PERCENT
 MAX_LOAD_PER_CPU = previous.MAX_LOAD_PER_CPU
 AUTHORIZATION_ROOT = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v21_formal_authorization_20260824T012000Z_agentv21"
 )
 AUTHORIZATION_RECEIPT_PATH = AUTHORIZATION_ROOT / "formal_authorization.receipt.json"
 ATTEMPT_ROOT = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v21_formal_replay_20260824T012000Z_agentv21formal"
 )
 PROFILE_PATH = ROOT / "configs/slam_benchmark_profiles/fast_livo2_m6a10_v21_formal_candidate.yaml"

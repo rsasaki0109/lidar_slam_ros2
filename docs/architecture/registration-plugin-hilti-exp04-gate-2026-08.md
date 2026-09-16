@@ -20,13 +20,13 @@ The input is the locally held HILTI 2022 `exp04` sequence:
 
 | item | value |
 | --- | --- |
-| rosbag2 | `/media/sasaki/aiueo1/datasets/hilti2022/exp04_ros2` |
+| rosbag2 | `/media/user/aiueo1/datasets/hilti2022/exp04_ros2` |
 | LiDAR topic | `/hesai/pandar` |
 | IMU topic | `/alphasense/imu` |
 | bag duration | 125.814128037 s |
 | LiDAR / IMU messages | 1,258 / 50,198 |
 | metadata SHA-256 | `f256bd10ec4a65fec68ab91455108ba73ac3791043f81e05846be93922d21100` |
-| control-point GT | `/media/sasaki/aiueo1/datasets/hilti2022/exp04_construction_upper_level_gt.txt` |
+| control-point GT | `/media/user/aiueo1/datasets/hilti2022/exp04_construction_upper_level_gt.txt` |
 | GT SHA-256 | `38cf516e51113254e4ae0207c790f740b19dee08665063e0d8df7bd277040c20` |
 | parameters | `configs/hilti2022/lidarslam_competitive_v2.yaml` |
 | parameter SHA-256 | `53312d748bc6f6ba8f12fab2a11490c5dc2bcbb5b722f318b48500237aac3e17` |
@@ -47,24 +47,24 @@ three sequential runs for each workspace:
 ```bash
 source /opt/ros/jazzy/setup.bash
 bash scripts/run_frontend_determinism_check.sh \
-  --bag /media/sasaki/aiueo1/datasets/hilti2022/exp04_ros2 \
+  --bag /media/user/aiueo1/datasets/hilti2022/exp04_ros2 \
   --cloud-topic /hesai/pandar --imu-topic /alphasense/imu \
   --params configs/hilti2022/lidarslam_competitive_v2.yaml \
   --runs 3 --ros-domain-base 210 \
   --save-map \
   --output-dir /tmp/hilti-exp04-current-3x \
   --reference-tum \
-    /media/sasaki/aiueo1/datasets/hilti2022/exp04_construction_upper_level_gt.txt
+    /media/user/aiueo1/datasets/hilti2022/exp04_construction_upper_level_gt.txt
 
 bash /tmp/lidarslam-baseline-Vn3TiJ/scripts/run_frontend_determinism_check.sh \
-  --bag /media/sasaki/aiueo1/datasets/hilti2022/exp04_ros2 \
+  --bag /media/user/aiueo1/datasets/hilti2022/exp04_ros2 \
   --cloud-topic /hesai/pandar --imu-topic /alphasense/imu \
   --params /tmp/lidarslam-baseline-Vn3TiJ/configs/hilti2022/lidarslam_competitive_v2.yaml \
   --runs 3 --ros-domain-base 220 \
   --save-map \
   --output-dir /tmp/hilti-exp04-baseline-3x \
   --reference-tum \
-    /media/sasaki/aiueo1/datasets/hilti2022/exp04_construction_upper_level_gt.txt
+    /media/user/aiueo1/datasets/hilti2022/exp04_construction_upper_level_gt.txt
 ```
 
 The APE gate uses the historical dense-trajectory convention, not the
@@ -72,7 +72,7 @@ runner's default nearest-neighbour report:
 
 ```bash
 python3 scripts/ape_from_tum.py --interpolate --max-time-diff 3.0 \
-  --ref /media/sasaki/aiueo1/datasets/hilti2022/exp04_construction_upper_level_gt.txt \
+  --ref /media/user/aiueo1/datasets/hilti2022/exp04_construction_upper_level_gt.txt \
   --est <run>/trajectory_frontend.tum --out <run>/ape_historical_interpolate.txt
 ```
 

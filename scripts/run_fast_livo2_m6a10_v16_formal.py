@@ -82,7 +82,7 @@ BUILD_RECEIPT_PATH = v15.BUILD_RECEIPT_PATH
 BUILD_RECEIPT_SHA256 = v15.BUILD_RECEIPT_SHA256
 BUILD_RECEIPT_SIDECAR_SHA256 = "6940f5762e87bf9f08752b950f12de2ae8423c9b0217841e212af56f61a04c65"
 V15_AUTHORIZATION_PATH = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v15_formal_authorization_20260823T210707Z_agentv15/"
     "formal_authorization.receipt.json"
 )

@@ -32,12 +32,12 @@ AUTHORIZATION_CONTRACT = "m6a10-v20-formal-exact-root-authorization-v1"
 QUIESCENCE_CONTRACT = "m6a10-quiescence-v1"
 WINDOW_RE = re.compile(r"^quiescence_window_(\d{2})\.receipt\.json$")
 AUTHORIZATION_ROOT = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v20_formal_authorization_20260824T011000Z_agentv20"
 )
 AUTHORIZATION_RECEIPT_PATH = AUTHORIZATION_ROOT / "formal_authorization.receipt.json"
 ATTEMPT_ROOT = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v20_formal_replay_20260824T011000Z_agentv20formal"
 )
 PROFILE_PATH = ROOT / "configs/slam_benchmark_profiles/fast_livo2_m6a10_v20_formal_candidate.yaml"

@@ -112,7 +112,7 @@ IFC (lazy `ifcopenshell` 0.8.5):
 
 ## Data + how the real maps were made
 
-- **HILTI 2022**: `/media/sasaki/aiueo/datasets/hilti2022` (`exp01/exp04/exp07`).
+- **HILTI 2022**: `/media/user/aiueo/datasets/hilti2022` (`exp01/exp04/exp07`).
   **The external SSD must be mounted first** — `/dev/sda1` (label `aiueo`, ext4). Claude/Codex
   cannot mount it (polkit/sudo needs interactive auth); the user runs, in their own terminal,
   `udisksctl mount -b /dev/sda1`. See memory `hilti-dataset-location`.
@@ -130,7 +130,7 @@ IFC (lazy `ifcopenshell` 0.8.5):
   (`run_hilti_slam.sh`, `capture_map.py`) — they encode the working SLAM params above.
   **Their `OUT=` path still points at the old session scratchpad; edit it before running.**
   `exp07_map.ply` / `exp01_map.ply` were their SLAM outputs (in the scratchpad, may be gone).
-- Outdoor colouring bag (separate branch): `/home/sasaki/autoware_data/all-sensors-bag1`.
+- Outdoor colouring bag (separate branch): `/home/user/autoware_data/all-sensors-bag1`.
 
 ## State of results (2026-07-13 real-data gate)
 

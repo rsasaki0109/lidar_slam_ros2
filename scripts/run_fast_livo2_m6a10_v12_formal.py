@@ -66,7 +66,7 @@ SENSOR_DURATION_SECONDS = 579.278127298
 MONITOR_INTERVAL_SECONDS = 4.0
 WATCHDOG_SECONDS = 1200
 INPUT_PATH = (
-    "/media/sasaki/aiueo1/datasets/ntu_viral_release/"
+    "/media/user/aiueo1/datasets/ntu_viral_release/"
     "tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag"
 )
 INPUT_BYTES = 11290464091
@@ -81,13 +81,13 @@ AUTHORIZER_PATH = ROOT / "scripts/authorize_fast_livo2_m6a10_v12_formal.py"
 AUTHORIZER_SHA256 = "eff1be8454bc6e03708162dafa54d49fa04c8f4acaf854f9d2df75f8ba7b0eb5"
 
 BUILD_RECEIPT_PATH = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v12_build_20260823T161850Z_agentv12/build_identity.receipt.json"
 )
 BUILD_RECEIPT_SHA256 = "e0e5c924025a24083661a6838bc5af28f07c34c419ce6e103c37890ed1382dda"
 BUILD_RECEIPT_SIDECAR_SHA256 = "5e79d3ba1145b58ca07e78256fd55593a77e1b7ebacb8e6d349d644ee578efb7"
 ATTEMPT6_RECEIPT_PATH = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v12_dual_service_attempt6_20260823T175000Z_agentv12/"
     "no_input_dual_evidence.receipt.json"
 )
@@ -98,7 +98,7 @@ ATTEMPT6_TERMINAL_SHA256 = "f843ce9bed5b16e4d44d6b7b7f9da945282ef0d3801ae94aa525
 ATTEMPT6_JOURNAL_SHA256 = "f6608931454694d39cbf0fa5fc6f9af6db791d5ca2d8ffa9fed02608e026c26a"
 ATTEMPT6_RUNNER_SHA256 = "f3c41d6533475229a765fe92682d483758347053c6f146dd148fc85a6274648a"
 HOST_GATE_RECEIPT_PATH = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v12_host_evidence_gate_20260823T180718Z_agentv12/"
     "host_evidence_gate.receipt.json"
 )

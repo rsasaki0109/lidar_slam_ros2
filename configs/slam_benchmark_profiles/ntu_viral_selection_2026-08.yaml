@@ -41,7 +41,7 @@ acquisition:
     - immutable_source_revision_or_archive_digest
     - all_system_runner_support_receipt
   evidence_mount:
-    path: /media/sasaki/aiueo1
+    path: /media/user/aiueo1
     uuid: 3b5dc9b7-c4de-4cf2-a892-00b2c063f34e
     filesystem: ext4
     label: aiueo

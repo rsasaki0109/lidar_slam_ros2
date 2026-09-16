@@ -10,7 +10,7 @@ preregistration:
   replay_authorized: false
   created_at_utc: '2026-08-23T00:00:00Z'
   predecessor_profile: configs/slam_benchmark_profiles/fast_livo2_m6a10_v8_formal.yaml
-  predecessor_closure_path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_formal_replay_v8_service_queue_20260823T1228JST/closure_receipt.json
+  predecessor_closure_path: /media/user/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_formal_replay_v8_service_queue_20260823T1228JST/closure_receipt.json
   predecessor_closure_sha256: b94b96f153423964a01515ab0e0208a15eaf3f68fe263216726d89601165d7fd
   formal_replay_forbidden: true
   image_build_not_run: true
@@ -25,7 +25,7 @@ competitive_slam_profile:
     result: null
     predecessor:
       profile_path: configs/slam_benchmark_profiles/fast_livo2_m6a10_v8_formal.yaml
-      closure_path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_formal_replay_v8_service_queue_20260823T1228JST/closure_receipt.json
+      closure_path: /media/user/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_formal_replay_v8_service_queue_20260823T1228JST/closure_receipt.json
       closure_sha256: b94b96f153423964a01515ab0e0208a15eaf3f68fe263216726d89601165d7fd
       status: FAIL_CLOSED
       failure_kind: callback_status_polling_deadline_after_first_publish_return
@@ -33,7 +33,7 @@ competitive_slam_profile:
       completed_publish_count: 0
       acknowledged_count: 0
     input:
-      path: /media/sasaki/aiueo1/datasets/ntu_viral_release/tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag
+      path: /media/user/aiueo1/datasets/ntu_viral_release/tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag
       bytes: 11290464091
       sha256: 5bc7c6a0e5088aa3f733377a3e597705b075b1ec5ca5be272b75636a0b697310
       expected_messages: 236687
@@ -145,7 +145,7 @@ competitive_slam_profile:
       map_save: false
       formal_replay_started: false
     output:
-      root: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_v9_wallrate
+      root: /media/user/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_v9_wallrate
       overwrite_existing: false
       repetitions: 0
       result: null

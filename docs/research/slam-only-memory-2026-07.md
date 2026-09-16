@@ -19,8 +19,8 @@ difference was `enable_kidnap_relocalization`.
 
 Artifacts:
 
-- ON: `/media/sasaki/aiueo/benchmarks/hilti_exp07_reloc_map_on_ab_20260714_v1`
-- OFF: `/media/sasaki/aiueo/benchmarks/hilti_exp07_reloc_map_off_ab_20260714_v1`
+- ON: `/media/user/aiueo/benchmarks/hilti_exp07_reloc_map_on_ab_20260714_v1`
+- OFF: `/media/user/aiueo/benchmarks/hilti_exp07_reloc_map_off_ab_20260714_v1`
 
 | Metric | Recovery map ON | SLAM-only OFF | Change |
 |---|---:|---:|---:|

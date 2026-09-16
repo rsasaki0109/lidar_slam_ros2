@@ -16,7 +16,7 @@ The benchmark host fingerprint is
 `f5605cb93280749c7837ecffddebc622685e2155ad58ec83877c8a3653727c80`
 (x86_64, Intel i5-1145G7, 8 logical CPUs, 32,461,332 kB MemTotal). Its
 non-secret evidence artifact is
-`/media/sasaki/aiueo/benchmarks/competitive_holdouts/machine_fingerprint.json`
+`/media/user/aiueo/benchmarks/competitive_holdouts/machine_fingerprint.json`
 (SHA-256 `f9e496aba9a1f5f80f724a07ad4384546eb6857d65fcc1b09da3b5e85175da5f`).
 Competition runners now record the same fingerprint directly in every new
 run's provenance; raw OS/DMI identifiers contribute only to the hash and are
@@ -162,7 +162,7 @@ threshold on the same point-to-point 6x6 Hessian.
 The official FAST-LIVO2 revision was replayed three times on HILTI exp04 in
 the pinned `fast-livo2-benchmark:noetic` image. This is regression evidence,
 not a holdout win. The frozen artifacts are under
-`/media/sasaki/aiueo/benchmarks/fast_livo2/results/competitive_v1_exp04_3x_20260714`.
+`/media/user/aiueo/benchmarks/fast_livo2/results/competitive_v1_exp04_3x_20260714`.
 
 - bag SHA-256: `1ea856f82330d8258c6bdcdd92677a6736767df341a16075df087de77766aa8f`
 - reference SHA-256: `38cf516e51113254e4ae0207c790f740b19dee08665063e0d8df7bd277040c20`
@@ -219,8 +219,8 @@ Runner and scorer:
 
 ```bash
 python3 scripts/run_fast_livo2_benchmark.py \
-  --asset-root /media/sasaki/aiueo/benchmarks/fast_livo2 \
-  --bag /media/sasaki/aiueo/benchmarks/fast_livo2/hilti_exp04_ros1.bag \
+  --asset-root /media/user/aiueo/benchmarks/fast_livo2 \
+  --bag /media/user/aiueo/benchmarks/fast_livo2/hilti_exp04_ros1.bag \
   --output <new-output-directory>
 python3 scripts/summarize_fast_livo2_benchmark.py \
   --benchmark-dir <new-output-directory> \
@@ -244,7 +244,7 @@ It is applied unchanged to both systems.
 
 Three-run evidence:
 
-- artifacts: `/media/sasaki/aiueo/benchmarks/glim/results/competitive_v1_exp04_3x_20260714`
+- artifacts: `/media/user/aiueo/benchmarks/glim/results/competitive_v1_exp04_3x_20260714`
 - bag SHA-256: `d1117a4c6e4c3626a3039e48719ec6e39af34b0a95f5a9807163bc717229c8ee`
 - all runs: 1,228 poses, final gap 0.1173 s, process exit 0
 - APE RMSE median: 0.086624 m (range 0.084876--0.086702 m)
@@ -260,7 +260,7 @@ pause as completion on this short bag. The harness now accepts a configurable
 margin; this profile uses 0.25 seconds and every formal run ended within
 0.0173 seconds of the bag end.
 
-- artifacts: `/media/sasaki/aiueo/benchmarks/competitive_ours/exp04_3x_20260714`
+- artifacts: `/media/user/aiueo/benchmarks/competitive_ours/exp04_3x_20260714`
 - all runs: 1,258 poses, process exit 0, identical APE
 - APE RMSE median: 0.056536 m, 34.7% lower than GLIM
 - processing RTF: 1.094 / 0.993 / 0.977; median 0.993
@@ -285,7 +285,7 @@ compact submaps were exported to world-frame PCD with
 
 All three repeated evaluator reports were byte-identical for each map. The
 lidarslam row now comes from a fresh same-bag, same-six-checkpoint map-save run
-at `/media/sasaki/aiueo/benchmarks/competitive_ours/exp04_map_fresh_20260714`;
+at `/media/user/aiueo/benchmarks/competitive_ours/exp04_map_fresh_20260714`;
 its Autoware bundle verification passed 8/8 checks. The coverage deficit is
 therefore a reproduced design gap rather than a stale-artifact uncertainty.
 Trajectory accuracy is already ahead, but the GLIM map non-regression gate is
@@ -324,7 +324,7 @@ the canonical ROS2 tree SHA-256 is
 `0cf22390317bf2841103d30623a98eb4da17cba757eb2e5a1c367cc24906bf56`.
 The converted bag contains 262,178 messages over 430.286 seconds. The frozen
 manifest is
-`/media/sasaki/aiueo/benchmarks/competitive_holdouts/manifests/exp02_inputs.json`
+`/media/user/aiueo/benchmarks/competitive_holdouts/manifests/exp02_inputs.json`
 (SHA-256 `790aa4f4fb374983940301b24858885a803c598a8fa805f852dc9008efb9b683`).
 The ROS1/ROS2 semantic audit exactly matched all 4,302 LiDAR, 171,801 IMU,
 and 17,211 cam0 messages; its artifact SHA-256 is
@@ -369,7 +369,7 @@ the canonical ROS2 tree SHA-256 is
 `21e09d96b5374de856e41cb5a1e67bfeca9128c8227a95093486acfe230eeceb`.
 The converted bag contains 188,563 messages over 309.518 seconds. The frozen
 manifest is
-`/media/sasaki/aiueo/benchmarks/competitive_holdouts/manifests/exp03_inputs.json`
+`/media/user/aiueo/benchmarks/competitive_holdouts/manifests/exp03_inputs.json`
 (SHA-256 `b18db47c61ce3085b9dc1ea224ec83c0a22983d5d1a37a0660b45b1f6cdefc32`).
 The ROS1/ROS2 semantic audit exactly matched all 3,095 LiDAR, 123,557 IMU,
 and 12,379 cam0 messages; its artifact SHA-256 is
@@ -378,7 +378,7 @@ and 12,379 cam0 messages; its artifact SHA-256 is
 ## Frozen exp03 rival baselines
 
 GLIM CPU artifacts are under
-`/media/sasaki/aiueo/benchmarks/competitive_holdouts/exp03/glim_cpu_3x`.
+`/media/user/aiueo/benchmarks/competitive_holdouts/exp03/glim_cpu_3x`.
 All three runs completed cleanly. The common reference contains 16 surveyed
 checkpoints; the first checkpoint precedes GLIM initialization and was excluded
 for every run. APE RMSE was 2.56673 / 2.20587 / 1.27193 m (median 2.20587 m),
@@ -396,7 +396,7 @@ all three report/map hashes and rows, records two meaningful repetitions, sets
 `aggregation_valid: false`, and deliberately has no aggregate value.
 
 FAST-LIVO2 runtime artifacts are under
-`/media/sasaki/aiueo/benchmarks/competitive_holdouts/exp03/fast_livo2_1x_3x`.
+`/media/user/aiueo/benchmarks/competitive_holdouts/exp03/fast_livo2_1x_3x`.
 All three runs produced exactly 3,092 poses and shut down cleanly. On all 17
 checkpoints APE RMSE was 0.76402 / 0.79627 / 0.65214 m (median 0.76402 m),
 and maximum peak RSS was 4,775.18 MB. One-times player wall RTF was 1.00382
@@ -410,7 +410,7 @@ timing-altered run equivalent; the failed validation artifact is retained at
 `fast_livo2_rate1p025_3x/processing_rtf_validation.json`.
 
 FAST map-only artifacts are under
-`/media/sasaki/aiueo/benchmarks/competitive_holdouts/exp03/fast_livo2_map_3x`.
+`/media/user/aiueo/benchmarks/competitive_holdouts/exp03/fast_livo2_map_3x`.
 Three independent official exports passed the common 0.1 m evaluator. The
 conservative worst values are 0.03440 m mean plane thickness, 0.10031 m p95,
 and 0.57593 planar coverage.
@@ -440,10 +440,10 @@ its canonical ROS2 tree SHA-256 is
 `bcca9769ebdd87929dbf10af77ae58570ef4e2d67f59458e2f12779748e8cba6`.
 The semantic bridge audit exactly matched all 1,528 LiDAR, 61,012 IMU, and
 6,112 cam0 messages. The frozen input manifest is
-`/media/sasaki/aiueo/benchmarks/competitive_holdouts/manifests/exp21_inputs.json`.
+`/media/user/aiueo/benchmarks/competitive_holdouts/manifests/exp21_inputs.json`.
 
 GLIM CPU artifacts are under
-`/media/sasaki/aiueo/benchmarks/competitive_holdouts/exp21/glim_cpu_3x`.
+`/media/user/aiueo/benchmarks/competitive_holdouts/exp21/glim_cpu_3x`.
 All three runs completed on the same five surveyed checkpoints. APE RMSE was
 0.167418 / 0.261510 / 0.365701 m (median 0.261510 m), processing RTF was
 0.29487 / 0.29611 / 0.32489, and maximum peak RSS was 735.55 MB. Independent
@@ -451,7 +451,7 @@ map exports gave conservative worst values of 0.07614 m mean plane thickness,
 0.12308 m p95, and 0.66079 planar coverage.
 
 FAST-LIVO2 runtime artifacts are under
-`/media/sasaki/aiueo/benchmarks/competitive_holdouts/exp21/fast_livo2_1x_3x`.
+`/media/user/aiueo/benchmarks/competitive_holdouts/exp21/fast_livo2_1x_3x`.
 All three runs completed and shut down cleanly. APE RMSE was 8.45399 / 8.36165 /
 8.81196 m (median 8.45399 m), with five of five reference checkpoints used;
 maximum peak RSS was 7,727.26 MB. The large error is repeatable and is not a
@@ -468,7 +468,7 @@ the failed validation artifact is retained rather than substituting replay
 pacing as processing time.
 
 FAST map-only artifacts are under
-`/media/sasaki/aiueo/benchmarks/competitive_holdouts/exp21/fast_livo2_map_3x`.
+`/media/user/aiueo/benchmarks/competitive_holdouts/exp21/fast_livo2_map_3x`.
 Three independent official exports passed the common 0.1 m evaluator. The
 conservative worst values are 0.04418 m mean plane thickness, 0.09761 m p95,
 and 0.85672 planar coverage. Map-export resource use remains excluded from the

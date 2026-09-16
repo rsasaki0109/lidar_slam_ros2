@@ -36,10 +36,10 @@ image:
   tag: m6a10-v2c-v17-retryable-abort-correction-20260823t224017z-fast-livo2-benchmark:ros1-pinned
   id: sha256:f1432426af64e76d9ad9c655a8727d35c2fb0a03753502ada3b21187638f747c
   status: BUILT_NO_INPUT_PASS
-  build_receipt_path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v17_build_correction_20260823T224017Z_agentv17/build_identity.receipt.json
+  build_receipt_path: /media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v17_build_correction_20260823T224017Z_agentv17/build_identity.receipt.json
   build_receipt_sha256: 23811d4200f9ed3ac464083ef339eb6d0437815ffdd82a2f37cc4180195bc2f7
   build_receipt_sidecar_sha256: 76e9859832412f0310e685b376324ff53ce4dbe033d2d440fce940421b1de15b
-  no_input_receipt_path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v17_no_input_correction2_20260823T225359Z_agentv17/no_input.receipt.json
+  no_input_receipt_path: /media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v17_no_input_correction2_20260823T225359Z_agentv17/no_input.receipt.json
   no_input_receipt_sha256: ac1df6f390ad3e348e572ced668f4971bc05ac835c55cc83fef9ea4ad5fa3d74
   no_input_receipt_sidecar_sha256: 8dfa1520c1e2024af3f0710de4ee8c38c9cf4a1402389891ac77d423d1848164
 
@@ -55,12 +55,12 @@ phase:
 synthetic_gate:
   contract_version: m6a10-v22-synthetic-wrapper-persistence-v1
   success:
-    path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v22_synthetic_success_20260824T023200Z_agentv22/synthetic_gate.receipt.json
+    path: /media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v22_synthetic_success_20260824T023200Z_agentv22/synthetic_gate.receipt.json
     sha256: 87a054210b36d6015272a177d6c1d86f4535bee3334a6b1bf6ee06bf595899d0
     sidecar_sha256: 0537e9b3db974af501fc1f3f11a8fef60ea4647c90db66170e1f798980dcdce2
     status: PASS
   failure:
-    path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v22_synthetic_failure_20260824T023300Z_agentv22/synthetic_gate.receipt.json
+    path: /media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v22_synthetic_failure_20260824T023300Z_agentv22/synthetic_gate.receipt.json
     sha256: 73b37d869af9460c10d97e74c5e424bd831959eae1aea32eafcfbaf35088998f
     sidecar_sha256: 178d2e0f83d42d91099615c12aab9e8618f95da624db93fe3ca9ee16c51721e9
     status: FAIL_CLOSED
@@ -75,10 +75,10 @@ synthetic_gate:
     no_formal_replay: true
 
 lineage:
-  v21_cleanup_correction_path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v21_formal_replay_20260824T012000Z_agentv21formal/cleanup_correction.receipt.json
+  v21_cleanup_correction_path: /media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v21_formal_replay_20260824T012000Z_agentv21formal/cleanup_correction.receipt.json
   v21_cleanup_correction_sha256: 3e68466eda1b22954bd7e81b132ea2b6decb7b72e0e745ed88d82ce4e1bb8988
   v21_cleanup_correction_sidecar_sha256: 43bff7f7cafae1f2dc2b8cde21da2c4080eb0738f27d919f0f3d1295def66279
-  v21_closure_path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v21_formal_replay_20260824T012000Z_agentv21formal/closure_receipt.json
+  v21_closure_path: /media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v21_formal_replay_20260824T012000Z_agentv21formal/closure_receipt.json
   v21_closure_sha256: 8b2c5ed3ea1b7eeab130838f7c92a620549e5ffe50a52752a710360d8bd9875c
   v21_closure_sidecar_sha256: acfc839d02f1c96db7e642253700d9e157f29977135a7f2489a649e1a5e528be
   v21_failure_kind: FEEDER_PERSISTENCE

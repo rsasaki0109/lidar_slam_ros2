@@ -359,10 +359,10 @@ explicit_exclusions:
 exposure_audit:
   checked_at: '2026-08-21 JST'
   repository_roots:
-    - /home/sasaki/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2
-    - /home/sasaki/workspace/kf_ws
-  media_root: /media/sasaki
-  local_hilti_root: /media/sasaki/aiueo1/datasets/hilti2022
+    - /home/user/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2
+    - /home/user/workspace/kf_ws
+  media_root: /media/user
+  local_hilti_root: /media/user/aiueo1/datasets/hilti2022
   excluded_paths:
     - .git
     - build
@@ -385,7 +385,7 @@ exposure_audit:
       '\b(exp14|exp16|exp18)\b|basement[ _-]+2|attic[ _-]+to[ _-]+upper[ _-]+gallery[ _-]+2|corridor[ _-]+lower[ _-]+gallery[ _-]+2'
       <repository_roots>
     media_exact_candidate_search: >-
-      find /media/sasaki -type f \( -iname '*exp14*' -o -iname '*exp16*'
+      find /media/user -type f \( -iname '*exp14*' -o -iname '*exp16*'
       -o -iname '*exp18*' -o -iname '*basement*2*'
       -o -iname '*attic*upper*gallery*2*'
       -o -iname '*corridor*lower*gallery*2*' \)

@@ -54,9 +54,9 @@ without further tuning.
 
 Artifacts are rooted at:
 
-- `/media/sasaki/aiueo/benchmarks/hilti_exp07_degeneracy_solve_20260713`
-- `/media/sasaki/aiueo/benchmarks/hilti_exp04_degeneracy_solve_holdout_20260713`
-- `/media/sasaki/aiueo/benchmarks/hilti_exp01_degeneracy_solve_holdout_20260713`
+- `/media/user/aiueo/benchmarks/hilti_exp07_degeneracy_solve_20260713`
+- `/media/user/aiueo/benchmarks/hilti_exp04_degeneracy_solve_holdout_20260713`
+- `/media/user/aiueo/benchmarks/hilti_exp01_degeneracy_solve_holdout_20260713`
 
 After rebuilding with the frozen opt-in defaults, the exp07 candidate repeated
 the exact APE above and produced the same trajectory SHA-256 on both runs:
@@ -92,4 +92,4 @@ future work needs a sensor- and prior-consistency gate, not another global
 weight adjustment.
 
 MID-360 artifact:
-`/media/sasaki/aiueo/benchmarks/mid360_public/degeneracy_solve_holdout_20260713/frozen_candidate`.
+`/media/user/aiueo/benchmarks/mid360_public/degeneracy_solve_holdout_20260713/frozen_candidate`.

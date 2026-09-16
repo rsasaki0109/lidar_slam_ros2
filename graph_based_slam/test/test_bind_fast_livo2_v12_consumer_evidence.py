@@ -169,7 +169,7 @@ def _terminal(
 
 def _feeder() -> dict[str, Any]:
     bag_path = (
-        '/media/sasaki/aiueo1/datasets/ntu_viral_release/'
+        '/media/user/aiueo1/datasets/ntu_viral_release/'
         'tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag')
     return {
         'schema_version': 1,

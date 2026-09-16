@@ -46,18 +46,18 @@ IMAGE_ID = "sha256:03dfa4c3e7c3f1ea9160ba2276ea23bfbdef43d441bc8afc628f907bd5074
 PHASE_CONTRACT = "m6a10-online-compute-v5-terminal-nonlidar-at-or-after-boundary"
 TRANSPORT_CONTRACT = "m6a10-v12-callback-ack-transport-outstanding-v1"
 BUILD_RECEIPT_PATH = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v12_build_20260823T161850Z_agentv12/build_identity.receipt.json"
 )
 BUILD_RECEIPT_SHA256 = "e0e5c924025a24083661a6838bc5af28f07c34c419ce6e103c37890ed1382dda"
 ATTEMPT6_RECEIPT_PATH = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v12_dual_service_attempt6_20260823T175000Z_agentv12/"
     "no_input_dual_evidence.receipt.json"
 )
 ATTEMPT6_RECEIPT_SHA256 = "c5afa2452f96588bf46dc7f0d0b4504e816d0069bbd3a107009eb2c3beac0b45"
 HOST_GATE_RECEIPT_PATH = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v12_host_evidence_gate_20260823T180718Z_agentv12/"
     "host_evidence_gate.receipt.json"
 )
@@ -65,7 +65,7 @@ HOST_GATE_RECEIPT_SHA256 = "3a603bc4ece0e9167b0b3943df6be569f2e64bce196beb18da29
 EXPECTED_COUNTS = {"lidar": 5793, "imu": 225102, "image": 5792}
 EXPECTED_MESSAGES = 236687
 INPUT_PATH = (
-    "/media/sasaki/aiueo1/datasets/ntu_viral_release/"
+    "/media/user/aiueo1/datasets/ntu_viral_release/"
     "tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag"
 )
 INPUT_BYTES = 11290464091

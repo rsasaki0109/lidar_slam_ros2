@@ -14,7 +14,7 @@ reset_on_registration_failure: false
 relocalize_after_scan_gap: false
 
 selective_visual_fusion: true
-visual_constraints_path: /media/sasaki/aiueo/benchmarks/competitive_ours/exp01_visual_development_20260715/selective_visual_constraints.json
+visual_constraints_path: /media/user/aiueo/benchmarks/competitive_ours/exp01_visual_development_20260715/selective_visual_constraints.json
 visual_prior_max_time_offset_sec: 0.08
 visual_min_tracks: 80
 visual_min_inliers: 50

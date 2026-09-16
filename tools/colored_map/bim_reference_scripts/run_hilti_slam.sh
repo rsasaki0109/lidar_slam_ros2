@@ -18,8 +18,8 @@ source /opt/ros/jazzy/setup.bash
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd -- "$SCRIPT_DIR/../../.." && pwd)
 source "$REPO_ROOT/install/setup.bash"
-OUT=${HILTI_SLAM_OUT:-/media/sasaki/aiueo/lidarslam_work/output/bim_maps}
-BAG=${1:-/media/sasaki/aiueo/datasets/hilti2022/exp07_ros2}
+OUT=${HILTI_SLAM_OUT:-/media/user/aiueo/lidarslam_work/output/bim_maps}
+BAG=${1:-/media/user/aiueo/datasets/hilti2022/exp07_ros2}
 PREFIX=${2:-exp07}
 DUR=${3:-40}
 RATE=${4:-0.5}

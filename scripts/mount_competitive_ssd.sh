@@ -14,7 +14,7 @@
 set -euo pipefail
 
 readonly SSD_UUID="3b5dc9b7-c4de-4cf2-a892-00b2c063f34e"
-readonly TARGET="/media/sasaki/aiueo1"
+readonly TARGET="/media/user/aiueo1"
 readonly UUID_PATH="/dev/disk/by-uuid/${SSD_UUID}"
 readonly MOUNT_OPTIONS="rw,nosuid,nodev"
 

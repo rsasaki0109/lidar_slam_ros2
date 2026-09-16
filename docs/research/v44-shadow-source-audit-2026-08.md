@@ -135,7 +135,7 @@ They began at 34.38--34.40 MiB RSS, peaked at 50.45--50.46 MiB, and added
 16.06--16.07 MiB, below both audit ceilings.
 
 Evidence is retained under
-`/home/sasaki/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v44d_fixed_lag_shadow_source_audit_20260810/`.
+`/home/user/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v44d_fixed_lag_shadow_source_audit_20260810/`.
 The aggregate JSON SHA-256 is
 `b2494f42b07d9fd844f14112da5b6df6fd050007326018967f9f794b0cb5e997`,
 and its deterministic aggregate payload SHA-256 is

@@ -67,23 +67,23 @@ source:
 
 evidence:
   build_receipt:
-    path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v15_build_20260823T203230Z_agentv15_correction/build_identity.receipt.json
+    path: /media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v15_build_20260823T203230Z_agentv15_correction/build_identity.receipt.json
     sha256: 5005c8d392a8591bdfcda8e1de31be3a550a39c61ed22a3ae48455e1a05bce40
     sidecar_sha256: 6940f5762e87bf9f08752b950f12de2ae8423c9b0217841e212af56f61a04c65
     status: PASS
   v15_authorization:
-    path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v15_formal_authorization_20260823T210707Z_agentv15/formal_authorization.receipt.json
+    path: /media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v15_formal_authorization_20260823T210707Z_agentv15/formal_authorization.receipt.json
     sha256: 60db8d6328481b4b3d6b9c85711ca02c60fa4803e3bb62005f5d10bb36714613
     sidecar_sha256: 496e46ac106db3c8f9427156b623f6aed313e6e983ad581fc5ffea268a78fc22
     status: AUTHORIZED_FOR_V15_ROOT_ONLY
   v15_no_input_pass:
-    path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v15_no_input_correction_20260823T204349Z_agentv15/no_input_correction.receipt.json
+    path: /media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v15_no_input_correction_20260823T204349Z_agentv15/no_input_correction.receipt.json
     sha256: e5e1703b6cfcd6b10c9703af06f7d89ede2c638519b285d3ae12152b3e63b5ff
     sidecar_sha256: d2cf11c36fb203d3972daeef9f9c2f0fe462a82dfac19070a822c6672fb086a3
     status: PASS
 
 input_contract:
-  path: /media/sasaki/aiueo1/datasets/ntu_viral_release/tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag
+  path: /media/user/aiueo1/datasets/ntu_viral_release/tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag
   bytes: 11290464091
   sha256: 5bc7c6a0e5088aa3f733377a3e597705b075b1ec5ca5be272b75636a0b697310
   expected_messages: 236687

@@ -142,7 +142,7 @@ def _profile(
     if not isinstance(input_value, dict) or not isinstance(phase, dict):
         raise _error("PROFILE_INVALID", "v12 profile input/phase missing")
     expected_counts = _counts(input_value.get("expected_topic_counts"), "profile.expected_topic_counts")
-    if (input_value.get("path") != "/media/sasaki/aiueo1/datasets/ntu_viral_release/tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag" or
+    if (input_value.get("path") != "/media/user/aiueo1/datasets/ntu_viral_release/tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag" or
             input_value.get("bytes") != 11290464091 or
             input_value.get("sha256") != "5bc7c6a0e5088aa3f733377a3e597705b075b1ec5ca5be272b75636a0b697310" or
             input_value.get("expected_messages") != 236687 or

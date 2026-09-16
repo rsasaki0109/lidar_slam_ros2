@@ -4,7 +4,7 @@ evaluation_role: second_untouched_holdout_single_frozen_profile
 candidate_manifest: map-thickness-ndt-guard03-candidate-2026-07-23.yaml
 candidate_manifest_pre_holdout_sha256: d1d76b9dbd7c3c2d3fb5d276b44d371fe62bf4f73ce0daf46a4c5afcfb645b5f
 parameters_changed_after_observing_holdout: false
-evidence_root: /media/sasaki/aiueo/benchmarks/map_thickness_exp21_holdout_20260723/exp21
+evidence_root: /media/user/aiueo/benchmarks/map_thickness_exp21_holdout_20260723/exp21
 
 frozen_input:
   exact_odom_cloud_pairs: 1528

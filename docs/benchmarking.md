@@ -506,7 +506,7 @@ The previous campaign4 wall-time result remains an immutable failure lineage
 (FAST exceeded the old `<=1.0` wall gate); it is not retroactively converted
 to the new metric. A GT-blind NTU Viral `tnp_01` public/training replay is
 recorded at
-`/media/sasaki/aiueo/benchmarks/m6a10_training_20260822/ntu_tnp01_training_validation_summary.json`
+`/media/user/aiueo/benchmarks/m6a10_training_20260822/ntu_tnp01_training_validation_summary.json`
 (SHA-256
 `4217a4b07f5ff85148e7433be1b9fef51e35d843a98bbb287d6f9c010c254177`).
 It remains `INCOMPLETE`/`FAIL_CLOSED`: ours lacks authoritative drop/queue
@@ -560,12 +560,12 @@ The verified image is
 `m6a10-v2b-20260823-glim-cpu-benchmark:competitive-v1` with immutable ID
 `sha256:010c0019a077116edf4d1e7462dfa28561c4fb17db3b5db52e3652c8a875eb41`.
 The read-only build/identity receipt is
-`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2b-glim-closure-20260823/build_receipt.json`
+`/media/user/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2b-glim-closure-20260823/build_receipt.json`
 with SHA-256
 `fe4d7e3b3b3fec28185f5faa016b19dfb30bd9a52928b099a68d6679e0a09df2`.
 The system-level execution identity was then rechecked without opening a bag
 or starting a benchmark. Its PASS receipt is
-`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2b-execution-preflight-20260823-v2/execution_identity_preflight.json`
+`/media/user/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2b-execution-preflight-20260823-v2/execution_identity_preflight.json`
 with SHA-256
 `0ae210d6df457fb6bebf7c23ee33cb4e9299bcfe5f0ddde2ad009f79b1dd5179`.
 It binds the current runner/wrapper, recipe, image ID, all OCI labels, the
@@ -576,9 +576,9 @@ config tree hash used the wrong algorithm; the v2 receipt uses the pinned
 preflight only: replay, GT access, scorer invocation, and performance claims
 are absent from the preflight itself.
 The fixed10-v2 evidence root is
-`/media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/glim_m6a10_v2b_unpaced_ack_fixed10_v2`.
+`/media/user/aiueo1/benchmarks/m6a10_training_20260823/glim_m6a10_v2b_unpaced_ack_fixed10_v2`.
 The immutable closure receipt is
-`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2b-execution-closure-20260823/closure_receipt.json`
+`/media/user/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2b-execution-closure-20260823/closure_receipt.json`
 (SHA-256
 `72d8ef9cd2c8e26d4c2120463fdbff3057a75e3f81203863049c11028baa41d5`),
 and its output tree SHA-256 is
@@ -621,7 +621,7 @@ runner now uses the materializer's
 `relative_path_size_content_sha256_v1` tree hash and `--pull=never`; its
 SHA-256 is `c1f347f5af3751d19ba89ca087e37e32cd9b135108e742f7f3e9e044a205cb24`.
 The v3 identity preflight is
-`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2b-execution-preflight-20260823-v3/execution_identity_preflight.json`
+`/media/user/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2b-execution-preflight-20260823-v3/execution_identity_preflight.json`
 (SHA-256
 `9b8cc1d089a73113930557c6558a32a5ded3725d386b20a78c61fc14e740e190`). It
 binds only the canonical ROS2 input directory to `/data:ro`; the release
@@ -629,7 +629,7 @@ parent and its `ntuviral_gt` sibling are absent from the Docker mount graph.
 The image was not rebuilt or pulled.
 
 The single v3 run is under
-`/media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/glim_m6a10_v2b_unpaced_ack_fixed10_v3`.
+`/media/user/aiueo1/benchmarks/m6a10_training_20260823/glim_m6a10_v2b_unpaced_ack_fixed10_v3`.
 Its consumer evidence passed exact expected/received/processed `236687`,
 zero drops/overflow/failures, EOF, final drain backlog `0`, and maximum
 callback latency `0.025782` seconds. Process-tree RSS evidence passed at
@@ -641,7 +641,7 @@ finalizer revalidated the observed high-water backlog `249` using its default
 bound `0` instead of the preregistered `100000`, so `phase_evidence.json` is
 invalid (`consumer_backlog_bound_exceeded`) despite the authoritative consumer
 evidence passing. The immutable closure receipt is
-`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2b-execution-closure-20260823-v3/closure_receipt.json`
+`/media/user/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2b-execution-closure-20260823-v3/closure_receipt.json`
 (SHA-256
 `492d39b1f7c4a1a2e86893dd979b0ed57b3f37267cb7f21849b990d95bcc32ff`). This
 attempt authorizes no scoring, accuracy, performance comparison, SOTA claim,
@@ -660,22 +660,22 @@ contract allowed `100000`. The common finalizer now receives that bound
 explicitly and rejects consumer/phase bound mismatches.
 
 The v4 identity preflight is
-`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2b-execution-preflight-20260823-v4/execution_identity_preflight.json`
+`/media/user/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2b-execution-preflight-20260823-v4/execution_identity_preflight.json`
 (SHA-256
 `fda87bce9af6c60a60fcc3523e3f64f4b0fba288f2eea53988432085ab95af8a`), and
 the single quiescence receipt is
-`/media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/glim_m6a10_v2b_unpaced_ack_fixed10_v4/quiescence.json`
+`/media/user/aiueo1/benchmarks/m6a10_training_20260823/glim_m6a10_v2b_unpaced_ack_fixed10_v4/quiescence.json`
 (SHA-256
 `de015c5b7530c66ba222d1c9fcfdc20d486fbde8ee8cfec36a01c0a677814894`). Both
 passed before the runner started. The runner mounted only the canonical input
 directory as `/data:ro` and used `--network none --read-only --pull=never`.
 
 The v4 run root is
-`/media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/glim_m6a10_v2b_unpaced_ack_fixed10_v4`;
+`/media/user/aiueo1/benchmarks/m6a10_training_20260823/glim_m6a10_v2b_unpaced_ack_fixed10_v4`;
 its output tree SHA-256 is
 `85de6ad890b3009cedac7720b5e795f764eafa2cde3cfb13bae3ebee7c04bc1c`. The
 independent closure receipt is
-`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2b-execution-closure-20260823-v4/closure_receipt.json`
+`/media/user/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2b-execution-closure-20260823-v4/closure_receipt.json`
 (SHA-256
 `f33953c4126939dfce841b030cdb2e5560615d42963ae4aaaf4ab0aad7a7f6c1`) and
 records `PASS` with retry `0`. Consumer and phase evidence agree on exact
@@ -697,7 +697,7 @@ and the bound execution-selection file SHA is
 
 The one fixed10-v2 ours replay is immutable `FAIL_CLOSED`; it is not a
 performance comparison and was not retried. Its root is
-`/media/sasaki/aiueo1/benchmarks/m6a10_training_20260822/ours_m6a10_v2a_unpaced_ack_fixed10_v2`
+`/media/user/aiueo1/benchmarks/m6a10_training_20260822/ours_m6a10_v2a_unpaced_ack_fixed10_v2`
 (root tree SHA-256
 `868dc7369494eb7f6f7e09ab9363c408024c8bdeb31d7055113f1d9c6d5d7418`, output
 tree SHA-256
@@ -726,7 +726,7 @@ scoring remain false.
 
 The single v3 quiescence preflight is retained as `FAIL_CLOSED`; it did not
 start a runner and was not retried. Its receipt is
-`/media/sasaki/aiueo1/benchmarks/m6a10_training_20260822/ours_m6a10_v2a_unpaced_ack_fixed10_v3/quiescence.json`
+`/media/user/aiueo1/benchmarks/m6a10_training_20260822/ours_m6a10_v2a_unpaced_ack_fixed10_v3/quiescence.json`
 (SHA-256
 `74732fbdeb9bb8da094bacde3518cc2475eaeb29a3f4fec5c39d7972dc97a5a6`). The
 five-second observation recorded CPU busy `98.72340425531915%` against `5%`,
@@ -738,14 +738,14 @@ preflight failure as its explicit predecessor. Its one preflight is retained
 as an immutable `FAIL_CLOSED`: CPU busy was `98.12312312312312%` against
 `5%`, load1-per-CPU was `0.86` against `0.5`, and seven compiler processes
 were present. The v4 receipt is
-`/media/sasaki/aiueo1/benchmarks/m6a10_training_20260822/ours_m6a10_v2a_unpaced_ack_fixed10_v4/quiescence.json`
+`/media/user/aiueo1/benchmarks/m6a10_training_20260822/ours_m6a10_v2a_unpaced_ack_fixed10_v4/quiescence.json`
 (SHA-256
 `b8c7b38debd07586f3af060e51b83a5fa94108ba2c80bf27f481ac16f291fb51`). It
 did not start a runner and was not retried.
 
 Fixed10-v5 records the next one-time preflight under the same unchanged
 functional contract. Its receipt is
-`/media/sasaki/aiueo1/benchmarks/m6a10_training_20260822/ours_m6a10_v2a_unpaced_ack_fixed10_v5/quiescence.json`
+`/media/user/aiueo1/benchmarks/m6a10_training_20260822/ours_m6a10_v2a_unpaced_ack_fixed10_v5/quiescence.json`
 (SHA-256
 `dbf54a1a5a1fd9d527fef280f633e3710b9a79d04ac482bb13ac1278516b4dee`). This
 five-second observation is also immutable `FAIL_CLOSED`: CPU busy was
@@ -759,11 +759,11 @@ but the preflight-to-run continuity window was lost before a runner was
 started. It is therefore closed `FAIL_CLOSED` as
 `runner_not_started_after_preflight`; the runner was not retried, and no bag
 replay, ground-truth access, or scoring occurred. The PASS preflight receipt
-is `/media/sasaki/aiueo1/benchmarks/m6a10_training_20260822/ours_m6a10_v2a_unpaced_ack_fixed10_v6/quiescence.json`
+is `/media/user/aiueo1/benchmarks/m6a10_training_20260822/ours_m6a10_v2a_unpaced_ack_fixed10_v6/quiescence.json`
 (SHA-256
 `d9cf50b07157a7da8655d672d7955a768676361735967e35e64367b6272cf3fa`). The
 immutable closure receipt is
-`/media/sasaki/aiueo1/benchmarks/m6a10_training_20260822/ours_m6a10_v2a_unpaced_ack_fixed10_v6/runner_not_started_after_preflight.json`
+`/media/user/aiueo1/benchmarks/m6a10_training_20260822/ours_m6a10_v2a_unpaced_ack_fixed10_v6/runner_not_started_after_preflight.json`
 (SHA-256
 `ef04937fd7c17b2ed017902985502aa02b9349ccb63961dcd206c0370aea79ad`).
 
@@ -780,7 +780,7 @@ calculation still matches `0a45497a…e38cb926`; the failure is therefore a
 launcher hash-contract mismatch (its observed diagnostic omitted the file
 size field), not evidence that the managed input bytes changed.
 The immutable closure is
-`/media/sasaki/aiueo1/benchmarks/m6a10_training_20260822/ours_m6a10_v2a_unpaced_ack_fixed10_v7/closure_receipt.json`
+`/media/user/aiueo1/benchmarks/m6a10_training_20260822/ours_m6a10_v2a_unpaced_ack_fixed10_v7/closure_receipt.json`
 (SHA-256
 `fffba96d21721c5b811fb7710d3d77889e81e0c8bfb4ffcb8957f6c94bce57da`),
 with retry count zero; the root contains no quiescence receipt, launch
@@ -850,7 +850,7 @@ tests are `graph_based_slam/test/test_m6a10_fixed10_v9_launcher.py` (SHA-256
 preregistration, the exact v9 `validate_preflight_identity` path passed a
 read-only real-input/source/local-image check. The external identity receipt
 is
-`/media/sasaki/aiueo1/benchmarks/m6a10_training_20260822/ours_m6a10_v2a_unpaced_ack_fixed10_v9_identity_preflight_v2/identity_receipt.json`
+`/media/user/aiueo1/benchmarks/m6a10_training_20260822/ours_m6a10_v2a_unpaced_ack_fixed10_v9_identity_preflight_v2/identity_receipt.json`
 (SHA-256
 `042af3a3f791400b7c642e0d5aec06357527cc09e4590999bcc75c7d96a7973c`);
 it records the canonical input tree, all pinned source hashes, Docker labels,
@@ -867,7 +867,7 @@ the active v9 identity binding. No replay, GT access, or scoring has occurred.
 Fixed10-v10 is an independent successor to the v9 `PREFLIGHT_FAIL_CLOSED`
 record. It does not alter any v1-v9 source, root, or evidence. Its single
 authorized GT-blind functional run completed at
-`/media/sasaki/aiueo1/benchmarks/m6a10_training_20260822/ours_m6a10_v2a_unpaced_ack_fixed10_v10`;
+`/media/user/aiueo1/benchmarks/m6a10_training_20260822/ours_m6a10_v2a_unpaced_ack_fixed10_v10`;
 there was no retry, GT mount/access, scorer invocation, or performance
 comparison. The launcher is
 `scripts/run_m6a10_fixed10_v10.py` (SHA-256
@@ -882,7 +882,7 @@ the canonical input tree
 immutable v9 source SHA
 `879fa1c44aa093b158e405806276935bc41bf3bf4d9134a4534cd4922312254f`.
 The read-only identity receipt remains
-`/media/sasaki/aiueo1/benchmarks/m6a10_training_20260822/ours_m6a10_v2a_unpaced_ack_fixed10_v10_identity_preflight/identity_receipt.json`
+`/media/user/aiueo1/benchmarks/m6a10_training_20260822/ours_m6a10_v2a_unpaced_ack_fixed10_v10_identity_preflight/identity_receipt.json`
 (SHA-256
 `2211744e3691df3fc71f7b0a81248a2e75daa4c5b15a23c8a0f8acab4b360ab2`).
 The run returned zero and passed the unpaced consumer/phase contract:
@@ -912,8 +912,8 @@ training input:
 
 ```bash
 python3 scripts/analyze_m6a10_synchronized_tail.py \
-  --bag /media/sasaki/aiueo/datasets/ntu_viral_release/tnp_01_canonical_header_order_ros2 \
-  --output /media/sasaki/aiueo1/benchmarks/m6a10_training_20260822/synchronized_tail_dryrun.iD9dIn/receipt.json \
+  --bag /media/user/aiueo/datasets/ntu_viral_release/tnp_01_canonical_header_order_ros2 \
+  --output /media/user/aiueo1/benchmarks/m6a10_training_20260822/synchronized_tail_dryrun.iD9dIn/receipt.json \
   --lidar-topic /os1_cloud_node1/points \
   --imu-topic /imu/imu \
   --dry-run
@@ -929,7 +929,7 @@ The analyzer writes only an atomic receipt outside the bag, does not create a
 trimmed bag, and never opens GT or invokes a scorer.
 
 The pinned dry-run receipt is
-`/media/sasaki/aiueo1/benchmarks/m6a10_training_20260822/synchronized_tail_dryrun.iD9dIn/receipt.json`
+`/media/user/aiueo1/benchmarks/m6a10_training_20260822/synchronized_tail_dryrun.iD9dIn/receipt.json`
 (SHA-256
 `31072befe0ee816cfe09ee600f0ed604fd361a26e863e9bc51e5edab6f5f66d3`). It
 reported 225102 IMU messages, 5794 LiDAR messages, 5793 eligible scans and
@@ -942,7 +942,7 @@ result.
 The deterministic materializer is verified against the NTU `tnp_01` canonical
 ROS2 input. The competitive profile status is
 `ros2_materialized_verified_ros1_verified`. The fixed10 external receipt is
-`/media/sasaki/aiueo1/benchmarks/m6a10_training_20260822/synchronized_tail_materialization_v1_fixed10/receipt.json`
+`/media/user/aiueo1/benchmarks/m6a10_training_20260822/synchronized_tail_materialization_v1_fixed10/receipt.json`
 (SHA-256
 `62defcf7a1b5cdadee666de44b09f71f8e011551ea93e37eec51b64a333cae9f`), and the
 published ROS2 tree SHA-256 is
@@ -970,7 +970,7 @@ hash cycle. The previous fixed10 predecessor remains immutable as
 
 The one-time ROS1 equivalence conversion completed with status `PASS`. Its
 external receipt is
-`/media/sasaki/aiueo1/benchmarks/m6a10_training_20260822/ros1_equivalence_v1/receipt.json`
+`/media/user/aiueo1/benchmarks/m6a10_training_20260822/ros1_equivalence_v1/receipt.json`
 (SHA-256
 `b71e7f5aa8f82a5711e6b25e42532caa8248a3fcf062d9b3b15a5c86460438ec`), the
 semantic report is `semantic.json` (SHA-256
@@ -1199,7 +1199,7 @@ selection bindings, and any attempt to re-enable `tnp_01`.
 
 The NTU materialization has two deliberately separate stages. Stage A reads
 the preregistered selection and profile, verifies the exact evidence mount
-(`/media/sasaki/aiueo1`, UUID `3b5dc9b7-c4de-4cf2-a892-00b2c063f34e`, ext4,
+(`/media/user/aiueo1`, UUID `3b5dc9b7-c4de-4cf2-a892-00b2c063f34e`, ext4,
 label `aiueo`, read-write), and reserves one previously absent candidate root.
 It accepts only the exact allowlisted official HTTPS role URLs and expected
 filenames in the selection. Redirect chains and final URLs are recorded and
@@ -1215,7 +1215,7 @@ the production entry point is:
 python3 scripts/acquire_ntu_viral_candidate.py \
   --selection configs/slam_benchmark_profiles/ntu_viral_selection_2026-08.yaml \
   --profile configs/slam_benchmark_profiles/competitive_slam_v1.yaml \
-  --evidence-root /media/sasaki/aiueo1
+  --evidence-root /media/user/aiueo1
 ```
 
 The current selection intentionally contains moving-reference metadata only
@@ -1233,7 +1233,7 @@ and writes only a deterministic proposal:
 python3 scripts/authorize_ntu_viral_pin.py \
   --selection configs/slam_benchmark_profiles/ntu_viral_selection_2026-08.yaml \
   --profile configs/slam_benchmark_profiles/competitive_slam_v1.yaml \
-  --candidate-root /media/sasaki/aiueo1/datasets/ntu_viral_candidates/ntu-viral-historical-selection-2026-08-v1 \
+  --candidate-root /media/user/aiueo1/datasets/ntu_viral_candidates/ntu-viral-historical-selection-2026-08-v1 \
   --output /tmp/ntu_viral_pin_proposal.json
 ```
 
@@ -1371,8 +1371,8 @@ Before any fresh-holdout replay, generate the read-only 27-attempt plan:
 
 ```bash
 python3 scripts/run_competitive_gt_blind_benchmark.py \
-  --input-root /media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821 \
-  --output-root /media/sasaki/aiueo1/benchmarks/competitive_results/m6a_gt_blind_20260822 \
+  --input-root /media/user/aiueo1/benchmarks/competitive_holdouts/fresh_20260821 \
+  --output-root /media/user/aiueo1/benchmarks/competitive_results/m6a_gt_blind_20260822 \
   --profile configs/slam_benchmark_profiles/competitive_slam_v1.yaml \
   --receipt configs/slam_benchmark_profiles/competitive_execution_selection_2026-08.yaml \
   --selection configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml \
@@ -1431,7 +1431,7 @@ The rebuilt ours image is
 `m6a3c-lidarslam-ours:jazzy@sha256:18198c17627459e96c574b1bf3093064c9c092f4fc2f89594b7e4b14705288bd`.
 Synthetic ROS2/ROS1 fixtures exercised startup, bag open/input parsing, and
 clean shutdown for all three wrappers. The normalized evidence is under
-`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a3_20260822/smoke/normalized`;
+`/media/user/aiueo1/benchmarks/competitive_build_evidence/m6a3_20260822/smoke/normalized`;
 the ours, GLIM, and FAST tree SHA-256 values are respectively
 `12e56407c0750bf47ff3aae307c4a96e78e056f84121421de10ed6d9825216ec2`,
 `2e74d9659c04007af20e4fb5999087f1a6cbaac4a4cf3df47f6eacc8562edbed`, and
@@ -1440,7 +1440,7 @@ All three contract markers report `performance_run: false` and
 `gt_mounted: false`.
 
 The disclosed rerun uses the separate results root
-`/media/sasaki/aiueo1/benchmarks/competitive_results/m6a_gt_blind_campaign2_20260822`.
+`/media/user/aiueo1/benchmarks/competitive_results/m6a_gt_blind_campaign2_20260822`.
 Its read-only dry-run has 27/27 attempts and plan SHA-256
 `465e856846eb4bcf15e125285a914d2defda72413b5016e2965b884cda2f8bd8`.
 The preflight plan is `preflight_ready`, has 27/27 attempts, plan SHA-256
@@ -1468,7 +1468,7 @@ owned by root, and unreadable to the driver user. The `.part` directory is
 preserved unchanged; no attempt 019 final manifest exists, and attempts
 020--027 were not started. The exact partial record is the external atomic
 manifest
-`/media/sasaki/aiueo1/benchmarks/competitive_results/m6a_gt_blind_campaign2_20260822/partial_campaign_manifest.json`
+`/media/user/aiueo1/benchmarks/competitive_results/m6a_gt_blind_campaign2_20260822/partial_campaign_manifest.json`
 (SHA-256
 `df91a0f0852911790f3fabb5b5638938b8e1222208943be01678a99fbd062978`). Its
 non-circular root-tree projection SHA is
@@ -1495,7 +1495,7 @@ children in the container scope.  Missing, malformed, non-atomic, or
 unreadable evidence is fail-closed.
 
 The external smoke summary is
-`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a5_20260822/memory-max-unlimited/summary.json`
+`/media/user/aiueo1/benchmarks/competitive_build_evidence/m6a5_20260822/memory-max-unlimited/summary.json`
 (SHA-256
 `e2df6b70dcec703406a406ed7a4c45aaac87b69987d87966f4d10bceee1c85bb`).  The
 known-allocation check increased the cgroup peak by `138006528` bytes while
@@ -1503,9 +1503,9 @@ the Docker-client RSS remained approximately constant; this validates the
 measurement scope, not SLAM performance.
 
 Campaign3 is a disclosed preflight-only successor at
-`/media/sasaki/aiueo1/benchmarks/competitive_results/m6a_gt_blind_campaign3_20260822`.
+`/media/user/aiueo1/benchmarks/competitive_results/m6a_gt_blind_campaign3_20260822`.
 Its final evidence directory is
-`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a5_20260822/campaign3-preflight-final`:
+`/media/user/aiueo1/benchmarks/competitive_build_evidence/m6a5_20260822/campaign3-preflight-final`:
 the dry-run plan SHA is
 `bef6184b506b852288cf07b94772442cdc47c6c58e2cef45da5140249729d082`, the
 preflight plan SHA is
@@ -1535,11 +1535,11 @@ GLIM 9/9.  FAST-LIVO2 completed 6/9; attempts 022--024 (FAST-LIVO2,
 `complete=false`.  The completion manifest SHA is
 `31df60ff2775d2f2a699e7559c16cc5d732a91e175f12af1db06bc47e4b8cd5b`.
 The read-only GT-blind integrity summary is
-`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a6_20260822/completion/integrity-summary.json`
+`/media/user/aiueo1/benchmarks/competitive_build_evidence/m6a6_20260822/completion/integrity-summary.json`
 (SHA-256
 `af27ae2c7d019db790cace3b38b250c2a5dcd3340e58fa5a91158293b2bf2024`).
 The closure manifest is
-`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a6_20260822/closure/m6a6-campaign3-closure.json`
+`/media/user/aiueo1/benchmarks/competitive_build_evidence/m6a6_20260822/closure/m6a6-campaign3-closure.json`
 (SHA-256
 `44d50669e33dbb105300b2b3f926c99f891341373e6a1dfa71ae9c85acf954b8`).
 
@@ -1560,11 +1560,11 @@ authorized.
 Before planning campaign4, the M6a7 evidence was re-audited read-only with the
 correct GNU `time` parser (including indented `Exit status:` lines) and strict
 schedule/mode validation.  The final audit is
-`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/v3_final_audit_tool_final_20260822/v3_run_audit.json`
+`/media/user/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/v3_final_audit_tool_final_20260822/v3_run_audit.json`
 (SHA-256
 `bd7f57cd2cb6fe8b93a9c28d7b193968d3e865180f2985fb66c44c736e7cd818`), and its
 normalized receipt is
-`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/v3_final_audit_tool_final_20260822/m6a7_v3_final_receipt.json`
+`/media/user/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/v3_final_audit_tool_final_20260822/m6a7_v3_final_receipt.json`
 (SHA-256
 `06985d4c4900dbe1aa27687c023c4b6c2ddd3c362ed6782c92a048f5e1eae62e`).
 The audit accepts exactly 20 AB/BA pairs (40 runs), verifies every run's
@@ -1593,7 +1593,7 @@ that checkpoint.
 
 The campaign4 read-only plans were then generated against a fresh, disjoint
 results root
-`/media/sasaki/aiueo1/benchmarks/competitive_results/m6a_gt_blind_campaign4_20260822`.
+`/media/user/aiueo1/benchmarks/competitive_results/m6a_gt_blind_campaign4_20260822`.
 The final deterministic dry-run plan SHA is
 `1ffa6836abc9aa94bb41e310de4ff2e50c9f336335b23779f0ccfa1236ea09f2`; a
 repeat dry-run produced the same bytes and SHA.  The final 27/27 preflight
@@ -1615,7 +1615,7 @@ unauthorized action in this checkpoint.
 
 The fixed campaign4 root was run only after the third quiescence window
 passed.  The pre-run snapshot is recorded at
-`/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a8_20260822/campaign4-run-start-20260822/pre_run_snapshot.json`
+`/media/user/aiueo1/benchmarks/competitive_build_evidence/m6a8_20260822/campaign4-run-start-20260822/pre_run_snapshot.json`
 with SHA-256
 `07f97ffc4241be205a0678fa58bd5defc66fa6bc818d83716d901e3177ec2341`.
 Two earlier driver starts failed before any attempt because the existing empty
@@ -1630,7 +1630,7 @@ Campaign4 completed the registered 27-attempt schedule (three systems × three
 fresh slots × three repetitions) with exit status zero and complete output
 contracts.  The immutable external artifacts are:
 
-- results root: `/media/sasaki/aiueo1/benchmarks/competitive_results/m6a_gt_blind_campaign4_20260822`;
+- results root: `/media/user/aiueo1/benchmarks/competitive_results/m6a_gt_blind_campaign4_20260822`;
 - `completion_manifest.json`, SHA-256
   `f63b14f52c0b22b957f897568aa38f5a2fce26fea47bd2ca5917f6fec43c1c74`;
 - `integrity_manifest.json`, SHA-256
@@ -1667,7 +1667,7 @@ does not access the network or dataset contents:
 ```bash
 python3 scripts/freeze_competitive_fresh_holdouts.py plan \
   --selection configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml \
-  --root /media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821 \
+  --root /media/user/aiueo1/benchmarks/competitive_holdouts/fresh_20260821 \
   --output /tmp/fresh-holdout-plan.json
 ```
 
@@ -1677,14 +1677,14 @@ this order:
 ```bash
 python3 scripts/freeze_competitive_fresh_holdouts.py download \
   --selection configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml \
-  --root /media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821
+  --root /media/user/aiueo1/benchmarks/competitive_holdouts/fresh_20260821
 # If a transfer is interrupted, use this instead of repeating download:
 python3 scripts/freeze_competitive_fresh_holdouts.py download --resume \
   --selection configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml \
-  --root /media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821
+  --root /media/user/aiueo1/benchmarks/competitive_holdouts/fresh_20260821
 python3 scripts/freeze_competitive_fresh_holdouts.py verify \
   --selection configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml \
-  --root /media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821
+  --root /media/user/aiueo1/benchmarks/competitive_holdouts/fresh_20260821
 ```
 
 Before `finalize`, prepare the canonical ROS 2 tree and semantic report from
@@ -1694,11 +1694,11 @@ all managed manifests; it requires `rosbags==0.11.0` and uses the fixed
 
 ```bash
 python3 scripts/prepare_competitive_fresh_ros_inputs.py \
-  --root /media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821 \
+  --root /media/user/aiueo1/benchmarks/competitive_holdouts/fresh_20260821 \
   --all
 # Or, for one slot (and --resume only after an interrupted preparation):
 python3 scripts/prepare_competitive_fresh_ros_inputs.py \
-  --root /media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821 \
+  --root /media/user/aiueo1/benchmarks/competitive_holdouts/fresh_20260821 \
   --sequence exp14 --resume
 ```
 
@@ -1729,13 +1729,13 @@ final state:
 ```bash
 python3 scripts/freeze_competitive_fresh_holdouts.py finalize \
   --selection configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml \
-  --root /media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821 \
-  --ros2-root exp14=/media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821/slots/exp14/canonical_ros2 \
-  --ros2-root exp16=/media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821/slots/exp16/canonical_ros2 \
-  --ros2-root exp18=/media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821/slots/exp18/canonical_ros2 \
-  --semantic-report exp14=/media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821/slots/exp14/semantic_equivalence.json \
-  --semantic-report exp16=/media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821/slots/exp16/semantic_equivalence.json \
-  --semantic-report exp18=/media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821/slots/exp18/semantic_equivalence.json
+  --root /media/user/aiueo1/benchmarks/competitive_holdouts/fresh_20260821 \
+  --ros2-root exp14=/media/user/aiueo1/benchmarks/competitive_holdouts/fresh_20260821/slots/exp14/canonical_ros2 \
+  --ros2-root exp16=/media/user/aiueo1/benchmarks/competitive_holdouts/fresh_20260821/slots/exp16/canonical_ros2 \
+  --ros2-root exp18=/media/user/aiueo1/benchmarks/competitive_holdouts/fresh_20260821/slots/exp18/canonical_ros2 \
+  --semantic-report exp14=/media/user/aiueo1/benchmarks/competitive_holdouts/fresh_20260821/slots/exp14/semantic_equivalence.json \
+  --semantic-report exp16=/media/user/aiueo1/benchmarks/competitive_holdouts/fresh_20260821/slots/exp16/semantic_equivalence.json \
+  --semantic-report exp18=/media/user/aiueo1/benchmarks/competitive_holdouts/fresh_20260821/slots/exp18/semantic_equivalence.json
 ```
 
 `--resume` is only for a managed, identity-matching staging directory; a
@@ -1749,7 +1749,7 @@ files are checked by bytes, SHA-256, Git blob identity, and a canonical logical
 tree hash; storage paths are kept separate from logical paths. `finalize`
 verifies every manifest before calculating the canonical ROS 2 input identity,
 and publishes each state atomically. The output root is
-`/media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821` for the
+`/media/user/aiueo1/benchmarks/competitive_holdouts/fresh_20260821` for the
 current preregistration. The M5d review deep-verified this managed root and
 recorded selection/profile/execution identities. Ground truth remains opaque
 and no benchmark/metric was run; no README/SOTA claim follows from acquisition
@@ -1760,7 +1760,7 @@ verifier before using it in a benchmark:
 
 ```bash
 python3 scripts/verify_competitive_frozen_holdouts.py \
-  --root /media/sasaki/aiueo1/benchmarks/competitive_holdouts/fresh_20260821 \
+  --root /media/user/aiueo1/benchmarks/competitive_holdouts/fresh_20260821 \
   --selection configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml \
   --output <out>/frozen_holdouts_deep_verification.json
 ```
@@ -2627,7 +2627,7 @@ Use `--profile failing` to create a negative-path fixture.
 The first fixed10-v1 ours replay is an immutable `FAIL_CLOSED` functional
 attempt: consumer and online phase evidence passed, but 18 map artifacts were
 observed under `--skip-map-save`. The independent receipt is
-`/media/sasaki/aiueo1/benchmarks/m6a10_training_20260822/ours_m6a10_v2a_unpaced_ack_fixed10_v1/evidence/independent_verification_final.json`
+`/media/user/aiueo1/benchmarks/m6a10_training_20260822/ours_m6a10_v2a_unpaced_ack_fixed10_v1/evidence/independent_verification_final.json`
 (SHA-256
 `ce0211f2e55e09ed2e8cb9f0692daf2dc5ebdf0f6707942292734bd542f35a0e`), with
 output tree SHA-256
@@ -2665,7 +2665,7 @@ host runner rejected the profile before starting Docker because the required
 `safety.ground_truth_mount_exposed` field was absent. The attempt therefore
 started no container and replayed no bag; this is a runner contract-validation
 failure, not a performance result. Its immutable closure receipt is
-`/media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_fixed10_v2/closure_receipt.json`
+`/media/user/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_fixed10_v2/closure_receipt.json`
 (SHA-256
 `c76ce0a5d782336012f6c9ae897f9683792799ef92eba00a429fc024958ffdf0`). The
 host `time-v.txt` and the passing quiescence receipt remain alongside it, with
@@ -2678,7 +2678,7 @@ The fixed10-v3 successor made one new quiescence attempt after the explicit
 runner because an unrelated external build was active: CPU busy was
 `98.275%`, load1/CPU was `0.69375`, and seven C++ compiler processes plus one
 `rustc` were observed. Its immutable closure is
-`/media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_fixed10_v3/closure_receipt.json`
+`/media/user/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_fixed10_v3/closure_receipt.json`
 (SHA-256
 `eed5aa5072048ea77007a2f38a1440ca60af743d389a561b9aa89b5503bbc399`), with
 quiescence receipt SHA
@@ -2705,7 +2705,7 @@ change the input,
 algorithm, mount graph, or fairness contract. The v5 image must be rebuilt to
 bind the new feeder label before any replay; no v5 quiescence or replay has
 started. Planned output root:
-`/media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_fixed10_v5`.
+`/media/user/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_fixed10_v5`.
 The preregistered source hashes are feeder
 `bde0631d29dbb18575fe0fd2ce4bc339e738d14e1b47a1ccc8a77aa348f5622d`, host
 runner `54db99e7f9da588baff33973490efb5474d86ca9888b1dae9578621810c38d48`,

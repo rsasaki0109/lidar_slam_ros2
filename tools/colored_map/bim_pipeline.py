@@ -11,8 +11,8 @@ import sys
 
 
 HERE = Path(__file__).resolve().parent
-DEFAULT_DATASET = Path('/media/sasaki/aiueo/datasets/hilti2022')
-DEFAULT_OUTPUT = Path('/media/sasaki/aiueo/lidarslam_work/output/bim_maps')
+DEFAULT_DATASET = Path('/media/user/aiueo/datasets/hilti2022')
+DEFAULT_OUTPUT = Path('/media/user/aiueo/lidarslam_work/output/bim_maps')
 
 
 def resolve_input(value: str, dataset_root: Path) -> tuple[str, Path]:

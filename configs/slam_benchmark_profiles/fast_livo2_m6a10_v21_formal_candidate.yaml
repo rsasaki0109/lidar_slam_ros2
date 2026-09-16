@@ -21,7 +21,7 @@ candidate:
     symlink_root_rejected: true
     non_directory_root_rejected: true
     parent_must_be_existing_regular_writable_directory: true
-  v20_failure_closure_path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v20_formal_replay_20260824T011000Z_agentv20formal/closure_receipt.json
+  v20_failure_closure_path: /media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v20_formal_replay_20260824T011000Z_agentv20formal/closure_receipt.json
   v20_failure_closure_sha256: ff786cc763e9f73bbeef7d94b2df5a12e7902f6d2d3c1446811fc5ade3f9f1c8
   v20_failure_closure_sidecar_sha256: 1cd28060d6db840e731ba10b417ea9acaaae41d7194e48525e71b3305b4ff313
   v20_failure_kind: OUTPUT_ROOT_NOT_RESERVED
@@ -47,10 +47,10 @@ phase:
   sensor_duration_seconds: 579.278127298
 
 lineage:
-  v20_authorization_path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v20_formal_authorization_20260824T011000Z_agentv20/formal_authorization.receipt.json
+  v20_authorization_path: /media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v20_formal_authorization_20260824T011000Z_agentv20/formal_authorization.receipt.json
   v20_authorization_sha256: 10e38c08baf04899fb478b35f9e9342d6478a218d5d50e84a5502c6ac8bd16ad
   v20_authorization_sidecar_sha256: 2c4210c1f8c05335cb45a663df72c4d62add421fef5bf79b6f36234dd0140e46
-  v20_closure_path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v20_formal_replay_20260824T011000Z_agentv20formal/closure_receipt.json
+  v20_closure_path: /media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v20_formal_replay_20260824T011000Z_agentv20formal/closure_receipt.json
   v20_closure_sha256: ff786cc763e9f73bbeef7d94b2df5a12e7902f6d2d3c1446811fc5ade3f9f1c8
   v20_closure_sidecar_sha256: 1cd28060d6db840e731ba10b417ea9acaaae41d7194e48525e71b3305b4ff313
   v20_failure_kind: OUTPUT_ROOT_NOT_RESERVED

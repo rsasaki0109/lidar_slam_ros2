@@ -13,7 +13,7 @@ candidate:
   authorization_required: true
   authorization_status: UNAUTHORIZED_NOT_INSTALLED
   v19_failed_authorization:
-    path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v19_formal_authorization_20260824T005300Z_agentv19/formal_authorization.receipt.json
+    path: /media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v19_formal_authorization_20260824T005300Z_agentv19/formal_authorization.receipt.json
     sha256: ddd42d38f60710bd39d984292194f9869c45d81993fd98ae4962bc8d7d4cb747
     sidecar_sha256: 3c6b1851455d6139b517aa00893d713b2ab0d86983fd600d7b440fd3abf6ff98
     failure_kind: AUTHORIZATION_FAIL_CLOSED

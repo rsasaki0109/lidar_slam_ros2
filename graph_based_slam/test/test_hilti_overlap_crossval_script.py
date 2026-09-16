@@ -99,7 +99,7 @@ def test_record_and_offline_modes_are_mutually_exclusive(tmp_path: Path):
 def test_script_uses_external_ssd_default_and_refuses_incomplete_capture():
     source = SCRIPT.read_text(encoding='utf-8')
 
-    assert '/media/sasaki/aiueo/benchmarks/' in source
+    assert '/media/user/aiueo/benchmarks/' in source
     assert 'incomplete backend directory exists' in source
     assert 'source output exists without backend input' in source
     assert "graph['distance_loop_closure'] = 1.0e12" in source

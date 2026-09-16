@@ -17,7 +17,7 @@ the gain independently.
 The machine-readable verdict is stored outside the repository at:
 
 ```text
-/media/sasaki/aiueo/benchmarks/phase7/plane_revisit_fresh_20260714/candidate_regression.json
+/media/user/aiueo/benchmarks/phase7/plane_revisit_fresh_20260714/candidate_regression.json
 ```
 
 Both dataset pairs use complete `public_suite_v1` manifests. The gate verifies

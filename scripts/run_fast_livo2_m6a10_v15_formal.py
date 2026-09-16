@@ -69,27 +69,27 @@ AUTHORIZER_PATH = ROOT / "scripts/authorize_fast_livo2_m6a10_v15_formal.py"
 AUTHORIZER_SHA256 = "96371d239257f99b8389aa49f56a9817c6c8b0cef8625b9807341fc8860bda15"
 
 BUILD_RECEIPT_PATH = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v15_build_20260823T203230Z_agentv15_correction/"
     "build_identity.receipt.json"
 )
 BUILD_RECEIPT_SHA256 = "5005c8d392a8591bdfcda8e1de31be3a550a39c61ed22a3ae48455e1a05bce40"
 NO_INPUT_PASS_RECEIPT_PATH = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v15_no_input_correction_20260823T204349Z_agentv15/"
     "no_input_correction.receipt.json"
 )
 NO_INPUT_PASS_RECEIPT_SHA256 = "e5e1703b6cfcd6b10c9703af06f7d89ede2c638519b285d3ae12152b3e63b5ff"
 NO_INPUT_PASS_SIDECAR_SHA256 = "d2cf11c36fb203d3972daeef9f9c2f0fe462a82dfac19070a822c6672fb086a3"
 PRIOR_NO_INPUT_FAIL_RECEIPT_PATH = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v15_build_20260823T203230Z_agentv15_correction/"
     "no_input_identity.receipt.json"
 )
 PRIOR_NO_INPUT_FAIL_SHA256 = "36782a546e558a537619f183599112354d547f0fd0a70f06c4618ec76aa5a4de"
 PRIOR_NO_INPUT_FAIL_SIDECAR_SHA256 = "197ee62c79b397d9f7ef6c6d6be40f1063584dea7cc69ef5c47558991b52320f"
 PRIOR_VALIDATOR_FAIL_RECEIPT_PATH = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v15_no_input_correction_20260823T203806Z_agentv15/"
     "no_input_correction.receipt.json"
 )

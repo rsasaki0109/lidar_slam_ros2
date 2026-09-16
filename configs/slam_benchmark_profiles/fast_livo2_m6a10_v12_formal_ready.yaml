@@ -23,7 +23,7 @@ competitive_slam_profile:
     status: source_unit_gate_validated
     result: null
     input:
-      path: /media/sasaki/aiueo1/datasets/ntu_viral_release/tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag
+      path: /media/user/aiueo1/datasets/ntu_viral_release/tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag
       bytes: 11290464091
       sha256: 5bc7c6a0e5088aa3f733377a3e597705b075b1ec5ca5be272b75636a0b697310
       expected_messages: 236687
@@ -70,12 +70,12 @@ competitive_slam_profile:
       terminal_support_tail_is_transport_backlog: false
       consumer_eof_finalize_requires_exact_counts_ack_and_outstanding_zero: true
     failure_lineage:
-      v11_attempt4_root: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_v11_formal_replay_20260823T140331Z_agentv11formal
-      v11_attempt4_closure_path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_v11_formal_replay_20260823T140331Z_agentv11formal/closure_receipt.json
+      v11_attempt4_root: /media/user/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_v11_formal_replay_20260823T140331Z_agentv11formal
+      v11_attempt4_closure_path: /media/user/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_v11_formal_replay_20260823T140331Z_agentv11formal/closure_receipt.json
       v11_attempt4_closure_sha256: 9a34616f337dd0297512f05f35d717b1294196f0c9e67c2629a6739f565b6aa8
-      v11_attempt4_raw_path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_v11_formal_replay_20260823T140331Z_agentv11formal/out/consumer_evidence.json
+      v11_attempt4_raw_path: /media/user/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_v11_formal_replay_20260823T140331Z_agentv11formal/out/consumer_evidence.json
       v11_attempt4_raw_sha256: 020de643f37e3cea269445b674c49e5c908b9632ca4c0981221df9fced606b6e
-      v11_attempt4_feeder_path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_v11_formal_replay_20260823T140331Z_agentv11formal/out/feeder_receipt.json
+      v11_attempt4_feeder_path: /media/user/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_v11_formal_replay_20260823T140331Z_agentv11formal/out/feeder_receipt.json
       v11_attempt4_feeder_sha256: ae72c91780d4bef67cde7d3c7e87e0518461838751eeac0c1911e53d60755e18
       v11_attempt4_failure_kind: CONTAINER_PROCESS_FAILURE
       v11_attempt4_exit_code: 31

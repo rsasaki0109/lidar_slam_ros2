@@ -85,7 +85,7 @@ The candidate diagnostics explain why each negative check is neutral:
 
 Artifacts:
 
-- `/media/sasaki/aiueo/benchmarks/lidar_degeneracy_datasets_v1/runs/radarless_tunnel_scene_gate_v1`
+- `/media/user/aiueo/benchmarks/lidar_degeneracy_datasets_v1/runs/radarless_tunnel_scene_gate_v1`
 
 ## Rejected variants
 

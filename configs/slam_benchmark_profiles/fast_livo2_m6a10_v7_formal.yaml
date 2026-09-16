@@ -13,14 +13,14 @@ competitive_slam_profile:
     result: null
     predecessor:
       profile_path: configs/slam_benchmark_profiles/fast_livo2_m6a10_v6_formal.yaml
-      output_root: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_fixed10_v6
-      closure_receipt_path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_fixed10_v6/closure_receipt_20260823T011820Z.json
+      output_root: /media/user/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_fixed10_v6
+      closure_receipt_path: /media/user/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_fixed10_v6/closure_receipt_20260823T011820Z.json
       closure_receipt_sha256: 07c3758cd984210adae1a72d50540d61712eeb3ef60642a2840cba536abc0fb4
       status: FAIL_CLOSED
       failure_kind: feeder_stall_before_first_publish_status_rpc
       result: null
     input:
-      path: /media/sasaki/aiueo1/datasets/ntu_viral_release/tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag
+      path: /media/user/aiueo1/datasets/ntu_viral_release/tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag
       bytes: 11290464091
       sha256: 5bc7c6a0e5088aa3f733377a3e597705b075b1ec5ca5be272b75636a0b697310
       expected_messages: 236687
@@ -58,9 +58,9 @@ competitive_slam_profile:
       image_inspect_sha256: ecf75e7c0c47df700ac9ebcecd27f30d6cdd7441918521bbbeb833b84ec50adc
       labels_canonical_sha256: c2641cc4cc0616476542f312fbd6e69af3498e3313a51eb64fd0f3d38c4e9245
       labels_raw_sha256: d43052d22066ad2a3ef488371c3ee083b61cba579a98fbf8152d7c65a6824562
-      build_receipt_path: /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-fast-livo2-v7portable-20260823/build_receipt.json
+      build_receipt_path: /media/user/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-fast-livo2-v7portable-20260823/build_receipt.json
       build_receipt_sha256: ef23ec3c7dfb91762263d1db17d7d93781d8a93c5bfbbbb494850e897909e700
-      execution_identity_preflight_path: /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-execution-preflight-v7watchdog-20260823-v2/identity_preflight.json
+      execution_identity_preflight_path: /media/user/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-execution-preflight-v7watchdog-20260823-v2/identity_preflight.json
       execution_identity_preflight_sha256: ad5c70bf82aa2596ce8bb080d529ee3f33aac97adb6c9e7c26d3c48f3043b122
       execution_identity_preflight_status: PASS
       recipe_path: docker/fast_livo2_benchmark.Dockerfile
@@ -146,14 +146,14 @@ competitive_slam_profile:
     build:
       status: PASS
       authoritative: true
-      receipt_path: /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-fast-livo2-v7portable-20260823/build_receipt.json
+      receipt_path: /media/user/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-fast-livo2-v7portable-20260823/build_receipt.json
       receipt_sha256: ef23ec3c7dfb91762263d1db17d7d93781d8a93c5bfbbbb494850e897909e700
     preflight:
       identity_status: PASS
-      identity_receipt_path: /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-execution-preflight-v7watchdog-20260823-v2/identity_preflight.json
+      identity_receipt_path: /media/user/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-execution-preflight-v7watchdog-20260823-v2/identity_preflight.json
       identity_receipt_sha256: ad5c70bf82aa2596ce8bb080d529ee3f33aac97adb6c9e7c26d3c48f3043b122
       quiescence_status: PASS
-      quiescence_receipt_path: /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-execution-quiescence-v7watchdog-20260823/quiescence.json
+      quiescence_receipt_path: /media/user/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-execution-quiescence-v7watchdog-20260823/quiescence.json
       quiescence_receipt_sha256: c0e0745b99b326d7bb9bb358d1cab3682805c2d110eed03ea578c543f5244a38
       runner_start_allowed: true
       input_mount_performed: false
@@ -161,18 +161,18 @@ competitive_slam_profile:
       scorer_mount_forbidden: true
     quiescence:
       status: PASS
-      receipt_path: /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-execution-quiescence-v7watchdog-20260823/quiescence.json
+      receipt_path: /media/user/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-execution-quiescence-v7watchdog-20260823/quiescence.json
       receipt_sha256: c0e0745b99b326d7bb9bb358d1cab3682805c2d110eed03ea578c543f5244a38
       runner_start_allowed: true
       ground_truth_content_opened: false
       scorer_invoked: false
     output:
-      root: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_formal_replay_v7_20260823T1058JST
+      root: /media/user/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_formal_replay_v7_20260823T1058JST
       overwrite_existing: false
       repetitions: 1
       retry_count: 0
-      preregistration_path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_formal_replay_v7_20260823T1058JST/preregistration.json
-      run_dir: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_formal_replay_v7_20260823T1058JST/run_01
-      closure_receipt_path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_formal_replay_v7_20260823T1058JST/closure_receipt.json
+      preregistration_path: /media/user/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_formal_replay_v7_20260823T1058JST/preregistration.json
+      run_dir: /media/user/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_formal_replay_v7_20260823T1058JST/run_01
+      closure_receipt_path: /media/user/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_formal_replay_v7_20260823T1058JST/closure_receipt.json
       forbidden_globs: ['*.pcd', '*map*', '*.bag', '*.db3', '*.part']
       ground_truth_or_scorer_paths: forbidden

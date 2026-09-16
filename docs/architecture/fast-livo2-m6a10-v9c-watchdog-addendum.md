@@ -9,7 +9,7 @@ or phase contracts.
 ## Immutable v9b observation
 
 The v9b single-replay closure is
-`/media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_v9b_formal_replay_20260823T043914Z_agentv9b/closure_receipt.json`
+`/media/user/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_v9b_formal_replay_20260823T043914Z_agentv9b/closure_receipt.json`
 with SHA-256
 `0bb37c4dddcc1edc05f955f7414bb5ac5ae2b46f071ce1f7909a55c646a354d1`.
 It recorded 226,700 published and acknowledged records in

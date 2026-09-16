@@ -13,7 +13,7 @@ or acceptance gates rather than discard plane association.
 Machine-readable evidence is on the external SSD:
 
 ```text
-/media/sasaki/aiueo/benchmarks/phase8/rtkslam_cs2_20260714/
+/media/user/aiueo/benchmarks/phase8/rtkslam_cs2_20260714/
   plane_revisit/{off,on}/manifest/cross_repo_benchmark.json
   three_dataset_candidate_regression.{json,md}
 ```
@@ -91,7 +91,7 @@ the fixed five-edge result: mean planar thickness 0.083919 m and coverage
 0.295084. Evidence is stored under:
 
 ```text
-/media/sasaki/aiueo/benchmarks/phase8/rtkslam_cs2_20260714/
+/media/user/aiueo/benchmarks/phase8/rtkslam_cs2_20260714/
   overlap_probe_r05/
   overlap_gate070/
   overlap_gate076/
@@ -121,7 +121,7 @@ as a global default:
 Evidence is stored in:
 
 ```text
-/media/sasaki/aiueo/benchmarks/phase8/loop_overlap_holdouts_20260714/
+/media/user/aiueo/benchmarks/phase8/loop_overlap_holdouts_20260714/
   hilti_exp04_open_gate_probe/
   mid360_probe/
 ```
@@ -168,7 +168,7 @@ and offline runner, but stays opt-in pending more than these three substrates.
 Evidence is under:
 
 ```text
-/media/sasaki/aiueo/benchmarks/phase8/
+/media/user/aiueo/benchmarks/phase8/
   mutual_overlap_probe_20260714/
   adaptive_overlap_gate_20260714/
   adaptive_overlap_gate_kitti00_20260714/current/
@@ -217,7 +217,7 @@ accuracy work belongs in the odometry/degeneracy path, not a weaker graph
 verifier. Probe artifacts are under:
 
 ```text
-/media/sasaki/aiueo/benchmarks/phase8/
+/media/user/aiueo/benchmarks/phase8/
   hilti_fitness_probe_20260714/
   loop_support_probe_20260714/
 ```

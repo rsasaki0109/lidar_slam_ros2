@@ -51,7 +51,7 @@ The generated suite report records:
 - verdict: `DO_NOT_ADOPT`.
 
 External artifact:
-`/media/sasaki/aiueo/benchmarks/public_suite_20260713/baseline_adoption_gate.json`.
+`/media/user/aiueo/benchmarks/public_suite_20260713/baseline_adoption_gate.json`.
 Its SHA-256 after the three-dataset audit is
 `2ce9836a8e2b435126352ccfb138dfe4672378d04c34f57f90a889271b9ee234`.
 
@@ -79,7 +79,7 @@ dataset, zero primary regression, and passes completeness, multi-dataset,
 runtime/memory, raw-integrity, and maximum-regression checks. It fails only
 the required two-improved-datasets check and therefore remains
 `DO_NOT_ADOPT`. The report is
-`/media/sasaki/aiueo/benchmarks/public_suite_20260713/sc055_stride4_gate0p2_adoption_gate.json`
+`/media/user/aiueo/benchmarks/public_suite_20260713/sc055_stride4_gate0p2_adoption_gate.json`
 with SHA-256
 `7a10b32925e5623da8a001f62a2e5d18771bd9f80372d5afbcd08bb9ec751802`.
 
@@ -101,7 +101,7 @@ manifests passes completeness, three-dataset, regression, runtime/memory, and
 raw-integrity gates. The global verdict remains `DO_NOT_ADOPT` only because an
 AIST-specific observation is not evidence of improvement on two distinct
 datasets. The report is
-`/media/sasaki/aiueo/benchmarks/public_suite_20260713/final_rgb_adoption_gate.json`
+`/media/user/aiueo/benchmarks/public_suite_20260713/final_rgb_adoption_gate.json`
 with SHA-256
 `99612d2d803f4f6548221419382bb6fcdd575ea62dd11e99e4c88931ae5803b2`.
 

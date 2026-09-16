@@ -80,8 +80,8 @@ def test_discovers_and_resolves_sequence_short_name(tmp_path: Path):
 
 
 def test_default_output_stays_on_media_drive():
-    bag = Path('/media/sasaki/aiueo/datasets/hilti2022/exp01_ros2')
-    assert default_output_dir(bag) == Path('/media/sasaki/aiueo/lidarslam_work/output/maps')
+    bag = Path('/media/user/aiueo/datasets/hilti2022/exp01_ros2')
+    assert default_output_dir(bag) == Path('/media/user/aiueo/lidarslam_work/output/maps')
 
 
 def test_no_argument_lists_bags_and_shows_example(tmp_path: Path, capsys):

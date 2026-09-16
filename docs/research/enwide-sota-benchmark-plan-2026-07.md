@@ -39,7 +39,7 @@ results from pinned rival revisions on the same machine and exact bag bytes.
 ```bash
 bash scripts/download_enwide.sh \
   --sequence tunnel_d \
-  --dest /media/sasaki/aiueo/datasets/enwide \
+  --dest /media/user/aiueo/datasets/enwide \
   --convert
 ```
 
@@ -57,7 +57,7 @@ configuration, prism lever arm, scoring policy, and completion gate:
 
 ```bash
 bash scripts/run_enwide_sota_benchmark.sh \
-  --sequence-dir /media/sasaki/aiueo/datasets/enwide/tunnel_d \
+  --sequence-dir /media/user/aiueo/datasets/enwide/tunnel_d \
   --output-dir output/enwide_tunnel_d_rko_sota_v1
 ```
 

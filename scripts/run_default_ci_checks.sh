@@ -120,10 +120,11 @@ TEST_TARGETS=(
 # preregistration receipts pin source-tree SHA-256 hashes.  The merge
 # invalidated those hashes and the re-freeze tool was removed in the Python
 # cleanup, so the experimental competitive/benchmark contracts cannot pass
-# until the receipts are regenerated with maintained tooling.  The legacy
-# lint targets (uncrustify/flake8/copyright/pep257/lint_cmake) are broken
-# across the merged tree for the same reason and are tracked separately.
-# Keep the core product regression suite in the gate.
+# until the receipts are regenerated with maintained tooling.  The uncrustify
+# style check is excluded separately: Humble and Jazzy ship different
+# uncrustify versions whose preferred formatting for the same source differs,
+# so it cannot be satisfied on both supported distros at once.  Keep the core
+# product regression suite and the remaining linters in the gate.
 DEFAULT_CI_EXCLUDED_TESTS='^('\
 'test_competitive_slam_profile|'\
 'test_competitive_container_recipes|'\
@@ -148,7 +149,7 @@ DEFAULT_CI_EXCLUDED_TESTS='^('\
 'test_ntu_viral_acquisition_pipeline|'\
 'test_fast_gicp_selector|'\
 'test_ndt_omp_registration|'\
-'copyright|cpplint|flake8|lint_cmake|pep257|uncrustify|xmllint'\
+'uncrustify'\
 ')$'
 
 echo "==> Building default workflow packages"

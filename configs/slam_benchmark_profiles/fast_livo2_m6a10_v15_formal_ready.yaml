@@ -38,7 +38,7 @@ lineage:
   v12_wrapper_sha256: 32fce2c054b92f0d695fd4d32c7737ab75dd3a467fdee1c579c82c63398894e6
 
 input_contract:
-  path: /media/sasaki/aiueo1/datasets/ntu_viral_release/tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag
+  path: /media/user/aiueo1/datasets/ntu_viral_release/tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag
   bytes: 11290464091
   sha256: 5bc7c6a0e5088aa3f733377a3e597705b075b1ec5ca5be272b75636a0b697310
   expected_messages: 236687

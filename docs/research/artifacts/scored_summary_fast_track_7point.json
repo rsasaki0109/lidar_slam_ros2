@@ -2,9 +2,9 @@
   "schema_version": 1,
   "valid_repetitions": 3,
   "reference": {
-    "source_path": "/media/sasaki/aiueo/datasets/hilti2022/exp04_construction_upper_level_gt.txt",
+    "source_path": "/media/user/aiueo/datasets/hilti2022/exp04_construction_upper_level_gt.txt",
     "source_sha256": "38cf516e51113254e4ae0207c790f740b19dee08665063e0d8df7bd277040c20",
-    "common_path": "/media/sasaki/aiueo/benchmarks/competitive_ours/exp04_3x_20260714/common_reference.tum",
+    "common_path": "/media/user/aiueo/benchmarks/competitive_ours/exp04_3x_20260714/common_reference.tum",
     "common_sha256": "2456450ab36ca402dd1d92e52776ed107a1c5a29cadd42602988b3e385019123",
     "common_poses": 7,
     "excluded_timestamps": []

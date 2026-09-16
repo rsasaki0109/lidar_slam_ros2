@@ -57,7 +57,7 @@ MATERIALIZER_HELPER_SHA256 = (
 EXPECTED_INPUT_TREE_SHA256 = (
     '0a45497ab4ed94bf8e9757bab3f37e5786fee4991beea16c1efdc49e38cb9263')
 DEFAULT_INPUT_ROOT = Path(
-    '/media/sasaki/aiueo1/datasets/ntu_viral_release/'
+    '/media/user/aiueo1/datasets/ntu_viral_release/'
     'tnp_01_m6a10_v2a_sync_materialization_v1_ros2')
 
 

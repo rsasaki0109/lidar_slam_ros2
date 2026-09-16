@@ -25,7 +25,7 @@ details.
 ### 2026-08-28 registration dependency checkpoint
 
 The campaign at
-`/media/sasaki/aiueo1/benchmarks/registration-plugin-dependency-capture-20260828-decoded-bound-v8`
+`/media/user/aiueo1/benchmarks/registration-plugin-dependency-capture-20260828-decoded-bound-v8`
 completed Humble/Jazzy × dependency absent/present exactly once per row.  All
 four rows completed 19 phases with `PASS_REVIEW_REQUIRED`; the aggregate has
 zero partial rows. This proves dependency capture only; it is not a runtime or

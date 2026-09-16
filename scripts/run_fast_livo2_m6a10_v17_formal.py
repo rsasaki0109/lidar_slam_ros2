@@ -76,19 +76,19 @@ V15_PROFILE_SHA256 = "017e8583e1085b1f11da4117a1c53497cdcb1055c6c6224568df2f73ba
 V16_AUTHORIZER_PATH = ROOT / "scripts/authorize_fast_livo2_m6a10_v16_formal.py"
 V16_AUTHORIZER_SHA256 = "1d1ee08ee2e832f031c3890052fe85f2232275aa4893e7c84c780b2833fa47fb"
 
-BUILD_RECEIPT_PATH = Path("/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v17_build_correction_20260823T224017Z_agentv17/build_identity.receipt.json")
+BUILD_RECEIPT_PATH = Path("/media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v17_build_correction_20260823T224017Z_agentv17/build_identity.receipt.json")
 BUILD_RECEIPT_SHA256 = "23811d4200f9ed3ac464083ef339eb6d0437815ffdd82a2f37cc4180195bc2f7"
 BUILD_RECEIPT_SIDECAR_SHA256 = "76e9859832412f0310e685b376324ff53ce4dbe033d2d440fce940421b1de15b"
-NO_INPUT_PASS_RECEIPT_PATH = Path("/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v17_no_input_correction2_20260823T225359Z_agentv17/no_input.receipt.json")
+NO_INPUT_PASS_RECEIPT_PATH = Path("/media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v17_no_input_correction2_20260823T225359Z_agentv17/no_input.receipt.json")
 NO_INPUT_PASS_RECEIPT_SHA256 = "ac1df6f390ad3e348e572ced668f4971bc05ac835c55cc83fef9ea4ad5fa3d74"
 NO_INPUT_PASS_SIDECAR_SHA256 = "8dfa1520c1e2024af3f0710de4ee8c38c9cf4a1402389891ac77d423d1848164"
-PRIOR_NO_INPUT_FAIL_RECEIPT_PATH = Path("/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v17_no_input_correction_20260823T224017Z_agentv17/no_input.receipt.json")
+PRIOR_NO_INPUT_FAIL_RECEIPT_PATH = Path("/media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v17_no_input_correction_20260823T224017Z_agentv17/no_input.receipt.json")
 PRIOR_NO_INPUT_FAIL_RECEIPT_SHA256 = "93296e2d47e37aeea739daf3c44d4c7bf988c7a9bcfc61f11a4cbab31ec1203a"
 PRIOR_NO_INPUT_FAIL_SIDECAR_SHA256 = "a0db9e7c7303974edc575033088bc92e0bc14ab8db7eda054ae16c1ec4d9c2f7"
 V16_FAILURE_CLOSURE_SHA256 = "a7a5bfaaaf99a0851cb1b5b19759cdc568c3d4f681f8f2ac81c438944d1c1ccc"
 V16_TERMINAL_RAW_SHA256 = "56523b593676961b83ca9f9340706e964086b6aa3916e47902219b81dc41d21a"
-V16_FAILURE_CLOSURE_PATH = Path("/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v16_formal_replay_20260823T213533Z_agentv16formal/closure_receipt.json")
-V16_TERMINAL_RAW_PATH = Path("/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v16_formal_replay_20260823T213533Z_agentv16formal/out/consumer_evidence.json")
+V16_FAILURE_CLOSURE_PATH = Path("/media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v16_formal_replay_20260823T213533Z_agentv16formal/closure_receipt.json")
+V16_TERMINAL_RAW_PATH = Path("/media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v16_formal_replay_20260823T213533Z_agentv16formal/out/consumer_evidence.json")
 
 # Capture the actual v12 callable before any v16 scope is entered.  This is
 # deliberately a direct symbol reference, not getattr/fallback lookup.

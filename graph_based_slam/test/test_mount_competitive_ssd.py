@@ -1,4 +1,34 @@
 #!/usr/bin/env python3
+
+# Copyright 2026 Sasaki
+# All rights reserved.
+#
+# Software License Agreement (BSD 2-Clause Simplified License)
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#
+#  * Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+#  * Redistributions in binary form must reproduce the above
+#    copyright notice, this list of conditions and the following
+#    disclaimer in the documentation and/or other materials provided
+#    with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
 """Mock-PATH tests for the profile-bound competitive SSD mount helper."""
 
 from __future__ import annotations
@@ -12,7 +42,7 @@ import pytest
 
 REPO = Path(__file__).resolve().parents[2]
 SCRIPT = REPO / 'scripts' / 'mount_competitive_ssd.sh'
-TARGET = '/media/sasaki/aiueo1'
+TARGET = '/media/user/aiueo1'
 UUID = '3b5dc9b7-c4de-4cf2-a892-00b2c063f34e'
 UUID_PATH = '/dev/disk/by-uuid/' + UUID
 DEVICE = '/dev/sda1'
@@ -21,41 +51,41 @@ TARGET_RECORD = '{} {} ext4 rw,nosuid,nodev,relatime {}\n'.format(
 )
 
 
-MOCK_COMMAND = r'''#!/usr/bin/env python3
+MOCK_COMMAND = r"""#!/usr/bin/env python3
 from pathlib import Path
 import os
 import sys
 
 
-TARGET = "/media/sasaki/aiueo1"
-UUID_PATH = "/dev/disk/by-uuid/3b5dc9b7-c4de-4cf2-a892-00b2c063f34e"
-DEVICE = "/dev/sda1"
-UUID = "3b5dc9b7-c4de-4cf2-a892-00b2c063f34e"
-state_path = Path(os.environ["MOCK_STATE"])
-log_path = Path(os.environ["MOCK_LOG"])
+TARGET = '/media/user/aiueo1'
+UUID_PATH = '/dev/disk/by-uuid/3b5dc9b7-c4de-4cf2-a892-00b2c063f34e'
+DEVICE = '/dev/sda1'
+UUID = '3b5dc9b7-c4de-4cf2-a892-00b2c063f34e'
+state_path = Path(os.environ['MOCK_STATE'])
+log_path = Path(os.environ['MOCK_LOG'])
 name = Path(sys.argv[0]).name
 
 
 def state():
-    return state_path.read_text(encoding="ascii").strip()
+    return state_path.read_text(encoding='ascii').strip()
 
 
 def log():
-    with log_path.open("a", encoding="utf-8") as stream:
-        stream.write(name + " " + " ".join(sys.argv[1:]) + "\n")
+    with log_path.open('a', encoding='utf-8') as stream:
+        stream.write(name + ' ' + ' '.join(sys.argv[1:]) + '\n')
 
 
-if name == "stat":
+if name == 'stat':
     path = sys.argv[-1]
     if path == UUID_PATH:
-        print("symbolic link")
+        print('symbolic link')
     elif path == DEVICE:
-        print("block special file")
-    elif path == TARGET and os.environ.get("MOCK_UNSAFE_TARGET") == "1":
-        print("symbolic link")
+        print('block special file')
+    elif path == TARGET and os.environ.get('MOCK_UNSAFE_TARGET') == '1':
+        print('symbolic link')
     else:
-        print("directory")
-elif name == "readlink":
+        print('directory')
+elif name == 'readlink':
     path = sys.argv[-1]
     if path == UUID_PATH:
         print(DEVICE)
@@ -63,46 +93,46 @@ elif name == "readlink":
         print(DEVICE)
     else:
         print(path)
-elif name == "lsblk":
-    uuid = "0" * 8 + "-0000-0000-0000-000000000000"
-    if os.environ.get("MOCK_WRONG_UUID") != "1":
+elif name == 'lsblk':
+    uuid = '0' * 8 + '-0000-0000-0000-000000000000'
+    if os.environ.get('MOCK_WRONG_UUID') != '1':
         uuid = UUID
-    print(f"{DEVICE} part ext4 {uuid}")
-elif name == "find":
-    if os.environ.get("MOCK_UNSAFE_TARGET") == "1":
-        print(TARGET + "/unsafe-file")
-elif name == "findmnt":
+    print(f'{DEVICE} part ext4 {uuid}')
+elif name == 'find':
+    if os.environ.get('MOCK_UNSAFE_TARGET') == '1':
+        print(TARGET + '/unsafe-file')
+elif name == 'findmnt':
     args = sys.argv[1:]
     mounted = state()
-    if "-M" in args:
-        if mounted == "target":
-            print(f"{TARGET} {DEVICE} ext4 rw,nosuid,nodev,relatime {UUID}")
+    if '-M' in args:
+        if mounted == 'target':
+            print(f'{TARGET} {DEVICE} ext4 rw,nosuid,nodev,relatime {UUID}')
         else:
             sys.exit(1)
-    elif "-S" in args:
-        if mounted == "target":
-            print(f"{TARGET} {DEVICE} ext4 rw,nosuid,nodev,relatime {UUID}")
-        elif mounted == "other":
-            print(f"/media/sasaki/aiueo2 {DEVICE} ext4 rw,nosuid,nodev,relatime {UUID}")
-        elif mounted == "other_desktop_options":
-            print(f"/media/sasaki/aiueo_ssd {DEVICE} ext4 rw,relatime {UUID}")
+    elif '-S' in args:
+        if mounted == 'target':
+            print(f'{TARGET} {DEVICE} ext4 rw,nosuid,nodev,relatime {UUID}')
+        elif mounted == 'other':
+            print(f'/media/user/aiueo2 {DEVICE} ext4 rw,nosuid,nodev,relatime {UUID}')
+        elif mounted == 'other_desktop_options':
+            print(f'/media/user/aiueo_ssd {DEVICE} ext4 rw,relatime {UUID}')
         else:
             sys.exit(1)
     else:
         sys.exit(2)
-elif name == "udisksctl":
+elif name == 'udisksctl':
     log()
-    if os.environ.get("MOCK_UNMOUNT_FAIL") == "1":
+    if os.environ.get('MOCK_UNMOUNT_FAIL') == '1':
         sys.exit(1)
-    state_path.write_text("none\n", encoding="ascii")
-elif name == "sudo":
+    state_path.write_text('none\n', encoding='ascii')
+elif name == 'sudo':
     log()
-    if os.environ.get("MOCK_MOUNT_FAIL") == "1":
+    if os.environ.get('MOCK_MOUNT_FAIL') == '1':
         sys.exit(1)
-    state_path.write_text("target\n", encoding="ascii")
+    state_path.write_text('target\n', encoding='ascii')
 else:
     sys.exit(127)
-'''
+"""
 
 
 @pytest.fixture()

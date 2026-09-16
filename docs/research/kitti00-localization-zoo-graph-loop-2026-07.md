@@ -134,7 +134,7 @@ a separate current-default capture rather than mixed with the ablation above:
 | graph result | 356 submaps, 0 loops, byte-identical across two runs |
 
 The complete cross-repository manifest is
-`/media/sasaki/aiueo/benchmarks/kitti00_graph_20260713/tricp_current_cross_repo_nocalib/cross_repo_benchmark.json`.
+`/media/user/aiueo/benchmarks/kitti00_graph_20260713/tricp_current_cross_repo_nocalib/cross_repo_benchmark.json`.
 It records 100% timestamp coverage, runtime/memory, both repository revisions,
 and hashes for the PCD tree, fixed bag, frontend summary/log, and graph edges.
 Raw and graph-corrected RPE are tied to floating-point precision, so this row
@@ -175,7 +175,7 @@ Two isolated candidate runs produced byte-identical edge and trajectory files.
 The graph runner SHA-256 was
 `5e07e73b031e35732fd98e3db33c5de07abac03aaa63317d1fed34c52aebc770`.
 The tracked-clean manifest is
-`/media/sasaki/aiueo/benchmarks/kitti00_graph_20260713/tricp_current_graph_sc055_stride4_gate0p2_cross_repo/cross_repo_benchmark.json`.
+`/media/user/aiueo/benchmarks/kitti00_graph_20260713/tricp_current_graph_sc055_stride4_gate0p2_cross_repo/cross_repo_benchmark.json`.
 
 On HILTI exp04 the same descriptor controls produced no loop: its 44 submaps
 do not exceed Scan Context's 50-submap recent-exclusion window. The candidate

@@ -11,7 +11,7 @@ competitive_slam_profile:
     status: build_passed_not_executed
     result: null
     input:
-      path: /media/sasaki/aiueo1/datasets/ntu_viral_release/tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag
+      path: /media/user/aiueo1/datasets/ntu_viral_release/tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag
       bytes: 11290464091
       sha256: 5bc7c6a0e5088aa3f733377a3e597705b075b1ec5ca5be272b75636a0b697310
       expected_messages: 236687
@@ -35,9 +35,9 @@ competitive_slam_profile:
       image_tag: m6a10-v2c-v6portable-fast-livo2-benchmark:ros1-pinned
       image_id: sha256:97ce7d51757610f13d3c0c8561356332b26254f1afed4763589c7b7134620c42
       image_digest: sha256:97ce7d51757610f13d3c0c8561356332b26254f1afed4763589c7b7134620c42
-      build_receipt_path: /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-fast-livo2-v6portable-20260823/build_receipt.json
+      build_receipt_path: /media/user/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-fast-livo2-v6portable-20260823/build_receipt.json
       build_receipt_sha256: fdf80903113ba7a0a93347e9f725dee5abd145e42984c251e520f241d685252c
-      execution_identity_preflight_path: /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-execution-preflight-v6portable-20260823-v3/identity_preflight.json
+      execution_identity_preflight_path: /media/user/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-execution-preflight-v6portable-20260823-v3/identity_preflight.json
       execution_identity_preflight_sha256: e698f94147f2c574d15d6734583f47b78df5da21b5dc993d6de128e4220396a1
       execution_identity_preflight_status: PASS
       execution_identity_preflight_script_sha256: 139cad1da81b251bd6fa4aca642960c70c2c768ecf526a9a196683222013063d
@@ -73,12 +73,12 @@ competitive_slam_profile:
       scorer_invoked: false
     quiescence:
       status: PASS
-      receipt_path: /media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-execution-quiescence-v6portable-20260823/quiescence.json
+      receipt_path: /media/user/aiueo1/benchmarks/competitive_build_evidence/m6a10-v2c-execution-quiescence-v6portable-20260823/quiescence.json
       receipt_sha256: 8d5c9c3ced1f64d5f0f3c3f2182da06a4d1f09ddc270bf9ed1dfa954a613d6e0
       runner_start_allowed: true
       ground_truth_content_opened: false
       scorer_invoked: false
     output:
-      root: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_fixed10_v6
+      root: /media/user/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_fixed10_v6
       overwrite_existing: false
       forbidden_globs: ['*.pcd', '*map*', '*.bag', '*.db3', '*.part']

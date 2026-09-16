@@ -37,7 +37,7 @@ RAW_CONTRACT = 'm6a10-fast-livo2-consumer-terminal-v1'
 TOPICS = ('lidar', 'imu', 'image')
 
 EXPECTED_BAG_PATH = (
-    '/media/sasaki/aiueo1/datasets/ntu_viral_release/'
+    '/media/user/aiueo1/datasets/ntu_viral_release/'
     'tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag')
 EXPECTED_BAG_BYTES = 11290464091
 EXPECTED_BAG_SHA256 = (

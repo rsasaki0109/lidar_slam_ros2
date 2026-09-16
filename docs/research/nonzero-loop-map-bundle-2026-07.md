@@ -15,7 +15,7 @@ localization mode, and relocalization remain outside scope.
 
 The live ROS replay artifact is stored at:
 
-`/media/sasaki/aiueo/benchmarks/rtkslam_cs2_live_bundle_20260714_v1/replay_run1`
+`/media/user/aiueo/benchmarks/rtkslam_cs2_live_bundle_20260714_v1/replay_run1`
 
 ## Result
 

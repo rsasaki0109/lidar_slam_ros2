@@ -52,14 +52,14 @@ CONTRACT_VERSION = "m6a10-v14-formal-exact-root-authorization-v1"
 RECEIPT_NAME = "formal_authorization.receipt.json"
 
 V13_AUTHORIZATION_PATH = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v13_formal_authorization_20260823T194325Z/"
     "formal_authorization.receipt.json"
 )
 V13_AUTHORIZATION_SHA256 = "e7e2aa9cd9f8d1ef884595cc4c71158c077d7e8ef8dcfd2b9d1ff23152c2ae83"
 V13_AUTHORIZATION_SIDECAR_SHA256 = "356a21489f3de543163da15618e3af70f658e3a5a1fdbf6cb180505288492c44"
 V13_CLOSURE_PATH = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v13_formal_replay_20260823T194325Z_agentv13formal/"
     "closure_receipt.json"
 )
@@ -67,7 +67,7 @@ V13_CLOSURE_SHA256 = "73252dd828388a5ff026413ec957cb02504dea4ba14b93667825733395
 V13_CORRECTION_PATH = V13_CLOSURE_PATH.with_name("closure_correction.receipt.json")
 V13_CORRECTION_SHA256 = "24c9ceb1d2b2da8e8ec95c54aa00ad723f1713146ff21a4b235533ebf776fd0e"
 V13_PERSISTENCE_PATH = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v13_persistence_20260823T192720Z_agentv13/"
     "persistence_gate.receipt.json"
 )

@@ -6,7 +6,7 @@
   "prerequisite": {
     "architecture_contract_path": "configs/sota_v6/development/v44b_fixed_lag_shadow_architecture.json",
     "architecture_contract_sha256": "74a80cca0e3dc7de9a10950d50c4fea7518dfe3d4fed8c5e1aeec77c3efee8e7",
-    "architecture_aggregate_path": "/home/sasaki/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v44b_fixed_lag_architecture_20260810/aggregate.json",
+    "architecture_aggregate_path": "/home/user/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v44b_fixed_lag_architecture_20260810/aggregate.json",
     "architecture_aggregate_sha256": "9bc723886d3faa067de979e203eb9e49d534b2252fb733e05f08de386fb64407",
     "required_architecture_contract_id": "v44b-fixed-lag-shadow-architecture-20260810",
     "required_architecture_decision": "AUTHORIZE_V44_STAGE3_SYNTHETIC_CONTRACT_IMPLEMENTATION",

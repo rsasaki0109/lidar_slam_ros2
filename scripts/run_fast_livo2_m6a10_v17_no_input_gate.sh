@@ -5,8 +5,8 @@ set -Eeuo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 IMAGE_TAG="${FAST_LIVO2_V17_IMAGE_TAG:-m6a10-v2c-v17-retryable-abort-correction-20260823t224017z-fast-livo2-benchmark:ros1-pinned}"
-BUILD_RECEIPT="${FAST_LIVO2_V17_BUILD_RECEIPT_PATH:-/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v17_build_correction_20260823T224017Z_agentv17/build_identity.receipt.json}"
-GATE_RECEIPT="${FAST_LIVO2_V17_GATE_RECEIPT_PATH:-/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v17_no_input_correction_20260823T224017Z_agentv17/no_input.receipt.json}"
+BUILD_RECEIPT="${FAST_LIVO2_V17_BUILD_RECEIPT_PATH:-/media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v17_build_correction_20260823T224017Z_agentv17/build_identity.receipt.json}"
+GATE_RECEIPT="${FAST_LIVO2_V17_GATE_RECEIPT_PATH:-/media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v17_no_input_correction_20260823T224017Z_agentv17/no_input.receipt.json}"
 ROOT_RECEIPT="$(dirname "${GATE_RECEIPT}")"
 LOG_PATH="${FAST_LIVO2_V17_GATE_LOG_PATH:-${ROOT_RECEIPT}/no_input.log}"
 INSPECT_PATH="${FAST_LIVO2_V17_GATE_INSPECT_PATH:-${ROOT_RECEIPT}/container.inspect.json}"
@@ -183,7 +183,7 @@ raw_value = {
     'image': {'tag': os.environ['IMAGE_TAG'], 'id': os.environ['IMAGE_ID']},
     'source': {'v17_no_input_gate_sha256': os.environ['GATE_SOURCE_SHA']},
     'build_receipt': {
-        'path': '/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v17_build_correction_20260823T224017Z_agentv17/build_identity.receipt.json',
+        'path': '/media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v17_build_correction_20260823T224017Z_agentv17/build_identity.receipt.json',
         'sha256': os.environ['BUILD_SHA'],
         'sidecar_sha256': os.environ['BUILD_SIDE_SHA'],
     },

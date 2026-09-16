@@ -27,7 +27,7 @@ formal_candidate:
   predecessor_launcher: scripts/run_fast_livo2_m6a10_v16_formal.py
   predecessor_launcher_sha256: 77e46d0aa326f9940f666dbbc885ddf87cace1ba643c8e4f67daba9dba1c5757
   predecessor_failure_lineage: v16_terminal_invalid_sticky_empty_retry
-  prior_v17_build_failure_receipt: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v17_build_20260823T222625Z_agentv17/build_identity.receipt.json
+  prior_v17_build_failure_receipt: /media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v17_build_20260823T222625Z_agentv17/build_identity.receipt.json
   prior_v17_build_failure_receipt_sha256: 1eccad6bd1c714a7807a830520db202f0fd3843d3d0d55b3171a17c74f4d0343
   prior_v17_build_failure_kind: INSTALLED_SOURCE_HASH_MISMATCH
   root_cause_scope: production_empty_synchronization_retry_disposition
@@ -72,24 +72,24 @@ source:
 
 evidence:
   build_receipt:
-    path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v17_build_correction_20260823T224017Z_agentv17/build_identity.receipt.json
+    path: /media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v17_build_correction_20260823T224017Z_agentv17/build_identity.receipt.json
     status: PASS
     sha256: 23811d4200f9ed3ac464083ef339eb6d0437815ffdd82a2f37cc4180195bc2f7
     sidecar_sha256: 76e9859832412f0310e685b376324ff53ce4dbe033d2d440fce940421b1de15b
-    predecessor_failure_receipt: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v17_build_20260823T222625Z_agentv17/build_identity.receipt.json
+    predecessor_failure_receipt: /media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v17_build_20260823T222625Z_agentv17/build_identity.receipt.json
     predecessor_failure_receipt_sha256: 1eccad6bd1c714a7807a830520db202f0fd3843d3d0d55b3171a17c74f4d0343
   no_input_gate:
-    path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v17_no_input_correction2_20260823T225359Z_agentv17/no_input.receipt.json
+    path: /media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v17_no_input_correction2_20260823T225359Z_agentv17/no_input.receipt.json
     status: PASS
     sha256: ac1df6f390ad3e348e572ced668f4971bc05ac835c55cc83fef9ea4ad5fa3d74
     sidecar_sha256: 8dfa1520c1e2024af3f0710de4ee8c38c9cf4a1402389891ac77d423d1848164
-    predecessor_fail_closed_receipt: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v17_no_input_correction_20260823T224017Z_agentv17/no_input.receipt.json
+    predecessor_fail_closed_receipt: /media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v17_no_input_correction_20260823T224017Z_agentv17/no_input.receipt.json
     predecessor_fail_closed_receipt_sha256: 93296e2d47e37aeea739daf3c44d4c7bf988c7a9bcfc61f11a4cbab31ec1203a
   v16_failure_closure_sha256: a7a5bfaaaf99a0851cb1b5b19759cdc568c3d4f681f8f2ac81c438944d1c1ccc
   v16_terminal_raw_sha256: 56523b593676961b83ca9f9340706e964086b6aa3916e47902219b81dc41d21a
 
 input_contract:
-  path: /media/sasaki/aiueo1/datasets/ntu_viral_release/tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag
+  path: /media/user/aiueo1/datasets/ntu_viral_release/tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag
   bytes: 11290464091
   sha256: 5bc7c6a0e5088aa3f733377a3e597705b075b1ec5ca5be272b75636a0b697310
   expected_messages: 236687

@@ -14,7 +14,7 @@ file and every image and records all rejection reasons. Five synthetic/unit
 tests cover coordinate conversion, multi-E candidate handling, and the gate.
 
 Artifact:
-`/media/sasaki/aiueo/benchmarks/competitive_ours/exp01_visual_development_20260715/selective_visual_constraints.json`.
+`/media/user/aiueo/benchmarks/competitive_ours/exp01_visual_development_20260715/selective_visual_constraints.json`.
 
 ## Rejected offline correction
 
@@ -54,7 +54,7 @@ ICP Hessian does not expose a sufficiently weak direction at this threshold;
 raising the threshold blindly would no longer be degeneracy-selective.
 
 Artifact:
-`/media/sasaki/aiueo/benchmarks/competitive_ours/exp01_selective_visual_online_20260715_v2`.
+`/media/user/aiueo/benchmarks/competitive_ours/exp01_selective_visual_online_20260715_v2`.
 
 ## Live metric direct frontend
 
@@ -96,7 +96,7 @@ to kill a still-progressing process near scan 1,700; diagnostic runs therefore
 use a longer fallback, while the frozen final RTF/completion gate is unchanged.
 
 Complete artifact:
-`/media/sasaki/aiueo/benchmarks/competitive_ours/exp01_direct_visual_live_20260715_v8`.
+`/media/user/aiueo/benchmarks/competitive_ours/exp01_direct_visual_live_20260715_v8`.
 
 ## Cross-sequence directional-observability gate
 

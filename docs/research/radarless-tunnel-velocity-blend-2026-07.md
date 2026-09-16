@@ -62,9 +62,9 @@ Four guards were required:
 
 Artifacts:
 
-- `/media/sasaki/aiueo/benchmarks/lidar_degeneracy_datasets_v1/runs/tunnel_velocity_blend_v1`
-- `/media/sasaki/aiueo/benchmarks/lidar_degeneracy_datasets_v1/runs/fog_velocity_blend_v1`
-- `/media/sasaki/aiueo/benchmarks/velocity_blend_holdout_20260727`
+- `/media/user/aiueo/benchmarks/lidar_degeneracy_datasets_v1/runs/tunnel_velocity_blend_v1`
+- `/media/user/aiueo/benchmarks/lidar_degeneracy_datasets_v1/runs/fog_velocity_blend_v1`
+- `/media/user/aiueo/benchmarks/velocity_blend_holdout_20260727`
 
 ## Rejected branches
 

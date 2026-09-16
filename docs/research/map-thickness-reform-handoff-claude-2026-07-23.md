@@ -32,8 +32,8 @@ policy and do not tune on exp21.
 
 ## Repository and safety boundary
 
-- Repository: `/home/sasaki/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2`
-- Parent ROS workspace: `/home/sasaki/workspace/old_~2026/lidarslam_ws`
+- Repository: `/home/user/workspace/old_~2026/lidarslam_ws/lidar_slam_ros2`
+- Parent ROS workspace: `/home/user/workspace/old_~2026/lidarslam_ws`
 - ROS: Jazzy
 - Source before builds/runs:
 
@@ -312,7 +312,7 @@ and `/tmp/ndt-exp{04,07,01}-trajectory-ape-rpe.json`.
 ### exp02 multilevel audit (latest state)
 
 Frozen input and all evidence are under
-`/media/sasaki/aiueo/benchmarks/map_thickness_exp02_holdout_20260723/exp02`.
+`/media/user/aiueo/benchmarks/map_thickness_exp02_holdout_20260723/exp02`.
 The input has 4,302 exact pose/cloud pairs over 752.13 s. The even-scan frozen
 map used 2,151 scans, 174 submaps, and 270.2 m travel. It completed in
 1,456.25 s (RTF 1.94) with 6,620,184 KiB RSS.
@@ -455,7 +455,7 @@ bash scripts/run_map_quality_check.sh \
   --input /tmp/lidarslam-surfel-exp01-fallback-phases8-selective5cm-memory-v2-20260723/map_surfel_surface_consolidated.pcd \
   --output-dir /tmp/recheck-exp01-selective-quality \
   --runs 1 --downsample 0.1 \
-  --setup /home/sasaki/workspace/old_~2026/lidarslam_ws/install/setup.bash
+  --setup /home/user/workspace/old_~2026/lidarslam_ws/install/setup.bash
 ```
 
 ### Standalone NDT target and evaluator profile
@@ -469,7 +469,7 @@ build/graph_based_slam/ndt_localization_target \
 
 build/graph_based_slam/map_ndt_residual_report \
   --map /tmp/ndt-localization-exp04-generated.pcd \
-  --bag /media/sasaki/aiueo/benchmarks/hilti_exp04_backend_fixed_20260713/backend_input \
+  --bag /media/user/aiueo/benchmarks/hilti_exp04_backend_fixed_20260713/backend_input \
   --output /tmp/recheck-exp04-ndt.yaml \
   --stride 20 --offset 1 --resolution 1.0 \
   --source-voxel 0.5 --max-correspondence 2.0 --max-iterations 10

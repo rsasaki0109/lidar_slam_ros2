@@ -11,7 +11,7 @@ preregistration:
   created_at_utc: '2026-08-23T00:00:00Z'
   predecessor_profile: configs/slam_benchmark_profiles/fast_livo2_m6a10_v10_formal.yaml
   predecessor_profile_sha256: f706f41b0a985347ff98e4953532590c7a9c8c2d75db355e53cfb558f95bc459
-  predecessor_closure_path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_v10_formal_replay3_20260823T112240Z_agentv10formal/closure_receipt.json
+  predecessor_closure_path: /media/user/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_v10_formal_replay3_20260823T112240Z_agentv10formal/closure_receipt.json
   predecessor_closure_sha256: 16d1ee5bd55588391e3019bcdd7828c85f74c484f314f64a4dcc8a95a300fb05
   predecessor_status: FAIL_CLOSED
   image_build_not_run: false
@@ -27,7 +27,7 @@ competitive_slam_profile:
     predecessor:
       profile_path: configs/slam_benchmark_profiles/fast_livo2_m6a10_v10_formal.yaml
       profile_sha256: f706f41b0a985347ff98e4953532590c7a9c8c2d75db355e53cfb558f95bc459
-      closure_path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_v10_formal_replay3_20260823T112240Z_agentv10formal/closure_receipt.json
+      closure_path: /media/user/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_v10_formal_replay3_20260823T112240Z_agentv10formal/closure_receipt.json
       closure_sha256: 16d1ee5bd55588391e3019bcdd7828c85f74c484f314f64a4dcc8a95a300fb05
       outcome: FAIL_CLOSED_container_process_failure
       published_count: 236687
@@ -36,7 +36,7 @@ competitive_slam_profile:
       consumer_eof_valid: false
       drain_complete: false
     input:
-      path: /media/sasaki/aiueo1/datasets/ntu_viral_release/tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag
+      path: /media/user/aiueo1/datasets/ntu_viral_release/tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag
       bytes: 11290464091
       sha256: 5bc7c6a0e5088aa3f733377a3e597705b075b1ec5ca5be272b75636a0b697310
       expected_messages: 236687
@@ -55,7 +55,7 @@ competitive_slam_profile:
       maximum_end_gap_seconds: 0.25
       required_evaluation_end_timestamp_seconds: 1623491515.148352
       required_evaluation_end_source:
-        path: /media/sasaki/aiueo/benchmarks/m6a10_training_20260822/ntu_tnp01_training_validation_summary.json
+        path: /media/user/aiueo/benchmarks/m6a10_training_20260822/ntu_tnp01_training_validation_summary.json
         sha256: 4217a4b07f5ff85148e7433be1b9fef51e35d843a98bbb287d6f9c010c254177
         field: dataset.sensor_end_timestamp_seconds
       observed_terminal:
@@ -175,9 +175,9 @@ competitive_slam_profile:
       image_id: sha256:729a7bba2127fc6517c106d59a12668294aeee1a0b31d04d31f9c25c762f6c3a
       image_digest: m6a10-v2c-v11-bounded-end-gap-20260823t121749z-fast-livo2-benchmark@sha256:729a7bba2127fc6517c106d59a12668294aeee1a0b31d04d31f9c25c762f6c3a
       status: build_synthetic_validated_dual_service_pending
-      build_receipt_path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_v11_build_20260823T121749Z_agentv11/build_identity.receipt.json
+      build_receipt_path: /media/user/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_v11_build_20260823T121749Z_agentv11/build_identity.receipt.json
       build_receipt_sha256: 98ceaba27849e23491e19f8f6c7c3392306cd9ff22cfa87048a1810a7b83c8b6
-      synthetic_receipt_path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_v11_synthetic_20260823T121749Z_agentv11/synthetic_cpp_gates.receipt.json
+      synthetic_receipt_path: /media/user/aiueo1/benchmarks/m6a10_training_20260823/fast_livo2_v2c_v11_synthetic_20260823T121749Z_agentv11/synthetic_cpp_gates.receipt.json
       synthetic_receipt_sha256: eaac94b7572330e09fe889d4868691eb075fbb33c1aabae60d45686055626790
       patch_sha256: 2cbca3a7bb465981cb5e3072efd1713302e002127d4ae5872413ed5749d80ba2
       replay_count: 0

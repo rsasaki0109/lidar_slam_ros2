@@ -329,7 +329,9 @@ if(BUILD_TESTING)
   )
   if(TARGET test_backend_core)
     target_include_directories(test_backend_core PRIVATE include ${EIGEN3_INCLUDE_DIR})
-    ament_target_dependencies(test_backend_core ndt_omp_ros2 lidarslam_plugin_interfaces lidarslam_default_plugins lidarslam_registration_loader)
+    ament_target_dependencies(
+      test_backend_core ndt_omp_ros2 lidarslam_plugin_interfaces
+      lidarslam_default_plugins lidarslam_registration_loader)
     target_link_libraries(
       test_backend_core ${PCL_LIBRARIES} graph_based_slam_3d_bbs_vendor
     )

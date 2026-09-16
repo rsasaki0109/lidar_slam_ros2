@@ -52,30 +52,30 @@ source:
 
 evidence:
   build_receipt:
-    path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v15_build_20260823T203230Z_agentv15_correction/build_identity.receipt.json
+    path: /media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v15_build_20260823T203230Z_agentv15_correction/build_identity.receipt.json
     sha256: 5005c8d392a8591bdfcda8e1de31be3a550a39c61ed22a3ae48455e1a05bce40
     sidecar_sha256: 6940f5762e87bf9f08752b950f12de2ae8423c9b0217841e212af56f61a04c65
     status: PASS
   no_input_pass:
-    path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v15_no_input_correction_20260823T204349Z_agentv15/no_input_correction.receipt.json
+    path: /media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v15_no_input_correction_20260823T204349Z_agentv15/no_input_correction.receipt.json
     sha256: e5e1703b6cfcd6b10c9703af06f7d89ede2c638519b285d3ae12152b3e63b5ff
     sidecar_sha256: d2cf11c36fb203d3972daeef9f9c2f0fe462a82dfac19070a822c6672fb086a3
     status: PASS
   prior_no_input_fail:
-    path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v15_build_20260823T203230Z_agentv15_correction/no_input_identity.receipt.json
+    path: /media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v15_build_20260823T203230Z_agentv15_correction/no_input_identity.receipt.json
     sha256: 36782a546e558a537619f183599112354d547f0fd0a70f06c4618ec76aa5a4de
     sidecar_sha256: 197ee62c79b397d9f7ef6c6d6be40f1063584dea7cc69ef5c47558991b52320f
     failure_kind: ROS_MASTER_URI_UNSET
     status: FAIL_CLOSED
   prior_validator_fail:
-    path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v15_no_input_correction_20260823T203806Z_agentv15/no_input_correction.receipt.json
+    path: /media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v15_no_input_correction_20260823T203806Z_agentv15/no_input_correction.receipt.json
     sha256: 804620192884f097de5fbc4e7946c789af2237c679f38d1ffbdecf616a28aca8
     sidecar_sha256: 581f9835c23a200f2a651ded025e3fe783371c4e12ebb334b13b0529d4e0ed7a
     failure_kind: TMPFS_VALIDATION_MODEL_MISMATCH
     status: FAIL_CLOSED
 
 input_contract:
-  path: /media/sasaki/aiueo1/datasets/ntu_viral_release/tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag
+  path: /media/user/aiueo1/datasets/ntu_viral_release/tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag
   bytes: 11290464091
   sha256: 5bc7c6a0e5088aa3f733377a3e597705b075b1ec5ca5be272b75636a0b697310
   expected_messages: 236687

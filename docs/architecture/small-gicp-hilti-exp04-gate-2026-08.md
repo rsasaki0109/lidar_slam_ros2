@@ -26,7 +26,7 @@ MID-360 or independent external-DSO/ODR promotion gates.
 
 | item | value |
 | --- | --- |
-| rosbag2 | `/media/sasaki/aiueo1/datasets/hilti2022/exp04_ros2` |
+| rosbag2 | `/media/user/aiueo1/datasets/hilti2022/exp04_ros2` |
 | LiDAR topic | `/hesai/pandar` |
 | IMU topic | `/alphasense/imu` |
 | bag duration | 125.814128037 s |
@@ -34,7 +34,7 @@ MID-360 or independent external-DSO/ODR promotion gates.
 | bag metadata SHA-256 | `f256bd10ec4a65fec68ab91455108ba73ac3791043f81e05846be93922d21100` |
 | parameters | `configs/hilti2022/lidarslam_competitive_v2.yaml` |
 | parameter SHA-256 | `53312d748bc6f6ba8f12fab2a11490c5dc2bcbb5b722f318b48500237aac3e17` |
-| sparse control-point GT | `/media/sasaki/aiueo1/datasets/hilti2022/exp04_construction_upper_level_gt.txt` |
+| sparse control-point GT | `/media/user/aiueo1/datasets/hilti2022/exp04_construction_upper_level_gt.txt` |
 | GT SHA-256 | `38cf516e51113254e4ae0207c790f740b19dee08665063e0d8df7bd277040c20` |
 | source HEAD | `0c08b58f8524ea8ee5288982ca4a1b86450161b2` (working tree changes retained) |
 
@@ -59,7 +59,7 @@ source /tmp/small-gicp-build.2auPmA/install/setup.bash
   --disable-rosout-logs \
   --params-file configs/hilti2022/lidarslam_competitive_v2.yaml \
   -p async_map_update:=false \
-  -p bag_path:=/media/sasaki/aiueo1/datasets/hilti2022/exp04_ros2 \
+  -p bag_path:=/media/user/aiueo1/datasets/hilti2022/exp04_ros2 \
   -p cloud_topic:=/hesai/pandar -p imu_topic:=/alphasense/imu \
   -p ndt_num_threads:=1 -p registration_method:=<SMALL_GICP|SMALL_VGICP> \
   -p max_clouds:=0 -p output_dir:=<run-dir> -p map_output_path:=<run-dir>/map.pcd
@@ -104,7 +104,7 @@ Each trajectory was evaluated with the historical interpolation contract:
 
 ```bash
 python3 scripts/ape_from_tum.py --interpolate --max-time-diff 3.0 \
-  --ref /media/sasaki/aiueo1/datasets/hilti2022/exp04_construction_upper_level_gt.txt \
+  --ref /media/user/aiueo1/datasets/hilti2022/exp04_construction_upper_level_gt.txt \
   --est <run>/trajectory_frontend.tum --out <run>/ape_historical_interpolate.txt
 ```
 

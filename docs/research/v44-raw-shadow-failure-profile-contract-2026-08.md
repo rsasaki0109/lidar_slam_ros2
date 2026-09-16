@@ -60,7 +60,7 @@ produced the same deterministic report payload:
 
 The retained evidence is under:
 
-`/home/sasaki/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v44g_failure_profile_contract_20260813/`
+`/home/user/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v44g_failure_profile_contract_20260813/`
 
 The aggregate is SHA-256
 `6964094a85c746bee7f4081ee3173d6db21d604fe6ea9ed518d6955f01405610` and its

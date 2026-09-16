@@ -27,14 +27,14 @@ V22_WRAPPER = ROOT / "scripts/fast_livo2_m6a10_v22_formal_container_run.sh"
 V22_WRAPPER_SHA256 = "6e74246d2b7ee60086f3b316b22c6ef69ca3f16307ffdecea3eae9ad2d794f67"
 PROFILE_SHA256 = "1f8027c2403077c25a0a5415314cdcfd0e83753113214ac17ccf479fc4a48673"
 BUILD_RECEIPT = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v17_build_correction_20260823T224017Z_agentv17/"
     "build_identity.receipt.json"
 )
 BUILD_RECEIPT_SHA256 = "23811d4200f9ed3ac464083ef339eb6d0437815ffdd82a2f37cc4180195bc2f7"
 BUILD_SIDECAR_SHA256 = "76e9859832412f0310e685b376324ff53ce4dbe033d2d440fce940421b1de15b"
 NO_INPUT_RECEIPT = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v17_no_input_correction2_20260823T225359Z_agentv17/"
     "no_input.receipt.json"
 )

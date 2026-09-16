@@ -38,8 +38,8 @@ during exp04 replay: e.g. tz variance 1.885 vs tx 1.103, rotation
 block ~1e-3 rad², symmetric with off-diagonal terms).
 
 Config: `configs/hilti2022/rko_lio_hilti2022_pandar.yaml`, bags under
-`/media/sasaki/aiueo/datasets/hilti2022/`, artifacts under
-`/media/sasaki/aiueo/lidarslam_work/output/v0.8_phase1_characterization/`.
+`/media/user/aiueo/datasets/hilti2022/`, artifacts under
+`/media/user/aiueo/lidarslam_work/output/v0.8_phase1_characterization/`.
 
 ## Methodology note: byte-identity must be judged single-core
 

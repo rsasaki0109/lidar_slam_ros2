@@ -70,7 +70,7 @@ IMAGE_DIGEST = IMAGE_ID
 IMAGE_REF = f'{IMAGE_TAG}@{IMAGE_ID}'
 
 BAG_PATH = Path(
-    '/media/sasaki/aiueo1/datasets/ntu_viral_release/'
+    '/media/user/aiueo1/datasets/ntu_viral_release/'
     'tnp_01_m6a10_v2a_sync_materialization_v1_ros1.bag')
 BAG_BYTES = 11290464091
 BAG_SHA256 = '5bc7c6a0e5088aa3f733377a3e597705b075b1ec5ca5be272b75636a0b697310'
@@ -116,29 +116,29 @@ EVIDENCE_RECEIPT_SHA256 = {
 EVIDENCE_RECEIPT_SHAS = EVIDENCE_RECEIPT_SHA256
 EVIDENCE_RECEIPT_PATHS = {
     'build_identity': Path(
-        '/media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/'
+        '/media/user/aiueo1/benchmarks/m6a10_training_20260823/'
         'fast_livo2_v2c_v11_build_20260823T121749Z_agentv11/'
         'build_identity.receipt.json'),
     'synthetic_gates': Path(
-        '/media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/'
+        '/media/user/aiueo1/benchmarks/m6a10_training_20260823/'
         'fast_livo2_v2c_v11_synthetic_20260823T121749Z_agentv11/'
         'synthetic_cpp_gates.receipt.json'),
     'dual_service': Path(
-        '/media/sasaki/aiueo1/benchmarks/20260823/'
+        '/media/user/aiueo1/benchmarks/20260823/'
         'fast_livo2_v2c_v11_dual_service_20260823T121749Z_agentv11/'
         'v11_dual_service.receipt.json'),
     'binder_compositor': Path(
-        '/media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/'
+        '/media/user/aiueo1/benchmarks/m6a10_training_20260823/'
         'fast_livo2_v2c_v11_host_gates_20260823T121749Z_agentv11/'
         'binder_compositor.receipt.json'),
 }
 V11_CANDIDATE_PROFILE_SHA256 = (
     'e8980198e52604bb7dca0d1c1ecb91b6ce4f8b95b1dea3bb80ad4db8cd382296')
 AUTHORIZED_ATTEMPT_ROOT = Path(
-    '/media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/'
+    '/media/user/aiueo1/benchmarks/m6a10_training_20260823/'
     'fast_livo2_v2c_v11_formal_replay_20260823T140331Z_agentv11formal')
 AUTHORIZATION_PATH = Path(
-    '/media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/'
+    '/media/user/aiueo1/benchmarks/m6a10_training_20260823/'
     'fast_livo2_v2c_v11_formal_authorization_20260823T140331Z/'
     'formal_replay_authorization.receipt.json')
 AUTHORIZATION_SHA256 = (
@@ -1006,10 +1006,10 @@ def verify_formal_authorization(config: FormalConfig) -> dict[str, Any]:
             ('holdout_authorized', False),
             ('scoring_authorized', False),
             ('prior_attempt.attempt_root',
-             '/media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/'
+             '/media/user/aiueo1/benchmarks/m6a10_training_20260823/'
              'fast_livo2_v2c_v11_formal_replay_20260823T135221Z_agentv11formal'),
             ('prior_attempt.closure_path',
-             '/media/sasaki/aiueo1/benchmarks/m6a10_training_20260823/'
+             '/media/user/aiueo1/benchmarks/m6a10_training_20260823/'
              'fast_livo2_v2c_v11_formal_replay_20260823T135221Z_agentv11formal/'
              'closure_receipt.json'),
             ('prior_attempt.closure_sha256',

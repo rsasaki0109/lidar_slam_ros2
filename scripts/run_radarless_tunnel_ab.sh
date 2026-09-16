@@ -47,7 +47,7 @@ require_value() {
 }
 
 SEQUENCE=tunnel
-DATASET_ROOT=${LIDAR_DEGENERACY_DATASET_ROOT:-/media/sasaki/aiueo/benchmarks/lidar_degeneracy_datasets_v1}
+DATASET_ROOT=${LIDAR_DEGENERACY_DATASET_ROOT:-/media/user/aiueo/benchmarks/lidar_degeneracy_datasets_v1}
 OUTPUT_ROOT=${RADARLESS_TUNNEL_BENCHMARK_ROOT:-${DATASET_ROOT}/runs/radarless_tunnel_adaptive_v1}
 BAG=""
 LIDAR_TOPIC=/os_cloud_node/points

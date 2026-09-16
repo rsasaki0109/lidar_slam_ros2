@@ -101,10 +101,10 @@ directory.  Every listed pair was `cmp`-equal.
 | MID-360 | `SmallGicpPcl` | `84e99e44d6a3fafebfed77b227064dfc` | `d4d79270861753ab747f3d131a1dc0b9` | `/tmp/small-gicp-dso-mid360-100.pLBaDB/SMALL_GICP_dso` |
 | MID-360 | `SmallVGicpPcl` | `89de1da6f7058050099fd27fd4d34dc7` | `43068c9a737307b4f78a9e4d27945aa6` | `/tmp/small-gicp-dso-mid360-100.pLBaDB/SMALL_VGICP_dso` |
 
-HILTI used `/media/sasaki/aiueo1/datasets/hilti2022/exp04_ros2`,
+HILTI used `/media/user/aiueo1/datasets/hilti2022/exp04_ros2`,
 `/hesai/pandar`, `/alphasense/imu`, and
 `configs/hilti2022/lidarslam_competitive_v2.yaml`.  MID-360 used
-`/media/sasaki/aiueo1/datasets/mid360_public/driving_slam_mid360/extracted/rosbag2_2024_04_16-14_17_01/rosbag2_2024_04_16-14_17_01`,
+`/media/user/aiueo1/datasets/mid360_public/driving_slam_mid360/extracted/rosbag2_2024_04_16-14_17_01/rosbag2_2024_04_16-14_17_01`,
 `/livox/lidar`, `/livox/imu`, and `lidarslam/param/lidarslam.yaml`.
 
 ### Full replay, one external run

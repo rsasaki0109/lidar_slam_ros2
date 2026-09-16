@@ -622,7 +622,7 @@ passed, `mkdocs build --strict` passed, and `git diff --check` passed.
 #### M4a pinned MID-360 three-run receipt (2026-08-21)
 
 The first formal M4a measurement used the frozen backend-input bag
-`/media/sasaki/aiueo1/benchmarks/mid360_public/backend_input_20260713/backend_input`
+`/media/user/aiueo1/benchmarks/mid360_public/backend_input_20260713/backend_input`
 (`341.250776531 s`), the Jazzy install and the checked-in
 `lidarslam_mid360_rko_graph.yaml` (`ndt_num_threads=0`, `DIRECT7`; inherited
 OpenMP environment empty/default). The complete receipt is preserved at
@@ -702,7 +702,7 @@ absolute-accuracy, SOTA, competitor, or README claim.
 
 The frozen MID-360 development profile was then executed three times with
 the same backend-input bag
-`/media/sasaki/aiueo1/benchmarks/mid360_public/backend_input_20260713/backend_input`
+`/media/user/aiueo1/benchmarks/mid360_public/backend_input_20260713/backend_input`
 (`341.250776531 s`), checked-in params, Jazzy runner, `ndt_num_threads=0`,
 unset OpenMP environment, and ROS domains 212--214. The command supplied
 `--require-ape`, `--max-rtf 0.95`, `--max-peak-rss-mib 672`, and

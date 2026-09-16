@@ -40,7 +40,7 @@ PARENT_WRAPPER_PATH = ROOT / "scripts/fast_livo2_m6a10_v12_formal_container_run.
 PARENT_WRAPPER_SHA256 = "af6fa54f834ae209758ee5a9903695674f4095c1063ac57b46c2774bfbc5c7a9"
 
 FAILED_ATTEMPT_ROOT = Path(
-    "/media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/"
+    "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"
     "fast_livo2_v2c_v12_formal_replay_20260823T190641Z_agentv12"
 )
 FAILED_CLOSURE_PATH = FAILED_ATTEMPT_ROOT / "closure_receipt.json"

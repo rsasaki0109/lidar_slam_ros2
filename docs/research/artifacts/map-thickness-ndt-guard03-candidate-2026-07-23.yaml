@@ -70,7 +70,7 @@ full_odd_scan_results:
     rpe_rmse_change_percent: 0.4114960546495072
 
 exp02_frozen_evidence:
-  root: /media/sasaki/aiueo/benchmarks/map_thickness_exp02_holdout_20260723/exp02
+  root: /media/user/aiueo/benchmarks/map_thickness_exp02_holdout_20260723/exp02
   target_pcd_sha256: bf1156a6f71018fe4d2d3810d2a671ed19e019237592d47f3e2086875ff9de84
   target_yaml_sha256: b565cb95e08b5cf52daf71c81d1f213f25e52bfa11dba2a9d60fb82ef4406272
   baseline_trajectory_sha256: e71f1d8a4a1616b4c135bd6b145d86209040e33f3d0bb605de4c41c1d6131074

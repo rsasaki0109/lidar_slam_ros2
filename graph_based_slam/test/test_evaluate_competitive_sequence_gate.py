@@ -52,9 +52,8 @@ def _result(system, track='glim_cpu_lidar_imu'):
     return {
         'system': system, 'sequence': 'exp99', 'track': track,
         'input_manifest_sha256': 'a' * 64, 'reference_sha256': 'b' * 64,
-        'calibration_sha256': 'c' * 64, 'machine_id': 'machine',
-        'rival_source_closure': closure_identity,
         'calibration_sha256': 'c' * 64,
+        'rival_source_closure': closure_identity,
         'evaluation_reference_sha256': 'd' * 64, 'machine_id': 'machine',
         'excluded_capabilities': CONTRACT['excluded_capabilities'],
         'repetitions': {'valid': 3, 'failures': 0},

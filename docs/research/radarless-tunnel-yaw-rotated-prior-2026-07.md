@@ -77,7 +77,7 @@ activity, and anchor expiry still clear the prior.
 
 Artifacts:
 
-- `/media/sasaki/aiueo/benchmarks/lidar_degeneracy_datasets_v1/runs/radarless_tunnel_stop_gate_speed21_v1`
+- `/media/user/aiueo/benchmarks/lidar_degeneracy_datasets_v1/runs/radarless_tunnel_stop_gate_speed21_v1`
 
 ## Rejected variants
 

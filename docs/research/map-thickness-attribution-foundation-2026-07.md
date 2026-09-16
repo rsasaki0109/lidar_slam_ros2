@@ -66,7 +66,7 @@ for byte. Six focused tests pass.
 ## Real-data adapter boundary
 
 The frozen HILTI exp04 backend bag is available at
-`/media/sasaki/aiueo/benchmarks/hilti_exp04_backend_fixed_20260713/backend_input`.
+`/media/user/aiueo/benchmarks/hilti_exp04_backend_fixed_20260713/backend_input`.
 It contains 1,258 exactly timestamp-paired `/rko_lio/odometry` and
 `/rko_lio/frame` messages. The existing offline runner reduces those to 44
 submap anchors and retains only the cloud from each selected anchor. Therefore
@@ -235,7 +235,7 @@ The RTF remains well below the long-horizon limit of 5.
 
 The direct thickness result is much smaller. The complete fixed backend input
 at
-`/media/sasaki/aiueo/benchmarks/hilti_exp04_piecewise_gyro_20260722_v5/backend_input`
+`/media/user/aiueo/benchmarks/hilti_exp04_piecewise_gyro_20260722_v5/backend_input`
 contains exactly 1,258 odometry messages and 1,258 deskewed frames. Against
 the frozen default-off attribution:
 
@@ -324,7 +324,7 @@ same-build piecewise control it produced:
 | processing RTF | 1.370 | 1.867 | +36.3% |
 
 The frozen backend capture at
-`/media/sasaki/aiueo/benchmarks/hilti_exp04_fixed_lag_finalized_20260722_v2/backend_input`
+`/media/user/aiueo/benchmarks/hilti_exp04_fixed_lag_finalized_20260722_v2/backend_input`
 contains exactly 1,258 clouds and 1,258 odometry messages. Two independent
 attribution replays are byte identical with SHA-256
 `01491fa51254bf8ddfea433b8d557f501fff7a7e176d7e4406209956ac3cb934`.

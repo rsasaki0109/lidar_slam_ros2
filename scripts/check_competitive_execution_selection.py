@@ -122,17 +122,17 @@ M6A7_STATIC_KEYS = (
     'sampler_scheduler_nice', 'memory_max', 'oom_delta_required',
     'docker_client_comparable', 'prior_failed_audit_lineage_required')
 M6A7_FAILED_AUDIT_ROOTS = (
-    '/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/'
+    '/media/user/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/'
     'v3_final_audit_20260822',
-    '/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/'
+    '/media/user/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/'
     'v3_final_audit_retry_20260822',
-    '/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/'
+    '/media/user/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/'
     'v3_final_audit_pass_20260822',
-    '/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/'
+    '/media/user/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/'
     'v3_final_audit_pass2_20260822',
-    '/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/'
+    '/media/user/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/'
     'v3_final_audit_tool_20260822',
-    '/media/sasaki/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/'
+    '/media/user/aiueo1/benchmarks/competitive_build_evidence/m6a7_20260822/'
     'v3_final_audit_tool_retry_20260822')
 
 

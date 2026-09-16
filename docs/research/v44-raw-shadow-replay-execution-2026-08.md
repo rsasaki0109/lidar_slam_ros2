@@ -32,7 +32,7 @@ terminal path before bootstrap or state creation.
 
 The run evidence is retained under:
 
-`/home/sasaki/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v44e_raw_shadow_replay_contract_20260810/raw_replay/navinst_indoor02/run_01/`
+`/home/user/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v44e_raw_shadow_replay_contract_20260810/raw_replay/navinst_indoor02/run_01/`
 
 - `run.json`: SHA-256
   `1913305fe4b3a8ded99c62aef3026428443643ecaa281a41c7fe0de6a1bd0b4a`
@@ -92,7 +92,7 @@ The aggregate JSON SHA-256 is
 with deterministic aggregate payload SHA-256
 `f9a9b25e746f49f5b2dc9665dba1a8019c59bfb2b044897f0561750a1da31073`.
 Evidence is retained under
-`/home/sasaki/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v44f_raw_shadow_replay_execution_audit_20260810/`.
+`/home/user/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v44f_raw_shadow_replay_execution_audit_20260810/`.
 
 The audit status is PASS because the rejection evidence is complete and
 repeatable. Raw replay continuation, an accuracy screen, primary mutation, and

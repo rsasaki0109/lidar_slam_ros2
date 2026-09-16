@@ -83,7 +83,7 @@ EXPECTED_IMAGE_LABELS = {
     'benchmark.ours.revision': '866f733677e92ecb08d67126e463da99dd140d46',
 }
 DEFAULT_INPUT_ROOT = Path(
-    '/media/sasaki/aiueo1/datasets/ntu_viral_release/'
+    '/media/user/aiueo1/datasets/ntu_viral_release/'
     'tnp_01_m6a10_v2a_sync_materialization_v1_ros2')
 DEFAULT_DRAIN_TIMEOUT_SECONDS = 30
 DEFAULT_SAMPLE_SECONDS = 5.0

@@ -128,7 +128,7 @@ separation is one submap, so it inserts zero factors and OFF/ON trajectory MD5
 is identically `2e2331d4b8adbb8487bd1dbac5f1d280`.
 
 The machine-readable verdict is
-`/media/sasaki/aiueo/benchmarks/plane_revisit_mid360_20260713/plane_revisit_ab_gate.json`
+`/media/user/aiueo/benchmarks/plane_revisit_mid360_20260713/plane_revisit_ab_gate.json`
 (SHA-256
 `49005e95ca0e97e738c6e719424f1f00ac51186d007ea0c19688b8c98f41bccb`),
 with all nine checks passing.
@@ -140,10 +140,10 @@ scripts now find either a repository-local `install/` or the normal parent
 colcon workspace automatically.
 
 ```bash
-ROOT=/media/sasaki/aiueo/benchmarks/plane_revisit_mid360_20260713
-BAG=/media/sasaki/aiueo/benchmarks/mid360_public/backend_input_20260713/backend_input
+ROOT=/media/user/aiueo/benchmarks/plane_revisit_mid360_20260713
+BAG=/media/user/aiueo/benchmarks/mid360_public/backend_input_20260713/backend_input
 FIXED="$ROOT/on_root2_depth1_smoke/run1/loop_edges.csv"
-GLIM=/media/sasaki/aiueo/benchmarks/mid360_public/driving_slam_loop_weight400_20260713/traj_corrected.tum
+GLIM=/media/user/aiueo/benchmarks/mid360_public/driving_slam_loop_weight400_20260713/traj_corrected.tum
 
 bash scripts/run_offline_determinism_check.sh \
   --bag "$BAG" --params lidarslam/param/lidarslam_mid360_rko_graph.yaml \

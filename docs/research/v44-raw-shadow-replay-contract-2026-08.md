@@ -130,7 +130,7 @@ They started at 34.63--34.73 MiB RSS, peaked at 43.16--43.23 MiB, and added
 with deterministic aggregate payload SHA-256
 `7550b7303021d8440b749dc2b19279f3cdb66c8c6dfade6f3d2a27a64c91c10e`.
 Evidence is retained under
-`/home/sasaki/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v44e_raw_shadow_replay_contract_20260810/`.
+`/home/user/workspace/old_~2026/lidarslam_ws/sota_v6_dev_v44e_raw_shadow_replay_contract_20260810/`.
 
 ## Next gate
 

@@ -30,7 +30,7 @@ image reference.  Its OCI index is
 and the verified Linux/amd64 child manifest is
 `sha256:32bf718e63618482ffb1fe232cf0f834635c57162e2506fb0bc0b092ef776c1e`.
 The one-image acquisition receipt is
-`/media/sasaki/aiueo1/benchmarks/plugin_evidence_20260824/registration_plugin_humble_exact_acquisition_20260824T060340Z_agent/humble_exact_acquisition.receipt.json`
+`/media/user/aiueo1/benchmarks/plugin_evidence_20260824/registration_plugin_humble_exact_acquisition_20260824T060340Z_agent/humble_exact_acquisition.receipt.json`
 (SHA-256
 `7d4568867892dfcbfe29b46dc02b976ef7662ac1355ea5d3577d2b6be076bbe6`).
 This proves image identity and local pullability only; it is not a release

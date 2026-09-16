@@ -85,7 +85,7 @@ receipts; checks exact bag/profile identity and topic counts; and always calls
 the generic v3 validator before an output can be written. Its output is
 atomic and immutable. The required end timestamp is preregistered as
 `1623491515.148352` from
-`/media/sasaki/aiueo/benchmarks/m6a10_training_20260822/ntu_tnp01_training_validation_summary.json`
+`/media/user/aiueo/benchmarks/m6a10_training_20260822/ntu_tnp01_training_validation_summary.json`
 with SHA-256
 `4217a4b07f5ff85148e7433be1b9fef51e35d843a98bbb287d6f9c010c254177`.
 

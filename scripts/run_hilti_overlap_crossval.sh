@@ -43,8 +43,8 @@ require_value() {
 }
 
 SEQUENCE=all
-DATASET_ROOT=${HILTI_DATASET_ROOT:-/media/sasaki/aiueo/datasets/hilti2022}
-OUTPUT_ROOT=${LIDARSLAM_BENCHMARK_ROOT:-/media/sasaki/aiueo/benchmarks/phase8/hilti_overlap_crossval_20260714}
+DATASET_ROOT=${HILTI_DATASET_ROOT:-/media/user/aiueo/datasets/hilti2022}
+OUTPUT_ROOT=${LIDARSLAM_BENCHMARK_ROOT:-/media/user/aiueo/benchmarks/phase8/hilti_overlap_crossval_20260714}
 SETUP_FILE="${REPO_ROOT}/../install/setup.bash"
 PARAMS_FILE="${REPO_ROOT}/lidarslam/param/lidarslam.yaml"
 RKO_PARAM="${REPO_ROOT}/configs/hilti2022/rko_lio_hilti2022_pandar.yaml"

@@ -36,9 +36,9 @@ candidate, and is explicitly excluded from the table.
 
 Artifacts:
 
-- `/media/sasaki/aiueo/benchmarks/hilti_exp07_multiscan_observability_20260715_v2`
-- `/media/sasaki/aiueo/benchmarks/hilti_exp07_multiscan_observability_20260715_v3`
-- `/media/sasaki/aiueo/benchmarks/mid360_public/multiscan_observability_20260715_v1`
+- `/media/user/aiueo/benchmarks/hilti_exp07_multiscan_observability_20260715_v2`
+- `/media/user/aiueo/benchmarks/hilti_exp07_multiscan_observability_20260715_v3`
+- `/media/user/aiueo/benchmarks/mid360_public/multiscan_observability_20260715_v1`
 
 ## What the failed follow-up established
 
@@ -67,9 +67,9 @@ The candidate was removed rather than retained behind a flag: it missed the
 3% accuracy gate, remained slower than real time, and its per-voxel cached
 statistics would have increased memory even when the feature was disabled.
 Artifacts are
-`/media/sasaki/aiueo/benchmarks/hilti_exp01_local_surface_20260715_default`
+`/media/user/aiueo/benchmarks/hilti_exp01_local_surface_20260715_default`
 and
-`/media/sasaki/aiueo/benchmarks/hilti_exp01_local_surface_20260715_candidate_v1`.
+`/media/user/aiueo/benchmarks/hilti_exp01_local_surface_20260715_candidate_v1`.
 
 ## Runtime follow-ups
 
@@ -87,4 +87,4 @@ compared with squared distances and `sqrt` is evaluated only once for the
 winning point. On complete exp01 runs, trajectory APE remained exactly
 `0.0655590872` m with all 13 checkpoints while processing RTF improved from
 `3.0761` to `2.0612` (33.0%). The optimized artifact is
-`/media/sasaki/aiueo/benchmarks/hilti_exp01_squared_nn_20260715_v1`.
+`/media/user/aiueo/benchmarks/hilti_exp01_squared_nn_20260715_v1`.

@@ -42,10 +42,10 @@ IMAGE_TAG = 'm6a10-v2a-fixed10-v2-lidarslam-ours:jazzy'
 IMAGE_DIGEST = (
     'sha256:385b6eeedae3014bcd893849f2ec3a49f5176f0ef3cdd7e96559690e8dc25a69')
 DEFAULT_INPUT_ROOT = Path(
-    '/media/sasaki/aiueo1/datasets/ntu_viral_release/'
+    '/media/user/aiueo1/datasets/ntu_viral_release/'
     'tnp_01_m6a10_v2a_sync_materialization_v1_ros2')
 V9_IDENTITY_RECEIPT_PATH = Path(
-    '/media/sasaki/aiueo1/benchmarks/m6a10_training_20260822/'
+    '/media/user/aiueo1/benchmarks/m6a10_training_20260822/'
     'ours_m6a10_v2a_unpaced_ack_fixed10_v9_identity_preflight_v2/'
     'identity_receipt.json')
 

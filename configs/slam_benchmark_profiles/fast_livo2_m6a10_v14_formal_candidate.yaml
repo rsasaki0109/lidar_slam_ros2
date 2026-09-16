@@ -47,16 +47,16 @@ lineage:
     path: scripts/run_fast_livo2_m6a10_v13_formal_authorized.py
     sha256: 2ee461d7afca91e5633f17420f552da1c0bd748f05228438d6a1cbc9f5092033
   v13_authorization:
-    path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v13_formal_authorization_20260823T194325Z/formal_authorization.receipt.json
+    path: /media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v13_formal_authorization_20260823T194325Z/formal_authorization.receipt.json
     sha256: e7e2aa9cd9f8d1ef884595cc4c71158c077d7e8ef8dcfd2b9d1ff23152c2ae83
   v13_persistence_receipt:
-    path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v13_persistence_20260823T192720Z_agentv13/persistence_gate.receipt.json
+    path: /media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v13_persistence_20260823T192720Z_agentv13/persistence_gate.receipt.json
     sha256: 18998f6177418eaf7e98fe517691d0642d59ac48f2faeb9b45ef0bc8fef62c72
   v13_failed_formal_closure:
-    path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v13_formal_replay_20260823T194325Z_agentv13formal/closure_receipt.json
+    path: /media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v13_formal_replay_20260823T194325Z_agentv13formal/closure_receipt.json
     sha256: 73252dd828388a5ff026413ec957cb02504dea4ba14b936678257333954b8212
   v13_failure_correction:
-    path: /media/sasaki/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v13_formal_replay_20260823T194325Z_agentv13formal/closure_correction.receipt.json
+    path: /media/user/aiueo1/benchmarks/m6a10_training_20260824/fast_livo2_v2c_v13_formal_replay_20260823T194325Z_agentv13formal/closure_correction.receipt.json
     sha256: 24c9ceb1d2b2da8e8ec95c54aa00ad723f1713146ff21a4b235533ebf776fd0e
   v12_wrapper:
     path: scripts/fast_livo2_m6a10_v12_formal_container_run.sh

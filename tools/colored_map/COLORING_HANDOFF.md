@@ -116,18 +116,18 @@ ffmpeg -i master.mp4 -vf "fps=15,scale=600:-2:flags=lanczos" -loop 0 \
 
 ## 5. データ・成果物の所在
 
-- **RTK-SLAM bag**: `/media/sasaki/aiueo/datasets/rtk_slam/ros2/construction_seq1`
+- **RTK-SLAM bag**: `/media/user/aiueo/datasets/rtk_slam/ros2/construction_seq1`
   (13,180,936,192 bytes)。**注意**: 一度 8.0/13.2 GB で切断破損していた
   ("database disk image is malformed")。`wget -c` (`scripts/download_rtk_slam_dataset.py`
   の URL) で再開修復できる。**使う前にサイズを SEQUENCES の期待値と照合**。
 - **今回の RTK 成果物一式**:
-  `/media/sasaki/aiueo/benchmarks/rtkslam_seq1_colored_map_20260718/`
+  `/media/user/aiueo/benchmarks/rtkslam_seq1_colored_map_20260718/`
   (RKO-LIO TUM 軌跡 `results/seq1_rko_0/`、posed_t0(260 views)、
   colored_{A,B,D}.ply(A=margin なし/B=margin140/D=採用構成)、
   heldout/app/align の各 json、flythrough_master.mp4、新旧比較 PNG)。
   D が README アセットの元。
 - **exp04 検証一式**:
-  `/media/sasaki/aiueo/datasets/public_validation/hilti_exp04_colored_map_recolor_20260718/`
+  `/media/user/aiueo/datasets/public_validation/hilti_exp04_colored_map_recolor_20260718/`
   (README.md に A/B 表、旧着色との比較 ply、heldout/app json)。
 - README アセット: `lidarslam/images/map_flythrough_rtkslam.{webp,mp4,gif}`。
 - 経緯の一次資料: `docs/research/3dgs-trajectory-flythrough-notes.md` 追補3、
@@ -151,7 +151,7 @@ ffmpeg -i master.mp4 -vf "fps=15,scale=600:-2:flags=lanczos" -loop 0 \
 - **appearance の chroma_retention はモノクロ画像で null** — プロファイルに
   閾値を書くなら色付きリグのみ。
 - **exp04 の posed images はグレースケール**(alphasense)。色の議論には
-  RTK-SLAM か AIST bag (`/media/sasaki/aiueo/benchmarks/aist_rgb_map/`) を使う。
+  RTK-SLAM か AIST bag (`/media/user/aiueo/benchmarks/aist_rgb_map/`) を使う。
 
 ## 7. 次の候補(未着手、優先度順の私見)
 
@@ -166,7 +166,7 @@ ffmpeg -i master.mp4 -vf "fps=15,scale=600:-2:flags=lanczos" -loop 0 \
 4. **CPU レンダラの soft 化**: 不透明ディスクゆえ未マップ領域の黒い隙間が
    gsplat よりも目立つ。supersample 3 化 or 半径依存の soft edge。
 5. **リアルタイムノードの実 bag 検証**: #364 は unit test + build まで。
-   all-sensors-bag1(`/home/sasaki/autoware_data/all-sensors-bag1`、
+   all-sensors-bag1(`/home/user/autoware_data/all-sensors-bag1`、
    lucid camera_0=camera_top/camera_optical_link、QoS は SensorDataQoS 対応済み)
    で live A/B するとよい。
 6. **エクスポート枝への波及**: mesh/LAS/GIS(`mesh_export.py` 等)は改善前の
@@ -236,7 +236,7 @@ p90<=25.0に較正した。D/IはPASSし、旧A/Bはp90で検出する。平面�
 
 ## 12. 追記 (2026-07-18): realtime実bag A/B
 
-未着手候補5を`/home/sasaki/autoware_data/all-sensors-bag1`で実施した。
+未着手候補5を`/home/user/autoware_data/all-sensors-bag1`で実施した。
 LiDARは`/sensing/lidar/concatenated/pointcloud` (`base_link`)、camera_0は
 `/lucid_vision/camera_0/{raw_image,camera_info}` (720x465 BGR8)、optical frameは
 `camera_top/camera_optical_link`。bagには完成mapがないため、各scanをmap入力として
@@ -287,7 +287,7 @@ render voxel 0.03、soft edge 1px、surface aspect 2.5、normal voxel 0.12、cin
 同じ240 frame評価で旧README→K3はoccupied pixel 0.78820→0.80735、black pixel
 0.21180→0.19265、temporal delta p90 0.01589→0.01113、flicker p90
 0.00800→0.00688。WebP/MP4/GIFをK3から再生成した。成果物・JSON・棄却したK/K2は
-`/media/sasaki/aiueo/benchmarks/rtkslam_seq1_colored_map_20260718/`に保存。
+`/media/user/aiueo/benchmarks/rtkslam_seq1_colored_map_20260718/`に保存。
 
 ## 15. 追記 (2026-07-19): geometry-aware RGB fusion
 

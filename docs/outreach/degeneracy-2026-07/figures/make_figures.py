@@ -34,7 +34,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 # Data sources (absolute paths, per task brief)
 # ---------------------------------------------------------------------------
 BENCH = pathlib.Path(
-    "/media/sasaki/aiueo/benchmarks/lidar_degeneracy_datasets_v1/runs"
+    "/media/user/aiueo/benchmarks/lidar_degeneracy_datasets_v1/runs"
 )
 
 FOG_BASELINE = BENCH / "fog_rko_lio_baseline_v1/traj_raw.tum"
