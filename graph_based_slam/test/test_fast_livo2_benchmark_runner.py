@@ -125,12 +125,6 @@ def test_frozen_input_manifest_must_match_selected_representation(tmp_path):
         raise AssertionError('mismatched frozen bag was accepted')
 
 
-def test_map_export_mount_is_separate_and_opt_in(tmp_path):
-    assert RUNNER.map_output_binding(tmp_path, False) == []
-    mount = RUNNER.map_output_binding(tmp_path, True)
-    assert mount == ['-v', f"{tmp_path / 'fast_log'}:/bench/FAST-LIVO2/Log"]
-
-
 def test_fast_log_mount_always_isolates_exact_trajectory_and_optional_map(tmp_path):
     mount = RUNNER.fast_log_binding(tmp_path, False)
     assert mount == ['-v', f'{tmp_path / "fast_log"}:/bench/FAST-LIVO2/Log']

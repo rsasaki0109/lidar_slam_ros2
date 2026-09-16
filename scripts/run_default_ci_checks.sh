@@ -144,7 +144,6 @@ DEFAULT_CI_EXCLUDED_TESTS='^('\
 'test_publish_competitive_claim|'\
 'test_run_competitive_gt_blind_benchmark|'\
 'test_verify_competitive_evidence_bundle|'\
-'test_fast_livo2_benchmark_runner|'\
 'test_glim_benchmark_runner|'\
 'test_ntu_viral_acquisition_pipeline|'\
 'test_fast_gicp_selector|'\

@@ -1,5 +1,44 @@
 # Changelog
 
+## Unreleased
+
+CI and repository-hygiene recovery after the sota-v6 recovery merge.
+
+### Fixed
+
+- **Default workflow builds and tests again** — repaired the broken merge in
+  `graph_based_slam` (adopt the pimpl component implementation that matches the
+  merged header, declare the missing `lidarslam_plugin_interfaces` /
+  `lidarslam_default_plugins` / `lidarslam_registration_loader` dependencies,
+  bridge the legacy loop registration through `PclRegistrationAdapter`), and
+  fixed the latent PCL 1.12/1.14 `fromPCLPointCloud2` and `PYTHONPATH` issues
+  so Humble and Jazzy both build and test.
+- **Dependency pin** — restored the `rko_lio` 0.3.2 submodule revision (the
+  merge had regressed it to an experimental 0.2.0 revision) together with the
+  radar/intensity tests.
+- **Canonical NDT convergence** — rebased the checked-in parent transition
+  patch on the current consumer manifests and refreshed the contract, evidence,
+  and recorded SHA-256.
+- **Verified workflows** — `docs-site`, `real-data-e2e`, `official RKO-LIO`,
+  `install upgrade`, and `bounded filesystem exhaustion` pass; the
+  `release-readiness` jobs pass again.
+
+### Changed
+
+- **Lint** — cleared the merged lint debt (missing copyright headers, flake8,
+  pep257, lint_cmake) and re-enabled those linters in the default gate. The
+  `uncrustify` check stays excluded because the Humble and Jazzy uncrustify
+  versions cannot agree on one style for the same source.
+- **Repository hygiene** — neutralized the hardcoded `/home/sasaki` and
+  `/media/sasaki` absolute paths to `/home/user` and `/media/user`, and rebound
+  the fingerprint profile hashes that referenced them.
+
+### Known limitations
+
+- The experimental competitive/benchmark contracts are excluded from the
+  default gate until their preregistration receipts are re-frozen with a
+  maintained tool.
+
 ## 0.9.1 - 2026-08-12
 
 A reliability and first-map usability release candidate. It keeps the v0.9.0

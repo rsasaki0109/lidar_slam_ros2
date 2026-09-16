@@ -60,6 +60,19 @@ ROS 2, PCL, Eigen3, G2O, OpenMP
 
 GitHub Actions（main.yml）で Humble + Jazzy マトリクスビルド＋テスト。
 リリースゲート: APE RMSE <= 0.10m + Autoware マップ検証。
+ローカル相当: `bash scripts/run_default_ci_checks.sh`（ビルド＋テスト）。
+
+`run_default_ci_checks.sh` は `DEFAULT_CI_EXCLUDED_TESTS` の ctest 名フィルタで
+以下を default gate から除外している:
+
+- 実験的な competitive/benchmark 契約（凍結レジストリの SHA-256 が sota-v6 マージで
+  無効化され、再凍結ツールが Python cleanup で削除済み。再生成するまで別タスク扱い）
+- `uncrustify`（Humble と Jazzy で uncrustify の版が異なり、同一ソースでスタイルを
+  両立できない）
+
+lint は `flake8` / `pep257` / `lint_cmake` / `copyright` / `cpplint` / `xmllint` を
+有効にしている。`graph_based_slam/test/conftest.py` には、凍結レシートと
+sota-only submodule 機能に依存する一部テストの skip がある。
 
 ## スクリプト一覧
 
