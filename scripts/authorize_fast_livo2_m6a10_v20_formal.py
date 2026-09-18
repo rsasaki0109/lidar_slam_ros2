@@ -25,7 +25,6 @@ if str(SCRIPT_DIR) not in sys.path:
 
 import lidarslam_benchmark_tools.check_m6a10_quiescence as quiescence  # noqa: E402
 import lidarslam_benchmark_tools.authorize_fast_livo2_m6a10_v19_formal as previous  # noqa: E402
-import lidarslam_benchmark_tools.fast_livo2_m6a10_v19_base_adapter as adapter  # noqa: E402
 
 
 AUTHORIZATION_CONTRACT = "m6a10-v20-formal-exact-root-authorization-v1"

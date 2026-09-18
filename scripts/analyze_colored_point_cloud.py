@@ -45,7 +45,7 @@ def analyze(path: Path, default_rgb: tuple[int, int, int]) -> dict:
         'schema_version': 1,
         'input': str(path.resolve()),
         'input_sha256': file_sha256(path),
-        'points': int(len(xyz)),
+        'points': len(xyz),
         'colored': int(seen.sum()),
         'colored_frac': float(seen.mean()) if len(seen) else 0.0,
         'default_rgb': list(default_rgb),
@@ -53,7 +53,7 @@ def analyze(path: Path, default_rgb: tuple[int, int, int]) -> dict:
             'mean_channel_range': float(channel_range.mean()) if len(channel_range) else 0.0,
             'chromatic_fraction_10': (
                 float(np.mean(channel_range >= 10)) if len(channel_range) else 0.0),
-            'unique_colours': int(len(np.unique(selected, axis=0))),
+            'unique_colours': len(np.unique(selected, axis=0)),
         },
         'bounds': bounds,
         'status': 'PASS' if len(xyz) and seen.any() else 'FAIL',

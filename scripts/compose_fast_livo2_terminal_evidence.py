@@ -12,9 +12,7 @@ immutable result.  No expected count is copied into an observed field.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
-import os
 from pathlib import Path
 import sys
 from typing import Any

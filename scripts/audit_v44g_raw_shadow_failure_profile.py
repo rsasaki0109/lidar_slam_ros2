@@ -16,7 +16,7 @@ import hashlib
 import json
 from pathlib import Path
 import resource
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping
 
 
 ROOT = Path(__file__).resolve().parents[1]

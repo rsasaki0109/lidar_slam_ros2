@@ -510,7 +510,7 @@ def _point_field_array(np: Any, msg: Any, field: Any) -> Any:
     width = int(getattr(msg, 'width', 0))
     if height <= 0 or width <= 0:
         raise ValueError('PointCloud2 has no points')
-    data = getattr(msg, 'data')
+    data = msg.data
     buffer = data if hasattr(data, '__array_interface__') else bytes(data)
     values = np.ndarray(
         shape=(height, width),

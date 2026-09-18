@@ -46,7 +46,7 @@ V21_LAUNCHER_PATH = Path(__file__).resolve()
 RECEIPT_NAME = "closure_receipt.json"
 
 CandidateError = adapter.BaseAdapterError
-AuthorizationValidator = Callable[["v21_config"], Mapping[str, Any]]
+AuthorizationValidator = Callable[["v19.CandidateConfig"], Mapping[str, Any]]
 
 
 def sha256_file(path: Path) -> str:

@@ -42,7 +42,7 @@ def trajectory_metrics(
 
     result: dict[str, Any] = {
         "trajectory": str(path.resolve()),
-        "pose_count": int(len(trajectory)),
+        "pose_count": len(trajectory),
         "duration_sec": float(trajectory[-1, 0] - trajectory[0, 0]),
         "path_length_m": float(steps.sum()),
         "endpoint_distance_m": endpoint_distance,
@@ -197,7 +197,7 @@ def _point_projection_metrics(
         }
     return {
         "method": "six_axis_sensor_points_after_se3_trajectory_alignment",
-        "sample_directions": int(len(directions)),
+        "sample_directions": len(directions),
         "ranges_m": by_range,
     }
 
@@ -245,13 +245,13 @@ def reference_metrics(
 
     return {
         "trajectory": str(reference_path.resolve()),
-        "overlap_pose_count": int(len(candidate_xyz)),
+        "overlap_pose_count": len(candidate_xyz),
         "overlap_duration_sec": float(
             candidate[in_range, 0][-1] - candidate[in_range, 0][0]
         ),
         "min_reach_for_ratio_m": min_reference_reach_m,
         "reach_ratio": {
-            "sample_count": int(len(ratios)),
+            "sample_count": len(ratios),
             "final": float(ratios[-1]),
             "p50": float(np.quantile(ratios, 0.50)),
             "p95": float(np.quantile(ratios, 0.95)),

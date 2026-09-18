@@ -375,7 +375,7 @@ def _nearest_distances_chunked(source: np.ndarray, target: np.ndarray) -> np.nda
 
 def _distance_summary(distances: np.ndarray) -> dict[str, float]:
     return {
-        'count': int(len(distances)),
+        'count': len(distances),
         'mean_m': float(np.mean(distances)),
         'median_m': float(np.median(distances)),
         'p90_m': float(np.percentile(distances, 90)),
@@ -405,7 +405,7 @@ def _point_field_array(msg: Any, name: str) -> np.ndarray:
     width = int(getattr(msg, 'width', 0))
     if height <= 0 or width <= 0:
         return np.empty((0,), dtype=dtype)
-    data = getattr(msg, 'data')
+    data = msg.data
     buffer = data if hasattr(data, '__array_interface__') else bytes(data)
     values = np.ndarray(
         shape=(height, width),
@@ -468,7 +468,7 @@ def _window_summary(scans: list[ScanPoints], cloud: np.ndarray) -> dict[str, Any
     return {
         'scan_count': len(scans),
         'raw_points': int(sum(len(scan.points) for scan in scans)),
-        'world_points': int(len(cloud)),
+        'world_points': len(cloud),
         'start_stamp': min((scan.stamp for scan in scans), default=None),
         'end_stamp': max((scan.stamp for scan in scans), default=None),
     }

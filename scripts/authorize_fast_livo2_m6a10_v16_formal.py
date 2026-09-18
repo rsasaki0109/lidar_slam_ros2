@@ -11,7 +11,6 @@ fresh attempt root named in its sealed receipt.
 from __future__ import annotations
 
 import argparse
-import datetime as dt
 import hashlib
 import importlib.util
 import json

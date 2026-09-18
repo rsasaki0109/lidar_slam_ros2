@@ -46,7 +46,6 @@ import re
 import stat
 import sys
 from typing import Any, Iterable, Mapping
-from urllib.parse import urlparse
 
 import yaml
 

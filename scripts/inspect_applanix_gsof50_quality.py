@@ -75,12 +75,12 @@ class ApplanixGsof50Record:
     """Minimal GSOF50 fields needed for quality inspection."""
 
     __slots__ = (
-        'stamp_sec',
         'gnss_status',
-        'imu_alignment',
-        'pos_rms_north_m',
-        'pos_rms_east_m',
         'heading_rms_deg',
+        'imu_alignment',
+        'pos_rms_east_m',
+        'pos_rms_north_m',
+        'stamp_sec',
     )
 
     def __init__(

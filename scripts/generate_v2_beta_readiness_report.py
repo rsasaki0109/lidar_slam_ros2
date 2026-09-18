@@ -86,7 +86,6 @@ def main() -> int:
     dogfood_dir = Path(args.dogfood_dir).expanduser().resolve()
     out_path = Path(args.out).expanduser().resolve()
 
-    summary_text = summary_path.read_text(encoding='utf-8')
     fresh = _load_json(fresh_metrics_path)
     best = _load_json(best_metrics_path)
 

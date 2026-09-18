@@ -298,7 +298,7 @@ def authorize(*, authorization_root: Path = AUTHORIZATION_ROOT, attempt_root: Pa
         raise AuthorizationError("ROOT_NOT_FRESH", "v21 authorization root raced into existence") from exc
     try:
         profile = _verify_profile(repo_root)
-        lineage = _verify_v20_lineage(repo_root)
+        _verify_v20_lineage(repo_root)
         runner = window_runner or _run_window
         windows: List[Dict[str, Any]] = []
         for index in range(1, WINDOW_COUNT + 1):

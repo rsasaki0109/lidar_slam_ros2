@@ -20,7 +20,7 @@ The contract is:
 SHA-256: `b985b4454908619215d0f41c1c26845d244790f23b6a40d2dda9677e1935c281`.
 The static auditor is
 `scripts/audit_v44g_raw_shadow_failure_profile.py` with SHA-256
-`d03f1ee399815f04401ab7cadaf5ca7234b662dc133357ae3ec9d1a7901a0839`.
+`3d93a4ef49b568071bcac2df56458400dd9cf2cb2dce0d0569553227f04cb755`.
 
 ## Frozen boundary
 

@@ -356,8 +356,8 @@ def _inspect_check_runs(
             or not name
             or not isinstance(status, str)
             or not status
-            or conclusion is not None and not isinstance(conclusion, str)
-            or details_url is not None and not isinstance(details_url, str)
+            or (conclusion is not None and not isinstance(conclusion, str))
+            or (details_url is not None and not isinstance(details_url, str))
         ):
             raise PreflightError(
                 f'pull request #{number} contains an incomplete check run')

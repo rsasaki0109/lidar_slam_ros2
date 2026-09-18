@@ -56,7 +56,7 @@ def summarize(rgb: np.ndarray, default_rgb=(128, 128, 128)) -> dict:
     confirmed = np.any(colours != np.asarray(default_rgb, dtype=np.uint8), axis=1)
     chroma = np.ptp(colours[confirmed].astype(np.int16), axis=1)
     return {
-        'points': int(len(colours)),
+        'points': len(colours),
         'confirmed': int(confirmed.sum()),
         'coverage': float(confirmed.mean()) if len(confirmed) else 0.0,
         'chroma_mean': float(chroma.mean()) if len(chroma) else 0.0,

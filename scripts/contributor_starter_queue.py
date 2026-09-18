@@ -728,7 +728,7 @@ def _matches_task_pull(
     body = pull.get('body')
     if (
         not isinstance(title, str)
-        or body is not None and not isinstance(body, str)
+        or (body is not None and not isinstance(body, str))
     ):
         raise QueueError('GitHub pull has invalid searchable text')
     searchable = f'{title}\n{body or ""}'.casefold()
@@ -1123,8 +1123,8 @@ def build_next_report(
         reasons = gate.get('blocking_reasons')
         if (
             not isinstance(reasons, list)
-            or expected_eligible and reasons
-            or not expected_eligible and not reasons
+            or (expected_eligible and reasons)
+            or (not expected_eligible and not reasons)
         ):
             raise QueueError(
                 f"publication gate {dependency['id']} blocking reasons "
