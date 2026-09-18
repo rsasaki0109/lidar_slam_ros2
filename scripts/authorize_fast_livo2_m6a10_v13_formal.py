@@ -10,7 +10,6 @@ root.  The v12 feeder's underlying nonzero cause remains explicitly unknown.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 from pathlib import Path
 import sys
@@ -52,13 +51,7 @@ TRANSPORT_CONTRACT = "m6a10-v12-callback-ack-transport-outstanding-v1"
 CONTRACT_VERSION = "m6a10-v13-formal-exact-root-authorization-v1"
 RECEIPT_NAME = "formal_authorization.receipt.json"
 
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
+from lidarslam_benchmark_tools.fast_livo2_m6a10_common import _sha256  # noqa: E402
 
 
 def _pin(path: Path, expected: str, label: str) -> str:

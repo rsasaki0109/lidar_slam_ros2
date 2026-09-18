@@ -66,13 +66,7 @@ class CandidateConfig:
     authorization_path: Optional[Path] = None
     authorization_sha256: Optional[str] = None
 
-
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
+from lidarslam_benchmark_tools.fast_livo2_m6a10_common import sha256_file  # noqa: E402
 
 
 def _atomic_bytes(path: Path, payload: bytes, mode: int = 0o444) -> str:
