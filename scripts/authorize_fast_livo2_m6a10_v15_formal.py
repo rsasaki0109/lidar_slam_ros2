@@ -12,13 +12,12 @@ self-referential authorization hash; the launcher pins this authorizer.
 from __future__ import annotations
 
 import argparse
-import datetime as dt
 import hashlib
 import json
 import os
 from pathlib import Path
 import sys
-from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional
+from typing import Any, Callable, Dict, List, Mapping, Optional
 
 import yaml
 

@@ -11,10 +11,8 @@ creates a map.  The candidate remains unauthorized for every other root.
 from __future__ import annotations
 
 import argparse
-import datetime as dt
 import hashlib
 import json
-import os
 from pathlib import Path
 import sys
 from typing import Any, Dict, Mapping, Optional, Sequence
@@ -35,7 +33,7 @@ import lidarslam_benchmark_tools.run_fast_livo2_m6a10_v14_formal as candidate  #
 PROFILE_PATH = ROOT / "configs/slam_benchmark_profiles/fast_livo2_m6a10_v14_formal_candidate.yaml"
 PROFILE_SHA256 = "849585ae1d2bb118db9a261f42305886b0305628473cea964781695f01b63996"
 CANDIDATE_LAUNCHER_PATH = ROOT / "scripts/run_fast_livo2_m6a10_v14_formal.py"
-CANDIDATE_LAUNCHER_SHA256 = "695d61d4883f0398e2d1cc859d33133570bb5a6e9cd0a4ce2c988261fc6609a3"
+CANDIDATE_LAUNCHER_SHA256 = "a501a2592dc58f24361ffff1920f4f8077c788d4b1f8520e99d3d679aaa38666"
 CANDIDATE_TEST_PATH = ROOT / "graph_based_slam/test/test_fast_livo2_m6a10_v14_formal.py"
 CANDIDATE_TEST_SHA256 = "a8dbbb455f75bde86152568266c5cad869c069fdf4cfa969452034374deb3d77"
 AUTHORIZED_LAUNCHER_PATH = ROOT / "scripts/run_fast_livo2_m6a10_v14_formal_authorized.py"

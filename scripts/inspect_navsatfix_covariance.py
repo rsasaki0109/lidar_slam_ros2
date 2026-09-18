@@ -56,13 +56,13 @@ class NavSatFixRecord:
     """Minimal NavSatFix fields needed for covariance inspection."""
 
     __slots__ = (
-        'stamp_sec',
+        'altitude',
+        'covariance_type',
         'latitude',
         'longitude',
-        'altitude',
-        'status',
-        'covariance_type',
         'position_covariance',
+        'stamp_sec',
+        'status',
     )
 
     def __init__(

@@ -482,12 +482,12 @@ __all__ = [
     'CONTRACT_VERSION',
     'COVERAGE_JITTER_FACTOR',
     'DEFAULT_INTERVAL_SECONDS',
+    'MAX_COVERAGE_GAP_SECONDS',
+    'MAX_INTERVAL_SECONDS',
+    'SCHEMA_VERSION',
     'HostInterferenceMonitor',
     'InterferenceError',
-    'MAX_INTERVAL_SECONDS',
-    'MAX_COVERAGE_GAP_SECONDS',
     'Monitor',
-    'SCHEMA_VERSION',
     'allowed_pids',
 ]
 

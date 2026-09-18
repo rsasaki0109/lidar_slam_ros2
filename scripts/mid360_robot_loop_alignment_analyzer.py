@@ -14,7 +14,6 @@ from typing import Any
 
 import yaml
 
-from lidarslam_benchmark_tools.mid360_robot_tools import payload_to_json
 
 
 LOOP_ALIGNMENT_JSON = 'mid360_robot_loop_alignment.json'

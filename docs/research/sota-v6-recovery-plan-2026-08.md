@@ -2239,7 +2239,7 @@ The machine-readable contract is
 `b985b4454908619215d0f41c1c26845d244790f23b6a40d2dda9677e1935c281`), the
 auditor is
 `scripts/audit_v44g_raw_shadow_failure_profile.py` (SHA-256
-`d03f1ee399815f04401ab7cadaf5ca7234b662dc133357ae3ec9d1a7901a0839`), and
+`3d93a4ef49b568071bcac2df56458400dd9cf2cb2dce0d0569553227f04cb755`), and
 the readable contract report is
 `docs/research/v44-raw-shadow-failure-profile-contract-2026-08.md` (SHA-256
 `ed7f82fe4444b807977cc30f204117a346624b42cdfa1f14008b524631d203ab`).

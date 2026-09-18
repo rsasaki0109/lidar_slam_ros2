@@ -141,10 +141,10 @@ def analyze(reference_tum: Path, estimates: list[tuple[str, Path]], baseline: st
         }
         methods.append({
             'label': label, 'trajectory': str(path.resolve()),
-            'associated_checkpoints': int(len(errors)),
+            'associated_checkpoints': len(errors),
             'rmse_m': float(np.sqrt(np.mean(errors ** 2))),
             'mean_m': float(np.mean(errors)), 'max_m': float(np.max(errors)),
-            'rpe_translation_pairs': int(len(relative_errors)),
+            'rpe_translation_pairs': len(relative_errors),
             'rpe_translation_rmse_m': float(np.sqrt(np.mean(relative_errors ** 2))),
             'rpe_translation_mean_m': float(np.mean(relative_errors)),
             'rpe_translation_max_m': float(np.max(relative_errors)),

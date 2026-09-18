@@ -20,7 +20,6 @@ import math
 import os
 from pathlib import Path
 import re
-import signal
 import stat
 import subprocess
 import sys
@@ -207,7 +206,7 @@ BINDER_SHA256 = (
     'f8b81fdb17b7ee516cf1f7b0c24b79bfa6a0f2a3cf4f5dd199216534325f40e6')
 COMPOSITOR_PATH = Path('scripts/compose_fast_livo2_terminal_evidence.py')
 COMPOSITOR_SHA256 = (
-    '3ebda295d222693dae1880c2104cbdea16745bccc829b78f0eea5604f46f5792')
+    'd906a7dd78bfa0a764100e1a6bb88afb1c6d894f3904a8ba276e58a6edd9b441')
 
 
 class LaunchError(RuntimeError):
@@ -2109,7 +2108,6 @@ def run_formal(
     one supervised container lifecycle.  There is no retry.  Every reserved
     root gets one immutable closure receipt and SHA sidecar.
     """
-    marker: Optional[Mapping[str, Any]] = None
     identity: Optional[dict[str, Any]] = None
     closure_written = False
     root = config.root
@@ -2126,7 +2124,7 @@ def run_formal(
         closure_written = True
 
     try:
-        marker = reserve_attempt_root(config)
+        reserve_attempt_root(config)
     except LaunchError:
         return 11
 

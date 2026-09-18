@@ -14,8 +14,8 @@ from lidarslam_benchmark_tools.lidarslam_tools.slam_runtime import (
     default_output_dir,
     discover_bags,
     free_gib as _free_gib,
-    latest_map_points as _latest_map_points,
-    progress_line as _progress_line,
+    latest_map_points as _latest_map_points,  # noqa: F401  (re-exported for tests)
+    progress_line as _progress_line,  # noqa: F401  (re-exported for tests)
     read_bag_summary,
     resolve_bag,
     run_with_progress as _run_with_progress,

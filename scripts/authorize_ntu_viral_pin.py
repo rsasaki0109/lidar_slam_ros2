@@ -18,7 +18,6 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Mapping
 from urllib.parse import urlparse
 
-import yaml
 
 from lidarslam_benchmark_tools.ntu_viral_acquisition import (
     CALIBRATION_ROLES,
@@ -26,9 +25,7 @@ from lidarslam_benchmark_tools.ntu_viral_acquisition import (
     NtuAcquisitionError,
     ROOT,
     SEQUENCES,
-    _archive_tree_hash,
     _atomic_write_new,
-    _canonical_json,
     _iter_role_specs,
     _regular_nosymlink,
     _safe_relative,

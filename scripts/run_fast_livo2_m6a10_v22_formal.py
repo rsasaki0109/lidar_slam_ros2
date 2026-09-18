@@ -16,7 +16,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
-from typing import Any, Callable, Dict, Mapping, Optional, Sequence
+from typing import Any, Dict, Mapping, Optional, Sequence
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_DIR = ROOT / "scripts"

@@ -53,8 +53,7 @@ Status BoundedIngressQueue::reject(ErrorCode code, const char* detail) {
 Status BoundedIngressQueue::increment(std::uint64_t& value, const char* name) {
   if (value == std::numeric_limits<std::uint64_t>::max()) {
     return latch(ErrorCode::kCounterOverflow,
-                 name == nullptr ? "ingress counter overflow"
-                                  : "ingress counter overflow");
+                 name == nullptr ? "ingress counter overflow" : name);
   }
   ++value;
   return Status::success();

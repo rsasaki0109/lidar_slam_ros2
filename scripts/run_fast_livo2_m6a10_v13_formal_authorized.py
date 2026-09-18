@@ -17,7 +17,6 @@ from pathlib import Path
 import sys
 from typing import Any, Dict, Mapping, Optional, Sequence
 
-import yaml
 
 
 ROOT = Path(__file__).resolve().parents[1]

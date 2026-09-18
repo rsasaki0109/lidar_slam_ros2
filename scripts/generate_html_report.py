@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import argparse
-import html
 from collections import defaultdict
 from pathlib import Path
-from typing import Any
 
 from lidarslam_benchmark_tools.lidarslam_tools.report_charts import (
     GLIM_COLOR,

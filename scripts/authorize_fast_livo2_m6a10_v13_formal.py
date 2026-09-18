@@ -11,11 +11,10 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import importlib.util
 import json
 from pathlib import Path
 import sys
-from typing import Any, Dict, Iterable, Mapping, Optional, Sequence
+from typing import Any, Dict, Mapping, Optional, Sequence
 
 import yaml
 
@@ -111,7 +110,7 @@ def _verify_profile() -> Dict[str, Any]:
 def _verify_immutable_lineage(repo_root: Path = ROOT) -> Dict[str, Any]:
     """Bind v12 evidence, v13 persistence, and the current candidate sources."""
     lineage = persistence.verify_candidate_lineage(repo_root)
-    profile = _verify_profile()
+    _verify_profile()
     _pin(repo_root / BASE_LAUNCHER_PATH.relative_to(ROOT), BASE_LAUNCHER_SHA256, "v13 base launcher")
     _pin(repo_root / WRAPPER_PATH.relative_to(ROOT), WRAPPER_SHA256, "v12 wrapper")
     authorized_launcher = repo_root / AUTHORIZED_LAUNCHER_PATH.relative_to(ROOT)

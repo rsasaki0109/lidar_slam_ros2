@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 from pathlib import Path
 from typing import Any, Dict, Mapping, Optional
 
@@ -54,9 +53,9 @@ V21_CLOSURE_SIDECAR_SHA256 = "acfc839d02f1c96db7e642253700d9e157f29977135a7f2489
 V21_PROFILE_PATH = ROOT / "configs/slam_benchmark_profiles/fast_livo2_m6a10_v21_formal_candidate.yaml"
 V21_PROFILE_SHA256 = "9f6e574ba0fe7c927eecdd612f948352dc2bf986b576c4e4c52708e0bfcd013a"
 V21_AUTHORIZER_PATH = ROOT / "scripts/authorize_fast_livo2_m6a10_v21_formal.py"
-V21_AUTHORIZER_SHA256 = "ad7afef771a985b57d165b508f7433b7ebe41e74e8290dfb275a7e122ec5ed81"
+V21_AUTHORIZER_SHA256 = "081d178d2ae2bcaa387540a8db4ab3851e1cd98bda7d5738ab2dedf590257c84"
 V21_LAUNCHER_PATH = ROOT / "scripts/run_fast_livo2_m6a10_v21_formal.py"
-V21_LAUNCHER_SHA256 = "d702dee5039f032c47ecd839ea251f71ee321bd2ea6b319211a3f03e73da887c"
+V21_LAUNCHER_SHA256 = "c318fafe0f9c9e180eb88000458378b087c4111e69ec62650519778ca3535b48"
 
 V22_SUCCESS_RECEIPT_PATH = Path(
     "/media/user/aiueo1/benchmarks/m6a10_training_20260824/"

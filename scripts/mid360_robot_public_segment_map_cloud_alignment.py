@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import json
 import math
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -460,9 +459,9 @@ def _cloud_summary(
         'map_dir': cloud.get('map_dir', ''),
         'metadata_path': cloud.get('metadata_path', ''),
         'tile_count': int(cloud.get('tile_count', 0)),
-        'raw_sampled_points': int(len(raw_points)),
-        'cropped_points': int(len(cropped_points)),
-        'analysis_points': int(len(analysis_points)),
+        'raw_sampled_points': len(raw_points),
+        'cropped_points': len(cropped_points),
+        'analysis_points': len(analysis_points),
         'unsupported_tiles': cloud.get('unsupported_tiles') or [],
     }
 
@@ -530,10 +529,10 @@ def _crop_payload(
             'crop_radius_m': radius,
             'start_center': start_center or {},
             'end_center': end_center or {},
-            'start_raw_points': int(len(start_points_raw)),
-            'end_raw_points': int(len(end_points_raw)),
-            'start_cropped_points': int(len(start_points)),
-            'end_cropped_points': int(len(end_points)),
+            'start_raw_points': len(start_points_raw),
+            'end_raw_points': len(end_points_raw),
+            'start_cropped_points': len(start_points),
+            'end_cropped_points': len(end_points),
         },
     }
 

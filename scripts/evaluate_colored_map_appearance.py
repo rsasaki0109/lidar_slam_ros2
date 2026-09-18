@@ -149,7 +149,7 @@ def evaluate(xyz: np.ndarray, rgb: np.ndarray, *,
     coloured = np.asarray(rgb)[seen]
     chroma = channel_range_chroma(coloured) if len(coloured) else np.zeros(0)
     report = {
-        'points': int(len(xyz)),
+        'points': len(xyz),
         'colored': int(seen.sum()),
         'coverage': float(seen.mean()) if len(seen) else 0.0,
         'chroma_mean': float(chroma.mean()) if chroma.size else 0.0,

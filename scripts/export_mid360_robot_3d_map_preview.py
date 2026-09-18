@@ -16,7 +16,6 @@ from lidarslam_benchmark_tools.mid360_robot_3d_map_preview import (
     MapPreviewOptions,
     Mid360MapPreviewExporter,
 )
-from lidarslam_benchmark_tools.mid360_robot_tools import payload_to_json
 
 
 def parse_args() -> argparse.Namespace:
