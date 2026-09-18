@@ -11,7 +11,6 @@ creates a map.  The candidate remains unauthorized for every other root.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 from pathlib import Path
 import sys
@@ -80,13 +79,7 @@ class AuthorizationError(ValueError):
         super().__init__(message)
         self.kind = kind
 
-
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
+from lidarslam_benchmark_tools.fast_livo2_m6a10_common import sha256_file  # noqa: E402
 
 
 def _pin(path: Path, expected: str, label: str) -> str:

@@ -15,7 +15,6 @@ sealed.
 
 from __future__ import annotations
 
-import hashlib
 import sys
 from pathlib import Path
 from typing import Any, List, Mapping, Optional, Sequence
@@ -52,13 +51,7 @@ FAILED_CONTAINER_DIFF_SHA256 = "5746c35982671142f4d49f085f3024f37e675b4e438e9e14
 OUTPUT_DESTINATION = "/out"
 OUTPUT_BIND_CONTRACT = "v13-single-output-bind-no-duplicate-mount-v1"
 
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
+from lidarslam_benchmark_tools.fast_livo2_m6a10_common import _sha256  # noqa: E402
 
 
 def _assert_pin(path: Path, expected: str, label: str) -> str:

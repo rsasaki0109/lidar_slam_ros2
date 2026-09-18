@@ -142,13 +142,7 @@ def _error(kind: str, message: str) -> CandidateError:
 def _sha256_bytes(payload: bytes) -> str:
     return hashlib.sha256(payload).hexdigest()
 
-
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
+from lidarslam_benchmark_tools.fast_livo2_m6a10_common import sha256_file  # noqa: E402
 
 
 def _reject_symlink_components(path: Path, label: str) -> None:
