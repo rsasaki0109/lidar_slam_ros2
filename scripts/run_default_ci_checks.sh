@@ -15,7 +15,7 @@ This script verifies the default permissive-license workflow for this repository
   - build: registration contracts/plugins, ndt_omp_ros2, lidarslam_msgs,
             scanmatcher, graph_based_slam, lidarslam, rko_lio
   - test:  registration contracts/plugins, lidarslam_msgs, scanmatcher,
-            graph_based_slam, lidarslam
+            graph_based_slam, lidarslam, rko_lio
 EOF
 }
 
@@ -112,6 +112,7 @@ TEST_TARGETS=(
   lidarslam_msgs
   graph_based_slam
   lidarslam
+  rko_lio
 )
 
 # Tests excluded from the default permissive-license gate.
@@ -158,6 +159,7 @@ if ! colcon build \
   --packages-up-to "${BUILD_TARGETS[@]}" \
   --cmake-args \
     -DCMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE}" \
+    -DBUILD_TESTING=ON \
     -DRKO_LIO_FETCH_CONTENT_DEPS=ON; then
   echo "error: colcon build failed for default workflow packages" >&2
   exit 1
