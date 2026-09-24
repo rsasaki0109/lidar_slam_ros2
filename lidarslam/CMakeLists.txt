@@ -406,8 +406,16 @@ set(_BENCHMARK_PYTHON_DIR
 install(
   FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/../lidarslam_benchmark_tools/__init__.py
-    ${CMAKE_CURRENT_SOURCE_DIR}/../lidarslam_benchmark_tools/gaussian_splatting/__init__.py
-    ${CMAKE_CURRENT_SOURCE_DIR}/../lidarslam_benchmark_tools/lidarslam_tools/__init__.py
+  DESTINATION ${_BENCHMARK_PYTHON_DIR}/lidarslam_benchmark_tools
+)
+foreach(_SUBPACKAGE gaussian_splatting lidarslam_tools)
+  install(
+    FILES ${CMAKE_CURRENT_SOURCE_DIR}/../lidarslam_benchmark_tools/${_SUBPACKAGE}/__init__.py
+    DESTINATION ${_BENCHMARK_PYTHON_DIR}/lidarslam_benchmark_tools/${_SUBPACKAGE}
+  )
+endforeach()
+install(
+  PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/container_phase_evidence.sh
   DESTINATION ${_BENCHMARK_PYTHON_DIR}/lidarslam_benchmark_tools
 )
 install(
