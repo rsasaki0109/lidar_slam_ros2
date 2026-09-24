@@ -935,3 +935,37 @@ def test_dynamic_map_cleaner_forwards_fusion_evidence_and_reports_removal():
     assert report['evidence_stride'] == 2
     assert report['removed_points'] == 1
     assert report['removed_ratio'] == 1 / 3
+
+
+def test_builder_training_subset_excludes_heldout_images_and_masks(tmp_path):
+    import imageio as iio
+    import json
+
+    image = np.full((100, 100, 3), 73, dtype=np.uint8)
+    mask = np.zeros((100, 100), dtype=np.uint8)
+    iio.imwrite(tmp_path / 'train.png', image)
+    iio.imwrite(tmp_path / 'train_mask.png', mask)
+    pose = np.diag([1.0, -1.0, -1.0, 1.0]).tolist()
+    frames = [
+        {'file_path': 'missing_heldout.png', 'timestamp': 10.0,
+         'dynamic_mask_path': 'missing_mask.png', 'transform_matrix': pose},
+        {'file_path': 'train.png', 'timestamp': 20.0,
+         'dynamic_mask_path': 'train_mask.png', 'transform_matrix': pose},
+    ]
+    document = {'w': 100, 'h': 100, 'fl_x': 100.0, 'fl_y': 100.0,
+                'cx': 50.0, 'cy': 50.0, 'frames': frames}
+    transforms = tmp_path / 'transforms.json'
+    transforms.write_text(json.dumps(document))
+    points = np.array([[0.0, 0.0, 5.0]])
+    rgb, seen = bli._colorize(
+        points, str(transforms), robust=True, frame_indices=[1],
+        normalize_exposure=False, geometry_aware=True, dynamic_exclusion=True)
+    assert seen.tolist() == [True]
+    np.testing.assert_allclose(rgb[0], [73, 73, 73], atol=1e-5)
+    _, seen = bli._colorize(
+        points, str(transforms), robust=True, frame_indices=[1],
+        normalize_exposure=False, min_samples=2)
+    assert seen.tolist() == [False]
+    for indices in ([], [1, 1], [-1], [2], [0.5]):
+        with np.testing.assert_raises(ValueError):
+            bli._colorize(points, str(transforms), frame_indices=indices)
