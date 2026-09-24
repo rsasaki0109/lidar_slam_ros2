@@ -158,7 +158,7 @@ def test_shared_fusion_cli_preserves_split_and_observation_threshold(tmp_path, m
 
 
 def test_fusion_options_reject_hidden_frame_override_and_wrong_types():
-    for text in ('[]', '{"frame_indices": [1]}', '{"max_samples": true}',
+    for text in ('[]', '{"loaded_images": 1}', '{"frame_indices": [1]}', '{"max_samples": true}',
                  '{"normalize_exposure": "false"}', '{"normal_voxel": NaN}'):
         with np.testing.assert_raises(ValueError):
             hpc.parse_fusion_options(text)

@@ -357,12 +357,15 @@ def _colorize(world: np.ndarray, transforms_path: str, *, robust: bool = False,
               calibration_sigma_multiplier: float = 0.0,
               maximum_uncertainty_margin_px: int = 8,
               return_diagnostics: bool = False,
-              frame_indices: Optional[Sequence[int]] = None):
+              frame_indices: Optional[Sequence[int]] = None,
+              loaded_images: Optional[Sequence[np.ndarray]] = None):
     """Project ``world`` points into the posed images of a transforms.json."""
     import imageio as iio
     import train_gsplat as tg
 
     ds = tg.load_transforms(transforms_path)
+    if loaded_images is not None and len(loaded_images) != len(ds['image_paths']):
+        raise ValueError('loaded_images must match the full transforms frame list')
     if frame_indices is not None:
         indices = list(frame_indices)
         if (not indices or len(set(indices)) != len(indices) or
@@ -373,7 +376,10 @@ def _colorize(world: np.ndarray, transforms_path: str, *, robust: bool = False,
         ds['viewmats'] = np.asarray(ds['viewmats'])[indices]
         for key in ('image_paths', 'dynamic_mask_paths', 'timestamps'):
             ds[key] = [ds[key][i] for i in indices]
-    images = [np.asarray(iio.imread(p)) for p in ds['image_paths']]
+        if loaded_images is not None:
+            loaded_images = [loaded_images[i] for i in indices]
+    images = (loaded_images if loaded_images is not None else
+              [np.asarray(iio.imread(p)) for p in ds['image_paths']])
     if not robust:
         return pcio.colorize_by_projection(
             world, ds['viewmats'], ds['K'], images, ds['width'], ds['height'])

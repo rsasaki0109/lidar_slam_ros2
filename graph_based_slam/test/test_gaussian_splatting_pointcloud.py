@@ -937,7 +937,7 @@ def test_dynamic_map_cleaner_forwards_fusion_evidence_and_reports_removal():
     assert report['removed_ratio'] == 1 / 3
 
 
-def test_builder_training_subset_excludes_heldout_images_and_masks(tmp_path):
+def test_builder_training_subset_excludes_heldout_images_and_masks(tmp_path, monkeypatch):
     import imageio as iio
     import json
 
@@ -962,10 +962,22 @@ def test_builder_training_subset_excludes_heldout_images_and_masks(tmp_path):
         normalize_exposure=False, geometry_aware=True, dynamic_exclusion=True)
     assert seen.tolist() == [True]
     np.testing.assert_allclose(rgb[0], [73, 73, 73], atol=1e-5)
-    _, seen = bli._colorize(
-        points, str(transforms), robust=True, frame_indices=[1],
-        normalize_exposure=False, min_samples=2)
-    assert seen.tolist() == [False]
+    with monkeypatch.context() as patch:
+        def unexpected_read(path):
+            raise AssertionError(f'image decoded again: {path}')
+        patch.setattr(iio, 'imread', unexpected_read)
+        loaded = [np.full_like(image, 255), image]
+        reused_rgb, reused_seen = bli._colorize(
+            points, str(transforms), robust=True, frame_indices=[1],
+            normalize_exposure=False, loaded_images=loaded)
+        np.testing.assert_array_equal(reused_rgb, rgb)
+        np.testing.assert_array_equal(reused_seen, seen)
+        _, limited_seen = bli._colorize(
+            points, str(transforms), robust=True, frame_indices=[1],
+            normalize_exposure=False, min_samples=2, loaded_images=loaded)
+        assert limited_seen.tolist() == [False]
+        with np.testing.assert_raises(ValueError):
+            bli._colorize(points, str(transforms), loaded_images=[image])
     for indices in ([], [1, 1], [-1], [2], [0.5]):
         with np.testing.assert_raises(ValueError):
             bli._colorize(points, str(transforms), frame_indices=indices)
