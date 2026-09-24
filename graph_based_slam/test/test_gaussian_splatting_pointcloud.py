@@ -354,6 +354,23 @@ def test_observed_color_medoid_validates_shape_and_chunk():
         pcio.observed_color_medoids(np.zeros((2, 1, 3), dtype=np.uint8), chunk=0)
 
 
+def test_observed_color_medoid_matches_pairwise_distance_oracle():
+    rng = np.random.default_rng(987)
+    for count in (1, 2, 3, 12, 32, 64):
+        for points in (0, 1, 37):
+            for upper in (2, 256):
+                samples = rng.integers(0, upper, (points, count, 3),
+                                       dtype=np.uint8)
+                # Independent quadratic oracle covers duplicate values and ties.
+                wide = samples.astype(np.int16)
+                distances = np.abs(wide[:, :, None] - wide[:, None, :])
+                scores = distances.sum(axis=(2, 3), dtype=np.int32)
+                expected = samples[np.arange(points), np.argmin(scores, axis=1)]
+                for chunk in (1, 11, 20000):
+                    np.testing.assert_array_equal(
+                        pcio.observed_color_medoids(samples, chunk), expected)
+
+
 def test_colorize_robust_occluded_point_is_unseen():
     vms, K, W, H = _cam()
     img = np.full((H, W, 3), 200, dtype=np.uint8)
