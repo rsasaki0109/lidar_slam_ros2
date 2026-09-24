@@ -29,6 +29,16 @@ RTK-SLAM construction_seq1 の較正済み report-only 閾値は
 品質ゲートのレポート引数はプロファイルが参照する領域だけ指定すればよい。
 `appearance_planar_roughness_*` 閾値を持つプロファイルでは平面限定roughnessも
 パイプラインが自動計算する。
+
+`evaluate_heldout_point_colors.py` の露出正規化は、着色に使う学習画像の
+輝度中央値を基準にする。レポートの `exposure_reference` は
+`training_views`（正規化無効時は `null`）。全画像の中央値を使っていた旧版の
+スコアとは直接比較せず、同じ版・分割・設定で再評価する。
+標準評価は学習画像から既定設定で再着色するため、パイプラインで指定した
+全着色オプションや保存済みRGBそのものを評価した結果ではない。
+`--use-pointcloud-colors` も着色に用いた画像の分離や未着色点を検証しないため、
+その出力だけで held-out 精度を主張しない。
+
 realtime nodeの出力確認には`scripts/evaluate_realtime_colored_map.py`を使い、
 confirmed coverageとchromaをJSON保存できる。
 CPU rendererの`--soft-edge-px 1`は不透明surfaceを変えず黒い隙間だけをfadeで
