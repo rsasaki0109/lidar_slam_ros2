@@ -55,6 +55,33 @@ K3構成ではさらに `--color-overlap-balance --color-view-confidence
 見る画像間のRGB差から露出・white balanceを安定化し、後者はsurface normalの
 入射角と投影解像度で観測を順位付けする。いずれもdefault-off。
 
+品質を優先する場合は、既存の実行コマンドに `--color-max-samples 32` を追加して
+比較できる（既定値12）。固定geometry・姿勢・学習/評価画像分割で、この値だけを
+変更した結果は次の通り。数値はheld-out画像とのRGB L2誤差の平均で、小さい方がよい。
+
+| データ | 12観測 | 32観測 | 改善率 |
+|---|---:|---:|---:|
+| AIST 162554 | 37.442 | 35.807 | 4.37% |
+| AIST 162651 | 31.327 | 29.978 | 4.31% |
+| RTK construction_seq1 K4 | 61.850 | 51.329 | 17.01% |
+
+各走行の着色被覆と評価対象点は同一。ただし視点別中央値はAISTで各8視点、
+RTKで12視点が悪化した。反射面や誤投影の解決、測色的な真値への精度向上を
+証明するものではない。手元のGo2/JEPLO屋内5本は画像topicがなく、着色は未評価。
+
+RTK約491万点の単回比較では、12→32観測で処理時間274→426秒、ピークRSS
+2.97→4.24 GiBとなった（同じ旧medoid実装）。現在のmedoid実装は全観測間の
+距離配列をソートと累積和に置き換え、32観測で色・未着色mask・全品質評価値を
+完全一致させたままRSSを4.01 GiBに削減した。時間は430秒で、全処理の高速化は
+確認していない。観測保持用メモリは残るため、余裕がない環境では既定値12を使う。
+時間・RSSはいずれも単回測定で、実行順やcacheの影響を含む。
+
+検証記録（2026-09-25、ローカルデータルート
+`/media/sasaki/aiueo2/jeplo_data/experiments/colorization_accuracy/`）:
+`aist_all_training_samples_r1/`、`rtk_samples_paired_r1/comparison.json`、
+`medoid_memory_validation/`、`rtk_medoid_memory_r1/comparison.json`。
+入力・実効設定・ソースhashと、disjoint画像分割を各実験に保存している。
+
 地図geometry自体の動的障害物は、任意依存の
 [`dynamic-object-removal`](https://github.com/rsasaki0109/dynamic-3d-object-removal)
 0.5以降を導入し、`--dynamic-map-cleaner fusion`で除去できる。各LiDAR scanを
