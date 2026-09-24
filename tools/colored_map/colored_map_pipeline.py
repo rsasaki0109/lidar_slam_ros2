@@ -47,6 +47,8 @@ from typing import Sequence
 import numpy as np
 import yaml
 
+import build_lidar_init as bli  # noqa: I100
+
 
 TOOL_DIR = Path(__file__).resolve().parent
 REPO_ROOT = TOOL_DIR.parents[1]
@@ -84,6 +86,17 @@ def report_has_metric(path: Path, metric: str) -> bool:
     try:
         return metric in json.loads(path.read_text(encoding='utf-8'))
     except (OSError, ValueError, TypeError):
+        return False
+
+
+def colour_report_matches_options(path: Path, options: dict) -> bool:
+    """Invalidate old or differently configured held-out colour reports."""
+    try:
+        report = json.loads(path.read_text(encoding='utf-8'))
+        return (report.get('fusion_options') == options
+                and report.get('normalize_exposure') == options['normalize_exposure']
+                and report.get('exposure_scale_limit') == options['exposure_scale_limit'])
+    except (OSError, ValueError, TypeError, AttributeError):
         return False
 
 
@@ -429,15 +442,25 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
                     str(args.alignment_orientation_max_angle_deg),
                 ])
             commands.append(('camera-LiDAR alignment', alignment_command))
+        # Parse the actual map command so conditional options/defaults match.
+        map_args = bli.build_parser().parse_args(
+            map_command(colored_map, transforms)[2:])
+        fusion_options = bli.color_fusion_options(map_args)
         if (rebuild_map or rebuild_images or args.force_quality or
-                is_stale(colour_report, [colored_map, transforms])):
-            commands.append(('held-out colour', [
+                not colour_report_matches_options(colour_report, fusion_options)
+                or is_stale(colour_report, [colored_map, transforms])):
+            colour_command = [
                 sys.executable,
                 str(REPO_ROOT / 'scripts' / 'evaluate_heldout_point_colors.py'),
                 '--pointcloud', str(colored_map),
                 '--transforms', str(transforms),
                 '--out', str(colour_report),
-            ]))
+                '--fusion-options', json.dumps(fusion_options, sort_keys=True),
+                '--exposure-scale-limit', str(fusion_options['exposure_scale_limit']),
+            ]
+            if not fusion_options['normalize_exposure']:
+                colour_command.append('--no-normalize-exposure')
+            commands.append(('held-out colour', colour_command))
         if (rebuild_map or rebuild_images or args.force_quality or
                 is_stale(appearance_report, [colored_map, transforms]) or
                 (planar_roughness and not report_has_metric(

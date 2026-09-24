@@ -295,31 +295,7 @@ def build(args: argparse.Namespace) -> dict:
     fusion_diagnostics = None
     if args.color_transforms:
         color_result = _colorize(
-            world, args.color_transforms, robust=args.color_robust,
-            normalize_exposure=args.color_normalize_exposure,
-            exposure_scale_limit=args.color_exposure_scale_limit,
-            max_samples=args.color_max_samples,
-            image_margin=args.color_image_margin,
-            vignette_gain_limit=args.color_vignette_gain_limit,
-            overlap_color_balance=args.color_overlap_balance,
-            view_confidence=args.color_view_confidence,
-            normal_voxel=args.color_normal_voxel,
-            min_view_cosine=args.color_min_view_cosine,
-            min_projected_scale=args.color_min_projected_scale,
-            view_score_power=args.color_view_score_power,
-            min_samples=args.color_min_samples,
-            geometry_aware=args.color_geometry_aware,
-            occlusion_margin_px=args.color_occlusion_margin_px,
-            depth_edge_margin_px=args.color_depth_edge_margin_px,
-            depth_edge_tolerance=args.color_depth_edge_tolerance,
-            depth_edge_relative_tolerance=(
-                args.color_depth_edge_relative_tolerance),
-            dynamic_exclusion=args.color_dynamic_exclusion,
-            dynamic_mask_margin_px=args.color_dynamic_mask_margin_px,
-            calibration_sigma_multiplier=(
-                args.color_calibration_sigma_multiplier),
-            maximum_uncertainty_margin_px=(
-                args.color_max_uncertainty_margin_px),
+            world, args.color_transforms, **color_fusion_options(args),
             return_diagnostics=args.color_geometry_aware)
         if args.color_geometry_aware:
             rgb, seen, fusion_diagnostics = color_result
@@ -337,6 +313,25 @@ def build(args: argparse.Namespace) -> dict:
             'colored': colored, 'fusion_diagnostics': fusion_diagnostics,
             'dynamic_cleaning': dynamic_cleaning,
             'out': str(out)}
+
+
+def color_fusion_options(args, *, robust=None) -> dict:
+    """Translate shared colour CLI settings into the fusion function options."""
+    names = (
+        'normalize_exposure', 'exposure_scale_limit', 'max_samples',
+        'image_margin', 'vignette_gain_limit', 'view_confidence', 'normal_voxel',
+        'min_view_cosine', 'min_projected_scale', 'view_score_power',
+        'min_samples', 'geometry_aware', 'occlusion_margin_px',
+        'depth_edge_margin_px', 'depth_edge_tolerance',
+        'depth_edge_relative_tolerance', 'dynamic_exclusion',
+        'dynamic_mask_margin_px', 'calibration_sigma_multiplier',
+    )
+    options = {name: getattr(args, 'color_' + name) for name in names}
+    options.update(
+        robust=args.color_robust if robust is None else robust,
+        overlap_color_balance=args.color_overlap_balance,
+        maximum_uncertainty_margin_px=args.color_max_uncertainty_margin_px)
+    return options
 
 
 def _colorize(world: np.ndarray, transforms_path: str, *, robust: bool = False,
