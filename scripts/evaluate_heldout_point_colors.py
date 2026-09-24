@@ -70,15 +70,18 @@ def visible_point_samples(points: np.ndarray, viewmat: np.ndarray,
     return chosen, uf[chosen], vf[chosen]
 
 
-def exposure_scales(images: list[np.ndarray], limit: float = 1.5) -> np.ndarray:
-    """Return the same clamped median-luminance scales as robust colouring."""
+def exposure_scales(images: list[np.ndarray], limit: float = 1.5,
+                    *, reference_indices: list[int] | None = None) -> np.ndarray:
+    """Scale all images to the median luminance of the reference subset."""
     if limit < 1.0:
         raise ValueError('limit must be >= 1')
     medians = np.asarray([pcio._median_luminance(image) for image in images])
     valid = medians > 1e-6
+    reference = medians if reference_indices is None else medians[reference_indices]
+    reference = reference[reference > 1e-6]
     scales = np.ones(len(images), dtype=np.float32)
-    if valid.any():
-        target = float(np.median(medians[valid]))
+    if reference.size:
+        target = float(np.median(reference))
         scales[valid] = np.clip(target / medians[valid], 1.0 / limit, limit)
     return scales
 
@@ -156,7 +159,8 @@ def main() -> int:
             [images[i] for i in train], dataset['width'], dataset['height'],
             normalize_exposure=args.normalize_exposure,
             exposure_scale_limit=args.exposure_scale_limit)
-    scales = (exposure_scales(images, args.exposure_scale_limit)
+    scales = (exposure_scales(images, args.exposure_scale_limit,
+                              reference_indices=train)
               if args.normalize_exposure else np.ones(len(images)))
     errors = []
     visible_total = 0
@@ -179,6 +183,7 @@ def main() -> int:
         'heldout_views_scored': len(per_view),
         'color_source': ('pointcloud' if args.use_pointcloud_colors else 'train'),
         'normalize_exposure': args.normalize_exposure,
+        'exposure_reference': ('training_views' if args.normalize_exposure else None),
         'exposure_scale_limit': args.exposure_scale_limit,
         'image_margin': args.image_margin,
         'visible_points': visible_total, 'scored_points': int(combined.size),

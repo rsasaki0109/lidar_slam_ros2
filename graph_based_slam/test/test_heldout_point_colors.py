@@ -92,6 +92,20 @@ def test_exposure_scales_are_clamped():
     np.testing.assert_allclose(scales, [1.5, 1.0, 2.0 / 3.0])
 
 
+def test_exposure_reference_excludes_heldout_brightness():
+    images = [np.full((4, 4, 3), value, dtype=np.uint8)
+              for value in (10, 20, 200)]
+    scales = hpc.exposure_scales(images, limit=20, reference_indices=[0, 1])
+    np.testing.assert_allclose(scales, [1.5, 0.75, 0.075], atol=1e-7)
+    images[2][:] = 100
+    changed = hpc.exposure_scales(images, limit=20, reference_indices=[0, 1])
+    np.testing.assert_allclose(changed, [1.5, 0.75, 0.15], atol=1e-7)
+    # A dark training set supplies no exposure reference, as in fusion.
+    images[0][:] = images[1][:] = 0
+    np.testing.assert_allclose(
+        hpc.exposure_scales(images, reference_indices=[0, 1]), [1, 1, 1])
+
+
 def test_score_heldout_view_can_compare_raw_exposure():
     vm, K = _camera()
     points = np.array([[0.0, 0.0, 2.0]])
