@@ -59,7 +59,8 @@ def load_transforms(path: str | Path) -> dict:
         viewmats.append(np.linalg.inv(c2w_cv))
         image_paths.append((path.parent / fr['file_path']).resolve())
         groups.append(group_ids.setdefault(fr.get('bag', ''), len(group_ids)))
-        timestamps.append(float(fr.get('timestamp', np.nan)))
+        # Our posed-image writer uses stamp; retain timestamp for external files.
+        timestamps.append(float(fr.get('timestamp', fr.get('stamp', np.nan))))
         mask_path = fr.get('dynamic_mask_path')
         dynamic_mask_paths.append(
             (path.parent / mask_path).resolve() if mask_path else None)
