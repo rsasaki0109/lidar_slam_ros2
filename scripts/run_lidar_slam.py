@@ -59,7 +59,10 @@ def _show_bags(candidates: list[tuple[Path, dict]], show_all: bool = False) -> N
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     roots = args.scan_root or list(DEFAULT_SCAN_ROOTS)
-    candidates = discover_bags(roots)
+    direct_bag = Path(args.bag).expanduser() if args.bag else None
+    use_direct_bag = not args.list and direct_bag is not None and (
+        direct_bag / 'metadata.yaml').is_file()
+    candidates = [] if use_direct_bag else discover_bags(roots)
     if args.list or not args.bag:
         _show_bags(candidates, show_all=args.all)
         if not args.bag and not args.list:
