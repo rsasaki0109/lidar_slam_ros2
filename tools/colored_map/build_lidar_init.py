@@ -361,12 +361,23 @@ def _colorize(world: np.ndarray, transforms_path: str, *, robust: bool = False,
               dynamic_mask_margin_px: int = 2,
               calibration_sigma_multiplier: float = 0.0,
               maximum_uncertainty_margin_px: int = 8,
-              return_diagnostics: bool = False):
+              return_diagnostics: bool = False,
+              frame_indices: Optional[Sequence[int]] = None):
     """Project ``world`` points into the posed images of a transforms.json."""
     import imageio as iio
     import train_gsplat as tg
 
     ds = tg.load_transforms(transforms_path)
+    if frame_indices is not None:
+        indices = list(frame_indices)
+        if (not indices or len(set(indices)) != len(indices) or
+                any(not isinstance(i, (int, np.integer)) or
+                    i < 0 or i >= len(ds['image_paths']) for i in indices)):
+            raise ValueError('frame_indices must be nonempty, unique valid indices')
+        ds = dict(ds)
+        ds['viewmats'] = np.asarray(ds['viewmats'])[indices]
+        for key in ('image_paths', 'dynamic_mask_paths', 'timestamps'):
+            ds[key] = [ds[key][i] for i in indices]
     images = [np.asarray(iio.imread(p)) for p in ds['image_paths']]
     if not robust:
         return pcio.colorize_by_projection(
