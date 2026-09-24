@@ -96,6 +96,7 @@ def test_load_transforms_recovers_viewmat(tmp_path):
     # viewmat should be the inverse of the original OpenCV c2w.
     np.testing.assert_allclose(ds['viewmats'][0], np.linalg.inv(c2w_cv), atol=1e-9)
     assert ds['image_paths'][0].name == '0.png'
+    np.testing.assert_array_equal(ds['timestamps'], [frames[0].stamp])
 
 
 # --------------------------------------------------------------------------- #
