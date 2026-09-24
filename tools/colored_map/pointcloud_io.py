@@ -601,8 +601,8 @@ def observed_color_medoids(samples: np.ndarray, chunk: int = 20000) -> np.ndarra
     A channel-wise median can synthesize a colour that no camera observed. For
     example, red, green, and blue samples produce black. The L1 medoid retains
     median-like outlier resistance while guaranteeing that every output row is
-    one of the input camera observations. Chunking bounds the temporary pairwise
-    distance array for large maps.
+    one of the input camera observations. Per-channel sorting and prefix sums
+    compute the L1 scores with temporary storage linear in the sample count.
     """
     values = np.asarray(samples, dtype=np.uint8)
     if values.ndim != 3 or values.shape[2] != 3 or values.shape[1] < 1:
@@ -610,10 +610,21 @@ def observed_color_medoids(samples: np.ndarray, chunk: int = 20000) -> np.ndarra
     if chunk < 1:
         raise ValueError('chunk must be >= 1')
     out = np.empty((values.shape[0], 3), dtype=np.uint8)
+    count = values.shape[1]
+    weights = 2 * np.arange(count, dtype=np.int32) - count + 2
     for start in range(0, len(values), chunk):
-        block = values[start:start + chunk].astype(np.int16)
-        pairwise = np.abs(block[:, :, None, :] - block[:, None, :, :])
-        scores = pairwise.sum(axis=(2, 3), dtype=np.int32)
+        block = values[start:start + chunk]
+        rows = np.arange(len(block))[:, None]
+        scores = np.zeros(block.shape[:2], dtype=np.int32)
+        for channel in range(3):
+            order = np.argsort(block[:, :, channel], axis=1)
+            ordered = np.take_along_axis(
+                block[:, :, channel], order, axis=1).astype(np.int32)
+            prefix = np.cumsum(ordered, axis=1, dtype=np.int32)
+            # Sum distances to values on either side in sorted order.
+            costs = ordered * weights + prefix[:, -1:] - 2 * prefix
+            scores[rows, order] += costs
+        # Scatter back before argmin to preserve the first-observation tie rule.
         choice = np.argmin(scores, axis=1)
         out[start:start + len(block)] = block[np.arange(len(block)), choice]
     return out
