@@ -32,13 +32,15 @@
 from __future__ import annotations
 
 import argparse
+import inspect
 import json
 from pathlib import Path
 
-import numpy as np
-
+from lidarslam_benchmark_tools.gaussian_splatting import build_lidar_init as bli
 from lidarslam_benchmark_tools.gaussian_splatting import pointcloud_io as pcio
 from lidarslam_benchmark_tools.gaussian_splatting import train_gsplat as tg
+
+import numpy as np
 
 
 def visible_point_samples(points: np.ndarray, viewmat: np.ndarray,
@@ -114,6 +116,35 @@ def score_heldout_view(points: np.ndarray, colors: np.ndarray, seen: np.ndarray,
     return np.linalg.norm(delta, axis=1), visible_count
 
 
+def parse_fusion_options(text: str) -> dict:
+    """Validate JSON scalar options against the shared fusion function contract."""
+    supplied = json.loads(text)
+    if not isinstance(supplied, dict):
+        raise ValueError('fusion options must be a JSON object')
+    defaults = {
+        name: parameter.default
+        for name, parameter in inspect.signature(bli._colorize).parameters.items()
+        if parameter.kind == inspect.Parameter.KEYWORD_ONLY
+        and name not in ('frame_indices', 'return_diagnostics')
+    }
+    if supplied.keys() - defaults.keys():
+        raise ValueError('unknown fusion options: '
+                         + ', '.join(sorted(supplied.keys() - defaults.keys())))
+    for name, value in supplied.items():
+        default = defaults[name]
+        if isinstance(default, bool):
+            valid = isinstance(value, bool)
+        elif isinstance(default, int):
+            valid = isinstance(value, int) and not isinstance(value, bool)
+        else:
+            valid = (isinstance(value, (int, float))
+                     and not isinstance(value, bool) and np.isfinite(value))
+        if not valid:
+            raise ValueError('invalid fusion option type: ' + name)
+    defaults.update(supplied)
+    return defaults
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--pointcloud', type=Path, required=True)
@@ -132,7 +163,12 @@ def main() -> int:
     parser.add_argument('--image-margin', type=int, default=0,
                         help='ignore reference pixels within this many pixels '
                              'of the border (lens vignette; 0 keeps all)')
+    parser.add_argument('--fusion-options', type=parse_fusion_options,
+                        help='JSON shared builder options for training recolouring; '
+                             'evaluation exposure flags remain separate')
     args = parser.parse_args()
+    if args.fusion_options is not None and args.use_pointcloud_colors:
+        parser.error('--fusion-options cannot be used with --use-pointcloud-colors')
     if args.folds < 2 or not 0 <= args.holdout_fold < args.folds:
         raise SystemExit('--folds must be >= 2 and --holdout-fold must be valid')
     if args.view_stride < 1:
@@ -153,6 +189,10 @@ def main() -> int:
                 '--use-pointcloud-colors requires RGB in the point cloud')
         colors = stored_colors
         seen = np.ones(len(points), dtype=bool)
+    elif args.fusion_options is not None:
+        colors, seen = bli._colorize(
+            points, str(args.transforms), frame_indices=train,
+            **args.fusion_options)
     else:
         colors, seen = pcio.colorize_by_projection_robust(
             points, viewmats[train], K,
@@ -181,6 +221,8 @@ def main() -> int:
     report = {
         'train_views': len(train), 'heldout_views': len(holdout),
         'heldout_views_scored': len(per_view),
+        'fusion_options': args.fusion_options,
+        'train_view_indices': train, 'heldout_view_indices': holdout,
         'color_source': ('pointcloud' if args.use_pointcloud_colors else 'train'),
         'normalize_exposure': args.normalize_exposure,
         'exposure_reference': ('training_views' if args.normalize_exposure else None),

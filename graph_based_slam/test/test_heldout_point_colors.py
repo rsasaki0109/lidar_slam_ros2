@@ -120,3 +120,45 @@ def test_score_heldout_view_can_compare_raw_exposure():
         exposure_scale=1.5)
     np.testing.assert_allclose(raw_errors, [0.0])
     assert scaled_errors[0] > 0.0
+
+
+def test_shared_fusion_cli_preserves_split_and_observation_threshold(tmp_path, monkeypatch):
+    import imageio.v3 as iio
+    import json
+    import sys
+
+    frames = []
+    for index, value in enumerate((20, 200, 20, 200)):
+        name = f'{index}.png'
+        iio.imwrite(tmp_path / name, np.full((10, 10, 3), value, dtype=np.uint8))
+        frames.append({'file_path': name, 'timestamp': float(index),
+                       'transform_matrix': np.diag([1., -1., -1., 1.]).tolist()})
+    transforms = tmp_path / 'transforms.json'
+    transforms.write_text(json.dumps({'w': 10, 'h': 10, 'fl_x': 5., 'fl_y': 5.,
+                                     'cx': 5., 'cy': 5., 'frames': frames}))
+    cloud = tmp_path / 'cloud.ply'
+    hpc.pcio.write_ply(cloud, np.array([[0., 0., 2.]]))
+    out = tmp_path / 'report.json'
+    options = {'robust': True, 'normalize_exposure': False, 'max_samples': 1,
+               'min_samples': 1, 'image_margin': 1}
+    argv = ['evaluate', '--pointcloud', str(cloud), '--transforms', str(transforms),
+            '--out', str(out), '--view-stride', '1', '--no-normalize-exposure',
+            '--fusion-options', json.dumps(options)]
+    monkeypatch.setattr(sys, 'argv', argv)
+    assert hpc.main() == 0
+    report = json.loads(out.read_text())
+    assert report['train_view_indices'] == [0, 2]
+    assert report['heldout_view_indices'] == [1, 3]
+    assert report['fusion_options']['max_samples'] == 1
+    np.testing.assert_allclose(report['rgb_l2_mean'], np.sqrt(3) * 180, rtol=1e-6)
+    options['min_samples'] = 2
+    argv[-1] = json.dumps(options)
+    with np.testing.assert_raises(SystemExit):
+        hpc.main()  # A single retained sample is below the configured minimum.
+
+
+def test_fusion_options_reject_hidden_frame_override_and_wrong_types():
+    for text in ('[]', '{"frame_indices": [1]}', '{"max_samples": true}',
+                 '{"normalize_exposure": "false"}', '{"normal_voxel": NaN}'):
+        with np.testing.assert_raises(ValueError):
+            hpc.parse_fusion_options(text)

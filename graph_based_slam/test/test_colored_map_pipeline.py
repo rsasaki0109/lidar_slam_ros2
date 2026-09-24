@@ -560,3 +560,40 @@ def test_planar_roughness_profile_enables_evaluator_automatically(tmp_path):
     commands = cmp.build_commands(_args(
         tmp_path, '--quality-profile', str(profile)))
     assert '--planar-roughness' in dict(commands)['appearance']
+
+
+def test_heldout_uses_effective_map_fusion_options(tmp_path):
+    import json
+
+    commands = dict(cmp.build_commands(_args(
+        tmp_path, '--quality-profile', str(tmp_path / 'profile.json'),
+        '--color-max-samples', '5', '--color-min-samples', '3',
+        '--color-no-normalize-exposure', '--color-exposure-scale-limit', '1.2',
+        '--color-geometry-aware', '--color-depth-edge-margin-px', '2',
+        '--color-view-score-power', '3')))
+    command = commands['held-out colour']
+    options = json.loads(command[command.index('--fusion-options') + 1])
+    assert options['robust'] is True
+    assert options['max_samples'] == 5
+    assert options['min_samples'] == 3
+    assert options['normalize_exposure'] is False
+    assert options['depth_edge_margin_px'] == 2
+    # Pipeline's unused view-score default must not override the builder default.
+    assert options['view_score_power'] == 1.0
+    assert '--no-normalize-exposure' in command
+    assert command[command.index('--exposure-scale-limit') + 1] == '1.2'
+
+
+def test_heldout_cache_requires_matching_fusion_settings(tmp_path):
+    import json
+
+    path = tmp_path / 'heldout.json'
+    options = {'normalize_exposure': False, 'exposure_scale_limit': 1.2,
+               'min_samples': 3}
+    path.write_text('{}')
+    assert not cmp.colour_report_matches_options(path, options)
+    path.write_text(json.dumps({'fusion_options': options,
+                               'normalize_exposure': False,
+                               'exposure_scale_limit': 1.2}))
+    assert cmp.colour_report_matches_options(path, options)
+    assert not cmp.colour_report_matches_options(path, dict(options, min_samples=4))
