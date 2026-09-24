@@ -125,7 +125,7 @@ def parse_fusion_options(text: str) -> dict:
         name: parameter.default
         for name, parameter in inspect.signature(bli._colorize).parameters.items()
         if parameter.kind == inspect.Parameter.KEYWORD_ONLY
-        and name not in ('frame_indices', 'return_diagnostics')
+        and name not in ('frame_indices', 'return_diagnostics', 'loaded_images')
     }
     if supplied.keys() - defaults.keys():
         raise ValueError('unknown fusion options: '
@@ -191,7 +191,7 @@ def main() -> int:
         seen = np.ones(len(points), dtype=bool)
     elif args.fusion_options is not None:
         colors, seen = bli._colorize(
-            points, str(args.transforms), frame_indices=train,
+            points, str(args.transforms), frame_indices=train, loaded_images=images,
             **args.fusion_options)
     else:
         colors, seen = pcio.colorize_by_projection_robust(
