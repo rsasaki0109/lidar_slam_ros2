@@ -483,6 +483,7 @@ def test_start_pins_setup_then_delegates_map_and_viewer(
 ):
     """The friendly path composes setup, run, and view once each."""
     module = _load_module()
+    monkeypatch.setattr(module, '_maybe_open_session_report', lambda *_args: None)
     bag = tmp_path / 'mid360_bag'
     session = tmp_path / 'session'
     _write_bag(bag)
@@ -1823,6 +1824,7 @@ def test_completed_map_with_failed_viewer_keeps_map_success_clear(
 ):
     """A browser failure must never be presented as a failed map."""
     module = _load_module()
+    monkeypatch.setattr(module, '_maybe_open_session_report', lambda *_args: None)
     manifest = _session_manifest(tmp_path)
     results = iter([
         subprocess.CompletedProcess([], 0),
