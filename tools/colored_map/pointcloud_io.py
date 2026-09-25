@@ -826,8 +826,8 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
         diagnostics['projected'] += int(inb.sum())
         zbin = (v[inb] // zbuf_bin) * zb_w + (u[inb] // zbuf_bin)
         zbuf = np.full(zb_w * zb_h, np.inf, dtype=np.float32)
-        np.minimum.at(zbuf, zbin, z[inb].astype(np.float32))
         projected_z = z[inb].astype(np.float32)
+        np.minimum.at(zbuf, zbin, projected_z)
         uncertainty_margin = gaf.calibration_pixel_radii(
             projected_z, max(float(fx), float(fy)), calibration,
             linear_speed=linear_speeds[vi],
@@ -879,12 +879,11 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
                         (v[inb] >= image_margin) &
                         (v[inb] < height - image_margin))
         cand = ids[inb][visible]  # unique point ids seen (unoccluded) this view
+        cand_z = projected_z[visible]
         if observation_mask is not None:
             keep = observation_mask[cand, vi]
             cand = cand[keep]
-            cand_z = z[inb][visible].astype(np.float32)[keep]
-        else:
-            cand_z = z[inb][visible].astype(np.float32)
+            cand_z = cand_z[keep]
         quality = (float(fx) / np.maximum(cand_z, 1.0e-6)).astype(np.float32)
         if calibration_sigma_multiplier > 0.0 and cand.size:
             kept_uncertainty = uncertainty_margin[visible]
