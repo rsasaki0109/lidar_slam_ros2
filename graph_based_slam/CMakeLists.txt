@@ -838,6 +838,11 @@ if(BUILD_TESTING)
     TIMEOUT 120
   )
   ament_add_pytest_test(
+    test_color_import_identity
+    test/test_color_import_identity.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
     test_heldout_point_colors
     test/test_heldout_point_colors.py
     TIMEOUT 120

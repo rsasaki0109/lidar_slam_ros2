@@ -6,9 +6,13 @@ from pathlib import Path as _Path
 
 _target = _Path(__file__).resolve().parents[1] / 'colored_map' / 'pointcloud_io.py'
 _spec = _ilu.spec_from_file_location('_colored_map_pointcloud_io', _target)
-_mod = _ilu.module_from_spec(_spec)
-_sys.modules[_spec.name] = _mod
-_spec.loader.exec_module(_mod)
+# Both package imports and legacy top-level imports reach this shim.
+# Reuse the canonical module so both callers share functions and module state.
+_mod = _sys.modules.get(_spec.name)
+if _mod is None or _Path(_mod.__file__).resolve() != _target.resolve():
+    _mod = _ilu.module_from_spec(_spec)
+    _sys.modules[_spec.name] = _mod
+    _spec.loader.exec_module(_mod)
 _sys.modules[__name__] = _mod
 globals().update(_mod.__dict__)
 
