@@ -73,13 +73,18 @@ RTK約491万点の単回比較では、12→32観測で処理時間274→426秒�
 2.97→4.24 GiBとなった（同じ旧medoid実装）。現在のmedoid実装は全観測間の
 距離配列をソートと累積和に置き換え、32観測で色・未着色mask・全品質評価値を
 完全一致させたままRSSを4.01 GiBに削減した。時間は430秒で、全処理の高速化は
-確認していない。観測保持用メモリは残るため、余裕がない環境では既定値12を使う。
-時間・RSSはいずれも単回測定で、実行順やcacheの影響を含む。
+確認していない。さらに深度・品質の観測順位配列を共有し、同じRTK32設定の
+新しい比較でRSSを4.01→3.42 GiB（14.6%減）に削減した。点群色・未着色mask・
+全52評価視点の品質値は完全一致し、AIST 2本×12/32観測でも出力が完全一致した。
+この比較の時間は276→392秒だが、変更後の実行中に別の計算処理を観測しており、
+速度への影響は未確定。比較は単回で、実行順・cache・外部負荷の影響を含む。
+観測保持用メモリは残るため、余裕がない環境では既定値12を使う。
 
 検証記録（2026-09-25、ローカルデータルート
 `/media/sasaki/aiueo2/jeplo_data/experiments/colorization_accuracy/`）:
 `aist_all_training_samples_r1/`、`rtk_samples_paired_r1/comparison.json`、
-`medoid_memory_validation/`、`rtk_medoid_memory_r1/comparison.json`。
+`medoid_memory_validation/`、`rtk_medoid_memory_r1/comparison.json`、
+`sample_rank_memory/{aist_completed,rtk_comparison,host_load_observation}.json`。
 入力・実効設定・ソースhashと、disjoint画像分割を各実験に保存している。
 
 地図geometry自体の動的障害物は、任意依存の
