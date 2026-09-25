@@ -778,9 +778,11 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
     zb_w = (int(width) + zbuf_bin - 1) // zbuf_bin
     zb_h = (int(height) + zbuf_bin - 1) // zbuf_bin
     samples = np.empty((n, int(max_samples), 3), dtype=np.uint8)
-    # Depth stored alongside each sample so a nearer view can evict the farthest.
-    sample_z = np.full((n, int(max_samples)), np.inf, dtype=np.float32)
-    sample_quality = np.full((n, int(max_samples)), -np.inf, dtype=np.float32)
+    # Only one ranking criterion is used for all observations in this call.
+    rank_by_quality = point_normals is not None or min_projected_scale > 0.0
+    sample_rank = np.full(
+        (n, int(max_samples)), -np.inf if rank_by_quality else np.inf,
+        dtype=np.float32)
     vignette_gains = None
     vignette_radius = 1.0
     if vignette_gain_limit > 1.0:
@@ -926,32 +928,30 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
             cols *= gain[:, None]
         cols = np.clip(cols * scales[vi][None, :], 0.0, 255.0).astype(np.uint8)
 
+        rank = quality if rank_by_quality else cand_z
         # Points with room: append into the next free slot.
         room = counts[cand] < max_samples
         if room.any():
             rc = cand[room]
             slot = counts[rc].astype(np.intp)
             samples[rc, slot, :] = cols[room]
-            sample_z[rc, slot] = cand_z[room]
-            sample_quality[rc, slot] = quality[room]
+            sample_rank[rc, slot] = rank[room]
             counts[rc] += 1
         # Full points: if enabled, evict the farthest stored sample when nearer.
         if prefer_near and (~room).any():
             fc = cand[~room]
-            fcz = cand_z[~room]
             fcols = cols[~room]
-            if point_normals is not None or min_projected_scale > 0.0:
-                replace_slot = np.argmin(sample_quality[fc], axis=1)
-                better = quality[~room] > sample_quality[fc, replace_slot]
+            if rank_by_quality:
+                replace_slot = np.argmin(sample_rank[fc], axis=1)
+                better = rank[~room] > sample_rank[fc, replace_slot]
             else:
-                replace_slot = np.argmax(sample_z[fc], axis=1)
-                better = fcz < sample_z[fc, replace_slot]
+                replace_slot = np.argmax(sample_rank[fc], axis=1)
+                better = rank[~room] < sample_rank[fc, replace_slot]
             if better.any():
                 fb = fc[better]
                 sb = replace_slot[better]
                 samples[fb, sb, :] = fcols[better]
-                sample_z[fb, sb] = fcz[better]
-                sample_quality[fb, sb] = quality[~room][better]
+                sample_rank[fb, sb] = rank[~room][better]
 
     seen = counts > 0
     seen_idx = np.flatnonzero(seen)
