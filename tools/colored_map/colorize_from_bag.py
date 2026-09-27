@@ -382,22 +382,12 @@ def _grab_messages(bag_path, wanted, types):
 
 def _image_to_rgb(img_msg, K, D, undistort):
     """Decode an sensor_msgs/Image (rgb8/bgr8) to an RGB array, optionally undistort."""
-    enc = img_msg.encoding
-    arr = np.frombuffer(img_msg.data, dtype=np.uint8).reshape(
-        img_msg.height, img_msg.width, -1)
-    if enc == 'bgr8':
-        rgb = arr[:, :, ::-1]
-    elif enc == 'rgb8':
-        rgb = arr[:, :, :3]
-    elif enc in ('bgra8',):
-        rgb = arr[:, :, [2, 1, 0]]
-    elif enc in ('rgba8',):
-        rgb = arr[:, :, :3]
-    elif enc == 'mono8':
-        rgb = np.repeat(arr[:, :, :1], 3, axis=2)
-    else:
-        raise RuntimeError(f'unsupported image encoding {enc!r}')
-    rgb = np.ascontiguousarray(rgb)
+    from extract_posed_images import decode_image
+
+    rgb = decode_image(img_msg.encoding, img_msg.height, img_msg.width,
+                       img_msg.step, img_msg.data)
+    if rgb.ndim == 2:
+        rgb = np.repeat(rgb[:, :, None], 3, axis=2)
     if undistort and np.any(np.asarray(D) != 0.0):
         import cv2
         rgb = cv2.undistort(rgb, np.asarray(K, dtype=np.float64).reshape(3, 3),
