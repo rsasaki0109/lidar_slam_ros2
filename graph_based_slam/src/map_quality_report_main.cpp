@@ -57,20 +57,31 @@ namespace
 
 void printUsage()
 {
+  const graphslam::map_quality::MapQualityConfig config;
   std::cout <<
     "usage: map_quality_report --input <map.pcd | map.ply | cloud_dir> --output-dir <dir>\n"
-    "  [--downsample <m>]            deterministic voxel-centroid downsample (default 0 = off)\n"
-    "  [--mme-radius <m>]            Mean Map Entropy neighborhood radius (default 0.5)\n"
-    "  [--mme-min-neighbors <n>]     minimum neighbors for a valid MME point (default 8)\n"
-    "  [--root-voxel-size <m>]       plane extractor root voxel size (default 1.0)\n"
-    "  [--max-plane-thickness <m>]   accept threshold on sqrt(lambda_min) (default 0.06)\n"
-    "  [--min-planarity-ratio <f>]   lambda_mid/lambda_min floor (default 6.0)\n"
-    "  [--min-points-per-plane <n>]  patch support floor (default 20)\n"
-    "  [--max-octree-depth <n>]      root voxel split depth (default 3)\n"
-    "  [--quarter-tolerance <f>]     quarter-test tolerance factor (default 2.0)\n"
+    "  [--downsample <m>]            deterministic voxel-centroid downsample (default "
+    << config.downsample_voxel_size << " = off)\n"
+    "  [--mme-radius <m>]            Mean Map Entropy neighborhood radius (default "
+    << config.mme_radius << ")\n"
+    "  [--mme-min-neighbors <n>]     minimum neighbors for a valid MME point (default "
+    << config.mme_min_neighbors << ")\n"
+    "  [--root-voxel-size <m>]       plane extractor root voxel size (default "
+    << config.plane_config.root_voxel_size << ")\n"
+    "  [--max-plane-thickness <m>]   accept threshold on sqrt(lambda_min) (default "
+    << config.plane_config.max_plane_thickness << ")\n"
+    "  [--min-planarity-ratio <f>]   lambda_mid/lambda_min floor (default "
+    << config.plane_config.min_planarity_ratio << ")\n"
+    "  [--min-points-per-plane <n>]  patch support floor (default "
+    << config.plane_config.min_points_per_plane << ")\n"
+    "  [--max-octree-depth <n>]      root voxel split depth (default "
+    << config.plane_config.max_octree_depth << ")\n"
+    "  [--quarter-tolerance <f>]     quarter-test tolerance factor (default "
+    << config.plane_config.quarter_test_tolerance << ")\n"
     "  [--no-quarter-test]           disable the quarter consistency test\n"
     "  [--min-meaningful-coverage <f>] planar coverage floor for meaningful plane metrics\n"
-    "                                  (default 0.10)\n";
+    "                                  (default "
+    << config.min_meaningful_planar_coverage << ")\n";
 }
 
 bool loadCloudInto(const std::string & path, std::vector<Eigen::Vector3d> & points)
