@@ -608,8 +608,8 @@ def test_heldout_cache_requires_matching_fusion_settings(tmp_path):
     path.write_text('{}')
     assert not cmp.colour_report_matches_options(path, options)
     path.write_text(json.dumps({'fusion_options': options,
-                               'normalize_exposure': False,
-                               'exposure_scale_limit': 1.2}))
+                                'normalize_exposure': False,
+                                'exposure_scale_limit': 1.2}))
     assert cmp.colour_report_matches_options(path, options)
     assert not cmp.colour_report_matches_options(path, dict(options, min_samples=4))
 
