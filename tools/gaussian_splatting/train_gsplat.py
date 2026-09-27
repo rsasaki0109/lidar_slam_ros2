@@ -64,6 +64,12 @@ def load_transforms(path: str | Path) -> dict:
             raise ValueError('pinhole consumers require rectified images; '
                              'extract with --undistort (do not just clear '
                              'distortion metadata)')
+    # Consumers share one K and image size; ignoring a frame override shifts RGB.
+    for frame in doc['frames']:
+        if any(key in frame and frame[key] != doc[key]
+               for key in ('fl_x', 'fl_y', 'cx', 'cy', 'w', 'h')):
+            raise ValueError('per-frame camera intrinsics must match the common '
+                             'calibration; split inputs by camera calibration')
     fx, fy = doc['fl_x'], doc['fl_y']
     cx, cy = doc['cx'], doc['cy']
     K = np.array([[fx, 0.0, cx], [0.0, fy, cy], [0.0, 0.0, 1.0]])

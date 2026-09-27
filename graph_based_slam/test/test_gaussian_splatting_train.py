@@ -405,3 +405,25 @@ def test_pinhole_loader_rejects_unrectified_images(tmp_path, override, per_frame
     path.write_text(json.dumps(doc))
     with pytest.raises(ValueError, match='undistort'):
         tg.load_transforms(path)
+
+
+@pytest.mark.parametrize('key,value', [
+    ('fl_x', 40.), ('fl_y', 40.), ('cx', 31.), ('cy', 23.),
+    ('w', 128), ('h', 96),
+])
+def test_shared_camera_loader_rejects_different_frame_intrinsics(tmp_path, key, value):
+    """A per-image camera override must not silently use the root projection."""
+    import json
+    doc = {'w': 64, 'h': 48, 'fl_x': 20., 'fl_y': 20., 'cx': 32., 'cy': 24.,
+           'frames': [{'file_path': 'image.png',
+                       'transform_matrix': np.eye(4).tolist(), key: value}]}
+    path = tmp_path / 'transforms.json'
+    path.write_text(json.dumps(doc))
+    with pytest.raises(ValueError, match='per-frame camera intrinsics'):
+        tg.load_transforms(path)
+    # Exporters may repeat the common calibration on every frame.
+    doc['frames'][0][key] = doc[key]
+    path.write_text(json.dumps(doc))
+    loaded = tg.load_transforms(path)
+    assert loaded['width'] == 64 and loaded['height'] == 48
+    np.testing.assert_array_equal(loaded['K'], [[20., 0., 32.], [0., 20., 24.], [0., 0., 1.]])
