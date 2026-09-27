@@ -430,3 +430,27 @@ def test_raw_projection_rejects_pinhole_only_weighting(option):
             np.array([[0., 0., 1.]]), [np.eye(4)], np.eye(3),
             [np.zeros((2, 2, 3), dtype=np.uint8)], 2, 2,
             distortion=np.zeros(4), distortion_model='equidistant', **{option: 1})
+
+
+@pytest.mark.parametrize('model,d,x', [
+    ('plumb_bob', [-1., 0., 0., 0., 0.], 1.),
+    ('rational_polynomial', [-1., 0., 0., 0., 0., 0., 0., 0.], 1.),
+    ('equidistant', [-1., 0., 0., 0.], np.tan(1.)),
+])
+def test_folded_lens_ray_cannot_color_or_occlude(model, d, x):
+    """An outer ray folding to the optical center must not hide a valid ray."""
+    pytest.importorskip('cv2')
+    k = np.array([[20., 0., 32.], [0., 20., 24.], [0., 0., 1.]])
+    xyz = np.array([[x, 0., 1.], [0., 0., 2.], [np.nan, 0., 1.]])
+    rgb = np.zeros((48, 64, 3), dtype=np.uint8)
+    rgb[24, 32] = [210, 90, 40]
+    colors, seen = cfb.pcio.colorize_by_projection_robust(
+        xyz, [np.eye(4)], k, [rgb], 64, 48, distortion=d,
+        distortion_model=model, normalize_exposure=False, interp='nearest')
+    assert seen.tolist() == [False, True, False]
+    np.testing.assert_array_equal(colors, [[128, 128, 128], [210, 90, 40],
+                                          [128, 128, 128]])
+    diag = cfb.projection_diagnostics(xyz, np.eye(4), k, 64, 48,
+                                      distortion=d, distortion_model=model)
+    assert diag['indices'].tolist() == [1]
+    assert diag['visible'].tolist() == [True]

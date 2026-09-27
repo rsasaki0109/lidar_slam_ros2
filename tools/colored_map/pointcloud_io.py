@@ -654,6 +654,25 @@ def project_camera_pixels(cam, K, *, distortion=None, distortion_model='plumb_bo
                 project = cv2.fisheye.projectPoints if fisheye else cv2.projectPoints
                 uv[valid] = project(
                     cam[valid, None, :], np.zeros(3), np.zeros(3), K, d)[0].reshape(-1, 2)
+            # Polynomial extensions can fold rays far outside the lens field
+            # back into the image. Only keep the branch recovered by the lens
+            # inverse; otherwise a spurious foreground point can occlude a
+            # valid point before any color is sampled.
+            indices = np.flatnonzero(valid & np.isfinite(uv).all(axis=1))
+            if indices.size:
+                pixels = uv[indices, None, :]
+                criteria = (cv2.TERM_CRITERIA_COUNT | cv2.TERM_CRITERIA_EPS, 50, 1e-12)
+                if fisheye:
+                    rays = cv2.fisheye.undistortPoints(pixels, K, d, criteria=criteria)
+                else:
+                    rays = cv2.undistortPointsIter(pixels, K, d, None, None, criteria)
+                rays = rays.reshape(-1, 2)
+                expected = cam[indices, :2] / cam[indices, 2, None]
+                # Numerical inverse tolerance in normalized ray coordinates,
+                # independent of scene colors, depth gates and GT.
+                consistent = (np.isfinite(rays).all(axis=1)
+                              & np.isclose(rays, expected, rtol=1e-6, atol=1e-8).all(axis=1))
+                uv[indices[~consistent]] = -1.0
             uv = np.nan_to_num(uv, nan=-1.0, posinf=-1.0, neginf=-1.0)
             return uv[:, 0], uv[:, 1]
     with np.errstate(divide='ignore', invalid='ignore'):
