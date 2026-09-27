@@ -508,17 +508,11 @@ def estimate_overlap_rgb_gains(points: np.ndarray, viewmats: np.ndarray,
     if len(xyz) > sample_limit:
         choose = np.linspace(0, len(xyz) - 1, sample_limit).astype(np.intp)
         xyz = xyz[choose]
-    fx, fy, cx, cy = (float(K[0, 0]), float(K[1, 1]),
-                      float(K[0, 2]), float(K[1, 2]))
     observations = []
     for vm, image in zip(views, images):
         cam = xyz @ vm[:3, :3].T + vm[:3, 3]
         z = cam[:, 2]
-        with np.errstate(divide='ignore', invalid='ignore'):
-            uf = np.nan_to_num(fx * cam[:, 0] / z + cx, nan=-1.0,
-                               posinf=-1.0, neginf=-1.0)
-            vf = np.nan_to_num(fy * cam[:, 1] / z + cy, nan=-1.0,
-                               posinf=-1.0, neginf=-1.0)
+        uf, vf = project_camera_pixels(cam, K)
         u = np.round(uf).astype(np.int64)
         v = np.round(vf).astype(np.int64)
         inside = ((z > 1.0e-6) & (u >= 0) & (u < width) &
