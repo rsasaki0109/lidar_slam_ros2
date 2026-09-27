@@ -5,6 +5,12 @@ RKO commit `3da6470f956278c39ff15acbaf61f4e024b18701` replaces
 their individual history. Runtime code grows by 137 net lines; the remaining
 additions are tests (290), build registration (18), and experiment notes (24).
 
+The subsequent `12987f4` cleanup moves the queue test unchanged into `test/`,
+replaces its obsolete experiment instructions with README documentation, and
+updates two runtime comments. Runtime equations and settings are unchanged.
+Its fresh Release build again passed 78 cases; Mask2 clouds/timestamps matched
+all 669 inputs exactly, with pose differences below 2.8e-15 m and 3.4e-16 rad.
+
 ## Behavior
 
 - A full LiDAR queue replaces its oldest pending scan with the newest valid
