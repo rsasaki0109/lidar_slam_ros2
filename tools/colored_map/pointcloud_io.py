@@ -652,6 +652,40 @@ def observed_color_medoids(samples: np.ndarray, chunk: int = 20000) -> np.ndarra
     return out
 
 
+def project_camera_pixels(cam, K, *, distortion=None, distortion_model='plumb_bob'):
+    """Project camera-frame points, optionally into an unrectified image.
+
+    None means pinhole/rectified. Fisheye with zero coefficients still uses
+    the equidistant projection. OpenCV is needed only for distorted images.
+    """
+    cam = np.asarray(cam, dtype=np.float64)
+    K = np.asarray(K, dtype=np.float64).reshape(3, 3)
+    if distortion is not None:
+        if distortion_model not in ('plumb_bob', 'rational_polynomial',
+                                    'equidistant', 'fisheye'):
+            raise ValueError(f'unsupported distortion model: {distortion_model}')
+        fisheye = distortion_model in ('equidistant', 'fisheye')
+        d = np.asarray(distortion, dtype=np.float64)
+        if fisheye or np.any(d):
+            import cv2
+            if fisheye and d.size == 0:
+                d = np.zeros(4)
+            uv = np.full((len(cam), 2), -1.0)
+            valid = np.isfinite(cam).all(axis=1) & (cam[:, 2] > 1e-6)
+            if valid.any():
+                project = cv2.fisheye.projectPoints if fisheye else cv2.projectPoints
+                uv[valid] = project(
+                    cam[valid, None, :], np.zeros(3), np.zeros(3), K, d)[0].reshape(-1, 2)
+            uv = np.nan_to_num(uv, nan=-1.0, posinf=-1.0, neginf=-1.0)
+            return uv[:, 0], uv[:, 1]
+    with np.errstate(divide='ignore', invalid='ignore'):
+        u = np.nan_to_num(K[0, 0] * cam[:, 0] / cam[:, 2] + K[0, 2],
+                          nan=-1.0, posinf=-1.0, neginf=-1.0)
+        v = np.nan_to_num(K[1, 1] * cam[:, 1] / cam[:, 2] + K[1, 2],
+                          nan=-1.0, posinf=-1.0, neginf=-1.0)
+    return u, v
+
+
 def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
                                   K: np.ndarray, images, width: int, height: int,
                                   default_rgb=(128, 128, 128), *,
@@ -682,6 +716,8 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
                                       Sequence[float]] = None,
                                   calibration_sigma_multiplier: float = 0.0,
                                   maximum_uncertainty_margin_px: int = 12,
+                                  distortion=None,
+                                  distortion_model: str = 'plumb_bob',
                                   return_counts: bool = False,
                                   return_diagnostics: bool = False):
     """Occlusion-aware, exposure-normalised, median-robust point colorization.
@@ -723,6 +759,13 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
     triple ``(rgb, seen, counts uint16 (N,))`` giving each point's surviving
     sample count (a colour-confidence signal). Unseen points get ``default_rgb``.
 
+    ``distortion`` supplies raw-image coefficients shared by all views;
+    ``None`` preserves pinhole projection. ``distortion_model`` follows
+    CameraInfo (plumb_bob, rational_polynomial, equidistant/fisheye).
+    Raw-image projection supports pixel sampling and z-buffer occlusion;
+    pinhole overlap, scale and calibration-uncertainty weighting require
+    rectified images instead.
+
     Geometry-aware fusion is opt-in. ``occlusion_margin_px`` tests nearby
     z-buffer cells so a foreground silhouette suppresses background colour
     samples in adjacent pixels. ``depth_edge_margin_px`` rejects both sides of
@@ -731,6 +774,11 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
     three guards per observation after propagation through range, focal length,
     and camera motion. ``return_diagnostics`` appends rejection counters.
     """
+    if distortion is not None and (
+            overlap_color_balance or calibration_sigma_multiplier > 0.0
+            or min_projected_scale > 0.0 or view_score_power > 0.0):
+        raise ValueError('rectify images before using pinhole overlap, scale, '
+                         'or calibration-uncertainty weighting')
     points = np.asarray(points, dtype=np.float64)
     n = points.shape[0]
     if observation_mask is not None:
@@ -838,11 +886,8 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
         vm = np.asarray(vm, dtype=np.float64)
         cam = points @ vm[:3, :3].T + vm[:3, 3]
         z = cam[:, 2]
-        with np.errstate(divide='ignore', invalid='ignore'):
-            uf = np.nan_to_num(fx * cam[:, 0] / z + cx, nan=-1.0,
-                               posinf=-1.0, neginf=-1.0)
-            vf = np.nan_to_num(fy * cam[:, 1] / z + cy, nan=-1.0,
-                               posinf=-1.0, neginf=-1.0)
+        uf, vf = project_camera_pixels(
+            cam, K, distortion=distortion, distortion_model=distortion_model)
         u = np.round(uf).astype(np.int64)
         v = np.round(vf).astype(np.int64)
         inb = (z > 1e-6) & (u >= 0) & (u < width) & (v >= 0) & (v < height)
