@@ -148,3 +148,20 @@ README動画の再現設定は `render_map_flythrough.py --device cpu
 
 チュートリアル: [`docs/3dgs-map-tutorial.md`](../../docs/3dgs-map-tutorial.md)
 (フライスルー生成)、[`docs/workflows.md`](../../docs/workflows.md)。
+
+### Camera models and posed-image export
+
+Use `extract_posed_images.py --undistort` for the internal pinhole training,
+rendering and recoloring tools. The integrated pipeline does this by default.
+Its shared transforms loader rejects nonzero distortion and non-pinhole camera
+models, including zero-coefficient fisheye. Clearing JSON coefficients without
+rectifying the images does not produce a valid dataset.
+
+Raw export preserves ordinary OpenCV coefficients, or writes fisheye images as
+`OPENCV_FISHEYE` with `k1` through `k4`, for compatible external consumers
+([Nerfstudio model mapping](https://github.com/nerfstudio-project/nerfstudio/blob/main/nerfstudio/cameras/cameras.py)).
+Nonzero rational denominator or extended coefficients cannot be represented by
+this exporter: use `--undistort`; raw export fails before writing images rather
+than dropping coefficients. This does not add raw-image support to the internal
+pinhole tools. For direct bag coloring without resampling the image,
+`colorize_from_bag.py --no-undistort` projects using the CameraInfo lens model.

@@ -253,23 +253,37 @@ def build_transforms(
 ) -> dict:
     """Assemble a Nerfstudio-style ``transforms.json`` dict.
 
-    The intrinsics live at the top level (shared pinhole), and each frame
+    The intrinsics and lens model live at the top level, and each frame
     carries its ``file_path`` and OpenGL ``transform_matrix``.
     """
-    d = list(intrinsics.distortion) + [0.0] * 5
+    d = list(intrinsics.distortion)
+    if not np.isfinite(d).all():
+        raise ValueError('distortion coefficients must be finite')
+    model = intrinsics.distortion_model
+    if model in ('equidistant', 'fisheye'):
+        if len(d) not in (0, 4):
+            raise ValueError('fisheye export requires four coefficients')
+        d = d or [0.0] * 4
+        camera_model = 'OPENCV_FISHEYE'
+        coefficients = dict(zip(('k1', 'k2', 'k3', 'k4'), d))
+    elif model in ('plumb_bob', 'rational_polynomial'):
+        if any(d[5:]):
+            raise ValueError('raw rational/extended distortion cannot be exported '
+                             'without loss; extract with --undistort')
+        d += [0.0] * 5
+        camera_model = 'OPENCV'
+        coefficients = dict(zip(('k1', 'k2', 'p1', 'p2', 'k3'), d[:5]))
+    else:
+        raise ValueError(f'unsupported distortion model: {model}')
     doc: dict = {
-        'camera_model': 'OPENCV',
+        'camera_model': camera_model,
         'w': intrinsics.width,
         'h': intrinsics.height,
         'fl_x': intrinsics.fx,
         'fl_y': intrinsics.fy,
         'cx': intrinsics.cx,
         'cy': intrinsics.cy,
-        'k1': d[0],
-        'k2': d[1],
-        'p1': d[2],
-        'p2': d[3],
-        'k3': d[4],
+        **coefficients,
         'frames': [
             {
                 'file_path': fr.file_path,

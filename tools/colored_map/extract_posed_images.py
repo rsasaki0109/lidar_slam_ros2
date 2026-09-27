@@ -492,6 +492,8 @@ def extract(args: argparse.Namespace) -> dict:
             float(new_k[0, 0]), float(new_k[1, 1]),
             float(new_k[0, 2]), float(new_k[1, 2]))
 
+    # Reject a lossy raw export before decoding/writing any images.
+    pi.build_transforms(out_intrinsics, [])
     out_dir = Path(args.out)
     images_dir = out_dir / 'images'
     images_dir.mkdir(parents=True, exist_ok=True)
