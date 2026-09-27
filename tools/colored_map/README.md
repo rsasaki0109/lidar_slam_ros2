@@ -151,6 +151,11 @@ README動画の再現設定は `render_map_flythrough.py --device cpu
 
 ### Camera models and posed-image export
 
+The shared transforms loader uses one intrinsic matrix and image size for all
+frames. Per-frame `fl_x`, `fl_y`, `cx`, `cy`, `w`, and `h` may repeat the root
+values, but differing overrides are rejected. Split inputs by camera calibration
+instead of silently coloring or rendering them with the root camera.
+
 Use `extract_posed_images.py --undistort` for the internal pinhole training,
 rendering and recoloring tools. The integrated pipeline does this by default.
 Its shared transforms loader rejects nonzero distortion and non-pinhole camera
