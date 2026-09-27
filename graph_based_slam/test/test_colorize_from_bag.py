@@ -421,8 +421,8 @@ def test_raw_image_coloring_projects_camera_model(tmp_path, monkeypatch, model, 
 
 
 @pytest.mark.parametrize('option', ['overlap_color_balance',
-                                   'calibration_sigma_multiplier',
-                                   'min_projected_scale', 'view_score_power'])
+                                    'calibration_sigma_multiplier',
+                                    'min_projected_scale', 'view_score_power'])
 def test_raw_projection_rejects_pinhole_only_weighting(option):
     """Do not combine raw pixel coordinates with pinhole-only quality helpers."""
     with pytest.raises(ValueError, match='rectify images'):
@@ -449,7 +449,7 @@ def test_folded_lens_ray_cannot_color_or_occlude(model, d, x):
         distortion_model=model, normalize_exposure=False, interp='nearest')
     assert seen.tolist() == [False, True, False]
     np.testing.assert_array_equal(colors, [[128, 128, 128], [210, 90, 40],
-                                          [128, 128, 128]])
+                                           [128, 128, 128]])
     diag = cfb.projection_diagnostics(xyz, np.eye(4), k, 64, 48,
                                       distortion=d, distortion_model=model)
     assert diag['indices'].tolist() == [1]
