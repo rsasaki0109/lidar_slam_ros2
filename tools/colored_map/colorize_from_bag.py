@@ -392,7 +392,7 @@ def _grab_messages(bag_path, wanted, types):
     return out
 
 
-def _image_to_rgb(img_msg, K, D, undistort):
+def _image_to_rgb(img_msg, K, D, undistort, distortion_model='plumb_bob'):
     """Decode an sensor_msgs/Image (rgb8/bgr8) to an RGB array, optionally undistort."""
     from extract_posed_images import decode_image
 
@@ -400,7 +400,12 @@ def _image_to_rgb(img_msg, K, D, undistort):
                        img_msg.step, img_msg.data)
     if rgb.ndim == 2:
         rgb = np.repeat(rgb[:, :, None], 3, axis=2)
-    if undistort and np.any(np.asarray(D) != 0.0):
+    if undistort and distortion_model in ('equidistant', 'fisheye'):
+        import cv2
+        k = np.asarray(K, dtype=np.float64).reshape(3, 3)
+        # Even zero coefficients retain the fisheye theta-to-radius mapping.
+        rgb = cv2.fisheye.undistortImage(rgb, k, np.asarray(D, dtype=np.float64), Knew=k)
+    elif undistort and np.any(np.asarray(D) != 0.0):
         import cv2
         rgb = cv2.undistort(rgb, np.asarray(K, dtype=np.float64).reshape(3, 3),
                             np.asarray(D, dtype=np.float64))
@@ -494,7 +499,7 @@ def colorize_bag_frame(args) -> dict:
         else:
             world_to_cam = manual_extrinsic
         rgb_img = _image_to_rgb(
-            image, K, D, not args.no_undistort)
+            image, K, D, not args.no_undistort, info.distortion_model)
         colors, seen, counts = pcio.colorize_by_projection_robust(
             xyz, world_to_cam[None], K, [rgb_img], W, H,
             default_rgb=tuple(args.default_rgb),
@@ -578,7 +583,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--sync-search-radius', type=int, default=2,
                    help='neighbouring images per side searched for best sync')
     p.add_argument('--no-undistort', action='store_true',
-                   help='skip plumb_bob undistortion (needs OpenCV otherwise)')
+                   help='skip camera-model undistortion (needs OpenCV otherwise)')
     p.add_argument('--normalize-exposure', action='store_true',
                    help='rescale image luminance (harmless for a single view)')
     p.add_argument('--zbuf-bin', type=int, default=1,

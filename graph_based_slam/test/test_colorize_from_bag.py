@@ -528,3 +528,54 @@ def test_image_to_rgb_respects_row_stride(encoding, padding):
     actual = cfb._image_to_rgb(message, np.eye(3), np.zeros(5), False)
     np.testing.assert_array_equal(actual, rgb)
     assert actual.flags.c_contiguous
+
+
+@pytest.mark.parametrize('model,coefficients,undistort', [
+    ('plumb_bob', [0.1, -0.02, 0.003, -0.001, 0.01], True),
+    ('rational_polynomial', [0.1, -0.02, 0.003, -0.001, 0.01, 0.15, 0.02, 0.01], True),
+    ('equidistant', [0.1, -0.02, 0.003, -0.001], True),
+    ('equidistant', [0.0, 0.0, 0.0, 0.0], True),
+    ('equidistant', [0.1, -0.02, 0.003, -0.001], False),
+])
+def test_direct_coloring_uses_camera_info_model(
+        tmp_path, monkeypatch, model, coefficients, undistort):
+    """The image passed to pinhole projection must be rectified to the same K."""
+    cv2 = pytest.importorskip('cv2')
+    pytest.importorskip('rclpy.time')
+    from types import SimpleNamespace
+
+    width, height = 64, 48
+    y, x = np.indices((height, width))
+    rgb = np.stack([x * 3, y * 5, (x + y) * 2], axis=-1).astype(np.uint8)
+    k = np.array([[32.0, 0.0, 31.5], [0.0, 33.0, 23.5], [0.0, 0.0, 1.0]])
+    image = SimpleNamespace(encoding='rgb8', height=height, width=width,
+                            step=width * 3, data=rgb.tobytes())
+    info = SimpleNamespace(k=k.ravel(), d=coefficients, width=width, height=height,
+                           distortion_model=model)
+    args = cfb.build_parser().parse_args([
+        'bag', str(tmp_path / 'colored'), '--extrinsic', '0', '0', '0', '0', '0', '0', '1'])
+    args.no_undistort = not undistort
+    monkeypatch.setattr(cfb, '_collect', lambda *a, **kw: (
+        None, {args.camera_info_topic: info}, [1], {args.image_topic: [1]}, {}))
+    monkeypatch.setattr(cfb, '_grab_messages', lambda *a: {
+        (args.pc_topic, 1): None, (args.image_topic, 1): image})
+    monkeypatch.setattr(cfb, '_read_xyz', lambda _msg: np.array([[0.0, 0.0, 2.0]]))
+    d = np.asarray(coefficients)
+    expected = rgb
+    if undistort:
+        if model == 'equidistant':
+            expected = cv2.fisheye.undistortImage(rgb, k, d, Knew=k)
+        else:
+            expected = cv2.undistort(rgb, k, d)
+    calls = []
+
+    def project(points, poses, intrinsics, images, w, h, **kwargs):
+        np.testing.assert_array_equal(intrinsics, k)
+        np.testing.assert_array_equal(images[0], expected)
+        assert (w, h) == (width, height)
+        calls.append(True)
+        return np.array([[10, 20, 30]], dtype=np.uint8), np.array([True]), np.array([1])
+
+    monkeypatch.setattr(cfb.pcio, 'colorize_by_projection_robust', project)
+    assert cfb.colorize_bag_frame(args)['colored'] == 1
+    assert calls == [True]
