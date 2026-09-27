@@ -16,12 +16,19 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Optional, Sequence
 
 import numpy as np
 
-import lidarslam_benchmark_tools.gaussian_splatting.posed_images as pi
+# Direct source-tree execution also needs the sibling benchmark package.
+_SOURCE_ROOT = Path(__file__).resolve().parents[2]
+if not __package__ and (_SOURCE_ROOT / 'lidarslam_benchmark_tools').is_dir():
+    if str(_SOURCE_ROOT) not in sys.path:
+        sys.path.insert(0, str(_SOURCE_ROOT))
+
+import lidarslam_benchmark_tools.gaussian_splatting.posed_images as pi  # noqa: E402
 
 # SH band-0 constant: f_dc = (rgb - 0.5) / C0 for the INRIA .ply layout.
 SH_C0 = 0.28209479177387814
