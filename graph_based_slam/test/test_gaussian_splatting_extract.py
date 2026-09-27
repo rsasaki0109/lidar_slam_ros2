@@ -389,3 +389,74 @@ def test_topic_type_from_metadata(tmp_path):
     assert t == 'sensor_msgs/msg/CompressedImage'
     assert ex._topic_type(tmp_path, '/missing') == ''
     assert ex._topic_type(tmp_path / 'nope', '/x') == ''
+
+
+@pytest.mark.parametrize('model,coefficients', [
+    ('plumb_bob', [0.12, -0.04, 0.003, -0.002, 0.01]),
+    ('equidistant', [0.12, -0.04, 0.003, -0.002]),
+    ('rational_polynomial', [0.12, -0.04, 0.003, -0.002, 0.01, 0.18, -0.03, 0.02]),
+])
+def test_extract_camera_info_rectification(tmp_path, monkeypatch, model, coefficients):
+    """Bag CameraInfo must select the calibrated model and all coefficients."""
+    cv2 = pytest.importorskip('cv2')
+    pytest.importorskip('rosbag2_py')
+    from rclpy.serialization import serialize_message
+    from sensor_msgs.msg import CameraInfo, Image
+    import imageio.v2 as iio
+    import json
+
+    width, height = 80, 60
+    k = np.array([[48.0, 0.0, 39.5], [0.0, 49.0, 29.5], [0.0, 0.0, 1.0]])
+    y, x = np.indices((height, width))
+    rgb = np.stack([(x * 7) % 256, (y * 11) % 256,
+                    ((x + y) * 13) % 256], axis=-1).astype(np.uint8)
+    info = CameraInfo(width=width, height=height, k=k.ravel().tolist(),
+                      d=coefficients, distortion_model=model)
+    image = Image(width=width, height=height, encoding='rgb8',
+                  step=width * 3, data=rgb.tobytes())
+    image.header.stamp.sec = 1
+    messages = [('/camera_info', serialize_message(info), 1_000_000_000),
+                ('/image', serialize_message(image), 1_000_000_000)]
+
+    class Reader:
+        def __init__(self):
+            self.index = 0
+
+        def has_next(self):
+            return self.index < len(messages)
+
+        def read_next(self):
+            result = messages[self.index]
+            self.index += 1
+            return result
+
+        def set_filter(self, _filter):
+            pass
+
+    monkeypatch.setattr(ex, '_open_reader', lambda _bag: Reader())
+    monkeypatch.setattr(ex, '_topic_type', lambda _bag, _topic: 'sensor_msgs/msg/Image')
+    trajectory = tmp_path / 'trajectory.tum'
+    trajectory.write_text('1 0 0 0 0 0 0 1\n2 0 0 0 0 0 0 1\n')
+    args = ex.build_parser().parse_args([
+        '--bag', str(tmp_path), '--traj', str(trajectory),
+        '--out', str(tmp_path / 'output'), '--undistort'])
+    assert ex.extract(args)['kept'] == 1
+
+    d = np.array(coefficients, dtype=float)
+    size = (width, height)
+    if model == 'equidistant':
+        target = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(
+            k, d, size, np.eye(3), balance=0.0)
+        maps = cv2.fisheye.initUndistortRectifyMap(
+            k, d, np.eye(3), target, size, cv2.CV_16SC2)
+    else:
+        target, _ = cv2.getOptimalNewCameraMatrix(k, d, size, 0, size)
+        maps = cv2.initUndistortRectifyMap(k, d, None, target, size, cv2.CV_16SC2)
+    expected = cv2.remap(rgb, *maps, cv2.INTER_LINEAR)
+    actual = iio.imread(tmp_path / 'output/images/00000.png')
+    np.testing.assert_array_equal(actual, expected)
+    transforms = json.loads((tmp_path / 'output/transforms.json').read_text())
+    np.testing.assert_allclose(
+        [transforms[key] for key in ['fl_x', 'fl_y', 'cx', 'cy']],
+        [target[0, 0], target[1, 1], target[0, 2], target[1, 2]])
+    assert all(transforms[key] == 0.0 for key in ['k1', 'k2', 'p1', 'p2', 'k3'])

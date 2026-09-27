@@ -396,7 +396,7 @@ def read_camera_intrinsics(bag_path: str | Path, topic: str) -> pi.CameraIntrins
             continue
         msg = deserialize_message(raw, CameraInfo)
         return pi.CameraIntrinsics.from_camera_info(
-            msg.width, msg.height, list(msg.k), list(msg.d)
+            msg.width, msg.height, list(msg.k), list(msg.d), msg.distortion_model
         )
     raise RuntimeError(f'no CameraInfo found on topic {topic!r}')
 
@@ -477,13 +477,13 @@ def extract(args: argparse.Namespace) -> dict:
                       [0, intrinsics.fy, intrinsics.cy], [0, 0, 1.0]])
         size = (intrinsics.width, intrinsics.height)
         if intrinsics.distortion_model in ('equidistant', 'fisheye'):
-            d = np.array((list(intrinsics.distortion) + [0] * 4)[:4], dtype=float)
+            d = np.array(intrinsics.distortion or (0.0,) * 4, dtype=float)
             new_k = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(
                 k, d, size, np.eye(3), balance=0.0)
             undistort_map = cv2.fisheye.initUndistortRectifyMap(
                 k, d, np.eye(3), new_k, size, cv2.CV_16SC2)
         else:
-            d = np.array((list(intrinsics.distortion) + [0] * 5)[:5], dtype=float)
+            d = np.array(intrinsics.distortion or (0.0,) * 5, dtype=float)
             new_k, _ = cv2.getOptimalNewCameraMatrix(k, d, size, 0, size)
             undistort_map = cv2.initUndistortRectifyMap(
                 k, d, None, new_k, size, cv2.CV_16SC2)
