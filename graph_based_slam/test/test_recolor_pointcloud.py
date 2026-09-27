@@ -64,3 +64,35 @@ def test_parser_exposes_default_off_screening_stride(tmp_path):
     assert args.point_stride == 1
     assert args.occlusion_margin_px == 0
     assert args.depth_edge_margin_px == 0
+
+
+def test_cli_colors_from_external_directory_without_pythonpath(tmp_path):
+    import json
+    import os
+    import subprocess
+
+    import imageio.v3 as iio
+
+    image = np.full((8, 8, 3), [30, 90, 150], dtype=np.uint8)
+    iio.imwrite(tmp_path / 'image.png', image)
+    transforms = tmp_path / 'transforms.json'
+    transforms.write_text(json.dumps({
+        'w': 8, 'h': 8, 'fl_x': 4, 'fl_y': 4, 'cx': 4, 'cy': 4,
+        'frames': [{'file_path': 'image.png',
+                    'transform_matrix': np.diag([1, -1, -1, 1]).tolist()}],
+    }))
+    source = tmp_path / 'input.ply'
+    recolor.pcio.write_ply(source, np.array([[0., 0., 2.]]))
+    output = tmp_path / 'colored.ply'
+    env = dict(os.environ)
+    env.pop('PYTHONPATH', None)
+    result = subprocess.run([
+        sys.executable, str(TOOL_DIR / 'recolor_pointcloud.py'),
+        '--input', str(source), '--transforms', str(transforms),
+        '--out', str(output),
+    ], cwd=tmp_path, env=env, capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout)['colored'] == 1
+    xyz, rgb = recolor.pcio.read_ply_xyz(output)
+    np.testing.assert_array_equal(xyz, [[0., 0., 2.]])
+    np.testing.assert_array_equal(rgb, [[30, 90, 150]])
