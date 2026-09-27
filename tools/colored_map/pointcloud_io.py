@@ -292,14 +292,14 @@ def _sample_pixels(img: np.ndarray, uf: np.ndarray, vf: np.ndarray,
     real pixel when the local RGB range exceeds ``edge_threshold``, preventing
     foreground/background colour bleed. A 2-D image is broadcast to RGB.
     """
-    im = np.asarray(img).astype(np.float32)
+    im = np.asarray(img)
     if im.ndim == 2:
-        im = np.repeat(im[:, :, None], 3, axis=2)
+        im = np.broadcast_to(im[:, :, None], (*im.shape, 3))
     im = im[:, :, :3]
     if interp == 'nearest':
         ui = np.clip(np.round(uf).astype(np.int64), 0, width - 1)
         vi = np.clip(np.round(vf).astype(np.int64), 0, height - 1)
-        return im[vi, ui]
+        return im[vi, ui].astype(np.float32)
     if interp not in ('bilinear', 'edge-aware'):
         raise ValueError(
             "interp must be 'nearest', 'bilinear', or 'edge-aware', "
@@ -312,13 +312,13 @@ def _sample_pixels(img: np.ndarray, uf: np.ndarray, vf: np.ndarray,
     y1 = np.minimum(y0 + 1, height - 1)
     wx = np.clip(uf - x0, 0.0, 1.0)[:, None].astype(np.float32)
     wy = np.clip(vf - y0, 0.0, 1.0)[:, None].astype(np.float32)
-    p00, p10 = im[y0, x0], im[y0, x1]
+    p00, p10 = im[y0, x0].astype(np.float32), im[y0, x1].astype(np.float32)
     if interp == 'edge-aware':
         local_minimum = np.minimum(p00, p10)
         local_maximum = np.maximum(p00, p10)
     top = p00 * (1.0 - wx) + p10 * wx
     del p00, p10
-    p01, p11 = im[y1, x0], im[y1, x1]
+    p01, p11 = im[y1, x0].astype(np.float32), im[y1, x1].astype(np.float32)
     if interp == 'edge-aware':
         np.minimum(local_minimum, p01, out=local_minimum)
         np.minimum(local_minimum, p11, out=local_minimum)
