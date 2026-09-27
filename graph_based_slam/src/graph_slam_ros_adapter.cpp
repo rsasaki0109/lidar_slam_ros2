@@ -638,8 +638,6 @@ void GraphBasedSlamComponent::Impl::doPoseAdjustment(
       new pcl::PointCloud<pcl::PointXYZI>());
 
     pcl::transformPointCloud(*cloud_ptr, *transformed_cloud_ptr, se3.matrix().cast<float>());
-    sensor_msgs::msg::PointCloud2::SharedPtr cloud_msg_ptr(new sensor_msgs::msg::PointCloud2);
-    pcl::toROSMsg(*transformed_cloud_ptr, *cloud_msg_ptr);
     *map_ptr += *transformed_cloud_ptr;
     if (do_save_map && config_.use_dynamic_object_filter_) {
       dynamic_filter_submaps.push_back(
@@ -653,14 +651,14 @@ void GraphBasedSlamComponent::Impl::doPoseAdjustment(
     lidarslam_msgs::msg::SubMap submap;
     submap.header = map_array_msg.submaps[i].header;
     submap.pose = pose;
-    submap.cloud = *cloud_msg_ptr;
-    modified_map_array_msg.submaps.push_back(submap);
+    pcl::toROSMsg(*transformed_cloud_ptr, submap.cloud);
 
     /* path */
     geometry_msgs::msg::PoseStamped pose_stamped;
     pose_stamped.header = submap.header;
     pose_stamped.pose = submap.pose;
     path.poses.push_back(pose_stamped);
+    modified_map_array_msg.submaps.push_back(std::move(submap));
   }
 
   modified_map_array_pub_->publish(modified_map_array_msg);
