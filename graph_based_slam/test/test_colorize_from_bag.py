@@ -506,3 +506,25 @@ def test_overlay_uses_coloring_occlusion_settings(tmp_path, monkeypatch, options
     expected = [[211, 71, 33] if seen else args.default_rgb for seen in visible]
     np.testing.assert_array_equal(written[0], expected)
     assert overlays[0]['visible'].tolist() == visible
+
+
+@pytest.mark.parametrize('encoding', ['rgb8', 'bgr8', 'rgba8', 'bgra8', 'mono8'])
+@pytest.mark.parametrize('padding', [0, 2])
+def test_image_to_rgb_respects_row_stride(encoding, padding):
+    """Padding bytes must never become image samples in direct bag coloring."""
+    from types import SimpleNamespace
+
+    rgb = np.array([[[10, 20, 30], [40, 50, 60]],
+                    [[70, 80, 90], [100, 110, 120]]], dtype=np.uint8)
+    pixels = rgb[:, :, ::-1] if encoding.startswith('bgr') else rgb
+    if encoding in ('rgba8', 'bgra8'):
+        pixels = np.concatenate([pixels, np.full((2, 2, 1), 255, dtype=np.uint8)], axis=2)
+    elif encoding == 'mono8':
+        pixels = rgb[:, :, :1]
+        rgb = np.repeat(pixels, 3, axis=2)
+    step = 2 * pixels.shape[2] + padding
+    data = b''.join(row.tobytes() + bytes([213]) * padding for row in pixels)
+    message = SimpleNamespace(encoding=encoding, height=2, width=2, step=step, data=data)
+    actual = cfb._image_to_rgb(message, np.eye(3), np.zeros(5), False)
+    np.testing.assert_array_equal(actual, rgb)
+    assert actual.flags.c_contiguous
