@@ -99,27 +99,8 @@ def run(args: argparse.Namespace) -> dict:
     input_points = len(xyz)
     xyz = select_paired_subset(xyz, args.point_stride)
     result = builder._colorize(
-        xyz, args.transforms, robust=True,
-        normalize_exposure=args.normalize_exposure,
-        exposure_scale_limit=args.exposure_scale_limit,
-        max_samples=args.max_samples,
-        image_margin=args.image_margin,
-        vignette_gain_limit=args.vignette_gain_limit,
-        overlap_color_balance=args.overlap_balance,
-        view_confidence=args.view_confidence,
-        normal_voxel=args.normal_voxel,
-        min_view_cosine=args.min_view_cosine,
-        min_projected_scale=args.min_projected_scale,
-        view_score_power=args.view_score_power,
-        min_samples=args.min_samples, geometry_aware=args.geometry_aware,
-        occlusion_margin_px=args.occlusion_margin_px,
-        depth_edge_margin_px=args.depth_edge_margin_px,
-        depth_edge_tolerance=args.depth_edge_tolerance,
-        depth_edge_relative_tolerance=args.depth_edge_relative_tolerance,
-        dynamic_exclusion=args.dynamic_exclusion,
-        dynamic_mask_margin_px=args.dynamic_mask_margin_px,
-        calibration_sigma_multiplier=args.calibration_sigma_multiplier,
-        maximum_uncertainty_margin_px=args.max_uncertainty_margin_px,
+        xyz, args.transforms,
+        **builder.color_fusion_options(args, robust=True, prefix=''),
         return_diagnostics=args.geometry_aware)
     if args.geometry_aware:
         rgb, seen, diagnostics = result

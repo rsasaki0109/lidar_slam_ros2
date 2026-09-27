@@ -315,7 +315,7 @@ def build(args: argparse.Namespace) -> dict:
             'out': str(out)}
 
 
-def color_fusion_options(args, *, robust=None) -> dict:
+def color_fusion_options(args, *, robust=None, prefix='color_') -> dict:
     """Translate shared colour CLI settings into the fusion function options."""
     names = (
         'normalize_exposure', 'exposure_scale_limit', 'max_samples',
@@ -326,11 +326,12 @@ def color_fusion_options(args, *, robust=None) -> dict:
         'depth_edge_relative_tolerance', 'dynamic_exclusion',
         'dynamic_mask_margin_px', 'calibration_sigma_multiplier',
     )
-    options = {name: getattr(args, 'color_' + name) for name in names}
+    options = {name: getattr(args, prefix + name) for name in names}
     options.update(
-        robust=args.color_robust if robust is None else robust,
-        overlap_color_balance=args.color_overlap_balance,
-        maximum_uncertainty_margin_px=args.color_max_uncertainty_margin_px)
+        robust=getattr(args, prefix + 'robust') if robust is None else robust,
+        overlap_color_balance=getattr(args, prefix + 'overlap_balance'),
+        maximum_uncertainty_margin_px=getattr(
+            args, prefix + 'max_uncertainty_margin_px'))
     return options
 
 
