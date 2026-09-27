@@ -354,13 +354,26 @@ def test_decode_compressed_image_jpeg_rgb():
     assert out[:, :, 0].mean() > 150 and out[:, :, 2].mean() < 60
 
 
-def test_decode_compressed_image_bgr_tag_swaps_channels():
-    rgb = np.zeros((16, 16, 3), dtype=np.uint8)
-    rgb[:, :, 0] = 200  # stored channel 0 dominant
-    out = ex.decode_compressed_image('bgr8; jpeg compressed bgr8',
-                                     _jpeg_bytes(rgb))
-    # with a bgr-tagged payload, channel 0 is blue -> red plane ends up last
-    assert out[:, :, 2].mean() > 150 and out[:, :, 0].mean() < 60
+@pytest.mark.parametrize('codec', ['jpeg', 'png'])
+@pytest.mark.parametrize('source_encoding', ['bgr8', 'rgb8', ''])
+def test_decode_compressed_image_ros_color_order(codec, source_encoding):
+    cv2 = pytest.importorskip('cv2')
+    # compressed_image_transport converts both source encodings to BGR before
+    # cv::imencode. Use its encoder convention, independently of our decoder.
+    rgb = np.zeros((32, 96, 3), dtype=np.uint8)
+    rgb[:, :32, 0] = 200
+    rgb[:, 32:64, 1] = 180
+    rgb[:, 64:, 2] = 160
+    ok, payload = cv2.imencode('.' + codec, rgb[:, :, ::-1])
+    assert ok
+    fmt = f'{source_encoding}; {codec} compressed bgr8' if source_encoding else codec
+    out = ex.decode_compressed_image(fmt, payload.tobytes())
+    assert out.shape == rgb.shape
+    assert out.dtype == np.uint8
+    assert out.flags.c_contiguous
+    # Inspect patch interiors to exclude JPEG boundary ringing.
+    for column in (16, 48, 80):
+        np.testing.assert_allclose(out[16, column], rgb[16, column], atol=3)
 
 
 def test_topic_type_from_metadata(tmp_path):
