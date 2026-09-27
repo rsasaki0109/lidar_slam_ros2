@@ -44,6 +44,19 @@ def load_transforms(path: str | Path) -> dict:
     """
     path = Path(path)
     doc = json.loads(path.read_text())
+    # All consumers of this shared loader use pinhole rasterization/sampling.
+    # Fisheye remains non-pinhole even when its polynomial coefficients are zero.
+    for camera in [doc, *doc['frames']]:
+        model = camera.get('camera_model', doc.get('camera_model', 'OPENCV'))
+        coefficients = [camera.get(key, 0.0)
+                        for key in ('k1', 'k2', 'k3', 'k4', 'k5', 'k6', 'p1', 'p2')]
+        if (model not in ('OPENCV', 'PINHOLE', 'SIMPLE_PINHOLE')
+                or np.any(np.asarray(coefficients, dtype=float) != 0.0)
+                or np.any(np.asarray(camera.get('distortion_params', []),
+                                     dtype=float) != 0.0)):
+            raise ValueError('pinhole consumers require rectified images; '
+                             'extract with --undistort (do not just clear '
+                             'distortion metadata)')
     fx, fy = doc['fl_x'], doc['fl_y']
     cx, cy = doc['cx'], doc['cy']
     K = np.array([[fx, 0.0, cx], [0.0, fy, cy], [0.0, 0.0, 1.0]])

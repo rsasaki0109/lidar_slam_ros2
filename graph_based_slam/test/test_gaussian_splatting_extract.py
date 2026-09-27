@@ -460,3 +460,20 @@ def test_extract_camera_info_rectification(tmp_path, monkeypatch, model, coeffic
         [transforms[key] for key in ['fl_x', 'fl_y', 'cx', 'cy']],
         [target[0, 0], target[1, 1], target[0, 2], target[1, 2]])
     assert all(transforms[key] == 0.0 for key in ['k1', 'k2', 'p1', 'p2', 'k3'])
+
+    # Rectification is the supported path into pinhole training/coloring.
+    import lidarslam_benchmark_tools.gaussian_splatting.train_gsplat as tg
+    loaded = tg.load_transforms(tmp_path / 'output/transforms.json')
+    np.testing.assert_allclose(loaded['K'], target)
+
+    args.undistort = False
+    args.out = str(tmp_path / 'raw_output')
+    if model == 'rational_polynomial':
+        with pytest.raises(ValueError, match='undistort'):
+            ex.extract(args)
+        assert not Path(args.out).exists()
+    else:
+        assert ex.extract(args)['kept'] == 1
+        np.testing.assert_array_equal(iio.imread(Path(args.out) / 'images/00000.png'), rgb)
+        with pytest.raises(ValueError, match='undistort'):
+            tg.load_transforms(Path(args.out) / 'transforms.json')

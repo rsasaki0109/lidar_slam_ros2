@@ -212,3 +212,23 @@ def test_write_transforms_roundtrip(tmp_path):
     assert doc['frames'][0]['file_path'] == 'images/0.png'
     mat = np.array(doc['frames'][0]['transform_matrix'])
     np.testing.assert_allclose(np.diag(mat), [1.0, -1.0, -1.0, 1.0], atol=1e-12)
+
+
+@pytest.mark.parametrize('model', ['equidistant', 'fisheye'])
+def test_export_fisheye_coefficients_keep_radial_meaning(model):
+    """Four fisheye coefficients must not become tangential distortion."""
+    intr = pi.CameraIntrinsics(640, 480, 200., 200., 320., 240.,
+                               distortion=(.1, .2, .3, .4), distortion_model=model)
+    doc = pi.build_transforms(intr, [])
+    assert doc['camera_model'] == 'OPENCV_FISHEYE'
+    assert [doc[k] for k in ['k1', 'k2', 'k3', 'k4']] == [.1, .2, .3, .4]
+    assert doc.get('p1', 0.) == doc.get('p2', 0.) == 0.
+
+
+def test_export_rejects_lossy_rational_coefficients():
+    """The export schema cannot silently discard rational denominator terms."""
+    intr = pi.CameraIntrinsics(640, 480, 200., 200., 320., 240.,
+                               distortion=(.1, .2, .01, .02, .3, .4, .5, .6),
+                               distortion_model='rational_polynomial')
+    with pytest.raises(ValueError, match='undistort'):
+        pi.build_transforms(intr, [])

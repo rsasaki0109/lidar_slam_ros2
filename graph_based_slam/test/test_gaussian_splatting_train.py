@@ -387,3 +387,21 @@ def test_parser_pose_group_and_exposure_flags():
          '--optimize-pose-groups', '--optimize-exposure'])
     assert args.optimize_pose_groups is True
     assert args.optimize_exposure is True
+
+
+@pytest.mark.parametrize('override', [
+    {'camera_model': 'OPENCV_FISHEYE', 'k1': 0., 'k2': 0., 'k3': 0., 'k4': 0.},
+    {'k1': .1}, {'p2': .02}, {'k6': .1},
+    {'distortion_params': [0., 0., .1, 0., 0., 0.]},
+])
+@pytest.mark.parametrize('per_frame', [False, True])
+def test_pinhole_loader_rejects_unrectified_images(tmp_path, override, per_frame):
+    """Do not silently render or colorize raw lens pixels as pinhole pixels."""
+    import json
+    doc = {'w': 640, 'h': 480, 'fl_x': 200., 'fl_y': 200., 'cx': 320., 'cy': 240.,
+           'frames': [{'file_path': 'raw.png', 'transform_matrix': np.eye(4).tolist()}]}
+    (doc['frames'][0] if per_frame else doc).update(override)
+    path = tmp_path / 'transforms.json'
+    path.write_text(json.dumps(doc))
+    with pytest.raises(ValueError, match='undistort'):
+        tg.load_transforms(path)
