@@ -205,13 +205,14 @@ class CameraIntrinsics:
     fy: float
     cx: float
     cy: float
-    distortion: tuple[float, ...] = ()  # (k1, k2, p1, p2, k3) plumb-bob order
+    distortion: tuple[float, ...] = ()  # Coefficient order follows distortion_model.
     distortion_model: str = 'plumb_bob'
 
     @classmethod
     def from_camera_info(cls, width: int, height: int, k: Sequence[float],
-                         d: Sequence[float] = ()) -> 'CameraIntrinsics':
-        """Build from a CameraInfo 3x3 ``K`` (row-major, len 9) and ``D``."""
+                         d: Sequence[float] = (),
+                         distortion_model: str = 'plumb_bob') -> 'CameraIntrinsics':
+        """Preserve the CameraInfo model, 3x3 ``K`` (row-major) and full ``D``."""
         k = list(k)
         if len(k) != 9:
             raise ValueError(f'K must have 9 entries, got {len(k)}')
@@ -223,6 +224,7 @@ class CameraIntrinsics:
             cx=float(k[2]),
             cy=float(k[5]),
             distortion=tuple(float(x) for x in d),
+            distortion_model=str(distortion_model),
         )
 
 
