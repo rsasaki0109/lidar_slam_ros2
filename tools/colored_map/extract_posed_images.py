@@ -356,16 +356,14 @@ def _topic_type(bag_path: str | Path, topic: str) -> str:
 def decode_compressed_image(fmt: str, data: bytes) -> np.ndarray:
     """Decode a ``sensor_msgs/CompressedImage`` payload to RGB uint8.
 
-    cv_bridge-produced jpegs encode the pre-compression channel order in
-    ``format`` (e.g. ``"bgr8; jpeg compressed bgr8"``); decoding such a payload
-    yields swapped channels, so honour a leading ``bgr`` tag.
+    The codec decoder returns RGB regardless of the ROS source encoding in
+    ``format``. compressed_image_transport passes BGR to OpenCV's encoder,
+    which writes the corresponding standard JPEG/PNG colors; swapping again
+    for a ``bgr8`` source tag would exchange red and blue.
     """
     import imageio as iio
 
     img = iio.imread(bytes(data))
-    if img.ndim == 3 and img.shape[2] >= 3 and \
-            fmt.lower().split(';')[0].strip().startswith('bgr'):
-        img = img[:, :, [2, 1, 0]]
     return np.ascontiguousarray(img[:, :, :3] if img.ndim == 3 else img)
 
 
