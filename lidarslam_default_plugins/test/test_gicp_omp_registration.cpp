@@ -204,6 +204,14 @@ TEST(GicpOmpRegistration, MatchesDirectPclOmpFixture)
   const auto aligned = plugin.align(request);
   ASSERT_EQ(aligned.failure, registration::FailureCode::kNone) << aligned.diagnostics.detail;
   ASSERT_TRUE(aligned.aligned_source);
+  ASSERT_TRUE(aligned.converged);
+  double squared_error = 0.0;
+  for (std::size_t i = 0; i < source->size(); ++i) {
+    const Eigen::Vector4f transformed =
+      aligned.final_transformation * source->points[i].getVector4fMap();
+    squared_error += (transformed.head<3>() - target->points[i].getVector3fMap()).squaredNorm();
+  }
+  EXPECT_LT(std::sqrt(squared_error / source->size()), 0.01);
   EXPECT_EQ(aligned.converged, direct.converged);
   EXPECT_TRUE(bitwiseEqual(aligned.final_transformation, direct.transform));
   EXPECT_DOUBLE_EQ(aligned.fitness_score, direct.fitness);
