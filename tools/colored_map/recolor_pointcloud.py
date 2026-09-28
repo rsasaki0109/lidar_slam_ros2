@@ -66,30 +66,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('--point-stride', type=int, default=1,
                         help='deterministically use every Nth input point; '
                              'intended for paired parameter screening')
-    parser.add_argument('--exposure-scale-limit', type=float, default=1.5)
-    parser.add_argument('--max-samples', type=int, default=12)
-    parser.add_argument('--min-samples', type=int, default=1)
-    parser.add_argument('--image-margin', type=int, default=0)
-    parser.add_argument('--vignette-gain-limit', type=float, default=1.0)
-    parser.add_argument('--overlap-balance', action='store_true')
-    parser.add_argument('--view-confidence', action='store_true')
-    parser.add_argument('--normal-voxel', type=float, default=0.12)
-    parser.add_argument('--min-view-cosine', type=float, default=0.0)
-    parser.add_argument('--min-projected-scale', type=float, default=0.0)
-    parser.add_argument('--view-score-power', type=float, default=1.0)
-    parser.add_argument('--geometry-aware', action='store_true')
-    parser.add_argument('--occlusion-margin-px', type=int, default=0)
-    parser.add_argument('--depth-edge-margin-px', type=int, default=0)
-    parser.add_argument('--depth-edge-tolerance', type=float, default=1.0)
-    parser.add_argument('--depth-edge-relative-tolerance', type=float,
-                        default=0.10)
-    parser.add_argument('--dynamic-exclusion', action='store_true')
-    parser.add_argument('--dynamic-mask-margin-px', type=int, default=2)
-    parser.add_argument('--calibration-sigma-multiplier', type=float,
-                        default=0.0)
-    parser.add_argument('--max-uncertainty-margin-px', type=int, default=8)
-    parser.add_argument('--no-normalize-exposure', action='store_false',
-                        dest='normalize_exposure')
+    builder.add_color_fusion_arguments(parser, prefix='')
     return parser
 
 
