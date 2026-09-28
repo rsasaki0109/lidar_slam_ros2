@@ -339,9 +339,16 @@ def _sample_pixels(img: np.ndarray, uf: np.ndarray, vf: np.ndarray,
     return bilinear
 
 
-def _median_luminance(img: np.ndarray) -> float:
+def _median_luminance(img: np.ndarray, exclusion_mask=None) -> float:
     """Median luminance of mono or RGB(A) image data."""
     arr = np.asarray(img, dtype=np.float32)
+    if exclusion_mask is not None:
+        excluded = np.asarray(exclusion_mask, dtype=bool)
+        if excluded.shape != arr.shape[:2]:
+            raise ValueError('exclusion mask must match image dimensions')
+        if excluded.all():
+            return 0.0  # No evidence for an exposure estimate.
+        arr = arr[~excluded][:, None]
     if arr.ndim == 2:
         return float(np.median(arr))
     if arr.ndim != 3 or arr.shape[2] == 0:
@@ -356,7 +363,8 @@ def estimate_radial_vignette_gains(images, width: int, height: int, *,
                                    cx: Optional[float] = None,
                                    cy: Optional[float] = None,
                                    bins: int = 32, sample_stride: int = 8,
-                                   gain_limit: float = 2.5) -> np.ndarray:
+                                   gain_limit: float = 2.5,
+                                   exclusion_masks=None) -> np.ndarray:
     """Estimate one robust radial luminance correction shared by all views.
 
     Each image is normalised by its central luminance before annular profiles
@@ -386,7 +394,7 @@ def estimate_radial_vignette_gains(images, width: int, height: int, *,
     central = radius <= 0.2
     profiles = []
     coeff = np.asarray([0.299, 0.587, 0.114], dtype=np.float32)
-    for image in images:
+    for view_index, image in enumerate(images):
         arr = np.asarray(image, dtype=np.float32)
         if arr.shape[:2] != (height, width):
             raise ValueError('all images must match width and height')
@@ -399,12 +407,21 @@ def estimate_radial_vignette_gains(images, width: int, height: int, *,
         else:
             raise ValueError(f'image must be HxW or HxWxC, got {arr.shape}')
         sampled = lum[::sample_stride, ::sample_stride]
-        reference = float(np.median(sampled[central]))
+        usable = np.ones(sampled.shape, dtype=bool)
+        if exclusion_masks is not None and exclusion_masks[view_index] is not None:
+            excluded = np.asarray(exclusion_masks[view_index], dtype=bool)
+            if excluded.shape != (height, width):
+                raise ValueError('exclusion mask must match image dimensions')
+            usable &= ~excluded[::sample_stride, ::sample_stride]
+        reference_pixels = sampled[central & usable]
+        if not reference_pixels.size:
+            continue
+        reference = float(np.median(reference_pixels))
         if reference <= 1.0e-6:
             continue
         profile = np.asarray([
-            np.median(sampled[bin_ids == index]) / reference
-            if np.any(bin_ids == index) else np.nan
+            np.median(sampled[(bin_ids == index) & usable]) / reference
+            if np.any((bin_ids == index) & usable) else np.nan
             for index in range(bins)
         ], dtype=np.float32)
         valid_bins = np.flatnonzero(np.isfinite(profile))
@@ -483,7 +500,8 @@ def estimate_overlap_rgb_gains(points: np.ndarray, viewmats: np.ndarray,
                                sample_limit: int = 50000,
                                min_shared: int = 64,
                                neighbour_span: int = 8,
-                               regularization: float = 256.0) -> np.ndarray:
+                               regularization: float = 256.0,
+                               exclusion_masks=None) -> np.ndarray:
     """Solve per-view RGB gains from shared, visible 3D observations.
 
     For nearby image pairs, the same unoccluded LiDAR points provide direct
@@ -509,7 +527,7 @@ def estimate_overlap_rgb_gains(points: np.ndarray, viewmats: np.ndarray,
         choose = np.linspace(0, len(xyz) - 1, sample_limit).astype(np.intp)
         xyz = xyz[choose]
     observations = []
-    for vm, image in zip(views, images):
+    for view_index, (vm, image) in enumerate(zip(views, images)):
         cam = xyz @ vm[:3, :3].T + vm[:3, 3]
         z = cam[:, 2]
         uf, vf = project_camera_pixels(cam, K)
@@ -526,6 +544,11 @@ def estimate_overlap_rgb_gains(points: np.ndarray, viewmats: np.ndarray,
         np.minimum.at(depth, pixel, z[ids].astype(np.float32))
         visible = z[ids] <= depth[pixel] + 0.15 + 0.02 * z[ids]
         ids = ids[visible]
+        if exclusion_masks is not None and exclusion_masks[view_index] is not None:
+            excluded = np.asarray(exclusion_masks[view_index], dtype=bool)
+            if excluded.shape != (height, width):
+                raise ValueError('exclusion mask must match image dimensions')
+            ids = ids[~excluded[v[ids], u[ids]]]
         colours = _sample_pixels(
             image, uf[ids], vf[ids], width, height, 'nearest', 48.0)
         if colours.ndim == 1:
@@ -562,7 +585,9 @@ def estimate_overlap_rgb_gains(points: np.ndarray, viewmats: np.ndarray,
         # drive almost every gain into its clamp.  The existing, conservative
         # luminance-only normalisation is a stable prior; overlap RGB ratios
         # refine white balance locally without being allowed to drift away.
-        medians = np.asarray([_median_luminance(image) for image in images])
+        medians = np.asarray([
+            _median_luminance(image, None if exclusion_masks is None else exclusion_masks[i])
+            for i, image in enumerate(images)])
         valid = medians > 1.0e-6
         scalar = np.ones(len(images), dtype=np.float64)
         if valid.any():
@@ -782,7 +807,7 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
     if vignette_gain_limit > 1.0:
         vignette_gains = estimate_radial_vignette_gains(
             images, width, height, cx=cx, cy=cy,
-            gain_limit=vignette_gain_limit)
+            gain_limit=vignette_gain_limit, exclusion_masks=exclusion_masks)
         vignette_radius = max(
             np.hypot(x - cx, y - cy)
             for x in (0.0, width - 1.0) for y in (0.0, height - 1.0))
@@ -791,10 +816,11 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
     if overlap_color_balance:
         scales = estimate_overlap_rgb_gains(
             points, viewmats, K, images, width, height,
-            gain_limit=exposure_scale_limit)
+            gain_limit=exposure_scale_limit, exclusion_masks=exclusion_masks)
     elif normalize_exposure:
-        meds = np.asarray([_median_luminance(img) for img in images],
-                          dtype=np.float32)
+        meds = np.asarray([
+            _median_luminance(img, None if exclusion_masks is None else exclusion_masks[i])
+            for i, img in enumerate(images)], dtype=np.float32)
         valid = meds > 1.0e-6
         if valid.any():
             scalar = float(np.median(meds[valid])) / meds[valid]
