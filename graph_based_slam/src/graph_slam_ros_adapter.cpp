@@ -632,9 +632,6 @@ void GraphBasedSlamComponent::Impl::doPoseAdjustment(
     geometry_msgs::msg::Pose pose = tf2::toMsg(se3);
 
     /* map */
-    Eigen::Affine3d previous_affine;
-    tf2::fromMsg(map_array_msg.submaps[i].pose, previous_affine);
-
     pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_ptr = loadSubmapCloud(map_array_msg, i);
     pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_cloud_ptr(
       new pcl::PointCloud<pcl::PointXYZI>());
