@@ -386,14 +386,14 @@ void GraphBasedSlamComponent::Impl::drainEventDrivenLoopSearch()
         query_prefix.submaps.assign(
           map_array_msg.submaps.begin(),
           map_array_msg.submaps.begin() + event.query_index + 1);
-        doPoseAdjustment(std::move(query_prefix), config_.use_save_map_in_loop_);
+        doPoseAdjustment(query_prefix, config_.use_save_map_in_loop_);
       }
     }
   }
 }
 
 void GraphBasedSlamComponent::Impl::doPoseAdjustment(
-  lidarslam_msgs::msg::MapArray map_array_msg,
+  const lidarslam_msgs::msg::MapArray & map_array_msg,
   bool do_save_map)
 {
   /* Plain-data inputs for the extracted pose-graph optimization

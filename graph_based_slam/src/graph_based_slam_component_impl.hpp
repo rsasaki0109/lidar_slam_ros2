@@ -137,7 +137,7 @@ private:
   void drainEventDrivenLoopSearch();
   bool snapshotGraphState(lidarslam_msgs::msg::MapArray & map_array_msg);
   void doPoseAdjustment(
-    lidarslam_msgs::msg::MapArray map_array_msg,
+    const lidarslam_msgs::msg::MapArray & map_array_msg,
     bool do_save_map);
 
   // PCD disk cache for memory-efficient submap storage.
