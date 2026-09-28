@@ -162,3 +162,14 @@ def test_fusion_options_reject_hidden_frame_override_and_wrong_types():
                  '{"normalize_exposure": "false"}', '{"normal_voxel": NaN}'):
         with np.testing.assert_raises(ValueError):
             hpc.parse_fusion_options(text)
+
+
+def test_visible_point_samples_excludes_extreme_pixels_without_integer_overflow():
+    vm, K = _camera()
+    points = np.array([[1e30, 0., 2.], [-1e30, 0., 2.],
+                       [0., 1e30, 2.], [0., -1e30, 2.], [0., 0., 2.]])
+    with np.errstate(invalid='raise', over='raise'):
+        ids, uf, vf = hpc.visible_point_samples(points, vm, K, 10, 10)
+    assert ids.tolist() == [4]
+    np.testing.assert_array_equal(uf, [5.])
+    np.testing.assert_array_equal(vf, [5.])
