@@ -694,14 +694,6 @@ def _default_bag_probe(config: CandidateConfig) -> Mapping[str, Any]:
     raise CandidateError("INPUT_PROBE_NOT_INSTALLED", "production input probe is not enabled for candidate")
 
 
-def _default_capture(config: CandidateConfig, root: Path) -> Mapping[str, Any]:
-    raise CandidateError("RAW_CAPTURE_NOT_INSTALLED", "raw capture requires a reviewed runtime adapter")
-
-
-def _default_compose(raw: Mapping[str, Any], config: CandidateConfig) -> Mapping[str, Any]:
-    raise CandidateError("COMPOSITOR_NOT_INSTALLED", "composition requires a reviewed host adapter")
-
-
 def _load_host_module(relative: str, module_name: str) -> Any:
     path = ROOT / relative
     spec = importlib.util.spec_from_file_location(module_name, path)
