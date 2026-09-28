@@ -35,6 +35,7 @@ from pathlib import Path
 import sys
 
 import numpy as np
+import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TOOL_DIR = REPO_ROOT / 'tools' / 'gaussian_splatting'
@@ -998,3 +999,40 @@ def test_builder_training_subset_excludes_heldout_images_and_masks(tmp_path, mon
     for indices in ([], [1, 1], [-1], [2], [0.5]):
         with np.testing.assert_raises(ValueError):
             bli._colorize(points, str(transforms), frame_indices=indices)
+
+
+@pytest.mark.parametrize('interp', ['bilinear', 'edge-aware'])
+@pytest.mark.parametrize('offset', [(0.25, 0.0), (0.0, 0.25), (0.25, 0.25)])
+def test_dynamic_mask_excludes_interpolation_support(interp, offset):
+    image = np.full((4, 4, 3), 100, dtype=np.uint8)
+    mask = np.zeros((4, 4), dtype=bool)
+    x, y = (2 if offset[0] else 1), (2 if offset[1] else 1)
+    mask[y, x] = True
+    image[y, x] = 140  # Below edge-aware threshold, but still excluded.
+    points = np.array([[1 + offset[0], 1 + offset[1], 1.]])
+    _, seen, counts, diagnostics = pcio.colorize_by_projection_robust(
+        points, [np.eye(4)], np.eye(3), [image], 4, 4,
+        interp=interp, normalize_exposure=False, exclusion_masks=[mask],
+        return_counts=True, return_diagnostics=True)
+    assert not seen[0] and counts[0] == 0
+    assert diagnostics['rejected_dynamic_mask'] == 1
+    assert diagnostics['accepted_samples'] == 0
+
+
+@pytest.mark.parametrize('interp', ['nearest', 'bilinear', 'edge-aware'])
+def test_dynamic_mask_preserves_unused_neighbours_and_clamped_borders(interp):
+    image = np.full((4, 4, 3), 100, dtype=np.uint8)
+    mask = np.zeros((4, 4), dtype=bool)
+    mask[1, 2] = True
+    image[1, 2] = 140
+    points = np.array([[1., 1., 1.], [-0.25, 0., 1.], [3.25, 3., 1.]])
+    rgb, seen = pcio.colorize_by_projection_robust(
+        points, [np.eye(4)], np.eye(3), [image], 4, 4,
+        interp=interp, normalize_exposure=False, exclusion_masks=[mask])
+    assert seen.all()
+    assert np.all(rgb == 100)
+    if interp == 'nearest':
+        rgb, seen = pcio.colorize_by_projection_robust(
+            np.array([[1.25, 1., 1.]]), [np.eye(4)], np.eye(3), [image], 4, 4,
+            interp=interp, normalize_exposure=False, exclusion_masks=[mask])
+        assert seen[0] and np.all(rgb == 100)

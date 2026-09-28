@@ -132,7 +132,9 @@ python3 tools/colored_map/colored_map_pipeline.py BAG TRAJECTORY OUT \
   --color-calibration-sigma-multiplier 1.0
 ```
 
-maskは各posed imageと同じstemのPNGで、非zero pixelを除外領域とする。動的除外を
+maskは各posed imageと同じstemのPNGで、非zero pixelを除外領域とする。
+補間着色では色を混ぜる画素の範囲も除外判定する。edge-awareも保守的に同じ範囲を確認し、
+除外画素に接する観測を使わないため、境界で着色される点が減る場合がある。動的除外を
 有効にする場合は全frameのmaskが必須。詳しい設計と安全条件は
 [`colored-map-geometry-aware-fusion-2026-07.md`](../../docs/research/colored-map-geometry-aware-fusion-2026-07.md)
 を参照。

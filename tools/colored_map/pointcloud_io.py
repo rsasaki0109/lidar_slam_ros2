@@ -924,8 +924,22 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
 
         if exclusion_masks is not None and exclusion_masks[vi] is not None:
             mask_radii = uncertainty_margin + int(dynamic_mask_margin_px)
+            mask_u, mask_v = u[inb], v[inb]
+            if interp != 'nearest':
+                # Bilinear (including edge-aware fallback) may mix four pixels.
+                # Check its support conservatively before inspecting RGB edges;
+                # a masked neighbour must not leak into an unmasked sample.
+                x0 = np.clip(np.floor(uf[inb]).astype(np.int64), 0, width - 1)
+                x1 = np.clip(np.ceil(uf[inb]).astype(np.int64), 0, width - 1)
+                y0 = np.clip(np.floor(vf[inb]).astype(np.int64), 0, height - 1)
+                y1 = np.clip(np.ceil(vf[inb]).astype(np.int64), 0, height - 1)
+                mask_u = np.stack((x0, x1, x0, x1), axis=1).ravel()
+                mask_v = np.stack((y0, y0, y1, y1), axis=1).ravel()
+                mask_radii = np.repeat(mask_radii, 4)
             dynamic = gaf.mask_neighborhood_any(
-                exclusion_masks[vi], u[inb], v[inb], mask_radii)
+                exclusion_masks[vi], mask_u, mask_v, mask_radii)
+            if interp != 'nearest':
+                dynamic = dynamic.reshape(-1, 4).any(axis=1)
             diagnostics['rejected_dynamic_mask'] += int(
                 (visible & dynamic).sum())
             visible &= ~dynamic
