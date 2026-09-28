@@ -796,11 +796,13 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
     fx, fy, cx, cy = K[0, 0], K[1, 1], K[0, 2], K[1, 2]
     zb_w = (int(width) + zbuf_bin - 1) // zbuf_bin
     zb_h = (int(height) + zbuf_bin - 1) // zbuf_bin
-    samples = np.empty((n, int(max_samples), 3), dtype=np.uint8)
+    # Each image contributes at most one observation per point.
+    capacity = min(int(max_samples), len(images))
+    samples = np.empty((n, capacity, 3), dtype=np.uint8)
     # Only one ranking criterion is used for all observations in this call.
     rank_by_quality = point_normals is not None or min_projected_scale > 0.0
     sample_rank = np.full(
-        (n, int(max_samples)), -np.inf if rank_by_quality else np.inf,
+        (n, capacity), -np.inf if rank_by_quality else np.inf,
         dtype=np.float32)
     vignette_gains = None
     vignette_radius = 1.0
