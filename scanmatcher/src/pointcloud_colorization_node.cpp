@@ -301,8 +301,8 @@ private:
     if (map_points_.empty()) {
       return;
     }
-    const int stride = std::max<int>(
-      1, static_cast<int>(map_points_.size()) / std::max(1, max_project_points_));
+    const std::size_t stride =
+      1 + (map_points_.size() - 1) / static_cast<std::size_t>(std::max(1, max_project_points_));
 
     // Pass 1: build the per-frame z-buffer from the projected points.
     FrameZBuffer zbuf(intr, zbuf_bin_);
