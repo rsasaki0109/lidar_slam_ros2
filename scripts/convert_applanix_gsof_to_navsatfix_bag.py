@@ -38,6 +38,8 @@ from pathlib import Path
 
 import numpy as np
 
+from extract_applanix_gsof49_reference import resolve_applanix_msg_dir
+
 APPLANIX_FIX_NOT_AVAILABLE = 0
 APPLANIX_GNSS_SPS_MODE = 1
 APPLANIX_DIFFERENTIAL_GPS_SPS = 2
@@ -102,26 +104,6 @@ def covariance_from_applanix_rms(
     covariance[4] = north_rms_m * north_rms_m
     covariance[8] = down_rms_m * down_rms_m
     return covariance, NAVSAT_FIX_COVARIANCE_TYPE_DIAGONAL_KNOWN
-
-
-def _default_applanix_msg_dirs(repo_root: Path) -> list[Path]:
-    return [
-        repo_root / 'Thirdparty' / 'applanix' / 'applanix_msgs' / 'msg',
-        repo_root / 'applanix_msgs' / 'msg',
-        Path('/tmp/applanix/applanix_msgs/msg'),
-    ]
-
-
-def resolve_applanix_msg_dir(requested: Path | None, repo_root: Path) -> Path:
-    """Locate applanix_msgs message definitions."""
-    candidates = [requested] if requested is not None else _default_applanix_msg_dirs(repo_root)
-    for candidate in candidates:
-        if candidate is not None and candidate.is_dir():
-            return candidate
-    raise RuntimeError(
-        'could not find applanix_msgs message definitions; pass '
-        '--applanix-msg-dir or clone https://github.com/autowarefoundation/applanix.git',
-    )
 
 
 def load_typestore_with_applanix(msg_dir: Path):

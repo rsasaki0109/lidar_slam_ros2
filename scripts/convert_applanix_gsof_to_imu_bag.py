@@ -39,6 +39,8 @@ from pathlib import Path
 
 import numpy as np
 
+from extract_applanix_gsof49_reference import resolve_applanix_msg_dir
+
 from extract_static_transform_from_bag import quaternion_xyzw_from_rotation_matrix
 
 DEFAULT_ANGULAR_VELOCITY_VARIANCE = 0.1
@@ -62,26 +64,6 @@ def import_rosbags_modules():
             'rosbags is required to convert Applanix bags into Imu bags',
         ) from exc
     return AnyReader, Writer, Stores, get_typestore, get_types_from_msg
-
-
-def _default_applanix_msg_dirs(repo_root: Path) -> list[Path]:
-    return [
-        repo_root / 'Thirdparty' / 'applanix' / 'applanix_msgs' / 'msg',
-        repo_root / 'applanix_msgs' / 'msg',
-        Path('/tmp/applanix/applanix_msgs/msg'),
-    ]
-
-
-def resolve_applanix_msg_dir(requested: Path | None, repo_root: Path) -> Path:
-    """Locate applanix_msgs message definitions."""
-    candidates = [requested] if requested is not None else _default_applanix_msg_dirs(repo_root)
-    for candidate in candidates:
-        if candidate is not None and candidate.is_dir():
-            return candidate
-    raise RuntimeError(
-        'could not find applanix_msgs message definitions; pass '
-        '--applanix-msg-dir or clone https://github.com/autowarefoundation/applanix.git',
-    )
 
 
 def load_typestore_with_applanix(msg_dir: Path):
