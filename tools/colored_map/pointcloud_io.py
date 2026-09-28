@@ -984,12 +984,13 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
             keep = observation_mask[cand, vi]
             cand = cand[keep]
             cand_z = cand_z[keep]
-        quality = (float(fx) / np.maximum(cand_z, 1.0e-6)).astype(np.float32)
-        if calibration_sigma_multiplier > 0.0 and cand.size:
-            kept_uncertainty = uncertainty_margin[visible]
-            if observation_mask is not None:
-                kept_uncertainty = kept_uncertainty[keep]
-            quality /= 1.0 + kept_uncertainty.astype(np.float32)
+        if rank_by_quality:
+            quality = (float(fx) / np.maximum(cand_z, 1.0e-6)).astype(np.float32)
+            if calibration_sigma_multiplier > 0.0 and cand.size:
+                kept_uncertainty = uncertainty_margin[visible]
+                if observation_mask is not None:
+                    kept_uncertainty = kept_uncertainty[keep]
+                quality /= 1.0 + kept_uncertainty.astype(np.float32)
         if point_normals is not None and cand.size:
             camera_centre = -vm[:3, :3].T @ vm[:3, 3]
             sight = camera_centre[None, :] - points[cand]
