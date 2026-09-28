@@ -139,14 +139,6 @@ private:
   void doPoseAdjustment(
     const lidarslam_msgs::msg::MapArray & map_array_msg,
     bool do_save_map);
-  void publishMapAndPose();
-
-    // Event-driven loop search (the only scheduling semantics since v0.7
-    // Phase 0): loop search runs once per submap arrival in arrival order,
-    // each query seeing exactly the map state up to itself. The legacy
-    // wall-clock timer path and the retired deterministic_loop_scheduling
-    // parameter (v0.4 D1) are gone.
-  int previous_submaps_num_ {0};
 
   // PCD disk cache for memory-efficient submap storage.
   void stageMapArrayCloudCache(lidarslam_msgs::msg::MapArray & map_array_msg);
