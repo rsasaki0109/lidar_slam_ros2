@@ -255,7 +255,8 @@ def select_planar_voxel_references(points: np.ndarray, images: list[np.ndarray],
     if voxel_size <= 0.0 or min_points < 3 or max_views < 2:
         raise ValueError('invalid voxel_size, min_points, or max_views')
     references = np.full(len(xyz), -1, dtype=np.int32)
-    view_mask = np.ones((len(xyz), len(views)), dtype=bool)
+    view_mask = (np.ones((len(xyz), len(views)), dtype=bool)
+                 if return_view_mask else None)
     if not len(xyz):
         return (references, view_mask) if return_view_mask else references
     if score_margin < 0.0:
