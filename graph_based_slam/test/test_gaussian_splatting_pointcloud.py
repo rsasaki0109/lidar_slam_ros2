@@ -1094,3 +1094,24 @@ def test_radial_gain_ignores_masked_pixels_and_unsupported_centre():
     empty = pcio.estimate_radial_vignette_gains(
         [image], 64, 64, exclusion_masks=[np.ones_like(mask)])
     np.testing.assert_array_equal(empty, np.ones(32))
+
+
+@pytest.mark.parametrize('size', [(80, 100), (100, 80), (120, 100), (100, 120)])
+@pytest.mark.parametrize('channels', [None, 1, 3, 4])
+@pytest.mark.parametrize('mode', ['average', 'nearest', 'bilinear', 'edge-aware', 'overlap'])
+def test_colour_sampling_rejects_image_calibration_size_mismatch(size, channels, mode):
+    vms, K, width, height = _cam()
+    shape = size if channels is None else (*size, channels)
+    image = np.full(shape, 100, dtype=np.uint8)
+    # This pixel is inside both sizes, so a stale calibration used to silently
+    # take a valid pixel from the wrong image coordinate system.
+    points = np.array([[0., 0., 5.]])
+    with pytest.raises(ValueError, match='image dimensions.*calibration'):
+        if mode == 'average':
+            pcio.colorize_by_projection(points, vms, K, [image], width, height)
+        elif mode == 'overlap':
+            pcio.estimate_overlap_rgb_gains(points, vms, K, [image], width, height)
+        else:
+            pcio.colorize_by_projection_robust(
+                points, vms, K, [image], width, height, interp=mode,
+                normalize_exposure=False)
