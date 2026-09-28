@@ -764,41 +764,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--no-undistort', action='store_true')
     p.add_argument('--allow-monochrome', action='store_true',
                    help='allow luminance-only maps for geometry benchmarks')
-    p.add_argument('--color-no-normalize-exposure', action='store_false',
-                   dest='color_normalize_exposure',
-                   help='ablate per-view exposure normalization while retaining '
-                        'occlusion-aware RGB medoid fusion')
-    p.add_argument('--color-exposure-scale-limit', type=float, default=1.5)
-    p.add_argument('--color-max-samples', type=int, default=12)
-    p.add_argument('--color-image-margin', type=int, default=0,
-                   help='ignore colour samples within this many pixels of the '
-                        'image border (lens vignette)')
-    p.add_argument('--color-vignette-gain-limit', type=float, default=1.0,
-                   help='maximum automatic radial luminance gain; 1 disables')
-    p.add_argument('--color-overlap-balance', action='store_true')
-    p.add_argument('--color-view-confidence', action='store_true')
-    p.add_argument('--color-normal-voxel', type=float, default=0.12)
-    p.add_argument('--color-min-view-cosine', type=float, default=0.0)
-    p.add_argument('--color-min-projected-scale', type=float, default=0.0)
-    p.add_argument('--color-view-score-power', type=float, default=1.0)
-    p.add_argument('--color-geometry-aware', action='store_true')
-    p.add_argument('--color-occlusion-margin-px', type=int, default=0)
-    p.add_argument('--color-depth-edge-margin-px', type=int, default=0)
-    p.add_argument('--color-depth-edge-tolerance', type=float, default=1.0)
-    p.add_argument('--color-depth-edge-relative-tolerance', type=float,
-                   default=0.10)
-    p.add_argument('--color-dynamic-exclusion', action='store_true')
+    bli.add_color_fusion_arguments(p)
     p.add_argument('--dynamic-mask-dir', type=Path,
                    help='PNG dynamic-object masks named after image stems')
     p.add_argument('--allow-missing-dynamic-masks', action='store_true',
                    help='attach available masks while retaining unmasked frames')
-    p.add_argument('--color-dynamic-mask-margin-px', type=int, default=2)
-    p.add_argument('--color-calibration-sigma-multiplier', type=float,
-                   default=0.0)
-    p.add_argument('--color-max-uncertainty-margin-px', type=int, default=8)
-    p.add_argument('--color-min-samples', type=int, default=1,
-                   help='demote colours confirmed by fewer surviving camera '
-                        'samples than this to unseen (1 keeps all)')
     p.add_argument('--force-images', action='store_true')
     p.add_argument('--force-map', action='store_true')
     p.add_argument('--force-trajectory', action='store_true')
