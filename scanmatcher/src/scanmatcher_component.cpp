@@ -1968,7 +1968,6 @@ void ScanMatcherComponent::receiveCloud(
   publishMapAndPose(cloud_ptr, final_transformation, stamp);
   if (use_imu_ && latest_imu_orientation_valid_) {
     cloud_imu_reference_quat_ = latest_imu_robot_quat_;
-    cloud_imu_reference_stamp_ = latest_imu_stamp_;
     cloud_imu_reference_valid_ = true;
   }
 
@@ -2059,7 +2058,7 @@ void ScanMatcherComponent::publishMapAndPose(
       blend_input.imu_reference_quat = cloud_imu_reference_quat_;
       blend_input.latest_imu_robot_quat = latest_imu_robot_quat_;
       blend_input.accepted_quat_msg = accepted_quat_msg;
-      blend_input.previous_published_rotation = ndt_pose_.block<3, 3>(0, 0);
+      blend_input.previous_published_rotation = previous_published_rotation_;
       blend_input.alpha = imu_complementary_alpha_;
       published_quat_msg = imu_processing::blendComplementaryRollPitch(blend_input);
     }
@@ -2069,10 +2068,7 @@ void ScanMatcherComponent::publishMapAndPose(
     tf2::Quaternion pub_q;
     tf2::fromMsg(published_quat_msg, pub_q);
     Eigen::Quaterniond pub_q_eig(pub_q.w(), pub_q.x(), pub_q.y(), pub_q.z());
-    ndt_pose_ = Eigen::Matrix4f::Identity();
-    ndt_pose_.block<3, 3>(0, 0) = pub_q_eig.toRotationMatrix().cast<float>();
-    ndt_pose_.block<3, 1>(0, 3) = accepted_position.cast<float>();
-    ndt_pose_valid_ = true;
+    previous_published_rotation_ = pub_q_eig.toRotationMatrix().cast<float>();
   }
 
   if(publish_tf_){
