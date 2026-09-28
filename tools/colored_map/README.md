@@ -43,6 +43,17 @@ RTK-SLAM construction_seq1 の較正済み report-only 閾値は
 `--use-pointcloud-colors` は着色に使った画像集合や未着色点を検証しないため、
 その出力だけで held-out 精度を主張しない。
 
+パイプラインは各段階の成功した実行条件を
+`pipeline_stage_commands.json` に保存し、同じ条件の出力を再利用する。
+着色設定を変更すると地図と評価を、カメラ時刻・外部較正・画像設定を変更すると
+画像とその後続を再生成する。着色だけの変更では画像や較正を再計算しない。
+中断・失敗した段階と未実行の後続は再開時に作り直す。`--dry-run` は履歴を変更しない。
+旧出力など実行履歴がない場合は、一度元のbagから再生成する必要がある。
+`--force-images` / `--force-map` / `--force-quality` は従来どおり明示的な再生成に使える。
+判定にはコマンドと作業ディレクトリ、および対応する入力の更新時刻を使う。
+ソフトウェアの更新や更新時刻を保持した入力の置換は検出しないため、その場合は
+該当段階を `--force-*` で再生成する。
+
 realtime nodeの出力確認には`scripts/evaluate_realtime_colored_map.py`を使い、
 confirmed coverageとchromaをJSON保存できる。
 CPU rendererの`--soft-edge-px 1`は不透明surfaceを変えず黒い隙間だけをfadeで

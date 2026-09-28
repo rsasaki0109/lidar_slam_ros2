@@ -38,10 +38,13 @@ so an interrupted or repeated run only performs missing work.
 from __future__ import annotations
 
 import argparse
+import copy
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 from typing import Sequence
 
 import numpy as np
@@ -151,9 +154,47 @@ def validate_colour_source(transforms: Path, allow_monochrome: bool = False
     return report
 
 
-def build_commands(args) -> list[tuple[str, list[str]]]:
+def stage_command_key(command: list[str]) -> dict:
+    """Include working directory so relative input paths keep their meaning."""
+    return {'command': command, 'cwd': str(Path.cwd())}
+
+
+def load_stage_commands(out_dir: Path) -> dict:
+    """Treat missing or malformed execution history as an unknown recipe."""
+    try:
+        records = json.loads((out_dir / 'pipeline_stage_commands.json').read_text())
+        return records if isinstance(records, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def save_stage_commands(out_dir: Path, records: dict) -> None:
+    """Atomically retain pending/complete stage recipes across interruptions."""
+    fd, temporary = tempfile.mkstemp(prefix='.pipeline_commands.', dir=out_dir)
+    try:
+        with os.fdopen(fd, 'w') as stream:
+            json.dump(records, stream, indent=2)
+            stream.write('\n')
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, out_dir / 'pipeline_stage_commands.json')
+    finally:
+        Path(temporary).unlink(missing_ok=True)
+
+
+def build_commands(args, *, _all_stages=False) -> list[tuple[str, list[str]]]:
     """Return the missing/forced pipeline stages as ``(name, argv)`` pairs."""
     out_dir = Path(args.out)
+    changed = set()
+    if _all_stages:
+        args = copy.copy(args)
+        for name in ('trajectory', 'images', 'dynamic_masks', 'calibration',
+                     'map', 'quality'):
+            setattr(args, 'force_' + name, True)
+    else:
+        records = load_stage_commands(out_dir)
+        changed = {name for name, command in build_commands(args, _all_stages=True)
+                   if records.get(name) != stage_command_key(command)}
     posed_dir = out_dir / 'posed_images'
     extracted_transforms = posed_dir / 'transforms.json'
     masked_transforms = posed_dir / 'transforms_dynamic_masks.json'
@@ -168,9 +209,12 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
                       out_dir / 'generated_body_camera_extrinsic.json')
     commands = []
     trajectory = effective_trajectory(args)
+    geometry_inputs = [trajectory]
+    if args.lidar_calibration is not None:
+        geometry_inputs.append(Path(args.lidar_calibration))
 
     rebuild_trajectory = (args.raw_traj is not None and (
-        args.force_trajectory or is_stale(
+        args.force_trajectory or 'dense corrected trajectory' in changed or is_stale(
             trajectory, [Path(args.raw_traj), Path(args.traj)])))
     if rebuild_trajectory:
         commands.append(('dense corrected trajectory', [
@@ -182,7 +226,12 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
         ]))
 
     rebuild_images = (rebuild_trajectory or args.force_images or
-                      is_stale(extracted_transforms, [trajectory]))
+                      'posed images' in changed or
+                      is_stale(extracted_transforms, [trajectory, extrinsic_path] + [
+                          Path(path) for path in (args.intrinsics_yaml,
+                                                  args.kalibr_camchain,
+                                                  args.lidar_calibration)
+                          if path is not None]))
     if rebuild_images:
         extract = [
             sys.executable, str(TOOL_DIR / 'extract_posed_images.py'),
@@ -210,6 +259,7 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
             mask_inputs.extend(sorted(mask_dir.glob('*.png')))
         rebuild_masks = (
             rebuild_images or args.force_dynamic_masks or
+            'dynamic image masks' in changed or
             is_stale(masked_transforms, mask_inputs))
         if rebuild_masks:
             attach = [
@@ -308,13 +358,14 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
         calibration_report = out_dir / 'spatiotemporal_calibration.json'
         rebuild_calibration_cloud = (
             rebuild_trajectory or args.force_map or args.force_calibration or
-            is_stale(calibration_cloud, [trajectory]))
+            'calibration geometry' in changed or
+            is_stale(calibration_cloud, geometry_inputs))
         if rebuild_calibration_cloud:
             commands.append(('calibration geometry', map_command(
                 calibration_cloud)))
         rebuild_calibration = (
-            rebuild_masks or rebuild_calibration_cloud or
-            args.force_calibration or
+            rebuild_images or rebuild_masks or rebuild_calibration_cloud or
+            args.force_calibration or 'spatiotemporal calibration' in changed or
             is_stale(refined_transforms, [trajectory, calibration_transforms,
                                           calibration_cloud]) or
             is_stale(calibration_report, [trajectory, calibration_transforms,
@@ -386,8 +437,8 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
             ] if args.calibration_fixed_contours else [])))
 
     if (rebuild_images or rebuild_masks or rebuild_calibration or
-            args.force_map or
-            is_stale(colored_map, [trajectory, transforms])):
+            args.force_map or 'coloured map' in changed or
+            is_stale(colored_map, geometry_inputs + [transforms])):
         commands.append(('coloured map', map_command(colored_map, transforms)))
 
     if args.quality_profile is not None:
@@ -402,6 +453,7 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
             args.appearance_planar_roughness or
             profile_uses_planar_roughness(Path(args.quality_profile)))
         if (rebuild_map or rebuild_images or args.force_quality or
+                'camera-LiDAR alignment' in changed or
                 (args.alignment_diagnostics and not
                  (alignment_diagnostics / 'diagnostics.json').is_file()) or
                 is_stale(alignment_report, [colored_map, transforms])):
@@ -447,6 +499,7 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
             map_command(colored_map, transforms)[2:])
         fusion_options = bli.color_fusion_options(map_args)
         if (rebuild_map or rebuild_images or args.force_quality or
+                'held-out colour' in changed or
                 not colour_report_matches_options(colour_report, fusion_options)
                 or is_stale(colour_report, [colored_map, transforms])):
             colour_command = [
@@ -462,6 +515,7 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
                 colour_command.append('--no-normalize-exposure')
             commands.append(('held-out colour', colour_command))
         if (rebuild_map or rebuild_images or args.force_quality or
+                'appearance' in changed or
                 is_stale(appearance_report, [colored_map, transforms]) or
                 (planar_roughness and not report_has_metric(
                     appearance_report, 'planar_roughness'))):
@@ -481,7 +535,7 @@ def build_commands(args) -> list[tuple[str, list[str]]]:
         gate_inputs.extend(Path(path) for path in
                            (args.trajectory_report, args.geometry_report)
                            if path is not None)
-        if (args.force_quality or
+        if (args.force_quality or 'quality gate' in changed or
                 any(name in ('camera-LiDAR alignment', 'held-out colour',
                              'appearance')
                     for name, _ in commands) or
@@ -621,8 +675,14 @@ def run_pipeline(args) -> dict:
                 args.kalibr_camchain, args.lidar_calibration,
                 camera_key=args.camera_key, lidar_key=args.lidar_key)
             generated = out_dir / 'generated_body_camera_extrinsic.json'
-            generated.write_text(json.dumps({'matrix': matrix.tolist()}, indent=2))
+            content = json.dumps({'matrix': matrix.tolist()}, indent=2)
+            if not generated.exists() or generated.read_text() != content:
+                generated.write_text(content)
     commands = build_commands(args)
+    if commands and not args.dry_run:
+        records = load_stage_commands(out_dir)
+        records.update(dict.fromkeys(name for name, _ in commands))
+        save_stage_commands(out_dir, records)
     trajectory = effective_trajectory(args)
     trajectory_validated = False
     for name, command in commands:
@@ -638,6 +698,8 @@ def run_pipeline(args) -> dict:
         print(f'[{name}]', ' '.join(command))
         if not args.dry_run:
             subprocess.run(command, check=True)
+            records[name] = stage_command_key(command)
+            save_stage_commands(out_dir, records)
     if not args.dry_run and not trajectory_validated:
         validate_trajectory_density(trajectory, args.max_trajectory_gap)
     return {
