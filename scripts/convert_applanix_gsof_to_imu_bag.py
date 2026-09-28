@@ -39,6 +39,8 @@ from pathlib import Path
 
 import numpy as np
 
+from extract_static_transform_from_bag import quaternion_xyzw_from_rotation_matrix
+
 DEFAULT_ANGULAR_VELOCITY_VARIANCE = 0.1
 DEFAULT_YAW_RATE_VARIANCE = 10.0
 DEFAULT_LINEAR_ACCELERATION_VARIANCE = 0.1
@@ -119,48 +121,6 @@ def rotation_matrix_from_rpy(
         ],
         dtype=np.float64,
     )
-
-
-def quaternion_xyzw_from_rotation_matrix(
-    rotation: np.ndarray,
-) -> tuple[float, float, float, float]:
-    """Convert a 3x3 rotation matrix to a normalized XYZW quaternion."""
-    trace = float(rotation[0, 0] + rotation[1, 1] + rotation[2, 2])
-    if trace > 0.0:
-        s = math.sqrt(trace + 1.0) * 2.0
-        qw = 0.25 * s
-        qx = (rotation[2, 1] - rotation[1, 2]) / s
-        qy = (rotation[0, 2] - rotation[2, 0]) / s
-        qz = (rotation[1, 0] - rotation[0, 1]) / s
-    elif rotation[0, 0] > rotation[1, 1] and rotation[0, 0] > rotation[2, 2]:
-        s = math.sqrt(
-            1.0 + rotation[0, 0] - rotation[1, 1] - rotation[2, 2],
-        ) * 2.0
-        qw = (rotation[2, 1] - rotation[1, 2]) / s
-        qx = 0.25 * s
-        qy = (rotation[0, 1] + rotation[1, 0]) / s
-        qz = (rotation[0, 2] + rotation[2, 0]) / s
-    elif rotation[1, 1] > rotation[2, 2]:
-        s = math.sqrt(
-            1.0 + rotation[1, 1] - rotation[0, 0] - rotation[2, 2],
-        ) * 2.0
-        qw = (rotation[0, 2] - rotation[2, 0]) / s
-        qx = (rotation[0, 1] + rotation[1, 0]) / s
-        qy = 0.25 * s
-        qz = (rotation[1, 2] + rotation[2, 1]) / s
-    else:
-        s = math.sqrt(
-            1.0 + rotation[2, 2] - rotation[0, 0] - rotation[1, 1],
-        ) * 2.0
-        qw = (rotation[1, 0] - rotation[0, 1]) / s
-        qx = (rotation[0, 2] + rotation[2, 0]) / s
-        qy = (rotation[1, 2] + rotation[2, 1]) / s
-        qz = 0.25 * s
-
-    norm = math.sqrt(qx * qx + qy * qy + qz * qz + qw * qw)
-    if norm < 1e-12:
-        return 0.0, 0.0, 0.0, 1.0
-    return qx / norm, qy / norm, qz / norm, qw / norm
 
 
 def applanix_attitude_to_ros_quaternion_xyzw(
