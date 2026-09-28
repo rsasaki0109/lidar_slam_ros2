@@ -1081,18 +1081,13 @@ def project_depth_maps(points: np.ndarray, viewmats, K: np.ndarray,
     fewer than the point count after the z-buffer dedups colliding pixels).
     """
     pts = np.asarray(points, dtype=np.float64)
-    fx, fy, cx, cy = K[0, 0], K[1, 1], K[0, 2], K[1, 2]
     npix = int(width) * int(height)
     out = []
     for vm in viewmats:
         vm = np.asarray(vm, dtype=np.float64)
         cam = pts @ vm[:3, :3].T + vm[:3, 3]
         z = cam[:, 2]
-        with np.errstate(divide='ignore', invalid='ignore'):
-            u = np.nan_to_num(fx * cam[:, 0] / z + cx, nan=-1.0,
-                              posinf=-1.0, neginf=-1.0)
-            v = np.nan_to_num(fy * cam[:, 1] / z + cy, nan=-1.0,
-                              posinf=-1.0, neginf=-1.0)
+        u, v = project_camera_pixels(cam, K)
         ui = np.round(u).astype(np.int64)
         vi = np.round(v).astype(np.int64)
         inb = (z > 1e-6) & (ui >= 0) & (ui < width) & (vi >= 0) & (vi < height)
