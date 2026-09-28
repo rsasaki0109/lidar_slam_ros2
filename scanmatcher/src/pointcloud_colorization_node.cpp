@@ -285,7 +285,7 @@ private:
 
     float exposure_scale = 1.0f;
     if (normalize_exposure_) {
-      const float med = point_colorizer::medianLuminance(view);
+      const float med = point_colorizer::medianLuminance(view, bgr);
       if (med > 1e-3f) {
         if (exposure_target_ <= 0.0f) {
           exposure_target_ = med;

@@ -327,6 +327,36 @@ TEST(PointColorizer, MedianLuminanceOfFlatImage)
   EXPECT_NEAR(medianLuminance(img.view()), 60.0f, 1e-3f);
 }
 
+TEST(PointColorizer, MedianLuminanceRespectsChannelOrderAndStride)
+{
+  for (const int channels : {1, 3, 4}) {
+    const int stride = 3 * channels + 5;
+    std::vector<std::uint8_t> rgb(2 * stride, 255);
+    for (int y = 0; y < 2; ++y) {
+      for (int x = 0; x < 3; ++x) {
+        const int i = y * stride + x * channels;
+        rgb[i] = 200;
+        if (channels >= 3) {
+          rgb[i + 1] = 40;
+          rgb[i + 2] = 10;
+        }
+      }
+    }
+    auto bgr = rgb;
+    if (channels >= 3) {
+      for (int y = 0; y < 2; ++y) {
+        for (int x = 0; x < 3; ++x) {
+          std::swap(bgr[y * stride + x * channels], bgr[y * stride + x * channels + 2]);
+        }
+      }
+    }
+    const ImageView rgb_view{rgb.data(), 3, 2, channels, stride};
+    const ImageView bgr_view{bgr.data(), 3, 2, channels, stride};
+    EXPECT_NEAR(medianLuminance(rgb_view), channels == 1 ? 200.0f : 84.42f, 1e-4f);
+    EXPECT_FLOAT_EQ(medianLuminance(rgb_view), medianLuminance(bgr_view, true));
+  }
+}
+
 int main(int argc, char ** argv)
 {
   ::testing::InitGoogleTest(&argc, argv);
