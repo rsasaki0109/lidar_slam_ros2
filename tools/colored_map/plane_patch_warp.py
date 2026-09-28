@@ -199,11 +199,12 @@ def select_reference_patch(images: list[np.ndarray], K: np.ndarray,
         ref_view = views[ref_index]
         ref_camera_point = camera_points[local_ref]
         ref_normal = ref_view[:3, :3] @ normal
+        reference_to_world = np.linalg.inv(ref_view)
         ncc_values = []
-        for local_target, target_index in enumerate(usable):
+        for target_index in usable:
             if target_index == ref_index:
                 continue
-            target_T_reference = views[target_index] @ np.linalg.inv(ref_view)
+            target_T_reference = views[target_index] @ reference_to_world
             try:
                 homography = plane_homography(
                     K, target_T_reference, ref_normal, ref_camera_point)
