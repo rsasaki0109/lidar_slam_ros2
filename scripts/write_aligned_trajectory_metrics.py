@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+from bisect import bisect_left
 import json
 import math
 from pathlib import Path
@@ -64,11 +65,16 @@ def _match_rows(
     tolerance: float,
 ) -> list[tuple[dict[str, float], dict[str, float]]]:
     est_times = [row['t'] for row in est_rows]
+    ordered = all(a <= b for a, b in zip(est_times, est_times[1:]))
     pairs: list[tuple[dict[str, float], dict[str, float]]] = []
     for ref in ref_rows:
-        idx = 0
-        while idx < len(est_times) and est_times[idx] < ref['t']:
-            idx += 1
+        if ordered:
+            idx = bisect_left(est_times, ref['t'])
+        else:
+            # Preserve legacy matching for unordered or NaN-containing input.
+            idx = 0
+            while idx < len(est_times) and est_times[idx] < ref['t']:
+                idx += 1
         candidates: list[dict[str, float]] = []
         if idx < len(est_rows):
             candidates.append(est_rows[idx])

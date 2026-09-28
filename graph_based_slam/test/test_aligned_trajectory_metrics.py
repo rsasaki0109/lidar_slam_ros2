@@ -255,3 +255,36 @@ def test_write_aligned_trajectory_metrics_tracks_rejected_loop_candidates(tmp_pa
         'from_index': 2,
         'to_index': 588,
     }
+
+
+def test_timestamp_matching_preserves_legacy_pairs(monkeypatch):
+    """Keep row identity, ties, duplicate stamps and irregular-input behavior."""
+    import importlib.util
+    import random
+
+    monkeypatch.syspath_prepend(str(SCRIPT.parent))
+    spec = importlib.util.spec_from_file_location('aligned_metrics', SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    rng = random.Random(20260929)
+    sequences = [[], [float('nan')], [0, float('nan'), 1],
+                 [float('-inf'), 0, float('inf')], [2, 0, 1], [0, 0, 2, 2]]
+    sequences += [sorted(rng.choices(range(-20, 21), k=80)) for _ in range(40)]
+    refs = [{'t': t} for t in [-30, -0.5, 0, 1, 2, 30, float('nan')]]
+    for stamps in sequences:
+        estimates = [{'t': t} for t in stamps]
+        for tolerance in [-1, 0, 0.5, 1, float('inf'), float('nan')]:
+            expected = []
+            for ref in refs:
+                index = next((i for i, t in enumerate(stamps)
+                              if not t < ref['t']), len(stamps))
+                neighbors = estimates[index:index + 1]
+                if index:
+                    neighbors += [estimates[index - 1]]
+                if neighbors:
+                    best = min(neighbors, key=lambda row: abs(row['t'] - ref['t']))
+                    if abs(best['t'] - ref['t']) <= tolerance:
+                        expected.append((ref, best))
+            actual = module._match_rows(refs, estimates, tolerance)
+            assert [(id(a), id(b)) for a, b in actual] == [
+                (id(a), id(b)) for a, b in expected]
