@@ -199,17 +199,32 @@ def _upstream_pull_request():
     }
 
 
-def test_tracked_candidate_is_locally_ready_and_schema_valid():
+def _checkout_release_pins():
+    gitlink = subprocess.check_output(
+        ['git', 'ls-files', '--stage', '--', PREFLIGHT.SUBMODULE.as_posix()],
+        cwd=ROOT, text=True).split()[1]
+    head = subprocess.check_output(
+        ['git', 'rev-parse', 'HEAD'], cwd=ROOT / PREFLIGHT.SUBMODULE,
+        text=True).strip()
+    return gitlink, head
+
+
+def test_tracked_checkout_enforces_release_pin_and_schema():
+    gitlink, head = _checkout_release_pins()
+    expected_ready = gitlink == head == PREFLIGHT.EXPECTED_COMMIT
     report = PREFLIGHT.evaluate_readiness(offline=True)
 
-    assert report['status'] == 'LOCAL_READY'
-    assert report['local']['ready'] is True
-    assert report['local']['gitlink_commit'] == PREFLIGHT.EXPECTED_COMMIT
-    assert report['local']['head_commit'] == PREFLIGHT.EXPECTED_COMMIT
+    assert report['status'] == ('LOCAL_READY' if expected_ready else 'BLOCKED')
+    assert report['local']['ready'] is expected_ready
+    assert report['local']['gitlink_commit'] == gitlink
+    assert report['local']['head_commit'] == head
     assert report['local']['package_version'] == '0.1.0'
     assert report['schema_version'] == 2
-    assert all(
-        item['status'] == 'PASS' for item in report['local']['checks'])
+    pin_checks = {'parent-gitlink': gitlink, 'candidate-commit': head}
+    for item in report['local']['checks']:
+        matches = pin_checks.get(item['id'], PREFLIGHT.EXPECTED_COMMIT)
+        expected = 'PASS' if matches == PREFLIGHT.EXPECTED_COMMIT else 'FAIL'
+        assert item['status'] == expected, item
 
 
 def test_initially_absent_remote_artifacts_are_ready_to_tag():
@@ -785,10 +800,11 @@ def test_offline_strict_gate_refuses_ready_to_tag(tmp_path):
     )
 
     assert result.returncode == 1
-    assert json.loads(result.stdout)['status'] == 'LOCAL_READY'
-    assert json.loads(output.read_text(encoding='utf-8'))['status'] == (
-        'LOCAL_READY'
-    )
+    gitlink, head = _checkout_release_pins()
+    expected_ready = gitlink == head == PREFLIGHT.EXPECTED_COMMIT
+    report = json.loads(result.stdout)
+    assert report['status'] == ('LOCAL_READY' if expected_ready else 'BLOCKED')
+    assert json.loads(output.read_text(encoding='utf-8')) == report
 
 
 def test_strict_review_response_gate_fails_without_verified_upstream_pr():
