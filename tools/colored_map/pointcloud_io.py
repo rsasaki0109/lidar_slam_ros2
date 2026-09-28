@@ -551,11 +551,9 @@ def estimate_overlap_rgb_gains(points: np.ndarray, viewmats: np.ndarray,
             ids = ids[~excluded[v[ids], u[ids]]]
         colours = _sample_pixels(
             image, uf[ids], vf[ids], width, height, 'nearest', 48.0)
-        if colours.ndim == 1:
-            colours = np.repeat(colours[:, None], 3, axis=1)
-        elif colours.shape[1] == 1:
+        if colours.shape[1] == 1:
             colours = np.repeat(colours, 3, axis=1)
-        observations.append((ids, colours[:, :3].astype(np.float32)))
+        observations.append((ids, colours))
 
     rows = []
     targets = []
