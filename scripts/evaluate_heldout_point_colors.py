@@ -51,15 +51,12 @@ def visible_point_samples(points: np.ndarray, viewmat: np.ndarray,
     vm = np.asarray(viewmat, dtype=np.float64)
     cam = pts @ vm[:3, :3].T + vm[:3, 3]
     z = cam[:, 2]
-    with np.errstate(divide='ignore', invalid='ignore'):
-        uf = K[0, 0] * cam[:, 0] / z + K[0, 2]
-        vf = K[1, 1] * cam[:, 1] / z + K[1, 2]
-    safe_uf = np.nan_to_num(uf, nan=-1.0, posinf=-1.0, neginf=-1.0)
-    safe_vf = np.nan_to_num(vf, nan=-1.0, posinf=-1.0, neginf=-1.0)
-    u = np.round(safe_uf).astype(np.int64)
-    v = np.round(safe_vf).astype(np.int64)
-    valid = (np.isfinite(uf) & np.isfinite(vf) & (z > 1e-6) &
-             (u >= 0) & (u < width) & (v >= 0) & (v < height))
+    uf, vf = pcio.project_camera_pixels(cam, K)
+    # Bound only the integer indexing coordinates; retain the original floats
+    # for sampling and margin checks. Out-of-image points stay out of bounds.
+    u = np.round(np.clip(uf, -1.0, width)).astype(np.int64)
+    v = np.round(np.clip(vf, -1.0, height)).astype(np.int64)
+    valid = ((z > 1e-6) & (u >= 0) & (u < width) & (v >= 0) & (v < height))
     ids = np.flatnonzero(valid)
     if ids.size == 0:
         empty = np.zeros(0, dtype=np.float64)
