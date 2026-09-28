@@ -401,22 +401,6 @@ def read_camera_intrinsics(bag_path: str | Path, topic: str) -> pi.CameraIntrins
     raise RuntimeError(f'no CameraInfo found on topic {topic!r}')
 
 
-def _first_header_and_bagtime(bag_path: str | Path, topic: str,
-                              msg_type) -> tuple[float, float]:
-    """Return the (header_stamp_s, bag_receive_s) of the first ``topic`` msg."""
-    from rclpy.serialization import deserialize_message
-
-    reader = _open_reader(bag_path)
-    while reader.has_next():
-        tname, raw, bagt = reader.read_next()
-        if tname != topic:
-            continue
-        msg = deserialize_message(raw, msg_type)
-        header = ros_stamp_to_seconds(msg.header.stamp.sec, msg.header.stamp.nanosec)
-        return header, bagt * 1e-9
-    raise RuntimeError(f'no message found on topic {topic!r}')
-
-
 def _clock_samples(bag_path: str | Path, topic: str, msg_type,
                    max_samples: int = 256,
                    min_interval: float = 0.5) -> np.ndarray:
