@@ -186,13 +186,20 @@ private:
     }
     std::lock_guard<std::mutex> lock(mtx_);
     map_points_.swap(pts);
-    // Seed geometry so far-unseen points still appear (grey) in the output.
+    // Keep colors only for voxels present in this complete map snapshot.
+    std::unordered_map<std::int64_t, Voxel> current_voxels;
     for (const auto & p : map_points_) {
-      auto & vox = voxels_[voxelKey(p.x(), p.y(), p.z())];
+      const auto key = voxelKey(p.x(), p.y(), p.z());
+      auto previous = voxels_.extract(key);
+      if (!previous.empty()) {
+        current_voxels.insert(std::move(previous));
+      }
+      auto & vox = current_voxels[key];
       vox.x = p.x();
       vox.y = p.y();
       vox.z = p.z();
     }
+    voxels_.swap(current_voxels);
   }
 
   // Wrap a sensor_msgs/Image into an ImageView; returns false for encodings we
@@ -369,9 +376,6 @@ private:
         }
         cloud.push_back(p);
       }
-    }
-    if (cloud.empty()) {
-      return;
     }
     sensor_msgs::msg::PointCloud2 msg;
     pcl::toROSMsg(cloud, msg);
