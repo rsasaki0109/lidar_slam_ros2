@@ -922,18 +922,18 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
             maximum_radius=maximum_uncertainty_margin_px)
         zbuffer_image = zbuf.reshape(zb_h, zb_w)
         occlusion_radii = uncertainty_margin + int(occlusion_margin_px)
-        if np.any(occlusion_radii > 0):
-            local_minimum, _, _ = gaf.neighborhood_depth_statistics(
-                zbuffer_image, u[inb], v[inb], occlusion_radii)
-        else:
-            local_minimum = zbuf[zbin]
         zbuffer_visible = projected_z <= (
             zbuf[zbin] + depth_tol + 0.02 * projected_z)
         diagnostics['rejected_zbuffer'] += int((~zbuffer_visible).sum())
-        visible = projected_z <= (
-            local_minimum + depth_tol + 0.02 * projected_z)
-        diagnostics['rejected_occlusion_margin'] += int(
-            (zbuffer_visible & ~visible).sum())
+        if np.any(occlusion_radii > 0):
+            local_minimum, _, _ = gaf.neighborhood_depth_statistics(
+                zbuffer_image, u[inb], v[inb], occlusion_radii)
+            visible = projected_z <= (
+                local_minimum + depth_tol + 0.02 * projected_z)
+            diagnostics['rejected_occlusion_margin'] += int(
+                (zbuffer_visible & ~visible).sum())
+        else:
+            visible = zbuffer_visible
         diagnostics['rejected_occlusion'] += int((~visible).sum())
 
         edge_radii = uncertainty_margin + int(depth_edge_margin_px)
