@@ -56,10 +56,12 @@ def neighborhood_depth_statistics(
     maximum = np.full(columns.shape, -np.inf, dtype=np.float64)
     support = np.zeros(columns.shape, dtype=np.uint16)
     largest = int(radius.max()) if radius.size else 0
+    radius_squared = radius * radius
     for dy in range(-largest, largest + 1):
+        query_v = rows + dy
         for dx in range(-largest, largest + 1):
-            active = radius * radius >= dx * dx + dy * dy
-            query_u, query_v = columns + dx, rows + dy
+            active = radius_squared >= dx * dx + dy * dy
+            query_u = columns + dx
             active &= ((query_u >= 0) & (query_u < image.shape[1]) &
                        (query_v >= 0) & (query_v < image.shape[0]))
             if not active.any():
