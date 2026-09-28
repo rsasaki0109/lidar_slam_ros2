@@ -270,7 +270,10 @@ def colorize_by_projection(points: np.ndarray, viewmats: np.ndarray,
         idx = np.nonzero(inb)[0]
         if idx.size == 0:
             continue
-        cols = np.asarray(img)[vi[idx], ui[idx]]
+        image = np.asarray(img)
+        if image.shape[:2] != (height, width):
+            raise ValueError('image dimensions must match projection calibration')
+        cols = image[vi[idx], ui[idx]]
         if cols.ndim == 1:
             cols = np.repeat(cols[:, None], 3, axis=1)
         sum_rgb[idx] += cols[:, :3]
@@ -293,6 +296,8 @@ def _sample_pixels(img: np.ndarray, uf: np.ndarray, vf: np.ndarray,
     foreground/background colour bleed. A 2-D image is broadcast to RGB.
     """
     im = np.asarray(img)
+    if im.shape[:2] != (height, width):
+        raise ValueError('image dimensions must match projection calibration')
     if im.ndim == 2:
         im = np.broadcast_to(im[:, :, None], (*im.shape, 3))
     im = im[:, :, :3]
