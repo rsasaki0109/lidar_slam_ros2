@@ -167,9 +167,10 @@ def select_reference_patch(images: list[np.ndarray], K: np.ndarray,
     if not 0.0 <= angle_weight <= 1.0:
         raise ValueError('angle_weight must be in [0, 1]')
     normal = np.asarray(normal_world, dtype=np.float64).reshape(3)
-    if np.linalg.norm(normal) <= 1.0e-12:
+    normal_norm = np.linalg.norm(normal)
+    if normal_norm <= 1.0e-12:
         raise ValueError('normal_world must be non-zero')
-    normal /= np.linalg.norm(normal)
+    normal = normal / normal_norm
 
     camera_points = []
     centres = []

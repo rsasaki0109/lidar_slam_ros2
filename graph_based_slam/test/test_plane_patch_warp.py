@@ -148,3 +148,24 @@ def test_planar_voxel_batch_returns_ncc_compatible_view_mask():
     assert refs[0] in (0, 1)
     assert np.all(mask[:, refs[0]])
     assert not mask[:, 2].any()
+
+
+@pytest.mark.parametrize('read_only', [False, True])
+@pytest.mark.parametrize('strided', [False, True])
+def test_reference_selection_preserves_caller_normal(read_only, strided):
+    normal = np.array([0.2, 0.4, 2.0])
+    if strided:
+        normal = np.repeat(normal, 2)[::2]
+    original = normal.copy()
+    normal.setflags(write=not read_only)
+    y, x = np.mgrid[:100, :100]
+    texture = (x + 3.0 * y).astype(np.float32)
+    args = ([texture, texture], _camera(),
+            np.repeat(np.eye(4)[None], 2, axis=0),
+            np.array([0.0, 0.0, 5.0]))
+    expected, expected_scores = WARP.select_reference_patch(
+        *args, original.tolist())
+    actual, scores = WARP.select_reference_patch(*args, normal)
+    assert actual == expected
+    np.testing.assert_array_equal(scores, expected_scores)
+    np.testing.assert_array_equal(normal, original)
