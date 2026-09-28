@@ -186,6 +186,8 @@ private:
     }
     std::lock_guard<std::mutex> lock(mtx_);
     map_points_.swap(pts);
+    map_voxels_.clear();
+    map_voxels_.reserve(map_points_.size());
     // Keep colors only for voxels present in this complete map snapshot.
     std::unordered_map<std::int64_t, Voxel> current_voxels;
     for (const auto & p : map_points_) {
@@ -198,6 +200,7 @@ private:
       vox.x = p.x();
       vox.y = p.y();
       vox.z = p.z();
+      map_voxels_.push_back(&vox);
     }
     voxels_.swap(current_voxels);
   }
@@ -346,7 +349,7 @@ private:
       for (int c = 0; c < 3; ++c) {
         rgb[c] = std::min(std::max(rgb[c] * exposure_scale, 0.0f), 255.0f);
       }
-      voxels_[voxelKey(p.x(), p.y(), p.z())].color.add(rgb, depth);
+      map_voxels_[i]->color.add(rgb, depth);
     }
   }
 
@@ -402,6 +405,8 @@ private:
   float exposure_target_ {-1.0f};
   std::mutex mtx_;
   std::vector<Eigen::Vector3f> map_points_;
+  // Rebuilt with each snapshot; unordered_map node addresses survive rehash and swap.
+  std::vector<Voxel *> map_voxels_;
   std::unordered_map<std::int64_t, Voxel> voxels_;
 
   // ROS interfaces.
