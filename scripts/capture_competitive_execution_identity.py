@@ -421,15 +421,6 @@ def _resolve_path(root: Path, value: Any) -> Path | None:
     return path if path.is_absolute() else root / path
 
 
-def _file_hash(root: Path, path_value: Any) -> str | None:
-    if not isinstance(path_value, str) or not path_value:
-        return None
-    path = _resolve_path(root, path_value)
-    if path is None:
-        return None
-    return sha256_file(path) if path.is_file() else None
-
-
 def _thread_values(policy: Any) -> dict[str, Any] | None:
     if not isinstance(policy, dict) or any(key not in policy for key in THREAD_KEYS):
         return None
