@@ -868,9 +868,9 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
     samples = np.empty((n, capacity, 3), dtype=np.uint8)
     # Only one ranking criterion is used for all observations in this call.
     rank_by_quality = point_normals is not None or min_projected_scale > 0.0
-    sample_rank = np.full(
+    sample_rank = (np.full(
         (n, capacity), -np.inf if rank_by_quality else np.inf,
-        dtype=np.float32)
+        dtype=np.float32) if prefer_near and capacity < len(images) else None)
     vignette_gains = None
     vignette_radius = 1.0
     if vignette_gain_limit > 1.0:
@@ -1035,10 +1035,11 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
             rc = cand[room]
             slot = counts[rc].astype(np.intp)
             samples[rc, slot, :] = cols[room]
-            sample_rank[rc, slot] = rank[room]
+            if sample_rank is not None:
+                sample_rank[rc, slot] = rank[room]
             counts[rc] += 1
         # Full points: if enabled, evict the farthest stored sample when nearer.
-        if prefer_near and (~room).any():
+        if sample_rank is not None and (~room).any():
             fc = cand[~room]
             fcols = cols[~room]
             if rank_by_quality:
