@@ -22,6 +22,7 @@ from extract_applanix_gsof49_reference import (
     lla_to_ecef,
     lla_to_enu,
     rpy_deg_to_quaternion,
+    resolve_applanix_msg_dir,
 )
 
 
@@ -41,26 +42,6 @@ def import_rosbags_modules():
             'rosbags is required to convert Applanix bags into TF bags',
         ) from exc
     return AnyReader, Writer, Stores, get_typestore, get_types_from_msg
-
-
-def _default_applanix_msg_dirs(repo_root: Path) -> list[Path]:
-    return [
-        repo_root / 'Thirdparty' / 'applanix' / 'applanix_msgs' / 'msg',
-        repo_root / 'applanix_msgs' / 'msg',
-        Path('/tmp/applanix/applanix_msgs/msg'),
-    ]
-
-
-def resolve_applanix_msg_dir(requested: Path | None, repo_root: Path) -> Path:
-    """Locate applanix_msgs message definitions."""
-    candidates = [requested] if requested is not None else _default_applanix_msg_dirs(repo_root)
-    for candidate in candidates:
-        if candidate is not None and candidate.is_dir():
-            return candidate
-    raise RuntimeError(
-        'could not find applanix_msgs message definitions; pass '
-        '--applanix-msg-dir or clone https://github.com/autowarefoundation/applanix.git',
-    )
 
 
 def load_typestore_with_applanix(msg_dir: Path):
