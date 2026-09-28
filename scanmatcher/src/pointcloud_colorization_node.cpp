@@ -266,8 +266,9 @@ private:
     } else {
       RCLCPP_WARN_THROTTLE(
         get_logger(), *get_clock(), 30000,
-        "unsupported distortion model '%s'; using pinhole projection",
+        "unsupported distortion model '%s'; skipping image",
         info->distortion_model.c_str());
+      return;
     }
 
     // map -> camera_optical at the image stamp: p_cam = T * p_map.
