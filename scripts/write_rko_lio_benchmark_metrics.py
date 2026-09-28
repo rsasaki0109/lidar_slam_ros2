@@ -8,7 +8,13 @@ import json
 from pathlib import Path
 from typing import Any
 
-from benchmark_provenance import bag_identity, file_identity, software_identity
+from benchmark_provenance import (
+    bag_duration_seconds as _bag_duration_seconds,
+    bag_identity,
+    file_identity,
+    read_pose_count as _read_pose_count,
+    software_identity,
+)
 
 import yaml
 
@@ -37,16 +43,6 @@ def _read_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding='utf-8'))
 
 
-def _read_pose_count(path: Path) -> int:
-    if not path.is_file():
-        return 0
-    return sum(
-        1
-        for line in path.read_text(encoding='utf-8', errors='replace').splitlines()
-        if line.strip() and not line.lstrip().startswith('#')
-    )
-
-
 def _parse_ape_report(path: Path) -> dict[str, Any] | None:
     if not path.is_file():
         return None
@@ -69,27 +65,6 @@ def _parse_ape_report(path: Path) -> dict[str, Any] | None:
         else:
             metrics[key] = numeric
     return metrics
-
-
-def _bag_duration_seconds(metadata_path: Path) -> float | None:
-    if not metadata_path.is_file():
-        return None
-    lines = metadata_path.read_text(encoding='utf-8', errors='replace').splitlines()
-    in_duration = False
-    for line in lines:
-        stripped = line.strip()
-        if stripped.startswith('duration:'):
-            in_duration = True
-            continue
-        if in_duration and stripped.startswith('nanoseconds:'):
-            try:
-                nanoseconds = int(stripped.split(':', 1)[1].strip())
-            except ValueError:
-                return None
-            return nanoseconds / 1e9
-        if in_duration and stripped and not line.startswith(' '):
-            break
-    return None
 
 
 def _bag_topic_message_count(metadata_path: Path, topic: str) -> int | None:
