@@ -186,7 +186,7 @@ struct ComplementaryBlendInput
   tf2::Quaternion latest_imu_robot_quat {0.0, 0.0, 0.0, 1.0};
   // Accepted registration orientation for this frame
   geometry_msgs::msg::Quaternion accepted_quat_msg;
-  // Rotation block of ndt_pose_ (last published orientation)
+  // Last published orientation
   Eigen::Matrix3f previous_published_rotation {Eigen::Matrix3f::Identity()};
   double alpha {0.0};
 };
@@ -207,7 +207,7 @@ inline geometry_msgs::msg::Quaternion blendComplementaryRollPitch(
   double ndt_roll, ndt_pitch, ndt_yaw;
   tf2::Matrix3x3(ndt_quat).getRPY(ndt_roll, ndt_pitch, ndt_yaw);
 
-  // Previous published rotation (ndt_pose_ stores last published RPY)
+  // Previous published rotation
   Eigen::Quaternionf prev_q_eig(input.previous_published_rotation);
   tf2::Quaternion prev_pub_quat(prev_q_eig.x(), prev_q_eig.y(), prev_q_eig.z(), prev_q_eig.w());
   double prev_roll, prev_pitch, prev_yaw;
