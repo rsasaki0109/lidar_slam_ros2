@@ -312,9 +312,9 @@ private:
     const std::size_t stride =
       1 + (map_points_.size() - 1) / static_cast<std::size_t>(std::max(1, max_project_points_));
 
-    // Pass 1: build the per-frame z-buffer from the projected points.
+    // Pass 1: retain all occluders, including points skipped by the color-sampling cap.
     FrameZBuffer zbuf(intr, zbuf_bin_);
-    for (std::size_t i = 0; i < map_points_.size(); i += stride) {
+    for (std::size_t i = 0; i < map_points_.size(); ++i) {
       float u, v, depth;
       if (projectPoint(intr, world_to_cam, map_points_[i], u, v, depth, distortion_ptr)) {
         zbuf.insert(u, v, depth);
