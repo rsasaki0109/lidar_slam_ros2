@@ -13,6 +13,7 @@ from typing import Any
 
 import yaml
 
+from lidarslam_benchmark_tools.lidarslam_tools.report_model import as_float as _maybe_float
 from lidarslam_benchmark_tools.mid360_robot_tools import payload_to_json
 
 
@@ -691,15 +692,6 @@ def _bounds_area(bounds: dict[str, Any]) -> float:
     width = float(bounds.get('max_x') or 0.0) - float(bounds.get('min_x') or 0.0)
     height = float(bounds.get('max_y') or 0.0) - float(bounds.get('min_y') or 0.0)
     return max(0.0, width) * max(0.0, height)
-
-
-def _maybe_float(value: Any) -> float | None:
-    if value is None:
-        return None
-    try:
-        return float(value)
-    except Exception:
-        return None
 
 
 def _fmt_float(value: Any) -> str:
