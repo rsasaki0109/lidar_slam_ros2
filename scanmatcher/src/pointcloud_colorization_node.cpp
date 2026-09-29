@@ -282,7 +282,10 @@ private:
     intr.cy = static_cast<float>((info->k[5] - roi.y_offset) / bin_y);
     intr.width = view.width;
     intr.height = view.height;
-    if (intr.fx <= 0.0f || intr.fy <= 0.0f || intr.width <= 0 || intr.height <= 0) {
+    if (!std::isfinite(intr.fx) || !std::isfinite(intr.fy) ||
+      !std::isfinite(intr.cx) || !std::isfinite(intr.cy) ||
+      intr.fx <= 0.0f || intr.fy <= 0.0f || intr.width <= 0 || intr.height <= 0)
+    {
       return;
     }
 
@@ -302,6 +305,12 @@ private:
         distortion.p2 = static_cast<float>(info->d[3]);
         if (info->d.size() >= 5) {
           distortion.k3 = static_cast<float>(info->d[4]);
+        }
+        if (!std::isfinite(distortion.k1) || !std::isfinite(distortion.k2) ||
+          !std::isfinite(distortion.p1) || !std::isfinite(distortion.p2) ||
+          !std::isfinite(distortion.k3))
+        {
+          return;  // Invalid calibration must not update exposure history.
         }
         distortion_ptr = &distortion;
       }
