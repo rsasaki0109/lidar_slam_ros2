@@ -253,6 +253,13 @@ private:
       return;
     }
 
+    if (image->width != info->width || image->height != info->height) {
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 5000,
+        "image and CameraInfo dimensions differ; skipping image");
+      return;
+    }
+
     CameraIntrinsics intr;
     intr.fx = static_cast<float>(info->k[0]);
     intr.fy = static_cast<float>(info->k[4]);
