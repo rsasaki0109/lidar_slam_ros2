@@ -336,7 +336,7 @@ def test_direct_coloring_uses_camera_info_model(
         'bag', str(tmp_path / 'colored'), '--extrinsic', '0', '0', '0', '0', '0', '0', '1'])
     args.no_undistort = not undistort
     monkeypatch.setattr(cfb, '_collect', lambda *a, **kw: (
-        None, {args.camera_info_topic: info}, [1], {args.image_topic: [1]}, {}))
+        None, {args.camera_info_topic: [(0, info)]}, [1], {args.image_topic: [1]}, {}))
     monkeypatch.setattr(cfb, '_grab_messages', lambda *a: {
         (args.pc_topic, 1): None, (args.image_topic, 1): image})
     monkeypatch.setattr(cfb, '_read_xyz', lambda _msg: np.array([[0.0, 0.0, 2.0]]))
@@ -402,7 +402,7 @@ def test_raw_image_coloring_projects_camera_model(tmp_path, monkeypatch, model, 
     args.normalize_exposure = False
     args.diagnostic_overlay = str(tmp_path / 'overlay.png')
     monkeypatch.setattr(cfb, '_collect', lambda *a, **kw: (
-        None, {args.camera_info_topic: info}, [1], {args.image_topic: [1]}, {}))
+        None, {args.camera_info_topic: [(0, info)]}, [1], {args.image_topic: [1]}, {}))
     monkeypatch.setattr(cfb, '_grab_messages', lambda *a: {
         (args.pc_topic, 1): None, (args.image_topic, 1): image})
     monkeypatch.setattr(cfb, '_read_xyz', lambda _: xyz)
@@ -551,7 +551,7 @@ def test_direct_roi_binning_samples_known_pixel(tmp_path, monkeypatch, raw, roi,
     args.no_undistort = raw
     xyz = np.array([[.4, .2, 2.], [.8, .4, 4.]])
     monkeypatch.setattr(cfb, '_collect', lambda *a, **kw: (
-        None, {args.camera_info_topic: info}, [1], {args.image_topic: [1]}, {}))
+        None, {args.camera_info_topic: [(0, info)]}, [1], {args.image_topic: [1]}, {}))
     monkeypatch.setattr(cfb, '_grab_messages', lambda *a: {
         (args.pc_topic, 1): None, (args.image_topic, 1): image})
     monkeypatch.setattr(cfb, '_read_xyz', lambda _: xyz)
@@ -564,3 +564,77 @@ def test_direct_roi_binning_samples_known_pixel(tmp_path, monkeypatch, raw, roi,
     assert result['colored'] == 1
     np.testing.assert_allclose(points, xyz)
     np.testing.assert_array_equal(colors, [[211, 71, 33], args.default_rgb])
+
+
+@pytest.mark.parametrize('kind', ['intrinsics', 'roi'])
+@pytest.mark.parametrize('timing', ['forward', 'reverse', 'tie', 'duplicate', 'static'])
+def test_direct_selects_image_time_camera_info(tmp_path, monkeypatch, kind, timing):
+    """Use the selected image's calibration, not the first recorded calibration."""
+    pytest.importorskip('cv2')
+    pytest.importorskip('rclpy.serialization')
+    from rclpy.serialization import serialize_message
+    from sensor_msgs.msg import CameraInfo, Image
+    from sensor_msgs_py.point_cloud2 import create_cloud_xyz32
+    from std_msgs.msg import Header
+    from types import SimpleNamespace
+    import extract_posed_images
+
+    old = CameraInfo(width=3, height=3, k=[4., 0., 2., 0., 4., 2., 0., 0., 1.],
+                     d=[0.] * 5, distortion_model='plumb_bob')
+    new = CameraInfo(width=3, height=3, k=[4., 0., 1., 0., 4., 1., 0., 0., 1.],
+                     d=[0.] * 5, distortion_model='plumb_bob')
+    old.header.stamp.nanosec = 10
+    new.header.stamp.nanosec = 100
+    if kind == 'roi':
+        old.width = old.height = new.width = new.height = 5
+        new.k = old.k
+        new.roi.x_offset = new.roi.y_offset = 1
+        new.roi.width = new.roi.height = 3
+    rgb = np.full((3, 3, 3), 80, dtype=np.uint8)
+    rgb[1, 1] = [19, 211, 43]
+    image = Image(width=3, height=3, step=9, encoding='rgb8', data=rgb.tobytes())
+    image.header.stamp.nanosec = 100
+    header = Header(frame_id='base_link')
+    header.stamp.nanosec = 100
+    cloud = create_cloud_xyz32(header, [[0., 0., 2.]])
+    infos = [old, new]
+    if timing == 'reverse':
+        infos = [new, old]
+    elif timing == 'tie':
+        old.header.stamp.nanosec = 200
+        image.header.stamp.nanosec = cloud.header.stamp.nanosec = 150
+    elif timing == 'duplicate':
+        old.header.stamp.nanosec = 100
+        infos = [new, old]
+    elif timing == 'static':
+        new.header.stamp.nanosec = 0
+        infos = [new]
+    records = [('/info', serialize_message(info), i + 1)
+               for i, info in enumerate(infos)]
+    records += [('/image', serialize_message(image), 200),
+                ('/cloud', serialize_message(cloud), 300)]
+    types = {'/info': 'sensor_msgs/msg/CameraInfo', '/image': 'sensor_msgs/msg/Image',
+             '/cloud': 'sensor_msgs/msg/PointCloud2'}
+
+    class Reader:
+        def __init__(self):
+            self.records = list(records)
+
+        def get_all_topics_and_types(self):
+            return [SimpleNamespace(name=k, type=v) for k, v in types.items()]
+
+        def has_next(self):
+            return bool(self.records)
+
+        def read_next(self):
+            return self.records.pop(0)
+
+    monkeypatch.setattr(extract_posed_images, '_open_reader', lambda _: Reader())
+    args = cfb.build_parser().parse_args([
+        'bag', str(tmp_path / 'info'), '--pc-topic', '/cloud', '--image-topic', '/image',
+        '--camera-info-topic', '/info', '--no-undistort', '--interp', 'nearest',
+        '--extrinsic', '0', '0', '0', '0', '0', '0', '1'])
+    result = cfb.colorize_bag_frame(args)
+    _, colors = cfb.pcio.read_ply_xyz(result['full_ply'])
+    np.testing.assert_array_equal(colors, [[19, 211, 43]])
+    assert result['cameras'][0]['camera_info_stamp_ns'] == new.header.stamp.nanosec
