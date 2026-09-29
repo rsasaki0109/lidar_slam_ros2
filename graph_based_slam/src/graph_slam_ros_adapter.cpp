@@ -616,6 +616,8 @@ void GraphBasedSlamComponent::Impl::doPoseAdjustment(
 
   /* modified_map publish */
   std::cout << "modified_map publish" << std::endl;
+  const bool publish_map_array = modified_map_array_pub_->get_subscription_count() > 0 ||
+    modified_map_array_pub_->get_intra_process_subscription_count() > 0;
   lidarslam_msgs::msg::MapArray modified_map_array_msg;
   modified_map_array_msg.header = map_array_msg.header;
   nav_msgs::msg::Path path;
@@ -648,23 +650,33 @@ void GraphBasedSlamComponent::Impl::doPoseAdjustment(
     lidarslam_msgs::msg::SubMap submap;
     submap.header = map_array_msg.submaps[i].header;
     submap.pose = pose;
-    pcl::toROSMsg(*transformed_cloud_ptr, submap.cloud);
+    if (publish_map_array) {
+      pcl::toROSMsg(*transformed_cloud_ptr, submap.cloud);
+    }
 
     /* path */
     geometry_msgs::msg::PoseStamped pose_stamped;
     pose_stamped.header = submap.header;
     pose_stamped.pose = submap.pose;
     path.poses.push_back(pose_stamped);
-    modified_map_array_msg.submaps.push_back(std::move(submap));
+    if (publish_map_array) {
+      modified_map_array_msg.submaps.push_back(std::move(submap));
+    }
   }
 
-  modified_map_array_pub_->publish(modified_map_array_msg);
+  if (publish_map_array) {
+    modified_map_array_pub_->publish(modified_map_array_msg);
+  }
   modified_path_pub_->publish(path);
 
-  sensor_msgs::msg::PointCloud2::SharedPtr map_msg_ptr(new sensor_msgs::msg::PointCloud2);
-  pcl::toROSMsg(*map_ptr, *map_msg_ptr);
-  map_msg_ptr->header.frame_id = "map";
-  modified_map_pub_->publish(*map_msg_ptr);
+  if (modified_map_pub_->get_subscription_count() > 0 ||
+    modified_map_pub_->get_intra_process_subscription_count() > 0)
+  {
+    sensor_msgs::msg::PointCloud2::SharedPtr map_msg_ptr(new sensor_msgs::msg::PointCloud2);
+    pcl::toROSMsg(*map_ptr, *map_msg_ptr);
+    map_msg_ptr->header.frame_id = "map";
+    modified_map_pub_->publish(*map_msg_ptr);
+  }
   if (do_save_map) {
     pcl::PointCloud<pcl::PointXYZI>::Ptr map_to_save = map_ptr;
     if (config_.use_dynamic_object_filter_) {
