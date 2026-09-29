@@ -534,6 +534,7 @@ def colorize_bag_frame(args) -> dict:
         rgb_img, world_to_cam, K, W, H, stats, info = overlay_context
         diagnostics = projection_diagnostics(
             xyz, world_to_cam, K, W, H,
+            zbuf_bin=args.zbuf_bin, depth_tol=args.depth_tol,
             distortion=info.d if args.no_undistort else None,
             distortion_model=info.distortion_model)
         overlay_path = _write_diagnostic_overlay(
