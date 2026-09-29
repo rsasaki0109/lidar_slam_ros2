@@ -454,3 +454,58 @@ def test_folded_lens_ray_cannot_color_or_occlude(model, d, x):
                                       distortion=d, distortion_model=model)
     assert diag['indices'].tolist() == [1]
     assert diag['visible'].tolist() == [True]
+
+
+@pytest.mark.parametrize('phase', ['collect', 'grab'])
+def test_bag_pairing_uses_sensor_stamps_despite_recording_delay(monkeypatch, phase):
+    """A delayed cloud must match acquisition time, not a nearby receipt."""
+    pytest.importorskip('rclpy.serialization')
+    from rclpy.serialization import serialize_message
+    from sensor_msgs.msg import CameraInfo, Image, PointCloud2
+    from types import SimpleNamespace
+    import extract_posed_images
+
+    cloud = PointCloud2()
+    cloud.header.stamp.nanosec = 100
+    image = Image()
+    image.header.stamp.nanosec = 105
+    late_image = Image()
+    late_image.header.stamp.nanosec = 410
+    # Duplicate header timestamps retain the first matching message.
+    duplicate = Image()
+    duplicate.header.stamp.nanosec = 105
+    duplicate.header.frame_id = 'later_duplicate'
+    records = [('/info', serialize_message(CameraInfo()), 1),
+               ('/image', serialize_message(image), 150),
+               ('/cloud', serialize_message(cloud), 400),
+               ('/ignored', b'not a ROS message', 401),
+               ('/image', serialize_message(late_image), 415),
+               ('/image', serialize_message(duplicate), 420)]
+    types = {'/info': 'sensor_msgs/msg/CameraInfo',
+             '/image': 'sensor_msgs/msg/Image',
+             '/cloud': 'sensor_msgs/msg/PointCloud2'}
+
+    class Reader:
+        def __init__(self):
+            self.records = list(records)
+
+        def get_all_topics_and_types(self):
+            return [SimpleNamespace(name=k, type=v) for k, v in types.items()]
+
+        def has_next(self):
+            return bool(self.records)
+
+        def read_next(self):
+            return self.records.pop(0)
+
+    monkeypatch.setattr(extract_posed_images, '_open_reader', lambda _: Reader())
+    if phase == 'collect':
+        _, _, clouds, images, _ = cfb._collect(
+            'bag', '/cloud', [('/image', '/info', 'camera')], need_tf=False)
+        assert clouds == [100]
+        assert images['/image'] == [105, 105, 410]
+        assert cfb.select_synced_time(clouds, images['/image'], .5) == (100, 105)
+    else:
+        messages = cfb._grab_messages('bag', {('/cloud', 100), ('/image', 105)}, types)
+        assert messages[('/cloud', 100)].header.stamp.nanosec == 100
+        assert messages[('/image', 105)].header.frame_id == ''
