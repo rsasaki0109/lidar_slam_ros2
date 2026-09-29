@@ -66,6 +66,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include <rclcpp/qos_overriding_options.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <sensor_msgs/msg/image.hpp>
@@ -126,8 +127,11 @@ public:
       map_topic, rclcpp::SensorDataQoS(),
       std::bind(&PointCloudColorizationNode::mapCallback, this, std::placeholders::_1));
 
-    image_sub_.subscribe(this, image_topic, rmw_qos_profile_sensor_data);
-    info_sub_.subscribe(this, camera_info_topic, rmw_qos_profile_sensor_data);
+    rclcpp::SubscriptionOptions camera_options;
+    camera_options.qos_overriding_options =
+      rclcpp::QosOverridingOptions({rclcpp::QosPolicyKind::Reliability});
+    image_sub_.subscribe(this, image_topic, rmw_qos_profile_sensor_data, camera_options);
+    info_sub_.subscribe(this, camera_info_topic, rmw_qos_profile_sensor_data, camera_options);
     sync_ = std::make_shared<Sync>(SyncPolicy(sync_queue), image_sub_, info_sub_);
     sync_->registerCallback(std::bind(
       &PointCloudColorizationNode::imageCallback, this,
