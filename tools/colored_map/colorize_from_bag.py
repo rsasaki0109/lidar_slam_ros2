@@ -32,7 +32,8 @@
 
 A LiDAR scan and a camera on the same rig share a *static* extrinsic, so a
 single time-matched (cloud, image) pair can be coloured by projection with no
-SLAM and no map frame: match sensor header timestamps on a shared clock, resolve
+SLAM and no map frame: match sensor header timestamps on a shared clock,
+select the nearest CameraInfo header on that clock, and resolve
 ``camera_optical <- lidar`` from ``/tf`` + ``/tf_static`` or an explicit
 7-value calibration (they are rigidly mounted, so the transform is
 time-independent), undistort the image, and hand
@@ -304,8 +305,9 @@ def _collect(bag_path, pc_topic, cameras, need_tf=True):
     """One pass over the bag: tf buffer, each camera's CameraInfo, and stamps.
 
     ``cameras`` is a list of ``(image_topic, info_topic, optical_frame)``.
-    Returns ``(buf, infos, pc_stamps, img_stamps, types)`` where ``infos`` and
-    ``img_stamps`` are keyed by info_topic / image_topic respectively. Stamps are header times,
+    Returns ``(buf, infos, pc_stamps, img_stamps, types)`` where ``infos`` holds
+    sorted (header stamp, CameraInfo) pairs per info topic and ``img_stamps``
+    holds image stamps per image topic. Stamps are header times,
     not bag receipt times. With
     ``need_tf=False``, TF topics are optional and ``buf`` is ``None``.
     """
@@ -343,12 +345,12 @@ def _collect(bag_path, pc_topic, cameras, need_tf=True):
         elif need_tf and topic == '/tf':
             for tr in deserialize_message(raw, tf_cls).transforms:
                 buf.set_transform(tr, 'bag')
-        elif topic in info_topics and topic not in infos:
-            infos[topic] = deserialize_message(raw, get_message(types[topic]))
-        elif topic == pc_topic or topic in image_topics:
+        elif topic in info_topics or topic == pc_topic or topic in image_topics:
             msg = deserialize_message(raw, get_message(types[topic]))
             stamp = msg.header.stamp.sec * 1_000_000_000 + msg.header.stamp.nanosec
-            if topic == pc_topic:
+            if topic in info_topics:
+                infos.setdefault(topic, []).append((stamp, msg))
+            elif topic == pc_topic:
                 pc_stamps.append(stamp)
             else:
                 img_stamps[topic].append(stamp)
@@ -359,7 +361,8 @@ def _collect(bag_path, pc_topic, cameras, need_tf=True):
             raise RuntimeError(f'no images on {c[0]!r}')
     if not pc_stamps:
         raise RuntimeError('bag has no point-cloud messages')
-    return (buf, infos, sorted(pc_stamps),
+    return (buf, {t: sorted(v, key=lambda pair: pair[0]) for t, v in infos.items()},
+            sorted(pc_stamps),
             {t: sorted(s) for t, s in img_stamps.items()}, types)
 
 
@@ -489,7 +492,8 @@ def colorize_bag_frame(args) -> dict:
     cam_stats = []
     overlay_context = None
     for img_topic, info_topic, frame in cameras:
-        info = infos[info_topic]
+        info_time, info = min(
+            infos[info_topic], key=lambda pair: abs(pair[0] - per_cam_time[img_topic]))
         image = msgs[(img_topic, per_cam_time[img_topic])]
         K, W, H = _camera_geometry(info, image)
         D = np.asarray(info.d, dtype=np.float64)
@@ -512,6 +516,7 @@ def colorize_bag_frame(args) -> dict:
         stats = {
             'image_topic': img_topic, 'colored': int(seen.sum()),
             'image_stamp_ns': per_cam_time[img_topic],
+            'camera_info_stamp_ns': info_time,
             'pair_dt_ms': abs(per_cam_time[img_topic] - pc_time) / 1e6}
         cam_stats.append(stats)
         if img_topic == primary_image_topic:
