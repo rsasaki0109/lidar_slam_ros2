@@ -232,6 +232,9 @@ private:
     } else {
       return false;
     }
+    if (img.data.size() < static_cast<std::size_t>(img.step) * img.height) {
+      return false;
+    }
     view.data = img.data.data();
     view.width = static_cast<int>(img.width);
     view.height = static_cast<int>(img.height);
