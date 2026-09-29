@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from lidarslam_benchmark_tools.lidarslam_tools.serialization import payload_to_json
 from lidarslam_benchmark_tools.lidarslam_tools.mid360_profile import (
     RobotProfileLoader,
@@ -48,9 +50,29 @@ __all__ = [
     'RobotProfileLoader',
     'TopicSelection',
     'payload_to_json',
+    'public_run_result',
     'render_robot_profile_report',
     'resolve_robot_frames',
 ]
+
+
+def public_run_result(run_result: dict[str, Any]) -> dict[str, Any]:
+    """Select stable report fields from an optional execution result."""
+    if not run_result:
+        return {
+            'present': False,
+            'returncode': None,
+            'timed_out': False,
+            'timeout_sec': 0,
+            'duration_sec': None,
+        }
+    return {
+        'present': True,
+        'returncode': run_result.get('returncode'),
+        'timed_out': bool(run_result.get('timed_out')),
+        'timeout_sec': run_result.get('timeout_sec', 0),
+        'duration_sec': run_result.get('duration_sec'),
+    }
 
 
 if __name__ == "__main__":
