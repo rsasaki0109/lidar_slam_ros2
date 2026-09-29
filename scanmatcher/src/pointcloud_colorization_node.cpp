@@ -289,6 +289,12 @@ private:
     PlumbBobDistortion distortion;
     const PlumbBobDistortion * distortion_ptr = nullptr;
     if (info->distortion_model.empty() || info->distortion_model == "plumb_bob") {
+      if (!info->d.empty() && info->d.size() != 4 && info->d.size() != 5) {
+        RCLCPP_WARN_THROTTLE(
+          get_logger(), *get_clock(), 30000,
+          "unsupported plumb_bob coefficient count %zu; skipping image", info->d.size());
+        return;
+      }
       if (info->d.size() >= 4) {
         distortion.k1 = static_cast<float>(info->d[0]);
         distortion.k2 = static_cast<float>(info->d[1]);
