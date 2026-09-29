@@ -32,7 +32,7 @@
 
 A LiDAR scan and a camera on the same rig share a *static* extrinsic, so a
 single time-matched (cloud, image) pair can be coloured by projection with no
-SLAM and no map frame: pick a cloud, pick the nearest image in time, resolve
+SLAM and no map frame: match sensor header timestamps on a shared clock, resolve
 ``camera_optical <- lidar`` from ``/tf`` + ``/tf_static`` or an explicit
 7-value calibration (they are rigidly mounted, so the transform is
 time-independent), undistort the image, and hand
@@ -305,7 +305,8 @@ def _collect(bag_path, pc_topic, cameras, need_tf=True):
 
     ``cameras`` is a list of ``(image_topic, info_topic, optical_frame)``.
     Returns ``(buf, infos, pc_stamps, img_stamps, types)`` where ``infos`` and
-    ``img_stamps`` are keyed by info_topic / image_topic respectively. With
+    ``img_stamps`` are keyed by info_topic / image_topic respectively. Stamps are header times,
+    not bag receipt times. With
     ``need_tf=False``, TF topics are optional and ``buf`` is ``None``.
     """
     from rclpy.serialization import deserialize_message
@@ -344,10 +345,13 @@ def _collect(bag_path, pc_topic, cameras, need_tf=True):
                 buf.set_transform(tr, 'bag')
         elif topic in info_topics and topic not in infos:
             infos[topic] = deserialize_message(raw, get_message(types[topic]))
-        elif topic == pc_topic:
-            pc_stamps.append(bagt)
-        elif topic in image_topics:
-            img_stamps[topic].append(bagt)
+        elif topic == pc_topic or topic in image_topics:
+            msg = deserialize_message(raw, get_message(types[topic]))
+            stamp = msg.header.stamp.sec * 1_000_000_000 + msg.header.stamp.nanosec
+            if topic == pc_topic:
+                pc_stamps.append(stamp)
+            else:
+                img_stamps[topic].append(stamp)
     for c in cameras:
         if c[1] not in infos:
             raise RuntimeError(f'no CameraInfo on {c[1]!r}')
@@ -360,19 +364,24 @@ def _collect(bag_path, pc_topic, cameras, need_tf=True):
 
 
 def _grab_messages(bag_path, wanted, types):
-    """Second pass: deserialize each ``(topic, bag_time)`` in ``wanted`` -> msg."""
+    """Second pass: deserialize each ``(topic, header_time)`` in ``wanted`` -> msg."""
     from rclpy.serialization import deserialize_message
     from rosidl_runtime_py.utilities import get_message
     from extract_posed_images import _open_reader
 
     out = {key: None for key in wanted}
     remaining = len(wanted)
+    wanted_topics = {topic for topic, _stamp in wanted}
     reader = _open_reader(bag_path)
     while reader.has_next() and remaining > 0:
         topic, raw, bagt = reader.read_next()
-        key = (topic, bagt)
+        if topic not in wanted_topics:
+            continue
+        msg = deserialize_message(raw, get_message(types[topic]))
+        stamp = msg.header.stamp.sec * 1_000_000_000 + msg.header.stamp.nanosec
+        key = (topic, stamp)
         if key in out and out[key] is None:
-            out[key] = deserialize_message(raw, get_message(types[topic]))
+            out[key] = msg
             remaining -= 1
     missing = [k for k, v in out.items() if v is None]
     if missing:
@@ -482,6 +491,7 @@ def colorize_bag_frame(args) -> dict:
         per_camera.append((colors, seen, counts))
         stats = {
             'image_topic': img_topic, 'colored': int(seen.sum()),
+            'image_stamp_ns': per_cam_time[img_topic],
             'pair_dt_ms': abs(per_cam_time[img_topic] - pc_time) / 1e6}
         cam_stats.append(stats)
         if img_topic == primary_image_topic:
@@ -506,6 +516,7 @@ def colorize_bag_frame(args) -> dict:
             pair_dt_ms=stats['pair_dt_ms'], total_points=len(xyz))
     return {
         'pc_frames': len(pc_stamps), 'cameras': cam_stats,
+        'time_basis': 'header', 'cloud_stamp_ns': pc_time,
         'points': len(xyz), 'colored': n_seen,
         'colored_frac': n_seen / max(1, len(xyz)),
         'colour_statistics': colour_statistics(colors, seen),
@@ -546,7 +557,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--time-frac', type=float, default=0.6,
                    help='pick the cloud at this fraction through the bag [0,1]')
     p.add_argument('--max-pair-dt-ms', type=float, default=100.0,
-                   help='reject image/cloud pairs farther apart (<=0 disables)')
+                   help='reject sensor-header image/cloud gaps in ms (shared clock required; <=0 disables)')
     p.add_argument('--sync-search-radius', type=int, default=2,
                    help='neighbouring images per side searched for best sync')
     p.add_argument('--no-undistort', action='store_true',
