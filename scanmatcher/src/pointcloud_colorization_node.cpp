@@ -256,20 +256,32 @@ private:
       return;
     }
 
-    if (image->width != info->width || image->height != info->height) {
+    // CameraInfo K and ROI use full-resolution, unbinned raw coordinates.
+    const auto bin_x = std::max(info->binning_x, 1u);
+    const auto bin_y = std::max(info->binning_y, 1u);
+    const auto & roi = info->roi;
+    const bool full_frame = roi.width == 0 && roi.height == 0 &&
+      roi.x_offset == 0 && roi.y_offset == 0;
+    const auto width = full_frame ? info->width : roi.width;
+    const auto height = full_frame ? info->height : roi.height;
+    if (roi.x_offset > info->width || roi.y_offset > info->height ||
+      width == 0 || height == 0 ||
+      width > info->width - roi.x_offset || height > info->height - roi.y_offset ||
+      image->width != width / bin_x || image->height != height / bin_y)
+    {
       RCLCPP_WARN_THROTTLE(
         get_logger(), *get_clock(), 5000,
-        "image and CameraInfo dimensions differ; skipping image");
+        "image dimensions do not match CameraInfo ROI/binning; skipping image");
       return;
     }
 
     CameraIntrinsics intr;
-    intr.fx = static_cast<float>(info->k[0]);
-    intr.fy = static_cast<float>(info->k[4]);
-    intr.cx = static_cast<float>(info->k[2]);
-    intr.cy = static_cast<float>(info->k[5]);
-    intr.width = static_cast<int>(info->width);
-    intr.height = static_cast<int>(info->height);
+    intr.fx = static_cast<float>(info->k[0] / bin_x);
+    intr.fy = static_cast<float>(info->k[4] / bin_y);
+    intr.cx = static_cast<float>((info->k[2] - roi.x_offset) / bin_x);
+    intr.cy = static_cast<float>((info->k[5] - roi.y_offset) / bin_y);
+    intr.width = view.width;
+    intr.height = view.height;
     if (intr.fx <= 0.0f || intr.fy <= 0.0f || intr.width <= 0 || intr.height <= 0) {
       return;
     }
