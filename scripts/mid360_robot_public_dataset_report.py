@@ -16,6 +16,7 @@ from lidarslam_benchmark_tools.mid360_robot_public_datasets import (
     get_public_dataset,
     public_dataset_registry,
 )
+from lidarslam_benchmark_tools.lidarslam_tools.report_model import as_float as _maybe_float
 from lidarslam_benchmark_tools.mid360_robot_tools import payload_to_json
 
 
@@ -423,15 +424,6 @@ def _collect_warnings(*payloads: dict[str, Any]) -> list[dict[str, str]]:
             seen.add(key)
             warnings.append(item)
     return warnings
-
-
-def _maybe_float(value: Any) -> float | None:
-    if value is None:
-        return None
-    try:
-        return float(value)
-    except Exception:
-        return None
 
 
 def _fmt_rate(value: Any) -> str:
