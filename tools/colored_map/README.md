@@ -80,6 +80,14 @@ K3構成ではさらに `--color-overlap-balance --color-view-confidence
 RTKで12視点が悪化した。反射面や誤投影の解決、測色的な真値への精度向上を
 証明するものではない。手元のGo2/JEPLO屋内5本は画像topicがなく、着色は未評価。
 
+RTK-SLAMの配布bagでは、カメラとIMUの約−20.6msの差は補正済みである
+（[公式の時刻説明](https://rtk-slam-dataset.github.io/#download)）。
+保存較正の `timeshift_cam_imu` を画像headerへ再度加えない。
+配布bagの補正済み時計と同じ時計の軌跡を使う場合は、既存の
+`--time-offset 0 --time-offset-adjustment 0` で追加補正を明示的に無効にできる。
+独自に変換したbagや別時計の軌跡では、その生成履歴を先に確認する。
+この指定はscan内の点時刻によるdeskewや外部較正を代替しない。
+
 RTK約491万点の単回比較では、12→32観測で処理時間274→426秒、ピークRSS
 2.97→4.24 GiBとなった（同じ旧medoid実装）。現在のmedoid実装は全観測間の
 距離配列をソートと累積和に置き換え、32観測で色・未着色mask・全品質評価値を
