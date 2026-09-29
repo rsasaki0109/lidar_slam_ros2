@@ -331,18 +331,28 @@ private:
 
     // Pass 1: retain all occluders, including points skipped by the color-sampling cap.
     FrameZBuffer zbuf(intr, zbuf_bin_);
+    std::vector<Eigen::Vector3f> projected_samples;
+    projected_samples.reserve(1 + (map_points_.size() - 1) / stride);
+    std::size_t next_sample = 0;
     for (std::size_t i = 0; i < map_points_.size(); ++i) {
-      float u, v, depth;
-      if (projectPoint(intr, world_to_cam, map_points_[i], u, v, depth, distortion_ptr)) {
+      float u = 0.0f, v = 0.0f, depth = 0.0f;
+      const bool projected =
+        projectPoint(intr, world_to_cam, map_points_[i], u, v, depth, distortion_ptr);
+      if (projected) {
         zbuf.insert(u, v, depth);
+      }
+      if (i == next_sample) {
+        projected_samples.emplace_back(
+          projected ? u : 0.0f, projected ? v : 0.0f, projected ? depth : 0.0f);
+        next_sample += stride;
       }
     }
 
-    // Pass 2: colour the visible points into their voxels.
+    // Pass 2: reuse projections to colour the visible points into their voxels.
     for (std::size_t i = 0; i < map_points_.size(); i += stride) {
-      const Eigen::Vector3f & p = map_points_[i];
-      float u, v, depth;
-      if (!projectPoint(intr, world_to_cam, p, u, v, depth, distortion_ptr)) {
+      const auto & projection = projected_samples[i / stride];
+      const float u = projection.x(), v = projection.y(), depth = projection.z();
+      if (depth == 0.0f) {
         continue;
       }
       if (!zbuf.visible(u, v, depth, static_cast<float>(depth_tol_))) {
