@@ -367,7 +367,8 @@ def test_direct_coloring_uses_camera_info_model(
     ('plumb_bob', [0.2, -0.02, 0.003, -0.001, 0.01]),
     ('rational_polynomial', [0.1, -0.02, 0.003, -0.001, 0.01, 0.15, 0.02, 0.01]),
 ])
-def test_raw_image_coloring_projects_camera_model(tmp_path, monkeypatch, model, d):
+@pytest.mark.parametrize('cropped', [False, True])
+def test_raw_image_coloring_projects_camera_model(tmp_path, monkeypatch, model, d, cropped):
     """Actual sampling and occlusion must use distorted pixels, as must overlays."""
     cv2 = pytest.importorskip('cv2')
     pytest.importorskip('rclpy.time')
@@ -382,11 +383,17 @@ def test_raw_image_coloring_projects_camera_model(tmp_path, monkeypatch, model, 
     else:
         uv = cv2.projectPoints(xyz[:1, None], np.zeros(3), np.zeros(3),
                                k, np.array(d))[0].reshape(2)
+    if cropped:
+        uv = (uv - [160, 120]) / 2
+        width, height = 240, 180
     u, v = np.round(uv).astype(int)
     rgb = np.zeros((height, width, 3), dtype=np.uint8)
     rgb[v, u] = [211, 71, 33]
-    info = SimpleNamespace(k=k.ravel(), d=d, width=width, height=height,
+    info = SimpleNamespace(k=k.ravel(), d=d, width=640, height=480,
                            distortion_model=model)
+    if cropped:
+        info.binning_x = info.binning_y = 2
+        info.roi = SimpleNamespace(x_offset=160, y_offset=120, width=480, height=360)
     image = SimpleNamespace(encoding='rgb8', width=width, height=height,
                             step=width * 3, data=rgb.tobytes())
     args = cfb.build_parser().parse_args([
@@ -509,3 +516,51 @@ def test_bag_pairing_uses_sensor_stamps_despite_recording_delay(monkeypatch, pha
         messages = cfb._grab_messages('bag', {('/cloud', 100), ('/image', 105)}, types)
         assert messages[('/cloud', 100)].header.stamp.nanosec == 100
         assert messages[('/image', 105)].header.frame_id == ''
+
+
+@pytest.mark.parametrize('raw', [False, True])
+@pytest.mark.parametrize('roi,bins,size,pixel', [
+    ((0, 0, 0, 0), (0, 0), (64, 48), (40, 28)),
+    ((16, 8, 32, 32), (1, 1), (32, 32), (24, 20)),
+    ((0, 0, 0, 0), (2, 2), (32, 24), (20, 14)),
+    ((16, 8, 32, 32), (2, 2), (16, 16), (12, 10)),
+    ((16, 8, 32, 32), (2, 1), (16, 32), (12, 20)),
+    ((40, 8, 32, 32), (1, 1), (32, 32), None),
+    ((16, 8, 0, 32), (1, 1), (32, 32), None),
+    ((0, 0, 0, 0), (2, 2), (64, 48), None),
+    ((0, 0, 0, 0), (128, 128), (0, 0), None),
+])
+def test_direct_roi_binning_samples_known_pixel(tmp_path, monkeypatch, raw, roi, bins, size, pixel):
+    """Cropping/binning must preserve a known ray's color and occlusion."""
+    pytest.importorskip('cv2')
+    pytest.importorskip('rclpy.time')
+    from types import SimpleNamespace
+
+    w, h = size
+    rgb = np.zeros((h, w, 3), dtype=np.uint8)
+    if pixel is not None:
+        rgb[pixel[1], pixel[0]] = [211, 71, 33]
+    image = SimpleNamespace(encoding='rgb8', width=w, height=h, step=w * 3, data=rgb.tobytes())
+    info = SimpleNamespace(
+        k=[40., 0., 32., 0., 40., 24., 0., 0., 1.], d=[0.] * 5,
+        width=64, height=48, distortion_model='plumb_bob', binning_x=bins[0], binning_y=bins[1],
+        roi=SimpleNamespace(x_offset=roi[0], y_offset=roi[1], width=roi[2], height=roi[3]))
+    args = cfb.build_parser().parse_args([
+        'bag', str(tmp_path / 'roi'), '--interp', 'nearest',
+        '--extrinsic', '0', '0', '0', '0', '0', '0', '1'])
+    args.no_undistort = raw
+    xyz = np.array([[.4, .2, 2.], [.8, .4, 4.]])
+    monkeypatch.setattr(cfb, '_collect', lambda *a, **kw: (
+        None, {args.camera_info_topic: info}, [1], {args.image_topic: [1]}, {}))
+    monkeypatch.setattr(cfb, '_grab_messages', lambda *a: {
+        (args.pc_topic, 1): None, (args.image_topic, 1): image})
+    monkeypatch.setattr(cfb, '_read_xyz', lambda _: xyz)
+    if pixel is None:
+        with pytest.raises(ValueError, match='CameraInfo ROI/binning'):
+            cfb.colorize_bag_frame(args)
+        return
+    result = cfb.colorize_bag_frame(args)
+    points, colors = cfb.pcio.read_ply_xyz(result['full_ply'])
+    assert result['colored'] == 1
+    np.testing.assert_allclose(points, xyz)
+    np.testing.assert_array_equal(colors, [[211, 71, 33], args.default_rgb])

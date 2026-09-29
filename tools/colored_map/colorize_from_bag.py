@@ -423,6 +423,26 @@ def _camera_list(args) -> list:
     return cams
 
 
+def _camera_geometry(info, image):
+    """Resolve raw-image intrinsics and size from full-resolution CameraInfo."""
+    bx, by = max(1, getattr(info, 'binning_x', 0)), max(1, getattr(info, 'binning_y', 0))
+    roi = getattr(info, 'roi', None)
+    x, y, w, h = (getattr(roi, name, 0) for name in ('x_offset', 'y_offset', 'width', 'height'))
+    if (x, y, w, h) == (0, 0, 0, 0):
+        w, h = info.width, info.height
+    if (x < 0 or y < 0 or w <= 0 or h <= 0 or
+            x + w > info.width or y + h > info.height or
+            w // bx <= 0 or h // by <= 0 or
+            (image.width, image.height) != (w // bx, h // by)):
+        raise ValueError('image dimensions do not match CameraInfo ROI/binning')
+    K = np.asarray(info.k, dtype=np.float64).reshape(3, 3).copy()
+    K[0, 2] -= x
+    K[1, 2] -= y
+    K[0, :] /= bx
+    K[1, :] /= by
+    return K, image.width, image.height
+
+
 def colorize_bag_frame(args) -> dict:
     """Run the whole extract -> colorize -> write flow; return a summary dict."""
     from rclpy.time import Time
@@ -465,9 +485,9 @@ def colorize_bag_frame(args) -> dict:
     overlay_context = None
     for img_topic, info_topic, frame in cameras:
         info = infos[info_topic]
-        K = np.asarray(info.k, dtype=np.float64).reshape(3, 3)
+        image = msgs[(img_topic, per_cam_time[img_topic])]
+        K, W, H = _camera_geometry(info, image)
         D = np.asarray(info.d, dtype=np.float64)
-        W, H = int(info.width), int(info.height)
         if manual_extrinsic is None:
             tf = buf.lookup_transform_core(frame, args.base_frame, Time().to_msg())
             world_to_cam = transform_msg_to_matrix(
@@ -475,7 +495,7 @@ def colorize_bag_frame(args) -> dict:
         else:
             world_to_cam = manual_extrinsic
         rgb_img = _image_to_rgb(
-            msgs[(img_topic, per_cam_time[img_topic])], K, D, not args.no_undistort,
+            image, K, D, not args.no_undistort,
             info.distortion_model)
         colors, seen, counts = pcio.colorize_by_projection_robust(
             xyz, world_to_cam[None], K, [rgb_img], W, H,
