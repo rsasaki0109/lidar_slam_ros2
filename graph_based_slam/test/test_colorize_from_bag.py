@@ -358,7 +358,6 @@ def test_bag_pairing_uses_sensor_stamps_despite_recording_delay(monkeypatch, pha
 def test_direct_roi_binning_samples_known_pixel(
         tmp_path, monkeypatch, raw, roi, bins, size, pixel):
     """Cropping/binning must preserve a known ray's color and occlusion."""
-    pytest.importorskip('cv2')
     pytest.importorskip('rclpy.time')
     from types import SimpleNamespace
 
