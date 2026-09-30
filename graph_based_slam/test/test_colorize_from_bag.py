@@ -27,7 +27,7 @@
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-"""Tests for the numpy-only helpers in colorize_from_bag (no ROS needed)."""
+"""Tests for direct bag coloring and sensor timestamp matching."""
 
 from __future__ import annotations
 
@@ -35,6 +35,7 @@ from pathlib import Path
 import sys
 
 import numpy as np
+import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TOOL_DIR = REPO_ROOT / 'tools' / 'gaussian_splatting'
@@ -285,3 +286,58 @@ def test_transform_optical_rotation_is_a_valid_axis_permutation():
     assert abs(np.linalg.det(R) - 1.0) < 1e-9
     np.testing.assert_allclose(R @ np.array([1.0, 0.0, 0.0]), [0, -1, 0], atol=1e-9)
     np.testing.assert_allclose(R @ np.array([0.0, 0.0, 1.0]), [1, 0, 0], atol=1e-9)
+
+
+@pytest.mark.parametrize('phase', ['collect', 'grab'])
+def test_bag_pairing_uses_sensor_stamps_despite_recording_delay(monkeypatch, phase):
+    """A delayed cloud must match acquisition time, not a nearby receipt."""
+    pytest.importorskip('rclpy.serialization')
+    from rclpy.serialization import serialize_message
+    from sensor_msgs.msg import CameraInfo, Image, PointCloud2
+    from types import SimpleNamespace
+    import extract_posed_images
+
+    cloud = PointCloud2()
+    cloud.header.stamp.nanosec = 100
+    image = Image()
+    image.header.stamp.nanosec = 105
+    late_image = Image()
+    late_image.header.stamp.nanosec = 410
+    # Duplicate header timestamps retain the first matching message.
+    duplicate = Image()
+    duplicate.header.stamp.nanosec = 105
+    duplicate.header.frame_id = 'later_duplicate'
+    records = [('/info', serialize_message(CameraInfo()), 1),
+               ('/image', serialize_message(image), 150),
+               ('/cloud', serialize_message(cloud), 400),
+               ('/ignored', b'not a ROS message', 401),
+               ('/image', serialize_message(late_image), 415),
+               ('/image', serialize_message(duplicate), 420)]
+    types = {'/info': 'sensor_msgs/msg/CameraInfo',
+             '/image': 'sensor_msgs/msg/Image',
+             '/cloud': 'sensor_msgs/msg/PointCloud2'}
+
+    class Reader:
+        def __init__(self):
+            self.records = list(records)
+
+        def get_all_topics_and_types(self):
+            return [SimpleNamespace(name=k, type=v) for k, v in types.items()]
+
+        def has_next(self):
+            return bool(self.records)
+
+        def read_next(self):
+            return self.records.pop(0)
+
+    monkeypatch.setattr(extract_posed_images, '_open_reader', lambda _: Reader())
+    if phase == 'collect':
+        _, _, clouds, images, _ = cfb._collect(
+            'bag', '/cloud', [('/image', '/info', 'camera')], need_tf=False)
+        assert clouds == [100]
+        assert images['/image'] == [105, 105, 410]
+        assert cfb.select_synced_time(clouds, images['/image'], .5) == (100, 105)
+    else:
+        messages = cfb._grab_messages('bag', {('/cloud', 100), ('/image', 105)}, types)
+        assert messages[('/cloud', 100)].header.stamp.nanosec == 100
+        assert messages[('/image', 105)].header.frame_id == ''
