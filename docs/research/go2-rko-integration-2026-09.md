@@ -2,11 +2,17 @@
 
 ## Published integration scope
 
-This PR advances the public SLAM pin from `99b55dc6` to `12987f4`.
+This PR advances the public SLAM pin from `99b55dc6` to `a5f536f`.
 The dependency changes are reviewed separately in the RKO release branch:
 first offline recorder discovery / online reliability overrides / test-option
 preservation, then the Go2 IMU, queue, and initialization changes below.
 The default SLAM CI now explicitly enables package tests and runs RKO tests.
+That exposed a dangling shutdown callback on Humble: node destruction left a
+callback capturing the deleted node. Commit `a5f536f` registers it with the
+node context and removes it on destruction, with lifecycle regression tests.
+The historical replay revision is `12987f4`; the shutdown fix does not change
+estimation equations, but the full-route results below are not a fresh
+benchmark of `a5f536f`.
 The benchmark results below are historical measurements at the stated source
 revisions; publishing this pin does not rerun or broaden those experiments.
 
