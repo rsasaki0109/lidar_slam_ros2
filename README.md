@@ -5,6 +5,10 @@
 [![ROS 2: Humble | Jazzy](https://img.shields.io/badge/ROS%202-Humble%20%7C%20Jazzy-22314E?logo=ros&logoColor=white)](#support-and-license)
 [![GitHub stars](https://img.shields.io/github/stars/rsasaki0109/lidar_slam_ros2?style=flat&logo=github)](https://github.com/rsasaki0109/lidar_slam_ros2/stargazers)
 
+![Live map building on a handheld outdoor run: the map grows along the trajectory, coloured by when each part was mapped](lidarslam/images/slam_koide_outdoor_hard_02a.gif)
+
+*Handheld Livox MID-360, ~550 m outdoor "hard" sequence in 6 minutes ([Koide Hard Point Cloud Localization Dataset](https://zenodo.org/records/10122133) `outdoor_hard_02a`, CC BY 4.0). RKO-LIO + graph SLAM on `develop`: 99.7% of scans tracked, APE 1.03 m RMSE against the dataset ground truth, faster than real time on a shared workstation (RTF 0.75). [How this was made](docs/readme-media.md).*
+
 **Turn a rosbag into a map you can actually drive on.**
 
 ROS 2 LiDAR SLAM that outputs an Autoware-compatible map bundle — `pointcloud_map/`, `map_projector_info.yaml`, and auto-generated lanelet2. Frontend is `RKO-LIO` (MIT), backend is `graph_based_slam` (BSD-2). No GPL components on the default workflow.
