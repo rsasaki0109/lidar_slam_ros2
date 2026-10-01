@@ -49,7 +49,9 @@ def _load_module():
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    with pytest.MonkeyPatch.context() as patch:
+        patch.syspath_prepend(str(SCRIPT_PATH.parent))
+        spec.loader.exec_module(module)
     return module
 
 

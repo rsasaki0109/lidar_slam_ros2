@@ -37,6 +37,8 @@ import math
 import shutil
 from pathlib import Path
 
+from extract_applanix_gsof49_reference import resolve_applanix_msg_dir
+from extract_static_transform_from_bag import quaternion_xyzw_from_rotation_matrix
 import numpy as np
 
 DEFAULT_ANGULAR_VELOCITY_VARIANCE = 0.1
@@ -60,26 +62,6 @@ def import_rosbags_modules():
             'rosbags is required to convert Applanix bags into Imu bags',
         ) from exc
     return AnyReader, Writer, Stores, get_typestore, get_types_from_msg
-
-
-def _default_applanix_msg_dirs(repo_root: Path) -> list[Path]:
-    return [
-        repo_root / 'Thirdparty' / 'applanix' / 'applanix_msgs' / 'msg',
-        repo_root / 'applanix_msgs' / 'msg',
-        Path('/tmp/applanix/applanix_msgs/msg'),
-    ]
-
-
-def resolve_applanix_msg_dir(requested: Path | None, repo_root: Path) -> Path:
-    """Locate applanix_msgs message definitions."""
-    candidates = [requested] if requested is not None else _default_applanix_msg_dirs(repo_root)
-    for candidate in candidates:
-        if candidate is not None and candidate.is_dir():
-            return candidate
-    raise RuntimeError(
-        'could not find applanix_msgs message definitions; pass '
-        '--applanix-msg-dir or clone https://github.com/autowarefoundation/applanix.git',
-    )
 
 
 def load_typestore_with_applanix(msg_dir: Path):
@@ -119,48 +101,6 @@ def rotation_matrix_from_rpy(
         ],
         dtype=np.float64,
     )
-
-
-def quaternion_xyzw_from_rotation_matrix(
-    rotation: np.ndarray,
-) -> tuple[float, float, float, float]:
-    """Convert a 3x3 rotation matrix to a normalized XYZW quaternion."""
-    trace = float(rotation[0, 0] + rotation[1, 1] + rotation[2, 2])
-    if trace > 0.0:
-        s = math.sqrt(trace + 1.0) * 2.0
-        qw = 0.25 * s
-        qx = (rotation[2, 1] - rotation[1, 2]) / s
-        qy = (rotation[0, 2] - rotation[2, 0]) / s
-        qz = (rotation[1, 0] - rotation[0, 1]) / s
-    elif rotation[0, 0] > rotation[1, 1] and rotation[0, 0] > rotation[2, 2]:
-        s = math.sqrt(
-            1.0 + rotation[0, 0] - rotation[1, 1] - rotation[2, 2],
-        ) * 2.0
-        qw = (rotation[2, 1] - rotation[1, 2]) / s
-        qx = 0.25 * s
-        qy = (rotation[0, 1] + rotation[1, 0]) / s
-        qz = (rotation[0, 2] + rotation[2, 0]) / s
-    elif rotation[1, 1] > rotation[2, 2]:
-        s = math.sqrt(
-            1.0 + rotation[1, 1] - rotation[0, 0] - rotation[2, 2],
-        ) * 2.0
-        qw = (rotation[0, 2] - rotation[2, 0]) / s
-        qx = (rotation[0, 1] + rotation[1, 0]) / s
-        qy = 0.25 * s
-        qz = (rotation[1, 2] + rotation[2, 1]) / s
-    else:
-        s = math.sqrt(
-            1.0 + rotation[2, 2] - rotation[0, 0] - rotation[1, 1],
-        ) * 2.0
-        qw = (rotation[1, 0] - rotation[0, 1]) / s
-        qx = (rotation[0, 2] + rotation[2, 0]) / s
-        qy = (rotation[1, 2] + rotation[2, 1]) / s
-        qz = 0.25 * s
-
-    norm = math.sqrt(qx * qx + qy * qy + qz * qz + qw * qw)
-    if norm < 1e-12:
-        return 0.0, 0.0, 0.0, 1.0
-    return qx / norm, qy / norm, qz / norm, qw / norm
 
 
 def applanix_attitude_to_ros_quaternion_xyzw(

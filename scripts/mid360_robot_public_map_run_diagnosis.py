@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from lidarslam_benchmark_tools.mid360_robot_tools import payload_to_json
+from lidarslam_benchmark_tools.mid360_robot_tools import public_run_result as _public_run_result
 
 
 PUBLIC_MAP_RUN_DIAGNOSIS_JSON = 'mid360_robot_public_map_run_diagnosis.json'
@@ -335,24 +336,6 @@ def _dataset_status(
     ):
         return 'INCOMPLETE'
     return 'NO_RUN'
-
-
-def _public_run_result(run_result: dict[str, Any]) -> dict[str, Any]:
-    if not run_result:
-        return {
-            'present': False,
-            'returncode': None,
-            'timed_out': False,
-            'timeout_sec': 0,
-            'duration_sec': None,
-        }
-    return {
-        'present': True,
-        'returncode': run_result.get('returncode'),
-        'timed_out': bool(run_result.get('timed_out')),
-        'timeout_sec': run_result.get('timeout_sec', 0),
-        'duration_sec': run_result.get('duration_sec'),
-    }
 
 
 def _problem_hints(

@@ -9,14 +9,16 @@
 from __future__ import annotations
 
 import argparse
-import math
 import shutil
 from pathlib import Path
 
-
-WGS84_A = 6378137.0
-WGS84_F = 1.0 / 298.257223563
-WGS84_E2 = WGS84_F * (2.0 - WGS84_F)
+from extract_applanix_gsof49_reference import (
+    heading_deg_to_enu_yaw_deg,
+    is_usable_fix,
+    lla_to_enu,
+    resolve_applanix_msg_dir,
+    rpy_deg_to_quaternion,
+)
 
 
 def sec_nsec_from_ns(stamp_ns: int) -> tuple[int, int]:
@@ -37,26 +39,6 @@ def import_rosbags_modules():
     return AnyReader, Writer, Stores, get_typestore, get_types_from_msg
 
 
-def _default_applanix_msg_dirs(repo_root: Path) -> list[Path]:
-    return [
-        repo_root / 'Thirdparty' / 'applanix' / 'applanix_msgs' / 'msg',
-        repo_root / 'applanix_msgs' / 'msg',
-        Path('/tmp/applanix/applanix_msgs/msg'),
-    ]
-
-
-def resolve_applanix_msg_dir(requested: Path | None, repo_root: Path) -> Path:
-    """Locate applanix_msgs message definitions."""
-    candidates = [requested] if requested is not None else _default_applanix_msg_dirs(repo_root)
-    for candidate in candidates:
-        if candidate is not None and candidate.is_dir():
-            return candidate
-    raise RuntimeError(
-        'could not find applanix_msgs message definitions; pass '
-        '--applanix-msg-dir or clone https://github.com/autowarefoundation/applanix.git',
-    )
-
-
 def load_typestore_with_applanix(msg_dir: Path):
     """Build a typestore that knows both standard ROS 2 and applanix_msgs."""
     _, _, Stores, get_typestore, get_types_from_msg = import_rosbags_modules()
@@ -66,103 +48,6 @@ def load_typestore_with_applanix(msg_dir: Path):
         msg_name = f'applanix_msgs/msg/{path.stem}'
         typestore.register(get_types_from_msg(text, msg_name))
     return typestore
-
-
-def lla_to_ecef(latitude_deg: float, longitude_deg: float, altitude_m: float) -> tuple[float, float, float]:
-    """Convert WGS84 LLA into ECEF."""
-    lat = math.radians(latitude_deg)
-    lon = math.radians(longitude_deg)
-    sin_lat = math.sin(lat)
-    cos_lat = math.cos(lat)
-    sin_lon = math.sin(lon)
-    cos_lon = math.cos(lon)
-    radius = WGS84_A / math.sqrt(1.0 - WGS84_E2 * sin_lat * sin_lat)
-    x = (radius + altitude_m) * cos_lat * cos_lon
-    y = (radius + altitude_m) * cos_lat * sin_lon
-    z = (radius * (1.0 - WGS84_E2) + altitude_m) * sin_lat
-    return x, y, z
-
-
-def ecef_to_enu(
-    x: float,
-    y: float,
-    z: float,
-    origin_latitude_deg: float,
-    origin_longitude_deg: float,
-    origin_altitude_m: float,
-) -> tuple[float, float, float]:
-    """Convert ECEF into local ENU relative to the origin LLA."""
-    ox, oy, oz = lla_to_ecef(
-        origin_latitude_deg,
-        origin_longitude_deg,
-        origin_altitude_m,
-    )
-    dx = x - ox
-    dy = y - oy
-    dz = z - oz
-
-    lat0 = math.radians(origin_latitude_deg)
-    lon0 = math.radians(origin_longitude_deg)
-    sin_lat0 = math.sin(lat0)
-    cos_lat0 = math.cos(lat0)
-    sin_lon0 = math.sin(lon0)
-    cos_lon0 = math.cos(lon0)
-
-    east = -sin_lon0 * dx + cos_lon0 * dy
-    north = -sin_lat0 * cos_lon0 * dx - sin_lat0 * sin_lon0 * dy + cos_lat0 * dz
-    up = cos_lat0 * cos_lon0 * dx + cos_lat0 * sin_lon0 * dy + sin_lat0 * dz
-    return east, north, up
-
-
-def lla_to_enu(
-    latitude_deg: float,
-    longitude_deg: float,
-    altitude_m: float,
-    origin_latitude_deg: float,
-    origin_longitude_deg: float,
-    origin_altitude_m: float,
-) -> tuple[float, float, float]:
-    """Convert WGS84 LLA into local ENU relative to the origin LLA."""
-    return ecef_to_enu(
-        *lla_to_ecef(latitude_deg, longitude_deg, altitude_m),
-        origin_latitude_deg,
-        origin_longitude_deg,
-        origin_altitude_m,
-    )
-
-
-def heading_deg_to_enu_yaw_deg(heading_deg: float) -> float:
-    """Convert north-clockwise heading into ENU yaw."""
-    yaw_deg = 90.0 - heading_deg
-    while yaw_deg <= -180.0:
-        yaw_deg += 360.0
-    while yaw_deg > 180.0:
-        yaw_deg -= 360.0
-    return yaw_deg
-
-
-def rpy_deg_to_quaternion(
-    roll_deg: float,
-    pitch_deg: float,
-    yaw_deg: float,
-) -> tuple[float, float, float, float]:
-    """Convert roll/pitch/yaw degrees into an XYZW quaternion."""
-    roll = math.radians(roll_deg)
-    pitch = math.radians(pitch_deg)
-    yaw = math.radians(yaw_deg)
-
-    cy = math.cos(yaw * 0.5)
-    sy = math.sin(yaw * 0.5)
-    cp = math.cos(pitch * 0.5)
-    sp = math.sin(pitch * 0.5)
-    cr = math.cos(roll * 0.5)
-    sr = math.sin(roll * 0.5)
-
-    qw = cr * cp * cy + sr * sp * sy
-    qx = sr * cp * cy - cr * sp * sy
-    qy = cr * sp * cy + sr * cp * sy
-    qz = cr * cp * sy - sr * sp * cy
-    return qx, qy, qz, qw
 
 
 def integrate_planar_velocity(
@@ -181,33 +66,6 @@ def integrate_planar_velocity(
         east_m + velocity_east_mps * dt,
         north_m + velocity_north_mps * dt,
     )
-
-
-def is_usable_fix(
-    *,
-    latitude_deg: float,
-    longitude_deg: float,
-    altitude_m: float,
-    imu_alignment: int,
-    gnss_status: int,
-    aligned_value: int,
-    fix_not_available_value: int,
-    gnss_unknown_value: int,
-) -> tuple[bool, str]:
-    """Return whether a GSOF49 sample is usable as a reference pose."""
-    if not math.isfinite(latitude_deg) or not math.isfinite(longitude_deg):
-        return False, 'non_finite_lla'
-    if abs(latitude_deg) < 1e-9 and abs(longitude_deg) < 1e-9:
-        return False, 'zero_origin'
-    if not math.isfinite(altitude_m):
-        return False, 'non_finite_altitude'
-    if imu_alignment < aligned_value:
-        return False, 'imu_not_aligned'
-    if gnss_status == fix_not_available_value:
-        return False, 'fix_not_available'
-    if gnss_status == gnss_unknown_value:
-        return False, 'gnss_unknown'
-    return True, 'ok'
 
 
 def parse_args() -> argparse.Namespace:

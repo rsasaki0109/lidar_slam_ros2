@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from lidarslam_benchmark_tools.lidarslam_tools.report_model import as_float as _maybe_float
 from lidarslam_benchmark_tools.mid360_robot_tools import payload_to_json
 
 
@@ -391,15 +392,6 @@ def _load_json(path: Path) -> dict[str, Any]:
     except Exception:
         return {}
     return payload if isinstance(payload, dict) else {}
-
-
-def _maybe_float(value: Any) -> float | None:
-    if value is None:
-        return None
-    try:
-        return float(value)
-    except Exception:
-        return None
 
 
 def _fmt_float(value: Any) -> str:
