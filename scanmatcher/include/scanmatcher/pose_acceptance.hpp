@@ -509,8 +509,6 @@ inline Outcome evaluate(const Config & config, State & state, const Input & inpu
   }
   if (hard_reject_pose_update) {
     state.last_accepted_delta_valid = false;
-  }
-  if (hard_reject_pose_update) {
     const bool activate_recovery_target =
       !input.mapping_in_progress &&
       (
