@@ -535,7 +535,9 @@ def colorize_bag_frame(args) -> dict:
     requested_overlay = getattr(args, 'diagnostic_overlay', None)
     if requested_overlay is not None and overlay_context is not None:
         rgb_img, world_to_cam, K, W, H, stats = overlay_context
-        diagnostics = projection_diagnostics(xyz, world_to_cam, K, W, H)
+        diagnostics = projection_diagnostics(
+            xyz, world_to_cam, K, W, H,
+            zbuf_bin=args.zbuf_bin, depth_tol=args.depth_tol)
         overlay_path = _write_diagnostic_overlay(
             requested_overlay, rgb_img, diagnostics,
             pair_dt_ms=stats['pair_dt_ms'], total_points=len(xyz))
