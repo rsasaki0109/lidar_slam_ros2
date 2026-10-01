@@ -7,7 +7,7 @@
 
 ![Live map building on a handheld outdoor run: the map grows along the trajectory, coloured by when each part was mapped](lidarslam/images/slam_koide_outdoor_hard_02a.gif)
 
-*Handheld Livox MID-360, ~550 m outdoor "hard" sequence in 6 minutes ([Koide Hard Point Cloud Localization Dataset](https://zenodo.org/records/10122133) `outdoor_hard_02a`, CC BY 4.0). RKO-LIO + graph SLAM on `develop`: 99.7% of scans tracked, APE 1.03 m RMSE against the dataset ground truth, faster than real time on a shared workstation (RTF 0.75). [How this was made](docs/readme-media.md). Start at the [Quickstart](#quickstart); `develop` is the default branch; current release candidate notes: [v0.9.1](docs/releases/v0.9.1.md). [日本語クイックスタート](docs/getting-started-ja.md).*
+*Handheld Livox MID-360, ~550 m outdoor "hard" sequence in 6 minutes ([Koide Hard Point Cloud Localization Dataset](https://zenodo.org/records/10122133) `outdoor_hard_02a`, CC BY 4.0). RKO-LIO + graph SLAM on `develop` with the [handheld MID-360 outdoor profile](lidarslam/param/rko_lio_mid360_handheld_outdoor.yaml): 99.7% of scans tracked, APE 0.57 m RMSE against the dataset ground truth, faster than real time on a shared workstation (RTF 0.56). [How this was made](docs/readme-media.md). Start at the [Quickstart](#quickstart); `develop` is the default branch; current release candidate notes: [v0.9.1](docs/releases/v0.9.1.md). [日本語クイックスタート](docs/getting-started-ja.md).*
 
 **Turn a rosbag into a map you can actually drive on.**
 
