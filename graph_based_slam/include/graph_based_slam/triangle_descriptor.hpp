@@ -328,7 +328,6 @@ inline std::vector<Keypoint> extractKeypointsEdge3D(
     Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> es(cov, Eigen::EigenvaluesOnly);
     if (es.info() != Eigen::Success) {continue;}
     const Eigen::Vector3f ev = es.eigenvalues();
-    const float lam0 = std::max(0.0f, ev(0));
     const float lam1 = std::max(0.0f, ev(1));
     const float lam2 = std::max(0.0f, ev(2));
     if (lam2 <= 1e-9f) {continue;}
