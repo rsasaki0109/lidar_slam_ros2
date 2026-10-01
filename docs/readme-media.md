@@ -15,7 +15,7 @@ python3 tools/readme_media/scale_imu_bag.py <dataset>/sequences/outdoor_hard_02a
 bash scripts/run_rko_lio_graph_benchmark.sh \
   --bag outdoor_hard_02a_scaled --lidar-topic /livox/points --imu-topic /livox/imu \
   --base-frame livox_frame \
-  --rko-param tools/readme_media/rko_lio_koide_outdoor.yaml \
+  --rko-param lidarslam/param/rko_lio_mid360_handheld_outdoor.yaml \
   --lidarslam-param lidarslam/param/lidarslam.yaml \
   --reference-tum gt_02a.tum --reference-meta ref_meta.json --skip-reference-gen \
   --publish-static-tf false --quiescence-secs 60 --save-timeout-secs 420 \
@@ -23,7 +23,7 @@ bash scripts/run_rko_lio_graph_benchmark.sh \
 ```
 
 - `gt_02a.tum` is the dataset ground truth for this sequence in TUM format. `ref_meta.json` is `{}`.
-- The RKO-LIO settings are the outdoor settings of an earlier full-dataset completion sweep. No parameter was tuned on this run.
+- RKO-LIO uses `lidarslam/param/rko_lio_mid360_handheld_outdoor.yaml`. Its two changes from the earlier outdoor settings (`voxel_size` 0.5, gravity alignment over a 40 s window) were **selected on this sequence**. They were then checked unchanged on `outdoor_hard_02b` and `01b`; see [the profile study](research/koide-handheld-outdoor-profile-2026-10.md).
 - `scanmatcher` and `graph_based_slam` were built from `acffebf`. Its C++ sources, launch files and parameters are identical to `develop` at `1c1bc322`; only two Python tests differ.
 - RKO-LIO was built from `a8a7ac6`. It differs from the pinned `d4eb79f` only in the node shutdown-callback lifetime fix.
 
@@ -32,10 +32,10 @@ bash scripts/run_rko_lio_graph_benchmark.sh \
 | Metric | Value |
 | --- | --- |
 | Scans tracked | 2870 / 2880 (99.7%) |
-| Raw APE RMSE / max | 1.03 m / 2.08 m |
-| Corrected APE RMSE | 1.04 m |
+| Raw APE RMSE / max | 0.57 m / 2.08 m (previous outdoor settings: 1.03 m / 2.08 m) |
+| Corrected APE RMSE | 0.61 m |
 | Loop closures | 0 |
-| Real-time factor | 0.75 (shared workstation, load average ~19) |
+| Real-time factor | 0.56 (shared workstation) |
 | Autoware map check | 8 PASS / 0 FAIL |
 
 **Render:**

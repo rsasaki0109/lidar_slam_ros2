@@ -1,0 +1,28 @@
+# RKO-LIO profile for a handheld (or walking-robot) Livox MID-360 outdoors.
+#
+# Selected on Koide Hard Point Cloud Localization Dataset outdoor_hard_02a
+# (CC BY 4.0) and checked unchanged on outdoor_hard_02b / 01b; see
+# docs/readme-media.md. Compared with the previous outdoor settings
+# (voxel_size 1.0, no gravity alignment), vertical drift halves on all three
+# sequences (z RMSE 0.54-0.64 m -> 0.23-0.34 m) and 3D APE drops from
+# 1.03 m to 0.57 m (02a) and 0.63 m to 0.37 m (02b). 01b still fails
+# horizontally (4.8 m) with either setting; that is a separate problem.
+#
+# The datasets publish IMU acceleration in g; rescale to m/s^2 first
+# (tools/readme_media/scale_imu_bag.py).
+extrinsic_imu2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+extrinsic_lidar2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+initialization_phase: true
+deskew: true
+voxel_size: 0.5
+max_points_per_voxel: 20
+min_range: 1.0
+max_range: 100.0
+max_correspondence_distance: 0.5
+double_downsample: true
+# Slow pitch/roll drift integrates into height while walking. Long-window
+# gravity alignment removes most of it; the 40 s window (default 20 s) keeps
+# the post-hoc tilt correction from leaking into the horizontal estimate.
+gravity_window_alignment: true
+gravity_window_sec: 40.0
+async.output_publish_delay_ms: 20
