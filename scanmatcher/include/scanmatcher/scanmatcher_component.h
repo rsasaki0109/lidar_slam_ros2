@@ -322,8 +322,7 @@ private:
     double imu_pose_prediction_weight_ {0.0};
     bool imu_complementary_enable_ {false};
     double imu_complementary_alpha_ {0.0};
-    Eigen::Matrix4f ndt_pose_ {Eigen::Matrix4f::Identity()};
-    bool ndt_pose_valid_ {false};
+    Eigen::Matrix3f previous_published_rotation_ {Eigen::Matrix3f::Identity()};
     bool imu_ndt_prior_enable_ {false};
     double imu_ndt_prior_weight_ {0.0};
     bool imu_ndt_prior_roll_pitch_only_ {true};
@@ -395,7 +394,6 @@ private:
     rclcpp::Time latest_imu_stamp_ {0, 0, RCL_ROS_TIME};
     bool latest_imu_orientation_valid_ {false};
     tf2::Quaternion cloud_imu_reference_quat_ {0.0, 0.0, 0.0, 1.0};
-    rclcpp::Time cloud_imu_reference_stamp_ {0, 0, RCL_ROS_TIME};
     bool cloud_imu_reference_valid_ {false};
     LidarUndistortion lidar_undistortion_;
 
