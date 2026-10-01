@@ -11,10 +11,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 from lidarslam_benchmark_tools.lidarslam_tools.report_model import as_float as _maybe_float
 from lidarslam_benchmark_tools.mid360_robot_tools import payload_to_json
+import yaml
 
 
 RKO_QUALITY_JSON = 'mid360_robot_public_rko_quality_report.json'

@@ -37,11 +37,9 @@ import math
 import shutil
 from pathlib import Path
 
-import numpy as np
-
 from extract_applanix_gsof49_reference import resolve_applanix_msg_dir
-
 from extract_static_transform_from_bag import quaternion_xyzw_from_rotation_matrix
+import numpy as np
 
 DEFAULT_ANGULAR_VELOCITY_VARIANCE = 0.1
 DEFAULT_YAW_RATE_VARIANCE = 10.0

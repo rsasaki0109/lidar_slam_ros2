@@ -13,16 +13,11 @@ import shutil
 from pathlib import Path
 
 from extract_applanix_gsof49_reference import (
-    WGS84_A,
-    WGS84_E2,
-    WGS84_F,
-    ecef_to_enu,
     heading_deg_to_enu_yaw_deg,
     is_usable_fix,
-    lla_to_ecef,
     lla_to_enu,
-    rpy_deg_to_quaternion,
     resolve_applanix_msg_dir,
+    rpy_deg_to_quaternion,
 )
 
 

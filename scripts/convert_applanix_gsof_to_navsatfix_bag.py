@@ -36,9 +36,8 @@ import argparse
 import shutil
 from pathlib import Path
 
-import numpy as np
-
 from extract_applanix_gsof49_reference import resolve_applanix_msg_dir
+import numpy as np
 
 APPLANIX_FIX_NOT_AVAILABLE = 0
 APPLANIX_GNSS_SPS_MODE = 1
