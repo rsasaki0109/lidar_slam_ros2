@@ -462,3 +462,47 @@ def test_direct_selects_image_time_camera_info(tmp_path, monkeypatch, kind, timi
     _, colors = cfb.pcio.read_ply_xyz(result['full_ply'])
     np.testing.assert_array_equal(colors, [[19, 211, 43]])
     assert result['cameras'][0]['camera_info_stamp_ns'] == new.header.stamp.nanosec
+
+
+@pytest.mark.parametrize('options,second,visible', [
+    ([], [2., 0., 2.], [True, True]),
+    (['--zbuf-bin', '4'], [2., 0., 2.], [True, False]),
+    (['--depth-tol', '2.0'], [0., 0., 2.], [True, True]),
+    (['--depth-tol', '0.0'], [0., 0., 1.1], [True, False]),
+])
+def test_overlay_uses_coloring_occlusion_settings(tmp_path, monkeypatch, options, second, visible):
+    """Diagnostic visibility must agree with actual output colors for CLI settings."""
+    pytest.importorskip('rclpy.time')
+    from types import SimpleNamespace
+
+    args = cfb.build_parser().parse_args([
+        'bag', str(tmp_path / 'color'), '--interp', 'nearest',
+        '--extrinsic', '0', '0', '0', '0', '0', '0', '1', *options])
+    args.diagnostic_overlay = tmp_path / 'overlay.png'
+    xyz = np.array([[0., 0., 1.], second])
+    info = SimpleNamespace(k=np.eye(3).ravel(), d=[0.] * 5, width=8, height=8,
+                           distortion_model='plumb_bob')
+    image = SimpleNamespace(encoding='rgb8', width=8, height=8, step=24,
+                            data=np.full((8, 8, 3), [211, 71, 33], dtype=np.uint8).tobytes())
+    monkeypatch.setattr(cfb, '_collect', lambda *a, **kw: (
+        None, {args.camera_info_topic: [(0, info)]}, [1], {args.image_topic: [1]}, {}))
+    monkeypatch.setattr(cfb, '_grab_messages', lambda *a: {
+        (args.pc_topic, 1): None, (args.image_topic, 1): image})
+    monkeypatch.setattr(cfb, '_read_xyz', lambda _: xyz)
+    written, overlays = [], []
+
+    def write(path, points, colors):
+        written.append(colors.copy())
+        return path
+
+    def overlay(path, image, diagnostics, **kwargs):
+        overlays.append(diagnostics)
+        return path
+
+    monkeypatch.setattr(cfb.pcio, 'write_ply', write)
+    monkeypatch.setattr(cfb, '_write_diagnostic_overlay', overlay)
+    result = cfb.colorize_bag_frame(args)
+    assert result['colored'] == sum(visible)
+    expected = [[211, 71, 33] if seen else args.default_rgb for seen in visible]
+    np.testing.assert_array_equal(written[0], expected)
+    assert overlays[0]['visible'].tolist() == visible
