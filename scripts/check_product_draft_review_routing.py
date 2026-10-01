@@ -78,9 +78,6 @@ EXPECTED_SLICE_IDS = (
     'S6-product-shell-integration',
     'S7-publication-control',
 )
-OVERVIEW_COMMAND = (
-    'python3 scripts/check_publication_slice_plan.py --overview --json'
-)
 SLICE_COMMAND_PREFIX = (
     'python3 scripts/check_publication_slice_plan.py --slice '
 )

@@ -20,7 +20,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 EXPECTED_COLUMNS = 54
-CATEGORY_ORDER = ('WELL_CONDITIONED', 'DEGENERATE', 'NON_OBSERVABLE')
 
 
 @dataclass

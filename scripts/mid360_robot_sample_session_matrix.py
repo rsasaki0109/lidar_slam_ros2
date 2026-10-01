@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -181,16 +181,6 @@ def render_matrix_markdown(report: dict[str, Any]) -> str:
         for item in errors:
             lines.append(f"- `{item.get('scenario')}`: {item.get('error')}")
     return '\n'.join(lines)
-
-
-def matrix_options_to_dict(options: SampleSessionMatrixOptions) -> dict[str, Any]:
-    """Return options as JSON-serializable data."""
-    data = asdict(options)
-    data['profile_path'] = str(options.profile_path)
-    data['bag_root'] = str(options.bag_root)
-    data['output_dir'] = str(options.output_dir)
-    data['scenarios'] = list(options.scenarios)
-    return data
 
 
 def _safe_name(value: str) -> str:
