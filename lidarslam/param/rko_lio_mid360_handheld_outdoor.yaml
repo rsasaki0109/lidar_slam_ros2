@@ -4,9 +4,8 @@
 # (CC BY 4.0) and checked unchanged on outdoor_hard_02b / 01b; see
 # docs/readme-media.md. Compared with the previous outdoor settings
 # (voxel_size 1.0, no gravity alignment), vertical drift halves on all three
-# sequences (z RMSE 0.54-0.64 m -> 0.23-0.34 m) and 3D APE drops from
-# 1.03 m to 0.57 m (02a) and 0.63 m to 0.37 m (02b). 01b still fails
-# horizontally (4.8 m) with either setting; that is a separate problem.
+# sequences (z RMSE 0.54-0.64 m -> 0.16-0.34 m) and 3D APE drops from
+# 1.03 m to 0.57 m (02a), 0.63 m to 0.37 m (02b) and 4.82 m to 0.32 m (01b).
 #
 # The datasets publish IMU acceleration in g; rescale to m/s^2 first
 # (tools/readme_media/scale_imu_bag.py).
@@ -26,3 +25,9 @@ double_downsample: true
 gravity_window_alignment: true
 gravity_window_sec: 40.0
 async.output_publish_delay_ms: 20
+# The MID-360 drops scans for up to 1.8 s on these recordings while the IMU
+# keeps streaming. Past max_scan_delta_sec (default 1.0 s) the scan is
+# dropped and the state re-anchored without the rotation turned during the
+# gap, which locked a ~65 deg heading error into 01b. Up to 3 s, the next
+# scan registers from the IMU prediction instead.
+max_scan_delta_sec: 3.0

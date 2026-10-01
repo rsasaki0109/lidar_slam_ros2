@@ -23,7 +23,7 @@ bash scripts/run_rko_lio_graph_benchmark.sh \
 ```
 
 - `gt_02a.tum` is the dataset ground truth for this sequence in TUM format. `ref_meta.json` is `{}`.
-- RKO-LIO uses `lidarslam/param/rko_lio_mid360_handheld_outdoor.yaml`. Its two changes from the earlier outdoor settings (`voxel_size` 0.5, gravity alignment over a 40 s window) were **selected on this sequence**. They were then checked unchanged on `outdoor_hard_02b` and `01b`; see [the profile study](research/koide-handheld-outdoor-profile-2026-10.md).
+- RKO-LIO uses `lidarslam/param/rko_lio_mid360_handheld_outdoor.yaml`. Its two changes from the earlier outdoor settings (`voxel_size` 0.5, gravity alignment over a 40 s window) were **selected on this sequence**. They were then checked unchanged on `outdoor_hard_02b` and `01b`. A later `max_scan_delta_sec` of 3 s fixes a heading failure on `01b` and leaves this sequence unchanged; see [the profile study](research/koide-handheld-outdoor-profile-2026-10.md).
 - `scanmatcher` and `graph_based_slam` were built from `acffebf`. Its C++ sources, launch files and parameters are identical to `develop` at `1c1bc322`; only two Python tests differ.
 - RKO-LIO was built from `a8a7ac6`. It differs from the pinned `d4eb79f` only in the node shutdown-callback lifetime fix.
 
