@@ -260,7 +260,6 @@ ScanMatcherComponent::ScanMatcherComponent(
 : Node("scan_matcher", options),
   clock_(RCL_ROS_TIME),
   tfbuffer_(std::make_shared<rclcpp::Clock>(clock_)),
-  listener_(tfbuffer_),
   broadcaster_(this)
 {
   RCLCPP_INFO(get_logger(), "initialization start");
@@ -1227,6 +1226,10 @@ void ScanMatcherComponent::initializePubSub()
         1)).reliable());
   path_pub_ = create_publisher<nav_msgs::msg::Path>(
     resourceInitTopicForTest("path"), rclcpp::QoS(10));
+  // Last, so that a resource failure above never destroys a just-started listener.
+  if (!listener_) {
+    listener_ = std::make_unique<SpinningTransformListener>(tfbuffer_, *this);
+  }
 }
 
 std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
