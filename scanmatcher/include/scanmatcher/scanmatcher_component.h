@@ -86,6 +86,7 @@ extern "C" {
 #include <nav_msgs/msg/path.hpp>
 
 #include <lidarslam_msgs/msg/map_array.hpp>
+#include "scanmatcher/spinning_transform_listener.hpp"
 #include "scanmatcher/lidar_undistortion.hpp"
 #include "scanmatcher/imu_processing.hpp"
 #include "scanmatcher/map_update_policy.hpp"
@@ -183,7 +184,9 @@ private:
 
     rclcpp::Clock clock_;
     tf2_ros::Buffer tfbuffer_;
-    tf2_ros::TransformListener listener_;
+    // Created last in initializePubSub(). See spinning_transform_listener.hpp
+    // for why tf2_ros' own dedicated listener thread is not used.
+    std::unique_ptr<SpinningTransformListener> listener_;
     tf2_ros::TransformBroadcaster broadcaster_;
 
     std::string global_frame_id_;
