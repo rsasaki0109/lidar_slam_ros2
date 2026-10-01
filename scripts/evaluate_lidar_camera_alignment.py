@@ -330,12 +330,6 @@ def projected_depth_and_ids(points: np.ndarray, viewmat: np.ndarray,
             id_image.reshape(height, width))
 
 
-def projected_point_mask(points: np.ndarray, viewmat: np.ndarray, K: np.ndarray,
-                         width: int, height: int) -> np.ndarray:
-    """Project fixed 3D contour points into a deterministic binary mask."""
-    return projected_contour_field(points, viewmat, K, width, height)[0]
-
-
 def projected_contour_field(contours: np.ndarray, viewmat: np.ndarray,
                             K: np.ndarray, width: int, height: int
                             ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
