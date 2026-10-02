@@ -45,7 +45,26 @@ On 02a and 02b, most of the error is vertical. Slow pitch/roll drift integrates 
 | 01b | 4.82 m (z 0.54) | 4.81 m (z 0.31) |
 
 - Vertical error drops on all three sequences.
-- **01b still fails horizontally (4.8 m) with either setting.** Its scans are often sparse or degenerate (the earlier completion sweep logged single-frame drops with 0–2 ICP keypoints), which needs separate work.
+- 01b still failed horizontally (4.8 m) with either setting.
+
+## Scan gaps (01b)
+
+- **Symptom:** the 01b heading error against the ground truth jumps from about 3° to about −65° within 1.3 s, 26 s into the run, and stays there. Short-window displacement magnitudes still match the ground truth, so the failure is heading, not translation.
+- **Cause:**
+  - The bag drops LiDAR scans for 1.2 s at that moment, and for 1.8 s later, while the IMU keeps streaming.
+  - Past `max_scan_delta_sec` (default 1.0 s), RKO-LIO drops the scan and re-anchors at the new timestamp. The re-anchor keeps the pre-gap pose and discards the rotation integrated during the gap.
+  - The operator was turning, so the next scans register against the map from a stale heading.
+  - 02a also re-anchors once, at a 1.10 s gap.
+- **Fix:** `max_scan_delta_sec: 3.0`. Scans after a gap of up to 3 s register from the IMU prediction instead. No re-anchor happens on any of the three sequences.
+
+| Sequence | Profile without the change | With `max_scan_delta_sec: 3.0` |
+| --- | --- | --- |
+| 02a | 0.57 m (xy 0.46, z 0.34) | 0.57 m (xy 0.46, z 0.34) |
+| 02b | 0.37 m (xy 0.28, z 0.23) | 0.37 m (xy 0.28, z 0.23) |
+| 01b | 4.81 m (xy 4.80, z 0.31) | **0.32 m** (xy 0.28, z 0.16) |
+
+- 10 s gives the same 01b result, since the longest gap is 1.8 s.
+- 3 s keeps the drop for genuine long dropouts, where an IMU-only prediction is no longer trustworthy.
 
 ## Reference: GLIM odometry on the same sequences
 
@@ -57,4 +76,4 @@ On 02a and 02b, most of the error is vertical. Slow pitch/roll drift integrates 
 | --- | --- | --- | --- |
 | 02a | 0.72–0.80 m | 0.69 / 0.21 m | 0.57 m |
 | 02b | 0.37–0.40 m | 0.34 / 0.17 m | 0.37 m |
-| 01b | 0.30–0.37 m | – | 4.81 m |
+| 01b | 0.30–0.37 m | – | 0.32 m |
