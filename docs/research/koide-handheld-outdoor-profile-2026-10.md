@@ -64,6 +64,7 @@ On 02a and 02b, most of the error is vertical. Slow pitch/roll drift integrates 
 | 01b | 4.81 m (xy 4.80, z 0.31) | **0.32 m** (xy 0.28, z 0.16) |
 
 - 10 s gives the same 01b result, since the longest gap is 1.8 s.
+- RKO-LIO now re-anchors at the IMU-propagated pose instead of the pre-gap pose (rko_lio [#16](https://github.com/rsasaki0109/rko_lio/pull/16)). With that fix, 01b reaches 0.32 m (xy 0.29, z 0.13) with the default `max_scan_delta_sec` of 1.0 s and re-levelling on, so the setting is no longer needed to avoid the heading failure.
 - 3 s keeps the drop for genuine long dropouts, where an IMU-only prediction is no longer trustworthy.
 
 ## Re-levelling the local map
