@@ -35,7 +35,7 @@ On 02a and 02b, most of the error is vertical. Slow pitch/roll drift integrates 
 - **Gravity alignment's side effect:** it consistently trades horizontal for vertical error.
   - The correction rotates the optimized orientation after ICP, while the local map keeps the earlier, tilted geometry.
   - The next registrations absorb part of that mismatch horizontally.
-  - The 40 s window makes the correction gentler. Folding gravity into the ICP objective instead is the principled follow-up.
+  - The 40 s window makes the correction gentler. Re-levelling the local map removes the mismatch; see [Re-levelling the local map](#re-levelling-the-local-map).
 
 ## Unchanged check on 02b and 01b
 
@@ -66,14 +66,39 @@ On 02a and 02b, most of the error is vertical. Slow pitch/roll drift integrates 
 - 10 s gives the same 01b result, since the longest gap is 1.8 s.
 - 3 s keeps the drop for genuine long dropouts, where an IMU-only prediction is no longer trustworthy.
 
+## Re-levelling the local map
+
+- **Symptom:** with the profile above, the orientation is still tilted by about 1° against the ground truth (RMS 0.7–1.0° on all three sequences), and that tilt drives most of the vertical error.
+- **Cause:**
+  - The window measurement is right: on 02a the window tilt (1.4° at the end) matches the error against the ground truth.
+  - A small correction is applied after every scan (02a: 2745 of 2745 scans).
+  - The correction rotates only the new pose. The local map keeps the earlier tilt, so the next registrations pull it back.
+- **Fix:** `gravity_alignment_relevel_map: true` (rko_lio [#15](https://github.com/rsasaki0109/rko_lio/pull/15)).
+  - Once the window tilt reaches 0.29°, the full tilt is applied at once as a rigid rotation about the current position.
+  - The rotation covers the pose, the previous pose, the local map and the gravity window.
+
+| Sequence | xy / z / 3D before | xy / z / 3D re-levelled | Re-levels |
+| --- | --- | --- | --- |
+| 02a | 0.46 / 0.34 / 0.57 m | 0.47 / **0.23** / **0.53** m | 25 |
+| 02b | 0.28 / 0.23 / 0.37 m | 0.28 / **0.19** / **0.34** m | 54 |
+| 01b | 0.28 / 0.16 / 0.32 m | 0.28 / **0.13** / **0.31** m | 36 |
+
+- Vertical error drops on all three sequences, and horizontal error is unchanged.
+- **Cost:**
+  - Each re-level rebuilds the local map, about 0.85 M points in 154 ms on average (max 271 ms).
+  - Back to back under the same load, total CPU time was 599 s without re-levelling and 567 s with it, so the overhead is not measurable.
+- Both modes reproduce identical APE on reruns.
+
 ## Reference: GLIM odometry on the same sequences
 
 - **Source:** GLIM v1.2.2 (GICP, container `glim-ros2:jazzy-v1.2.2`) runs from 2026-07-16, full sequences, 4 runs each.
 - **Evaluation:** the GLIM pose output was evaluated with the same alignment and association as above.
 - These runs were not repeated for this note, and the runtime configuration differs from ours. Read the comparison as indicative, not as a benchmark claim.
 
-| Sequence | GLIM 3D RMSE (4 runs) | GLIM xy / z (run 1) | New profile |
+| Sequence | GLIM 3D RMSE (4 runs) | GLIM xy / z (run 1) | Profile, xy / z / 3D |
 | --- | --- | --- | --- |
-| 02a | 0.72–0.80 m | 0.69 / 0.21 m | 0.57 m |
-| 02b | 0.37–0.40 m | 0.34 / 0.17 m | 0.37 m |
-| 01b | 0.30–0.37 m | – | 0.32 m |
+| 02a | 0.72–0.80 m | 0.69 / 0.21 m | 0.47 / 0.23 / 0.53 m |
+| 02b | 0.37–0.40 m | 0.34 / 0.17 m | 0.28 / 0.19 / 0.34 m |
+| 01b | 0.30–0.37 m | – | 0.28 / 0.13 / 0.31 m |
+
+- GLIM still has slightly lower vertical error on 02a and 02b.

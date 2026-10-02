@@ -3,9 +3,9 @@
 # Selected on Koide Hard Point Cloud Localization Dataset outdoor_hard_02a
 # (CC BY 4.0) and checked unchanged on outdoor_hard_02b / 01b; see
 # docs/readme-media.md. Compared with the previous outdoor settings
-# (voxel_size 1.0, no gravity alignment), vertical drift halves on all three
-# sequences (z RMSE 0.54-0.64 m -> 0.16-0.34 m) and 3D APE drops from
-# 1.03 m to 0.57 m (02a), 0.63 m to 0.37 m (02b) and 4.82 m to 0.32 m (01b).
+# (voxel_size 1.0, no gravity alignment), vertical drift drops on all three
+# sequences (z RMSE 0.54-0.64 m -> 0.13-0.23 m) and 3D APE drops from
+# 1.03 m to 0.53 m (02a), 0.63 m to 0.34 m (02b) and 4.82 m to 0.31 m (01b).
 #
 # The datasets publish IMU acceleration in g; rescale to m/s^2 first
 # (tools/readme_media/scale_imu_bag.py).
@@ -20,10 +20,13 @@ max_range: 100.0
 max_correspondence_distance: 0.5
 double_downsample: true
 # Slow pitch/roll drift integrates into height while walking. Long-window
-# gravity alignment removes most of it; the 40 s window (default 20 s) keeps
-# the post-hoc tilt correction from leaking into the horizontal estimate.
+# gravity alignment (40 s, default 20 s) measures it. Re-levelling rotates
+# the local map together with the pose; a pose-only correction is pulled
+# back by the next registrations against the still-tilted map, leaving about
+# 1 deg of tilt (z RMSE 0.34 -> 0.23 m on 02a with re-levelling).
 gravity_window_alignment: true
 gravity_window_sec: 40.0
+gravity_alignment_relevel_map: true
 async.output_publish_delay_ms: 20
 # The MID-360 drops scans for up to 1.8 s on these recordings while the IMU
 # keeps streaming. Past max_scan_delta_sec (default 1.0 s) the scan is
