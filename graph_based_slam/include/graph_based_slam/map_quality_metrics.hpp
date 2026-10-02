@@ -157,15 +157,21 @@ inline std::vector<Eigen::Vector3d> downsampleByVoxelCentroid(
   const std::vector<Eigen::Vector3d> & points, double voxel_size)
 {
   if (voxel_size <= 0.0) {return points;}
-  const auto buckets = detail::bucketize(points, voxel_size);
+  struct Accumulator
+  {
+    Eigen::Vector3d sum {Eigen::Vector3d::Zero()};
+    size_t count {0};
+  };
+  std::map<detail::VoxelKey, Accumulator> buckets;
+  for (int i = 0; i < static_cast<int>(points.size()); ++i) {
+    auto & bucket = buckets[detail::keyOf(points[i], voxel_size)];
+    bucket.sum += points[i];
+    ++bucket.count;
+  }
   std::vector<Eigen::Vector3d> result;
   result.reserve(buckets.size());
   for (auto it = buckets.begin(); it != buckets.end(); ++it) {
-    Eigen::Vector3d sum = Eigen::Vector3d::Zero();
-    for (size_t j = 0; j < it->second.size(); ++j) {
-      sum += points[it->second[j]];
-    }
-    result.push_back(sum / static_cast<double>(it->second.size()));
+    result.push_back(it->second.sum / static_cast<double>(it->second.count));
   }
   return result;
 }
