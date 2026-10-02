@@ -30,7 +30,7 @@ gravity_alignment_relevel_map: true
 async.output_publish_delay_ms: 20
 # The MID-360 drops scans for up to 1.8 s on these recordings while the IMU
 # keeps streaming. Past max_scan_delta_sec (default 1.0 s) the scan is
-# dropped and the state re-anchored without the rotation turned during the
-# gap, which locked a ~65 deg heading error into 01b. Up to 3 s, the next
-# scan registers from the IMU prediction instead.
+# dropped and the state re-anchored at the IMU-propagated pose (rko_lio#16;
+# before that the turn made during the gap was lost, 01b APE 4.8 m). Up to
+# 3 s, the scan is registered from the IMU prediction instead of dropped.
 max_scan_delta_sec: 3.0
