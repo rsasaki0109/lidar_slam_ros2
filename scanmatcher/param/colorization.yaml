@@ -15,4 +15,13 @@ pointcloud_colorization:
     exposure_ema_alpha: 0.1   # smoothing of the exposure target
     publish_period: 2.0       # colored_map publish period [s]
     sync_queue_size: 10       # image/camera_info ApproximateTime queue
-    max_project_points: 2000000  # cap points projected per frame (strided)
+    max_project_points: 2000000  # cap color samples per frame (strided); occlusion projects all points
+    # Default camera subscriptions are best_effort. For reliable publishers only,
+    # opt in at startup using resolved topic names (adjust these for remapping):
+    # qos_overrides:
+    #   /image_raw:
+    #     subscription:
+    #       reliability: reliable
+    #   /camera_info:
+    #     subscription:
+    #       reliability: reliable

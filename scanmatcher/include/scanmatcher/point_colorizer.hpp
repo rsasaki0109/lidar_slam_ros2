@@ -303,7 +303,7 @@ struct PointColor
 // Median luminance (Rec.601) of an ImageView — the exposure statistic the shell
 // uses to rescale each frame toward a global median before accumulation, so
 // auto-exposure swings do not bias the colour. Returns 0 for an empty image.
-inline float medianLuminance(const ImageView & img)
+inline float medianLuminance(const ImageView & img, bool bgr = false)
 {
   if (!img.valid()) {
     return 0.0f;
@@ -313,8 +313,8 @@ inline float medianLuminance(const ImageView & img)
   for (int y = 0; y < img.height; ++y) {
     for (int x = 0; x < img.width; ++x) {
       lum.push_back(
-        0.299f * img.at(x, y, 0) + 0.587f * img.at(x, y, 1) +
-        0.114f * img.at(x, y, 2));
+        0.299f * img.at(x, y, bgr ? 2 : 0) + 0.587f * img.at(x, y, 1) +
+        0.114f * img.at(x, y, bgr ? 0 : 2));
     }
   }
   const std::size_t mid = lum.size() / 2;

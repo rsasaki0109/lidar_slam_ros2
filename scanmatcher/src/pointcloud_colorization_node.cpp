@@ -66,6 +66,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include <rclcpp/qos_overriding_options.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <sensor_msgs/msg/image.hpp>
@@ -126,8 +127,11 @@ public:
       map_topic, rclcpp::SensorDataQoS(),
       std::bind(&PointCloudColorizationNode::mapCallback, this, std::placeholders::_1));
 
-    image_sub_.subscribe(this, image_topic, rmw_qos_profile_sensor_data);
-    info_sub_.subscribe(this, camera_info_topic, rmw_qos_profile_sensor_data);
+    rclcpp::SubscriptionOptions camera_options;
+    camera_options.qos_overriding_options =
+      rclcpp::QosOverridingOptions({rclcpp::QosPolicyKind::Reliability});
+    image_sub_.subscribe(this, image_topic, rmw_qos_profile_sensor_data, camera_options);
+    info_sub_.subscribe(this, camera_info_topic, rmw_qos_profile_sensor_data, camera_options);
     sync_ = std::make_shared<Sync>(SyncPolicy(sync_queue), image_sub_, info_sub_);
     sync_->registerCallback(std::bind(
       &PointCloudColorizationNode::imageCallback, this,
@@ -186,13 +190,23 @@ private:
     }
     std::lock_guard<std::mutex> lock(mtx_);
     map_points_.swap(pts);
-    // Seed geometry so far-unseen points still appear (grey) in the output.
+    map_voxels_.clear();
+    map_voxels_.reserve(map_points_.size());
+    // Keep colors only for voxels present in this complete map snapshot.
+    std::unordered_map<std::int64_t, Voxel> current_voxels;
     for (const auto & p : map_points_) {
-      auto & vox = voxels_[voxelKey(p.x(), p.y(), p.z())];
+      const auto key = voxelKey(p.x(), p.y(), p.z());
+      auto previous = voxels_.extract(key);
+      if (!previous.empty()) {
+        current_voxels.insert(std::move(previous));
+      }
+      auto & vox = current_voxels[key];
       vox.x = p.x();
       vox.y = p.y();
       vox.z = p.z();
+      map_voxels_.push_back(&vox);
     }
+    voxels_.swap(current_voxels);
   }
 
   // Wrap a sensor_msgs/Image into an ImageView; returns false for encodings we
@@ -218,6 +232,9 @@ private:
     } else {
       return false;
     }
+    if (img.data.size() < static_cast<std::size_t>(img.step) * img.height) {
+      return false;
+    }
     view.data = img.data.data();
     view.width = static_cast<int>(img.width);
     view.height = static_cast<int>(img.height);
@@ -239,20 +256,48 @@ private:
       return;
     }
 
+    // CameraInfo K and ROI use full-resolution, unbinned raw coordinates.
+    const auto bin_x = std::max(info->binning_x, 1u);
+    const auto bin_y = std::max(info->binning_y, 1u);
+    const auto & roi = info->roi;
+    const bool full_frame = roi.width == 0 && roi.height == 0 &&
+      roi.x_offset == 0 && roi.y_offset == 0;
+    const auto width = full_frame ? info->width : roi.width;
+    const auto height = full_frame ? info->height : roi.height;
+    if (roi.x_offset > info->width || roi.y_offset > info->height ||
+      width == 0 || height == 0 ||
+      width > info->width - roi.x_offset || height > info->height - roi.y_offset ||
+      image->width != width / bin_x || image->height != height / bin_y)
+    {
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 5000,
+        "image dimensions do not match CameraInfo ROI/binning; skipping image");
+      return;
+    }
+
     CameraIntrinsics intr;
-    intr.fx = static_cast<float>(info->k[0]);
-    intr.fy = static_cast<float>(info->k[4]);
-    intr.cx = static_cast<float>(info->k[2]);
-    intr.cy = static_cast<float>(info->k[5]);
-    intr.width = static_cast<int>(info->width);
-    intr.height = static_cast<int>(info->height);
-    if (intr.fx <= 0.0f || intr.fy <= 0.0f || intr.width <= 0 || intr.height <= 0) {
+    intr.fx = static_cast<float>(info->k[0] / bin_x);
+    intr.fy = static_cast<float>(info->k[4] / bin_y);
+    intr.cx = static_cast<float>((info->k[2] - roi.x_offset) / bin_x);
+    intr.cy = static_cast<float>((info->k[5] - roi.y_offset) / bin_y);
+    intr.width = view.width;
+    intr.height = view.height;
+    if (!std::isfinite(intr.fx) || !std::isfinite(intr.fy) ||
+      !std::isfinite(intr.cx) || !std::isfinite(intr.cy) ||
+      intr.fx <= 0.0f || intr.fy <= 0.0f || intr.width <= 0 || intr.height <= 0)
+    {
       return;
     }
 
     PlumbBobDistortion distortion;
     const PlumbBobDistortion * distortion_ptr = nullptr;
     if (info->distortion_model.empty() || info->distortion_model == "plumb_bob") {
+      if (!info->d.empty() && info->d.size() != 4 && info->d.size() != 5) {
+        RCLCPP_WARN_THROTTLE(
+          get_logger(), *get_clock(), 30000,
+          "unsupported plumb_bob coefficient count %zu; skipping image", info->d.size());
+        return;
+      }
       if (info->d.size() >= 4) {
         distortion.k1 = static_cast<float>(info->d[0]);
         distortion.k2 = static_cast<float>(info->d[1]);
@@ -261,13 +306,20 @@ private:
         if (info->d.size() >= 5) {
           distortion.k3 = static_cast<float>(info->d[4]);
         }
+        if (!std::isfinite(distortion.k1) || !std::isfinite(distortion.k2) ||
+          !std::isfinite(distortion.p1) || !std::isfinite(distortion.p2) ||
+          !std::isfinite(distortion.k3))
+        {
+          return;  // Invalid calibration must not update exposure history.
+        }
         distortion_ptr = &distortion;
       }
     } else {
       RCLCPP_WARN_THROTTLE(
         get_logger(), *get_clock(), 30000,
-        "unsupported distortion model '%s'; using pinhole projection",
+        "unsupported distortion model '%s'; skipping image",
         info->distortion_model.c_str());
+      return;
     }
 
     // map -> camera_optical at the image stamp: p_cam = T * p_map.
@@ -285,7 +337,7 @@ private:
 
     float exposure_scale = 1.0f;
     if (normalize_exposure_) {
-      const float med = point_colorizer::medianLuminance(view);
+      const float med = point_colorizer::medianLuminance(view, bgr);
       if (med > 1e-3f) {
         if (exposure_target_ <= 0.0f) {
           exposure_target_ = med;
@@ -301,23 +353,33 @@ private:
     if (map_points_.empty()) {
       return;
     }
-    const int stride = std::max<int>(
-      1, static_cast<int>(map_points_.size()) / std::max(1, max_project_points_));
+    const std::size_t stride =
+      1 + (map_points_.size() - 1) / static_cast<std::size_t>(std::max(1, max_project_points_));
 
-    // Pass 1: build the per-frame z-buffer from the projected points.
+    // Pass 1: retain all occluders, including points skipped by the color-sampling cap.
     FrameZBuffer zbuf(intr, zbuf_bin_);
-    for (std::size_t i = 0; i < map_points_.size(); i += stride) {
-      float u, v, depth;
-      if (projectPoint(intr, world_to_cam, map_points_[i], u, v, depth, distortion_ptr)) {
+    std::vector<Eigen::Vector3f> projected_samples;
+    projected_samples.reserve(1 + (map_points_.size() - 1) / stride);
+    std::size_t next_sample = 0;
+    for (std::size_t i = 0; i < map_points_.size(); ++i) {
+      float u = 0.0f, v = 0.0f, depth = 0.0f;
+      const bool projected =
+        projectPoint(intr, world_to_cam, map_points_[i], u, v, depth, distortion_ptr);
+      if (projected) {
         zbuf.insert(u, v, depth);
+      }
+      if (i == next_sample) {
+        projected_samples.emplace_back(
+          projected ? u : 0.0f, projected ? v : 0.0f, projected ? depth : 0.0f);
+        next_sample += stride;
       }
     }
 
-    // Pass 2: colour the visible points into their voxels.
+    // Pass 2: reuse projections to colour the visible points into their voxels.
     for (std::size_t i = 0; i < map_points_.size(); i += stride) {
-      const Eigen::Vector3f & p = map_points_[i];
-      float u, v, depth;
-      if (!projectPoint(intr, world_to_cam, p, u, v, depth, distortion_ptr)) {
+      const auto & projection = projected_samples[i / stride];
+      const float u = projection.x(), v = projection.y(), depth = projection.z();
+      if (depth == 0.0f) {
         continue;
       }
       if (!zbuf.visible(u, v, depth, static_cast<float>(depth_tol_))) {
@@ -338,7 +400,7 @@ private:
       for (int c = 0; c < 3; ++c) {
         rgb[c] = std::min(std::max(rgb[c] * exposure_scale, 0.0f), 255.0f);
       }
-      voxels_[voxelKey(p.x(), p.y(), p.z())].color.add(rgb, depth);
+      map_voxels_[i]->color.add(rgb, depth);
     }
   }
 
@@ -369,9 +431,6 @@ private:
         cloud.push_back(p);
       }
     }
-    if (cloud.empty()) {
-      return;
-    }
     sensor_msgs::msg::PointCloud2 msg;
     pcl::toROSMsg(cloud, msg);
     msg.header.frame_id = map_frame_;
@@ -397,6 +456,8 @@ private:
   float exposure_target_ {-1.0f};
   std::mutex mtx_;
   std::vector<Eigen::Vector3f> map_points_;
+  // Rebuilt with each snapshot; unordered_map node addresses survive rehash and swap.
+  std::vector<Voxel *> map_voxels_;
   std::unordered_map<std::int64_t, Voxel> voxels_;
 
   // ROS interfaces.
