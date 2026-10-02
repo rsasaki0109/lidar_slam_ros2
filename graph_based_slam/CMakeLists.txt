@@ -609,181 +609,50 @@ if(BUILD_TESTING)
       test_planar_map_filter PRIVATE include ${EIGEN3_INCLUDE_DIR}
     )
   endif()
-  ament_add_pytest_test(
+  set(GRAPH_BASED_SLAM_WORKFLOW_ADDITIONAL_PYTESTS
     test_autoware_map_tools
-    test/test_autoware_map_tools.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_map_bundle_verifier
-    test/test_map_bundle_verifier.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_map_edit
-    test/test_map_edit.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_map_merge
-    test/test_map_merge.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_competitive_slam_profile
-    test/test_competitive_slam_profile.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_competitive_candidate_provenance
-    test/test_competitive_candidate_provenance.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_fast_livo2_benchmark_runner
-    test/test_fast_livo2_benchmark_runner.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_glim_benchmark_runner
-    test/test_glim_benchmark_runner.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_convert_ply_xyz_to_pcd
-    test/test_convert_ply_xyz_to_pcd.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_freeze_hilti2022_holdout_inputs
-    test/test_freeze_hilti2022_holdout_inputs.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_compare_rosbag_semantic_inputs
-    test/test_compare_rosbag_semantic_inputs.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_validate_fast_livo2_processing_rtf
-    test/test_validate_fast_livo2_processing_rtf.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_compare_checkpoint_trajectory_errors
-    test/test_compare_checkpoint_trajectory_errors.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_summarize_repeated_map_quality
-    test/test_summarize_repeated_map_quality.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_summarize_repeated_visual_quality
-    test/test_summarize_repeated_visual_quality.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_repose_posed_images
-    test/test_repose_posed_images.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_evaluate_competitive_sequence_gate
-    test/test_evaluate_competitive_sequence_gate.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_compose_competitive_result
-    test/test_compose_competitive_result.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_evaluate_competitive_suite_gate
-    test/test_evaluate_competitive_suite_gate.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_map_quality_profiles
-    test/test_map_quality_profiles.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_summarize_degeneracy_csv
-    test/test_summarize_degeneracy_csv.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_mid360_robot_tools
-    test/test_mid360_robot_tools.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_mid360_robot_loop_alignment_analyzer
-    test/test_mid360_robot_loop_alignment_analyzer.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_mid360_robot_dashboard
-    test/test_mid360_robot_dashboard.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_mid360_robot_production_candidate_bundle
-    test/test_mid360_robot_production_candidate_bundle.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_mid360_robot_record_tools
-    test/test_mid360_robot_record_tools.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_mid360_robot_production_readiness
-    test/test_mid360_robot_production_readiness.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_mid360_robot_rko_config_adoption
-    test/test_mid360_robot_rko_config_adoption.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_mid360_robot_public_rko_quality_report
-    test/test_mid360_robot_public_rko_quality_report.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_mid360_robot_public_rko_sweep
-    test/test_mid360_robot_public_rko_sweep.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_mid360_robot_public_rko_adoption_gate
-    test/test_mid360_robot_public_rko_adoption_gate.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_mid360_robot_production_candidate_session
-    test/test_mid360_robot_production_candidate_session.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_mid360_robot_production_candidate_bundle_import
-    test/test_mid360_robot_production_candidate_bundle_import.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_mid360_robot_recording_check
-    test/test_mid360_robot_recording_check.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_jetson_mid360_host_readiness
-    test/test_jetson_mid360_host_readiness.py
-    TIMEOUT 120
   )
+  foreach(pytest_name IN LISTS GRAPH_BASED_SLAM_WORKFLOW_ADDITIONAL_PYTESTS)
+    ament_add_pytest_test(
+      ${pytest_name}
+      test/${pytest_name}.py
+      TIMEOUT 120
+    )
+  endforeach()
   # NOTE: the test_gaussian_splatting_* suites below cover tools/gaussian_splatting/
   # (the opt-in 3DGS post-process toolkit), NOT this package. They live here only
   # to borrow graph_based_slam's ament pytest harness, and reach the code under
@@ -792,206 +661,55 @@ if(BUILD_TESTING)
   # gsplat tests, and (2) moving/renaming tools/gaussian_splatting/ silently
   # breaks the parents[2] path here. Relocating them to a dedicated test target
   # next to the tool is tracked as a v0.4 structural cleanup.
-  ament_add_pytest_test(
+  set(GRAPH_BASED_SLAM_COLOR_AND_DATASET_ADDITIONAL_PYTESTS
     test_gaussian_splatting_posed_images
-    test/test_gaussian_splatting_posed_images.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_gaussian_splatting_extract
-    test/test_gaussian_splatting_extract.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_gaussian_splatting_train
-    test/test_gaussian_splatting_train.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_gaussian_splatting_pointcloud
-    test/test_gaussian_splatting_pointcloud.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_lidar_camera_alignment
-    test/test_lidar_camera_alignment.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_spatiotemporal_calibration
-    test/test_spatiotemporal_calibration.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_geometry_aware_fusion
-    test/test_geometry_aware_fusion.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_attach_dynamic_image_masks
-    test/test_attach_dynamic_image_masks.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_recolor_pointcloud
-    test/test_recolor_pointcloud.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_color_import_identity
-    test/test_color_import_identity.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_heldout_point_colors
-    test/test_heldout_point_colors.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_colored_map_quality_gate
-    test/test_colored_map_quality_gate.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_gaussian_splatting_render
-    test/test_gaussian_splatting_render.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_gaussian_splatting_sidebyside
-    test/test_gaussian_splatting_sidebyside.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_gaussian_splatting_map_flythrough
-    test/test_gaussian_splatting_map_flythrough.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_gaussian_splatting_ply_to_splat
-    test/test_gaussian_splatting_ply_to_splat.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_gaussian_splatting_sim2real_gap
-    test/test_gaussian_splatting_sim2real_gap.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_gaussian_splatting_renderer
-    test/test_gaussian_splatting_renderer.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_gaussian_splatting_dataset
-    test/test_gaussian_splatting_dataset.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_gaussian_splatting_actor
-    test/test_gaussian_splatting_actor.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_gaussian_splatting_sprite
-    test/test_gaussian_splatting_sprite.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_gaussian_splatting_detect
-    test/test_gaussian_splatting_detect.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_gaussian_splatting_drive_env
-    test/test_gaussian_splatting_drive_env.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_gaussian_splatting_scene_camera
-    test/test_gaussian_splatting_scene_camera.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_mid360_robot_preflight
-    test/test_mid360_robot_preflight.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_mid360_robot_sample_bag
-    test/test_mid360_robot_sample_bag.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_mid360_robot_bag_stamp_rewriter
-    test/test_mid360_robot_bag_stamp_rewriter.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_mid360_robot_public_split_bag_merge
-    test/test_mid360_robot_public_split_bag_merge.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_mid360_robot_public_loop_cloud_analyzer
-    test/test_mid360_robot_public_loop_cloud_analyzer.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_mid360_robot_public_loop_segment_reset
-    test/test_mid360_robot_public_loop_segment_reset.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_mid360_robot_public_segment_map_cloud_alignment
-    test/test_mid360_robot_public_segment_map_cloud_alignment.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_mid360_robot_public_completion_gate
-    test/test_mid360_robot_public_completion_gate.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_mid360_robot_public_continuous_relocalization_gate
-    test/test_mid360_robot_public_continuous_relocalization_gate.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_navsatfix_covariance_inspector
-    test/test_navsatfix_covariance_inspector.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_applanix_gsof50_inspector
-    test/test_applanix_gsof50_inspector.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_applanix_navsatfix_bridge
-    test/test_applanix_navsatfix_bridge.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_applanix_imu_bridge
-    test/test_applanix_imu_bridge.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_static_transform_extractor
-    test/test_static_transform_extractor.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_rtk_slam_reference
-    test/test_rtk_slam_reference.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_newer_college_reference
-    test/test_newer_college_reference.py
-    TIMEOUT 120
   )
+  foreach(pytest_name IN LISTS GRAPH_BASED_SLAM_COLOR_AND_DATASET_ADDITIONAL_PYTESTS)
+    ament_add_pytest_test(
+      ${pytest_name}
+      test/${pytest_name}.py
+      TIMEOUT 120
+    )
+  endforeach()
   set(GRAPH_BASED_SLAM_ADDITIONAL_PYTESTS
     test_aist_ouster_rgb_map_benchmark
     test_analyze_colored_point_cloud
@@ -1115,111 +833,54 @@ if(BUILD_TESTING)
     test/test_docs_entrypoints.py
     TIMEOUT 120
   )
-  ament_add_pytest_test(
+  set(GRAPH_BASED_SLAM_CI_ADDITIONAL_PYTESTS
     test_default_ci_checks_script
-    test/test_default_ci_checks_script.py
-    TIMEOUT 60
-  )
-  ament_add_pytest_test(
     test_product_python_tests_script
-    test/test_product_python_tests_script.py
-    TIMEOUT 60
-  )
-  ament_add_pytest_test(
     test_enwide_benchmark_assets
-    test/test_enwide_benchmark_assets.py
-    TIMEOUT 60
-  )
-  ament_add_pytest_test(
     test_score_position_only_trajectory
-    test/test_score_position_only_trajectory.py
-    TIMEOUT 60
-  )
-  ament_add_pytest_test(
     test_summarize_intensity_peak_diagnostics
-    test/test_summarize_intensity_peak_diagnostics.py
-    TIMEOUT 60
-  )
-  ament_add_pytest_test(
     test_validate_real_data_e2e
-    test/test_validate_real_data_e2e.py
-    TIMEOUT 60
   )
-  ament_add_pytest_test(
+  foreach(pytest_name IN LISTS GRAPH_BASED_SLAM_CI_ADDITIONAL_PYTESTS)
+    ament_add_pytest_test(
+      ${pytest_name}
+      test/${pytest_name}.py
+      TIMEOUT 60
+    )
+  endforeach()
+  set(GRAPH_BASED_SLAM_ONBOARDING_ADDITIONAL_PYTESTS
     test_build_mid360_onboarding_fixture
-    test/test_build_mid360_onboarding_fixture.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_lidarslam_product_cli
-    test/test_lidarslam_product_cli.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_aligned_trajectory_metrics
-    test/test_aligned_trajectory_metrics.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_v2_beta_readiness_report
-    test/test_v2_beta_readiness_report.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_stress_validation_report
-    test/test_stress_validation_report.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_place_recognition_report
-    test/test_place_recognition_report.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_packet_imu_deskew_validation_report
-    test/test_packet_imu_deskew_validation_report.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_dynamic_object_filter_validation_report
-    test/test_dynamic_object_filter_validation_report.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_submission_bundle_tools
-    test/test_submission_bundle_tools.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_map_authoring_report
-    test/test_map_authoring_report.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_odom_prior_validation_report
-    test/test_odom_prior_validation_report.py
-    TIMEOUT 120
-  )
-  ament_add_pytest_test(
     test_exploration_closeout_report
-    test/test_exploration_closeout_report.py
-    TIMEOUT 120
   )
-  ament_add_pytest_test(
+  foreach(pytest_name IN LISTS GRAPH_BASED_SLAM_ONBOARDING_ADDITIONAL_PYTESTS)
+    ament_add_pytest_test(
+      ${pytest_name}
+      test/${pytest_name}.py
+      TIMEOUT 120
+    )
+  endforeach()
+  set(GRAPH_BASED_SLAM_TRIANGLE_ADDITIONAL_PYTESTS
     test_triangle_descriptor_yaml_defaults
-    test/test_triangle_descriptor_yaml_defaults.py
-    TIMEOUT 60
-  )
-  ament_add_pytest_test(
     test_event_driven_loop_search_defaults
-    test/test_event_driven_loop_search_defaults.py
-    TIMEOUT 60
-  )
-  ament_add_pytest_test(
     test_triangle_ablation_runner
-    test/test_triangle_ablation_runner.py
-    TIMEOUT 60
   )
+  foreach(pytest_name IN LISTS GRAPH_BASED_SLAM_TRIANGLE_ADDITIONAL_PYTESTS)
+    ament_add_pytest_test(
+      ${pytest_name}
+      test/${pytest_name}.py
+      TIMEOUT 60
+    )
+  endforeach()
   ament_add_pytest_test(
     test_mid360_robot_3d_map_preview
     test/test_mid360_robot_3d_map_preview.py
@@ -1230,51 +891,24 @@ if(BUILD_TESTING)
     test/test_bim_export.py
     TIMEOUT 120
   )
-  ament_add_pytest_test(
+  set(GRAPH_BASED_SLAM_EXPORT_ADDITIONAL_PYTESTS
     test_bim_regression_gate
-    test/test_bim_regression_gate.py
-    TIMEOUT 60
-  )
-  ament_add_pytest_test(
     test_plane_revisit_ab_gate
-    test/test_plane_revisit_ab_gate.py
-    TIMEOUT 60
-  )
-  ament_add_pytest_test(
     test_slam_candidate_regression
-    test/test_slam_candidate_regression.py
-    TIMEOUT 60
-  )
-  ament_add_pytest_test(
     test_plane_revisit_candidate_benchmark_script
-    test/test_plane_revisit_candidate_benchmark_script.py
-    TIMEOUT 60
-  )
-  ament_add_pytest_test(
     test_record_backend_input_script
-    test/test_record_backend_input_script.py
-    TIMEOUT 60
-  )
-  ament_add_pytest_test(
     test_hilti_overlap_crossval_script
-    test/test_hilti_overlap_crossval_script.py
-    TIMEOUT 60
-  )
-  ament_add_pytest_test(
     test_sparse_checkpoint_errors
-    test/test_sparse_checkpoint_errors.py
-    TIMEOUT 60
-  )
-  ament_add_pytest_test(
     test_las_export
-    test/test_las_export.py
-    TIMEOUT 60
-  )
-  ament_add_pytest_test(
     test_map_export_gis
-    test/test_map_export_gis.py
-    TIMEOUT 60
   )
+  foreach(pytest_name IN LISTS GRAPH_BASED_SLAM_EXPORT_ADDITIONAL_PYTESTS)
+    ament_add_pytest_test(
+      ${pytest_name}
+      test/${pytest_name}.py
+      TIMEOUT 60
+    )
+  endforeach()
   ament_add_pytest_test(
     test_mesh_export
     test/test_mesh_export.py
