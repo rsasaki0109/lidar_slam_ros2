@@ -167,9 +167,10 @@ def select_reference_patch(images: list[np.ndarray], K: np.ndarray,
     if not 0.0 <= angle_weight <= 1.0:
         raise ValueError('angle_weight must be in [0, 1]')
     normal = np.asarray(normal_world, dtype=np.float64).reshape(3)
-    if np.linalg.norm(normal) <= 1.0e-12:
+    normal_norm = np.linalg.norm(normal)
+    if normal_norm <= 1.0e-12:
         raise ValueError('normal_world must be non-zero')
-    normal /= np.linalg.norm(normal)
+    normal = normal / normal_norm
 
     camera_points = []
     centres = []
@@ -199,11 +200,12 @@ def select_reference_patch(images: list[np.ndarray], K: np.ndarray,
         ref_view = views[ref_index]
         ref_camera_point = camera_points[local_ref]
         ref_normal = ref_view[:3, :3] @ normal
+        reference_to_world = np.linalg.inv(ref_view)
         ncc_values = []
-        for local_target, target_index in enumerate(usable):
+        for target_index in usable:
             if target_index == ref_index:
                 continue
-            target_T_reference = views[target_index] @ np.linalg.inv(ref_view)
+            target_T_reference = views[target_index] @ reference_to_world
             try:
                 homography = plane_homography(
                     K, target_T_reference, ref_normal, ref_camera_point)
@@ -253,7 +255,8 @@ def select_planar_voxel_references(points: np.ndarray, images: list[np.ndarray],
     if voxel_size <= 0.0 or min_points < 3 or max_views < 2:
         raise ValueError('invalid voxel_size, min_points, or max_views')
     references = np.full(len(xyz), -1, dtype=np.int32)
-    view_mask = np.ones((len(xyz), len(views)), dtype=bool)
+    view_mask = (np.ones((len(xyz), len(views)), dtype=bool)
+                 if return_view_mask else None)
     if not len(xyz):
         return (references, view_mask) if return_view_mask else references
     if score_margin < 0.0:

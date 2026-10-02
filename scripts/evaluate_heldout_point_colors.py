@@ -32,13 +32,15 @@
 from __future__ import annotations
 
 import argparse
+import inspect
 import json
 from pathlib import Path
 
-import numpy as np
-
+from lidarslam_benchmark_tools.gaussian_splatting import build_lidar_init as bli
 from lidarslam_benchmark_tools.gaussian_splatting import pointcloud_io as pcio
 from lidarslam_benchmark_tools.gaussian_splatting import train_gsplat as tg
+
+import numpy as np
 
 
 def visible_point_samples(points: np.ndarray, viewmat: np.ndarray,
@@ -49,15 +51,12 @@ def visible_point_samples(points: np.ndarray, viewmat: np.ndarray,
     vm = np.asarray(viewmat, dtype=np.float64)
     cam = pts @ vm[:3, :3].T + vm[:3, 3]
     z = cam[:, 2]
-    with np.errstate(divide='ignore', invalid='ignore'):
-        uf = K[0, 0] * cam[:, 0] / z + K[0, 2]
-        vf = K[1, 1] * cam[:, 1] / z + K[1, 2]
-    safe_uf = np.nan_to_num(uf, nan=-1.0, posinf=-1.0, neginf=-1.0)
-    safe_vf = np.nan_to_num(vf, nan=-1.0, posinf=-1.0, neginf=-1.0)
-    u = np.round(safe_uf).astype(np.int64)
-    v = np.round(safe_vf).astype(np.int64)
-    valid = (np.isfinite(uf) & np.isfinite(vf) & (z > 1e-6) &
-             (u >= 0) & (u < width) & (v >= 0) & (v < height))
+    uf, vf = pcio.project_camera_pixels(cam, K)
+    # Bound only the integer indexing coordinates; retain the original floats
+    # for sampling and margin checks. Out-of-image points stay out of bounds.
+    u = np.round(np.clip(uf, -1.0, width)).astype(np.int64)
+    v = np.round(np.clip(vf, -1.0, height)).astype(np.int64)
+    valid = ((z > 1e-6) & (u >= 0) & (u < width) & (v >= 0) & (v < height))
     ids = np.flatnonzero(valid)
     if ids.size == 0:
         empty = np.zeros(0, dtype=np.float64)
@@ -70,15 +69,18 @@ def visible_point_samples(points: np.ndarray, viewmat: np.ndarray,
     return chosen, uf[chosen], vf[chosen]
 
 
-def exposure_scales(images: list[np.ndarray], limit: float = 1.5) -> np.ndarray:
-    """Return the same clamped median-luminance scales as robust colouring."""
+def exposure_scales(images: list[np.ndarray], limit: float = 1.5,
+                    *, reference_indices: list[int] | None = None) -> np.ndarray:
+    """Scale all images to the median luminance of the reference subset."""
     if limit < 1.0:
         raise ValueError('limit must be >= 1')
     medians = np.asarray([pcio._median_luminance(image) for image in images])
     valid = medians > 1e-6
+    reference = medians if reference_indices is None else medians[reference_indices]
+    reference = reference[reference > 1e-6]
     scales = np.ones(len(images), dtype=np.float32)
-    if valid.any():
-        target = float(np.median(medians[valid]))
+    if reference.size:
+        target = float(np.median(reference))
         scales[valid] = np.clip(target / medians[valid], 1.0 / limit, limit)
     return scales
 
@@ -111,6 +113,35 @@ def score_heldout_view(points: np.ndarray, colors: np.ndarray, seen: np.ndarray,
     return np.linalg.norm(delta, axis=1), visible_count
 
 
+def parse_fusion_options(text: str) -> dict:
+    """Validate JSON scalar options against the shared fusion function contract."""
+    supplied = json.loads(text)
+    if not isinstance(supplied, dict):
+        raise ValueError('fusion options must be a JSON object')
+    defaults = {
+        name: parameter.default
+        for name, parameter in inspect.signature(bli._colorize).parameters.items()
+        if parameter.kind == inspect.Parameter.KEYWORD_ONLY
+        and name not in ('frame_indices', 'return_diagnostics', 'loaded_images')
+    }
+    if supplied.keys() - defaults.keys():
+        raise ValueError('unknown fusion options: '
+                         + ', '.join(sorted(supplied.keys() - defaults.keys())))
+    for name, value in supplied.items():
+        default = defaults[name]
+        if isinstance(default, bool):
+            valid = isinstance(value, bool)
+        elif isinstance(default, int):
+            valid = isinstance(value, int) and not isinstance(value, bool)
+        else:
+            valid = (isinstance(value, (int, float))
+                     and not isinstance(value, bool) and np.isfinite(value))
+        if not valid:
+            raise ValueError('invalid fusion option type: ' + name)
+    defaults.update(supplied)
+    return defaults
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--pointcloud', type=Path, required=True)
@@ -129,13 +160,21 @@ def main() -> int:
     parser.add_argument('--image-margin', type=int, default=0,
                         help='ignore reference pixels within this many pixels '
                              'of the border (lens vignette; 0 keeps all)')
+    parser.add_argument('--fusion-options', type=parse_fusion_options,
+                        help='JSON shared builder options for training recolouring; '
+                             'evaluation exposure flags remain separate')
     args = parser.parse_args()
+    if args.fusion_options is not None and args.use_pointcloud_colors:
+        parser.error('--fusion-options cannot be used with --use-pointcloud-colors')
     if args.folds < 2 or not 0 <= args.holdout_fold < args.folds:
         raise SystemExit('--folds must be >= 2 and --holdout-fold must be valid')
     if args.view_stride < 1:
         raise SystemExit('--view-stride must be >= 1')
 
-    import imageio.v3 as iio
+    try:
+        import imageio.v3 as iio
+    except ImportError:  # imageio < 2.16 (Ubuntu 22.04)
+        import imageio as iio
     points, stored_colors = pcio.read_point_cloud_xyz(args.pointcloud)
     dataset = tg.load_transforms(args.transforms)
     viewmats = np.asarray(dataset['viewmats'], dtype=np.float64)
@@ -150,13 +189,18 @@ def main() -> int:
                 '--use-pointcloud-colors requires RGB in the point cloud')
         colors = stored_colors
         seen = np.ones(len(points), dtype=bool)
+    elif args.fusion_options is not None:
+        colors, seen = bli._colorize(
+            points, str(args.transforms), frame_indices=train, loaded_images=images,
+            **args.fusion_options)
     else:
         colors, seen = pcio.colorize_by_projection_robust(
             points, viewmats[train], K,
             [images[i] for i in train], dataset['width'], dataset['height'],
             normalize_exposure=args.normalize_exposure,
             exposure_scale_limit=args.exposure_scale_limit)
-    scales = (exposure_scales(images, args.exposure_scale_limit)
+    scales = (exposure_scales(images, args.exposure_scale_limit,
+                              reference_indices=train)
               if args.normalize_exposure else np.ones(len(images)))
     errors = []
     visible_total = 0
@@ -177,8 +221,11 @@ def main() -> int:
     report = {
         'train_views': len(train), 'heldout_views': len(holdout),
         'heldout_views_scored': len(per_view),
+        'fusion_options': args.fusion_options,
+        'train_view_indices': train, 'heldout_view_indices': holdout,
         'color_source': ('pointcloud' if args.use_pointcloud_colors else 'train'),
         'normalize_exposure': args.normalize_exposure,
+        'exposure_reference': ('training_views' if args.normalize_exposure else None),
         'exposure_scale_limit': args.exposure_scale_limit,
         'image_margin': args.image_margin,
         'visible_points': visible_total, 'scored_points': int(combined.size),

@@ -96,6 +96,7 @@ def test_load_transforms_recovers_viewmat(tmp_path):
     # viewmat should be the inverse of the original OpenCV c2w.
     np.testing.assert_allclose(ds['viewmats'][0], np.linalg.inv(c2w_cv), atol=1e-9)
     assert ds['image_paths'][0].name == '0.png'
+    np.testing.assert_array_equal(ds['timestamps'], [frames[0].stamp])
 
 
 # --------------------------------------------------------------------------- #
@@ -386,3 +387,43 @@ def test_parser_pose_group_and_exposure_flags():
          '--optimize-pose-groups', '--optimize-exposure'])
     assert args.optimize_pose_groups is True
     assert args.optimize_exposure is True
+
+
+@pytest.mark.parametrize('override', [
+    {'camera_model': 'OPENCV_FISHEYE', 'k1': 0., 'k2': 0., 'k3': 0., 'k4': 0.},
+    {'k1': .1}, {'p2': .02}, {'k6': .1},
+    {'distortion_params': [0., 0., .1, 0., 0., 0.]},
+])
+@pytest.mark.parametrize('per_frame', [False, True])
+def test_pinhole_loader_rejects_unrectified_images(tmp_path, override, per_frame):
+    """Do not silently render or colorize raw lens pixels as pinhole pixels."""
+    import json
+    doc = {'w': 640, 'h': 480, 'fl_x': 200., 'fl_y': 200., 'cx': 320., 'cy': 240.,
+           'frames': [{'file_path': 'raw.png', 'transform_matrix': np.eye(4).tolist()}]}
+    (doc['frames'][0] if per_frame else doc).update(override)
+    path = tmp_path / 'transforms.json'
+    path.write_text(json.dumps(doc))
+    with pytest.raises(ValueError, match='undistort'):
+        tg.load_transforms(path)
+
+
+@pytest.mark.parametrize('key,value', [
+    ('fl_x', 40.), ('fl_y', 40.), ('cx', 31.), ('cy', 23.),
+    ('w', 128), ('h', 96),
+])
+def test_shared_camera_loader_rejects_different_frame_intrinsics(tmp_path, key, value):
+    """A per-image camera override must not silently use the root projection."""
+    import json
+    doc = {'w': 64, 'h': 48, 'fl_x': 20., 'fl_y': 20., 'cx': 32., 'cy': 24.,
+           'frames': [{'file_path': 'image.png',
+                       'transform_matrix': np.eye(4).tolist(), key: value}]}
+    path = tmp_path / 'transforms.json'
+    path.write_text(json.dumps(doc))
+    with pytest.raises(ValueError, match='per-frame camera intrinsics'):
+        tg.load_transforms(path)
+    # Exporters may repeat the common calibration on every frame.
+    doc['frames'][0][key] = doc[key]
+    path.write_text(json.dumps(doc))
+    loaded = tg.load_transforms(path)
+    assert loaded['width'] == 64 and loaded['height'] == 48
+    np.testing.assert_array_equal(loaded['K'], [[20., 0., 32.], [0., 20., 24.], [0., 0., 1.]])

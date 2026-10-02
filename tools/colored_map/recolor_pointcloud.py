@@ -66,30 +66,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('--point-stride', type=int, default=1,
                         help='deterministically use every Nth input point; '
                              'intended for paired parameter screening')
-    parser.add_argument('--exposure-scale-limit', type=float, default=1.5)
-    parser.add_argument('--max-samples', type=int, default=12)
-    parser.add_argument('--min-samples', type=int, default=1)
-    parser.add_argument('--image-margin', type=int, default=0)
-    parser.add_argument('--vignette-gain-limit', type=float, default=1.0)
-    parser.add_argument('--overlap-balance', action='store_true')
-    parser.add_argument('--view-confidence', action='store_true')
-    parser.add_argument('--normal-voxel', type=float, default=0.12)
-    parser.add_argument('--min-view-cosine', type=float, default=0.0)
-    parser.add_argument('--min-projected-scale', type=float, default=0.0)
-    parser.add_argument('--view-score-power', type=float, default=1.0)
-    parser.add_argument('--geometry-aware', action='store_true')
-    parser.add_argument('--occlusion-margin-px', type=int, default=0)
-    parser.add_argument('--depth-edge-margin-px', type=int, default=0)
-    parser.add_argument('--depth-edge-tolerance', type=float, default=1.0)
-    parser.add_argument('--depth-edge-relative-tolerance', type=float,
-                        default=0.10)
-    parser.add_argument('--dynamic-exclusion', action='store_true')
-    parser.add_argument('--dynamic-mask-margin-px', type=int, default=2)
-    parser.add_argument('--calibration-sigma-multiplier', type=float,
-                        default=0.0)
-    parser.add_argument('--max-uncertainty-margin-px', type=int, default=8)
-    parser.add_argument('--no-normalize-exposure', action='store_false',
-                        dest='normalize_exposure')
+    builder.add_color_fusion_arguments(parser, prefix='')
     return parser
 
 
@@ -99,27 +76,8 @@ def run(args: argparse.Namespace) -> dict:
     input_points = len(xyz)
     xyz = select_paired_subset(xyz, args.point_stride)
     result = builder._colorize(
-        xyz, args.transforms, robust=True,
-        normalize_exposure=args.normalize_exposure,
-        exposure_scale_limit=args.exposure_scale_limit,
-        max_samples=args.max_samples,
-        image_margin=args.image_margin,
-        vignette_gain_limit=args.vignette_gain_limit,
-        overlap_color_balance=args.overlap_balance,
-        view_confidence=args.view_confidence,
-        normal_voxel=args.normal_voxel,
-        min_view_cosine=args.min_view_cosine,
-        min_projected_scale=args.min_projected_scale,
-        view_score_power=args.view_score_power,
-        min_samples=args.min_samples, geometry_aware=args.geometry_aware,
-        occlusion_margin_px=args.occlusion_margin_px,
-        depth_edge_margin_px=args.depth_edge_margin_px,
-        depth_edge_tolerance=args.depth_edge_tolerance,
-        depth_edge_relative_tolerance=args.depth_edge_relative_tolerance,
-        dynamic_exclusion=args.dynamic_exclusion,
-        dynamic_mask_margin_px=args.dynamic_mask_margin_px,
-        calibration_sigma_multiplier=args.calibration_sigma_multiplier,
-        maximum_uncertainty_margin_px=args.max_uncertainty_margin_px,
+        xyz, args.transforms,
+        **builder.color_fusion_options(args, robust=True, prefix=''),
         return_diagnostics=args.geometry_aware)
     if args.geometry_aware:
         rgb, seen, diagnostics = result

@@ -169,7 +169,8 @@ def extrinsic_matrix(values=None, path=None) -> np.ndarray | None:
 
 
 def projection_diagnostics(points, world_to_cam, K, width, height, *,
-                           zbuf_bin=4, depth_tol=0.15) -> dict:
+                           zbuf_bin=4, depth_tol=0.15, distortion=None,
+                           distortion_model='plumb_bob') -> dict:
     """Project points and report in-frame/visible samples for an overlay.
 
     Returns arrays ``indices``, ``u``, ``v``, ``depth`` and ``visible``. The
@@ -183,9 +184,8 @@ def projection_diagnostics(points, world_to_cam, K, width, height, *,
         raise ValueError('zbuf_bin must be >= 1')
     cam = xyz @ transform[:3, :3].T + transform[:3, 3]
     depth = cam[:, 2]
-    with np.errstate(divide='ignore', invalid='ignore'):
-        u = np.nan_to_num(intr[0, 0] * cam[:, 0] / depth + intr[0, 2], nan=-1.0)
-        v = np.nan_to_num(intr[1, 1] * cam[:, 1] / depth + intr[1, 2], nan=-1.0)
+    u, v = pcio.project_camera_pixels(
+        cam, intr, distortion=distortion, distortion_model=distortion_model)
     ui = np.round(u).astype(np.int64)
     vi = np.round(v).astype(np.int64)
     in_frame = ((depth > 1e-6) & (ui >= 0) & (ui < width) &
@@ -392,25 +392,20 @@ def _grab_messages(bag_path, wanted, types):
     return out
 
 
-def _image_to_rgb(img_msg, K, D, undistort):
+def _image_to_rgb(img_msg, K, D, undistort, distortion_model='plumb_bob'):
     """Decode an sensor_msgs/Image (rgb8/bgr8) to an RGB array, optionally undistort."""
-    enc = img_msg.encoding
-    arr = np.frombuffer(img_msg.data, dtype=np.uint8).reshape(
-        img_msg.height, img_msg.width, -1)
-    if enc == 'bgr8':
-        rgb = arr[:, :, ::-1]
-    elif enc == 'rgb8':
-        rgb = arr[:, :, :3]
-    elif enc in ('bgra8',):
-        rgb = arr[:, :, [2, 1, 0]]
-    elif enc in ('rgba8',):
-        rgb = arr[:, :, :3]
-    elif enc == 'mono8':
-        rgb = np.repeat(arr[:, :, :1], 3, axis=2)
-    else:
-        raise RuntimeError(f'unsupported image encoding {enc!r}')
-    rgb = np.ascontiguousarray(rgb)
-    if undistort and np.any(np.asarray(D) != 0.0):
+    from extract_posed_images import decode_image
+
+    rgb = decode_image(img_msg.encoding, img_msg.height, img_msg.width,
+                       img_msg.step, img_msg.data)
+    if rgb.ndim == 2:
+        rgb = np.repeat(rgb[:, :, None], 3, axis=2)
+    if undistort and distortion_model in ('equidistant', 'fisheye'):
+        import cv2
+        k = np.asarray(K, dtype=np.float64).reshape(3, 3)
+        # Even zero coefficients retain the fisheye theta-to-radius mapping.
+        rgb = cv2.fisheye.undistortImage(rgb, k, np.asarray(D, dtype=np.float64), Knew=k)
+    elif undistort and np.any(np.asarray(D) != 0.0):
         import cv2
         rgb = cv2.undistort(rgb, np.asarray(K, dtype=np.float64).reshape(3, 3),
                             np.asarray(D, dtype=np.float64))
@@ -504,14 +499,15 @@ def colorize_bag_frame(args) -> dict:
         else:
             world_to_cam = manual_extrinsic
         rgb_img = _image_to_rgb(
-            image, K, D, not args.no_undistort)
+            image, K, D, not args.no_undistort, info.distortion_model)
         colors, seen, counts = pcio.colorize_by_projection_robust(
             xyz, world_to_cam[None], K, [rgb_img], W, H,
             default_rgb=tuple(args.default_rgb),
             zbuf_bin=args.zbuf_bin, depth_tol=args.depth_tol,
             normalize_exposure=args.normalize_exposure,
             interp=args.interp, edge_threshold=args.edge_threshold,
-            return_counts=True)
+            distortion=D if args.no_undistort else None,
+            distortion_model=info.distortion_model, return_counts=True)
         per_camera.append((colors, seen, counts))
         stats = {
             'image_topic': img_topic, 'colored': int(seen.sum()),
@@ -520,7 +516,7 @@ def colorize_bag_frame(args) -> dict:
             'pair_dt_ms': abs(per_cam_time[img_topic] - pc_time) / 1e6}
         cam_stats.append(stats)
         if img_topic == primary_image_topic:
-            overlay_context = (rgb_img, world_to_cam, K, W, H, stats)
+            overlay_context = (rgb_img, world_to_cam, K, W, H, stats, info)
 
     colors, seen = merge_colorings(per_camera, tuple(args.default_rgb))
     n_seen = int(seen.sum())
@@ -534,10 +530,12 @@ def colorize_bag_frame(args) -> dict:
     overlay_path = None
     requested_overlay = getattr(args, 'diagnostic_overlay', None)
     if requested_overlay is not None and overlay_context is not None:
-        rgb_img, world_to_cam, K, W, H, stats = overlay_context
+        rgb_img, world_to_cam, K, W, H, stats, info = overlay_context
         diagnostics = projection_diagnostics(
             xyz, world_to_cam, K, W, H,
-            zbuf_bin=args.zbuf_bin, depth_tol=args.depth_tol)
+            zbuf_bin=args.zbuf_bin, depth_tol=args.depth_tol,
+            distortion=info.d if args.no_undistort else None,
+            distortion_model=info.distortion_model)
         overlay_path = _write_diagnostic_overlay(
             requested_overlay, rgb_img, diagnostics,
             pair_dt_ms=stats['pair_dt_ms'], total_points=len(xyz))
@@ -588,7 +586,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--sync-search-radius', type=int, default=2,
                    help='neighbouring images per side searched for best sync')
     p.add_argument('--no-undistort', action='store_true',
-                   help='skip plumb_bob undistortion (needs OpenCV otherwise)')
+                   help='sample raw images with camera-model projection; do not rectify pixels')
     p.add_argument('--normalize-exposure', action='store_true',
                    help='rescale image luminance (harmless for a single view)')
     p.add_argument('--zbuf-bin', type=int, default=1,

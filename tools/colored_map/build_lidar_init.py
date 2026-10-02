@@ -295,31 +295,7 @@ def build(args: argparse.Namespace) -> dict:
     fusion_diagnostics = None
     if args.color_transforms:
         color_result = _colorize(
-            world, args.color_transforms, robust=args.color_robust,
-            normalize_exposure=args.color_normalize_exposure,
-            exposure_scale_limit=args.color_exposure_scale_limit,
-            max_samples=args.color_max_samples,
-            image_margin=args.color_image_margin,
-            vignette_gain_limit=args.color_vignette_gain_limit,
-            overlap_color_balance=args.color_overlap_balance,
-            view_confidence=args.color_view_confidence,
-            normal_voxel=args.color_normal_voxel,
-            min_view_cosine=args.color_min_view_cosine,
-            min_projected_scale=args.color_min_projected_scale,
-            view_score_power=args.color_view_score_power,
-            min_samples=args.color_min_samples,
-            geometry_aware=args.color_geometry_aware,
-            occlusion_margin_px=args.color_occlusion_margin_px,
-            depth_edge_margin_px=args.color_depth_edge_margin_px,
-            depth_edge_tolerance=args.color_depth_edge_tolerance,
-            depth_edge_relative_tolerance=(
-                args.color_depth_edge_relative_tolerance),
-            dynamic_exclusion=args.color_dynamic_exclusion,
-            dynamic_mask_margin_px=args.color_dynamic_mask_margin_px,
-            calibration_sigma_multiplier=(
-                args.color_calibration_sigma_multiplier),
-            maximum_uncertainty_margin_px=(
-                args.color_max_uncertainty_margin_px),
+            world, args.color_transforms, **color_fusion_options(args),
             return_diagnostics=args.color_geometry_aware)
         if args.color_geometry_aware:
             rgb, seen, fusion_diagnostics = color_result
@@ -337,6 +313,75 @@ def build(args: argparse.Namespace) -> dict:
             'colored': colored, 'fusion_diagnostics': fusion_diagnostics,
             'dynamic_cleaning': dynamic_cleaning,
             'out': str(out)}
+
+
+def add_color_fusion_arguments(parser, *, prefix='color-') -> None:
+    """Register the shared fusion options for prefixed or standalone CLIs."""
+    def add_argument(name, **kwargs):
+        parser.add_argument('--' + prefix + name, **kwargs)
+
+    add_argument('no-normalize-exposure', action='store_false',
+                 dest=prefix.replace('-', '_') + 'normalize_exposure',
+                 help='keep camera RGB values unchanged instead of applying '
+                      'per-view global-median exposure gains')
+    add_argument('exposure-scale-limit', type=float, default=1.5,
+                 help='maximum robust-color exposure gain and reciprocal loss')
+    add_argument('max-samples', type=int, default=12,
+                 help='nearest valid camera observations retained per point')
+    add_argument('min-samples', type=int, default=1,
+                 help='demote robust colours confirmed by fewer surviving '
+                      'camera samples than this to unseen (1 keeps all)')
+    add_argument('image-margin', type=int, default=0,
+                 help='ignore colour samples within this many pixels of the '
+                      'image border (skips lens-vignette darkening; 0 keeps '
+                      'the full frame)')
+    add_argument('vignette-gain-limit', type=float, default=1.0,
+                 help='estimate and apply a shared radial luminance gain, '
+                      'clamped to this value (1 disables correction)')
+    add_argument('overlap-balance', action='store_true',
+                 help='solve per-frame exposure and white balance from RGB '
+                      'of shared visible 3D points')
+    add_argument('view-confidence', action='store_true',
+                 help='prefer observations with strong incidence angle and '
+                      'projected resolution using voxel normals')
+    add_argument('normal-voxel', type=float, default=0.12)
+    add_argument('min-view-cosine', type=float, default=0.0)
+    add_argument('min-projected-scale', type=float, default=0.0)
+    add_argument('view-score-power', type=float, default=1.0)
+    add_argument('geometry-aware', action='store_true',
+                 help='enable depth-edge, silhouette, dynamic-mask, and '
+                      'calibration-uncertainty guards')
+    add_argument('occlusion-margin-px', type=int, default=0)
+    add_argument('depth-edge-margin-px', type=int, default=0)
+    add_argument('depth-edge-tolerance', type=float, default=1.0)
+    add_argument('depth-edge-relative-tolerance', type=float,
+                 default=0.10)
+    add_argument('dynamic-exclusion', action='store_true',
+                 help='exclude per-frame dynamic_mask_path pixels')
+    add_argument('dynamic-mask-margin-px', type=int, default=2)
+    add_argument('calibration-sigma-multiplier', type=float,
+                 default=0.0)
+    add_argument('max-uncertainty-margin-px', type=int, default=8)
+
+
+def color_fusion_options(args, *, robust=None, prefix='color_') -> dict:
+    """Translate shared colour CLI settings into the fusion function options."""
+    names = (
+        'normalize_exposure', 'exposure_scale_limit', 'max_samples',
+        'image_margin', 'vignette_gain_limit', 'view_confidence', 'normal_voxel',
+        'min_view_cosine', 'min_projected_scale', 'view_score_power',
+        'min_samples', 'geometry_aware', 'occlusion_margin_px',
+        'depth_edge_margin_px', 'depth_edge_tolerance',
+        'depth_edge_relative_tolerance', 'dynamic_exclusion',
+        'dynamic_mask_margin_px', 'calibration_sigma_multiplier',
+    )
+    options = {name: getattr(args, prefix + name) for name in names}
+    options.update(
+        robust=getattr(args, prefix + 'robust') if robust is None else robust,
+        overlap_color_balance=getattr(args, prefix + 'overlap_balance'),
+        maximum_uncertainty_margin_px=getattr(
+            args, prefix + 'max_uncertainty_margin_px'))
+    return options
 
 
 def _colorize(world: np.ndarray, transforms_path: str, *, robust: bool = False,
@@ -361,13 +406,30 @@ def _colorize(world: np.ndarray, transforms_path: str, *, robust: bool = False,
               dynamic_mask_margin_px: int = 2,
               calibration_sigma_multiplier: float = 0.0,
               maximum_uncertainty_margin_px: int = 8,
-              return_diagnostics: bool = False):
+              return_diagnostics: bool = False,
+              frame_indices: Optional[Sequence[int]] = None,
+              loaded_images: Optional[Sequence[np.ndarray]] = None):
     """Project ``world`` points into the posed images of a transforms.json."""
     import imageio as iio
     import train_gsplat as tg
 
     ds = tg.load_transforms(transforms_path)
-    images = [np.asarray(iio.imread(p)) for p in ds['image_paths']]
+    if loaded_images is not None and len(loaded_images) != len(ds['image_paths']):
+        raise ValueError('loaded_images must match the full transforms frame list')
+    if frame_indices is not None:
+        indices = list(frame_indices)
+        if (not indices or len(set(indices)) != len(indices) or
+                any(not isinstance(i, (int, np.integer)) or
+                    i < 0 or i >= len(ds['image_paths']) for i in indices)):
+            raise ValueError('frame_indices must be nonempty, unique valid indices')
+        ds = dict(ds)
+        ds['viewmats'] = np.asarray(ds['viewmats'])[indices]
+        for key in ('image_paths', 'dynamic_mask_paths', 'timestamps'):
+            ds[key] = [ds[key][i] for i in indices]
+        if loaded_images is not None:
+            loaded_images = [loaded_images[i] for i in indices]
+    images = (loaded_images if loaded_images is not None else
+              [np.asarray(iio.imread(p)) for p in ds['image_paths']])
     if not robust:
         return pcio.colorize_by_projection(
             world, ds['viewmats'], ds['K'], images, ds['width'], ds['height'])
@@ -480,48 +542,7 @@ def build_parser() -> argparse.ArgumentParser:
                    help='use the occlusion-aware / exposure-normalised / median '
                         'colorizer instead of the plain all-view average (slower; '
                         'much cleaner colours for map flythroughs)')
-    p.add_argument('--color-no-normalize-exposure', action='store_false',
-                   dest='color_normalize_exposure',
-                   help='keep camera RGB values unchanged instead of applying '
-                        'per-view global-median exposure gains')
-    p.add_argument('--color-exposure-scale-limit', type=float, default=1.5,
-                   help='maximum robust-color exposure gain and reciprocal loss')
-    p.add_argument('--color-max-samples', type=int, default=12,
-                   help='nearest valid camera observations retained per point')
-    p.add_argument('--color-min-samples', type=int, default=1,
-                   help='demote robust colours confirmed by fewer surviving '
-                        'camera samples than this to unseen (1 keeps all)')
-    p.add_argument('--color-image-margin', type=int, default=0,
-                   help='ignore colour samples within this many pixels of the '
-                        'image border (skips lens-vignette darkening; 0 keeps '
-                        'the full frame)')
-    p.add_argument('--color-vignette-gain-limit', type=float, default=1.0,
-                   help='estimate and apply a shared radial luminance gain, '
-                        'clamped to this value (1 disables correction)')
-    p.add_argument('--color-overlap-balance', action='store_true',
-                   help='solve per-frame exposure and white balance from RGB '
-                        'of shared visible 3D points')
-    p.add_argument('--color-view-confidence', action='store_true',
-                   help='prefer observations with strong incidence angle and '
-                        'projected resolution using voxel normals')
-    p.add_argument('--color-normal-voxel', type=float, default=0.12)
-    p.add_argument('--color-min-view-cosine', type=float, default=0.0)
-    p.add_argument('--color-min-projected-scale', type=float, default=0.0)
-    p.add_argument('--color-view-score-power', type=float, default=1.0)
-    p.add_argument('--color-geometry-aware', action='store_true',
-                   help='enable depth-edge, silhouette, dynamic-mask, and '
-                        'calibration-uncertainty guards')
-    p.add_argument('--color-occlusion-margin-px', type=int, default=0)
-    p.add_argument('--color-depth-edge-margin-px', type=int, default=0)
-    p.add_argument('--color-depth-edge-tolerance', type=float, default=1.0)
-    p.add_argument('--color-depth-edge-relative-tolerance', type=float,
-                   default=0.10)
-    p.add_argument('--color-dynamic-exclusion', action='store_true',
-                   help='exclude per-frame dynamic_mask_path pixels')
-    p.add_argument('--color-dynamic-mask-margin-px', type=int, default=2)
-    p.add_argument('--color-calibration-sigma-multiplier', type=float,
-                   default=0.0)
-    p.add_argument('--color-max-uncertainty-margin-px', type=int, default=8)
+    add_color_fusion_arguments(p)
     p.add_argument('--min-neighbors', type=int, default=2,
                    help='drop points whose 3x3x3 voxel neighbourhood (see '
                         '--sparse-voxel) holds fewer points; default 2 requires '

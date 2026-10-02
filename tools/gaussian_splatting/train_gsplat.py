@@ -16,12 +16,19 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Optional, Sequence
 
 import numpy as np
 
-import lidarslam_benchmark_tools.gaussian_splatting.posed_images as pi
+# Direct source-tree execution also needs the sibling benchmark package.
+_SOURCE_ROOT = Path(__file__).resolve().parents[2]
+if not __package__ and (_SOURCE_ROOT / 'lidarslam_benchmark_tools').is_dir():
+    if str(_SOURCE_ROOT) not in sys.path:
+        sys.path.insert(0, str(_SOURCE_ROOT))
+
+import lidarslam_benchmark_tools.gaussian_splatting.posed_images as pi  # noqa: E402
 
 # SH band-0 constant: f_dc = (rgb - 0.5) / C0 for the INRIA .ply layout.
 SH_C0 = 0.28209479177387814
@@ -44,6 +51,25 @@ def load_transforms(path: str | Path) -> dict:
     """
     path = Path(path)
     doc = json.loads(path.read_text())
+    # All consumers of this shared loader use pinhole rasterization/sampling.
+    # Fisheye remains non-pinhole even when its polynomial coefficients are zero.
+    for camera in [doc, *doc['frames']]:
+        model = camera.get('camera_model', doc.get('camera_model', 'OPENCV'))
+        coefficients = [camera.get(key, 0.0)
+                        for key in ('k1', 'k2', 'k3', 'k4', 'k5', 'k6', 'p1', 'p2')]
+        if (model not in ('OPENCV', 'PINHOLE', 'SIMPLE_PINHOLE')
+                or np.any(np.asarray(coefficients, dtype=float) != 0.0)
+                or np.any(np.asarray(camera.get('distortion_params', []),
+                                     dtype=float) != 0.0)):
+            raise ValueError('pinhole consumers require rectified images; '
+                             'extract with --undistort (do not just clear '
+                             'distortion metadata)')
+    # Consumers share one K and image size; ignoring a frame override shifts RGB.
+    for frame in doc['frames']:
+        if any(key in frame and frame[key] != doc[key]
+               for key in ('fl_x', 'fl_y', 'cx', 'cy', 'w', 'h')):
+            raise ValueError('per-frame camera intrinsics must match the common '
+                             'calibration; split inputs by camera calibration')
     fx, fy = doc['fl_x'], doc['fl_y']
     cx, cy = doc['cx'], doc['cy']
     K = np.array([[fx, 0.0, cx], [0.0, fy, cy], [0.0, 0.0, 1.0]])
@@ -59,7 +85,8 @@ def load_transforms(path: str | Path) -> dict:
         viewmats.append(np.linalg.inv(c2w_cv))
         image_paths.append((path.parent / fr['file_path']).resolve())
         groups.append(group_ids.setdefault(fr.get('bag', ''), len(group_ids)))
-        timestamps.append(float(fr.get('timestamp', np.nan)))
+        # Our posed-image writer uses stamp; retain timestamp for external files.
+        timestamps.append(float(fr.get('timestamp', fr.get('stamp', np.nan))))
         mask_path = fr.get('dynamic_mask_path')
         dynamic_mask_paths.append(
             (path.parent / mask_path).resolve() if mask_path else None)

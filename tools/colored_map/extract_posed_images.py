@@ -356,16 +356,14 @@ def _topic_type(bag_path: str | Path, topic: str) -> str:
 def decode_compressed_image(fmt: str, data: bytes) -> np.ndarray:
     """Decode a ``sensor_msgs/CompressedImage`` payload to RGB uint8.
 
-    cv_bridge-produced jpegs encode the pre-compression channel order in
-    ``format`` (e.g. ``"bgr8; jpeg compressed bgr8"``); decoding such a payload
-    yields swapped channels, so honour a leading ``bgr`` tag.
+    The codec decoder returns RGB regardless of the ROS source encoding in
+    ``format``. compressed_image_transport passes BGR to OpenCV's encoder,
+    which writes the corresponding standard JPEG/PNG colors; swapping again
+    for a ``bgr8`` source tag would exchange red and blue.
     """
     import imageio as iio
 
     img = iio.imread(bytes(data))
-    if img.ndim == 3 and img.shape[2] >= 3 and \
-            fmt.lower().split(';')[0].strip().startswith('bgr'):
-        img = img[:, :, [2, 1, 0]]
     return np.ascontiguousarray(img[:, :, :3] if img.ndim == 3 else img)
 
 
@@ -398,7 +396,7 @@ def read_camera_intrinsics(bag_path: str | Path, topic: str) -> pi.CameraIntrins
             continue
         msg = deserialize_message(raw, CameraInfo)
         return pi.CameraIntrinsics.from_camera_info(
-            msg.width, msg.height, list(msg.k), list(msg.d)
+            msg.width, msg.height, list(msg.k), list(msg.d), msg.distortion_model
         )
     raise RuntimeError(f'no CameraInfo found on topic {topic!r}')
 
@@ -479,13 +477,13 @@ def extract(args: argparse.Namespace) -> dict:
                       [0, intrinsics.fy, intrinsics.cy], [0, 0, 1.0]])
         size = (intrinsics.width, intrinsics.height)
         if intrinsics.distortion_model in ('equidistant', 'fisheye'):
-            d = np.array((list(intrinsics.distortion) + [0] * 4)[:4], dtype=float)
+            d = np.array(intrinsics.distortion or (0.0,) * 4, dtype=float)
             new_k = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(
                 k, d, size, np.eye(3), balance=0.0)
             undistort_map = cv2.fisheye.initUndistortRectifyMap(
                 k, d, np.eye(3), new_k, size, cv2.CV_16SC2)
         else:
-            d = np.array((list(intrinsics.distortion) + [0] * 5)[:5], dtype=float)
+            d = np.array(intrinsics.distortion or (0.0,) * 5, dtype=float)
             new_k, _ = cv2.getOptimalNewCameraMatrix(k, d, size, 0, size)
             undistort_map = cv2.initUndistortRectifyMap(
                 k, d, None, new_k, size, cv2.CV_16SC2)
@@ -494,6 +492,8 @@ def extract(args: argparse.Namespace) -> dict:
             float(new_k[0, 0]), float(new_k[1, 1]),
             float(new_k[0, 2]), float(new_k[1, 2]))
 
+    # Reject a lossy raw export before decoding/writing any images.
+    pi.build_transforms(out_intrinsics, [])
     out_dir = Path(args.out)
     images_dir = out_dir / 'images'
     images_dir.mkdir(parents=True, exist_ok=True)

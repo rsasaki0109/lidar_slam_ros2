@@ -506,3 +506,171 @@ def test_overlay_uses_coloring_occlusion_settings(tmp_path, monkeypatch, options
     expected = [[211, 71, 33] if seen else args.default_rgb for seen in visible]
     np.testing.assert_array_equal(written[0], expected)
     assert overlays[0]['visible'].tolist() == visible
+
+
+@pytest.mark.parametrize('encoding', ['rgb8', 'bgr8', 'rgba8', 'bgra8', 'mono8'])
+@pytest.mark.parametrize('padding', [0, 2])
+def test_image_to_rgb_respects_row_stride(encoding, padding):
+    """Padding bytes must never become image samples in direct bag coloring."""
+    from types import SimpleNamespace
+
+    rgb = np.array([[[10, 20, 30], [40, 50, 60]],
+                    [[70, 80, 90], [100, 110, 120]]], dtype=np.uint8)
+    pixels = rgb[:, :, ::-1] if encoding.startswith('bgr') else rgb
+    if encoding in ('rgba8', 'bgra8'):
+        pixels = np.concatenate([pixels, np.full((2, 2, 1), 255, dtype=np.uint8)], axis=2)
+    elif encoding == 'mono8':
+        pixels = rgb[:, :, :1]
+        rgb = np.repeat(pixels, 3, axis=2)
+    step = 2 * pixels.shape[2] + padding
+    data = b''.join(row.tobytes() + bytes([213]) * padding for row in pixels)
+    message = SimpleNamespace(encoding=encoding, height=2, width=2, step=step, data=data)
+    actual = cfb._image_to_rgb(message, np.eye(3), np.zeros(5), False)
+    np.testing.assert_array_equal(actual, rgb)
+    assert actual.flags.c_contiguous
+
+
+@pytest.mark.parametrize('model,coefficients,undistort', [
+    ('plumb_bob', [0.1, -0.02, 0.003, -0.001, 0.01], True),
+    ('rational_polynomial', [0.1, -0.02, 0.003, -0.001, 0.01, 0.15, 0.02, 0.01], True),
+    ('equidistant', [0.1, -0.02, 0.003, -0.001], True),
+    ('equidistant', [0.0, 0.0, 0.0, 0.0], True),
+    ('equidistant', [0.1, -0.02, 0.003, -0.001], False),
+])
+def test_direct_coloring_uses_camera_info_model(
+        tmp_path, monkeypatch, model, coefficients, undistort):
+    """The image passed to pinhole projection must be rectified to the same K."""
+    cv2 = pytest.importorskip('cv2')
+    pytest.importorskip('rclpy.time')
+    from types import SimpleNamespace
+
+    width, height = 64, 48
+    y, x = np.indices((height, width))
+    rgb = np.stack([x * 3, y * 5, (x + y) * 2], axis=-1).astype(np.uint8)
+    k = np.array([[32.0, 0.0, 31.5], [0.0, 33.0, 23.5], [0.0, 0.0, 1.0]])
+    image = SimpleNamespace(encoding='rgb8', height=height, width=width,
+                            step=width * 3, data=rgb.tobytes())
+    info = SimpleNamespace(k=k.ravel(), d=coefficients, width=width, height=height,
+                           distortion_model=model)
+    args = cfb.build_parser().parse_args([
+        'bag', str(tmp_path / 'colored'), '--extrinsic', '0', '0', '0', '0', '0', '0', '1'])
+    args.no_undistort = not undistort
+    monkeypatch.setattr(cfb, '_collect', lambda *a, **kw: (
+        None, {args.camera_info_topic: [(0, info)]}, [1], {args.image_topic: [1]}, {}))
+    monkeypatch.setattr(cfb, '_grab_messages', lambda *a: {
+        (args.pc_topic, 1): None, (args.image_topic, 1): image})
+    monkeypatch.setattr(cfb, '_read_xyz', lambda _msg: np.array([[0.0, 0.0, 2.0]]))
+    d = np.asarray(coefficients)
+    expected = rgb
+    if undistort:
+        if model == 'equidistant':
+            expected = cv2.fisheye.undistortImage(rgb, k, d, Knew=k)
+        else:
+            expected = cv2.undistort(rgb, k, d)
+    calls = []
+
+    def project(points, poses, intrinsics, images, w, h, **kwargs):
+        np.testing.assert_array_equal(intrinsics, k)
+        np.testing.assert_array_equal(images[0], expected)
+        assert (w, h) == (width, height)
+        calls.append(True)
+        return np.array([[10, 20, 30]], dtype=np.uint8), np.array([True]), np.array([1])
+
+    monkeypatch.setattr(cfb.pcio, 'colorize_by_projection_robust', project)
+    assert cfb.colorize_bag_frame(args)['colored'] == 1
+    assert calls == [True]
+
+
+@pytest.mark.parametrize('model,d', [
+    ('equidistant', [0., 0., 0., 0.]),
+    ('equidistant', [0.1, -0.02, 0.003, -0.001]),
+    ('plumb_bob', [0.2, -0.02, 0.003, -0.001, 0.01]),
+    ('rational_polynomial', [0.1, -0.02, 0.003, -0.001, 0.01, 0.15, 0.02, 0.01]),
+])
+def test_raw_image_coloring_projects_camera_model(tmp_path, monkeypatch, model, d):
+    """Actual sampling and occlusion must use distorted pixels, as must overlays."""
+    cv2 = pytest.importorskip('cv2')
+    pytest.importorskip('rclpy.time')
+    from types import SimpleNamespace
+
+    width, height = 640, 480
+    k = np.array([[200., 0., 320.], [0., 200., 240.], [0., 0., 1.]])
+    xyz = np.array([[1., 0., 1.], [2., 0., 2.], [0., 0., -1.]])
+    if model == 'equidistant':
+        uv = cv2.fisheye.projectPoints(xyz[:1, None], np.zeros(3), np.zeros(3),
+                                       k, np.array(d))[0].reshape(2)
+    else:
+        uv = cv2.projectPoints(xyz[:1, None], np.zeros(3), np.zeros(3),
+                               k, np.array(d))[0].reshape(2)
+    u, v = np.round(uv).astype(int)
+    rgb = np.zeros((height, width, 3), dtype=np.uint8)
+    rgb[v, u] = [211, 71, 33]
+    info = SimpleNamespace(k=k.ravel(), d=d, width=width, height=height,
+                           distortion_model=model)
+    image = SimpleNamespace(encoding='rgb8', width=width, height=height,
+                            step=width * 3, data=rgb.tobytes())
+    args = cfb.build_parser().parse_args([
+        'bag', str(tmp_path / 'raw'), '--no-undistort', '--interp', 'nearest',
+        '--extrinsic', '0', '0', '0', '0', '0', '0', '1'])
+    args.normalize_exposure = False
+    args.diagnostic_overlay = str(tmp_path / 'overlay.png')
+    monkeypatch.setattr(cfb, '_collect', lambda *a, **kw: (
+        None, {args.camera_info_topic: [(0, info)]}, [1], {args.image_topic: [1]}, {}))
+    monkeypatch.setattr(cfb, '_grab_messages', lambda *a: {
+        (args.pc_topic, 1): None, (args.image_topic, 1): image})
+    monkeypatch.setattr(cfb, '_read_xyz', lambda _: xyz)
+    written = []
+
+    def write(path, points, colors):
+        written.append((points.copy(), colors.copy()))
+        return path
+    monkeypatch.setattr(cfb.pcio, 'write_ply', write)
+    overlays = []
+
+    def overlay(path, image, diagnostics, **kwargs):
+        overlays.append(diagnostics)
+        return path
+    monkeypatch.setattr(cfb, '_write_diagnostic_overlay', overlay)
+    result = cfb.colorize_bag_frame(args)
+    assert result['colored'] == 1
+    np.testing.assert_array_equal(written[0][0], xyz)
+    np.testing.assert_array_equal(written[0][1][0], [211, 71, 33])
+    np.testing.assert_array_equal(written[0][1][1:], [args.default_rgb] * 2)
+    np.testing.assert_allclose([overlays[0]['u'][0], overlays[0]['v'][0]], uv)
+    assert overlays[0]['visible'].tolist() == [True, False]
+
+
+@pytest.mark.parametrize('option', ['overlap_color_balance',
+                                    'calibration_sigma_multiplier',
+                                    'min_projected_scale', 'view_score_power'])
+def test_raw_projection_rejects_pinhole_only_weighting(option):
+    """Do not combine raw pixel coordinates with pinhole-only quality helpers."""
+    with pytest.raises(ValueError, match='rectify images'):
+        cfb.pcio.colorize_by_projection_robust(
+            np.array([[0., 0., 1.]]), [np.eye(4)], np.eye(3),
+            [np.zeros((2, 2, 3), dtype=np.uint8)], 2, 2,
+            distortion=np.zeros(4), distortion_model='equidistant', **{option: 1})
+
+
+@pytest.mark.parametrize('model,d,x', [
+    ('plumb_bob', [-1., 0., 0., 0., 0.], 1.),
+    ('rational_polynomial', [-1., 0., 0., 0., 0., 0., 0., 0.], 1.),
+    ('equidistant', [-1., 0., 0., 0.], np.tan(1.)),
+])
+def test_folded_lens_ray_cannot_color_or_occlude(model, d, x):
+    """An outer ray folding to the optical center must not hide a valid ray."""
+    pytest.importorskip('cv2')
+    k = np.array([[20., 0., 32.], [0., 20., 24.], [0., 0., 1.]])
+    xyz = np.array([[x, 0., 1.], [0., 0., 2.], [np.nan, 0., 1.]])
+    rgb = np.zeros((48, 64, 3), dtype=np.uint8)
+    rgb[24, 32] = [210, 90, 40]
+    colors, seen = cfb.pcio.colorize_by_projection_robust(
+        xyz, [np.eye(4)], k, [rgb], 64, 48, distortion=d,
+        distortion_model=model, normalize_exposure=False, interp='nearest')
+    assert seen.tolist() == [False, True, False]
+    np.testing.assert_array_equal(colors, [[128, 128, 128], [210, 90, 40],
+                                           [128, 128, 128]])
+    diag = cfb.projection_diagnostics(xyz, np.eye(4), k, 64, 48,
+                                      distortion=d, distortion_model=model)
+    assert diag['indices'].tolist() == [1]
+    assert diag['visible'].tolist() == [True]

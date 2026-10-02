@@ -354,13 +354,26 @@ def test_decode_compressed_image_jpeg_rgb():
     assert out[:, :, 0].mean() > 150 and out[:, :, 2].mean() < 60
 
 
-def test_decode_compressed_image_bgr_tag_swaps_channels():
-    rgb = np.zeros((16, 16, 3), dtype=np.uint8)
-    rgb[:, :, 0] = 200  # stored channel 0 dominant
-    out = ex.decode_compressed_image('bgr8; jpeg compressed bgr8',
-                                     _jpeg_bytes(rgb))
-    # with a bgr-tagged payload, channel 0 is blue -> red plane ends up last
-    assert out[:, :, 2].mean() > 150 and out[:, :, 0].mean() < 60
+@pytest.mark.parametrize('codec', ['jpeg', 'png'])
+@pytest.mark.parametrize('source_encoding', ['bgr8', 'rgb8', ''])
+def test_decode_compressed_image_ros_color_order(codec, source_encoding):
+    cv2 = pytest.importorskip('cv2')
+    # compressed_image_transport converts both source encodings to BGR before
+    # cv::imencode. Use its encoder convention, independently of our decoder.
+    rgb = np.zeros((32, 96, 3), dtype=np.uint8)
+    rgb[:, :32, 0] = 200
+    rgb[:, 32:64, 1] = 180
+    rgb[:, 64:, 2] = 160
+    ok, payload = cv2.imencode('.' + codec, rgb[:, :, ::-1])
+    assert ok
+    fmt = f'{source_encoding}; {codec} compressed bgr8' if source_encoding else codec
+    out = ex.decode_compressed_image(fmt, payload.tobytes())
+    assert out.shape == rgb.shape
+    assert out.dtype == np.uint8
+    assert out.flags.c_contiguous
+    # Inspect patch interiors to exclude JPEG boundary ringing.
+    for column in (16, 48, 80):
+        np.testing.assert_allclose(out[16, column], rgb[16, column], atol=3)
 
 
 def test_topic_type_from_metadata(tmp_path):
@@ -376,3 +389,91 @@ def test_topic_type_from_metadata(tmp_path):
     assert t == 'sensor_msgs/msg/CompressedImage'
     assert ex._topic_type(tmp_path, '/missing') == ''
     assert ex._topic_type(tmp_path / 'nope', '/x') == ''
+
+
+@pytest.mark.parametrize('model,coefficients', [
+    ('plumb_bob', [0.12, -0.04, 0.003, -0.002, 0.01]),
+    ('equidistant', [0.12, -0.04, 0.003, -0.002]),
+    ('rational_polynomial', [0.12, -0.04, 0.003, -0.002, 0.01, 0.18, -0.03, 0.02]),
+])
+def test_extract_camera_info_rectification(tmp_path, monkeypatch, model, coefficients):
+    """Bag CameraInfo must select the calibrated model and all coefficients."""
+    cv2 = pytest.importorskip('cv2')
+    pytest.importorskip('rosbag2_py')
+    from rclpy.serialization import serialize_message
+    from sensor_msgs.msg import CameraInfo, Image
+    import imageio.v2 as iio
+    import json
+
+    width, height = 80, 60
+    k = np.array([[48.0, 0.0, 39.5], [0.0, 49.0, 29.5], [0.0, 0.0, 1.0]])
+    y, x = np.indices((height, width))
+    rgb = np.stack([(x * 7) % 256, (y * 11) % 256,
+                    ((x + y) * 13) % 256], axis=-1).astype(np.uint8)
+    info = CameraInfo(width=width, height=height, k=k.ravel().tolist(),
+                      d=coefficients, distortion_model=model)
+    image = Image(width=width, height=height, encoding='rgb8',
+                  step=width * 3, data=rgb.tobytes())
+    image.header.stamp.sec = 1
+    messages = [('/camera_info', serialize_message(info), 1_000_000_000),
+                ('/image', serialize_message(image), 1_000_000_000)]
+
+    class Reader:
+        def __init__(self):
+            self.index = 0
+
+        def has_next(self):
+            return self.index < len(messages)
+
+        def read_next(self):
+            result = messages[self.index]
+            self.index += 1
+            return result
+
+        def set_filter(self, _filter):
+            pass
+
+    monkeypatch.setattr(ex, '_open_reader', lambda _bag: Reader())
+    monkeypatch.setattr(ex, '_topic_type', lambda _bag, _topic: 'sensor_msgs/msg/Image')
+    trajectory = tmp_path / 'trajectory.tum'
+    trajectory.write_text('1 0 0 0 0 0 0 1\n2 0 0 0 0 0 0 1\n')
+    args = ex.build_parser().parse_args([
+        '--bag', str(tmp_path), '--traj', str(trajectory),
+        '--out', str(tmp_path / 'output'), '--undistort'])
+    assert ex.extract(args)['kept'] == 1
+
+    d = np.array(coefficients, dtype=float)
+    size = (width, height)
+    if model == 'equidistant':
+        target = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(
+            k, d, size, np.eye(3), balance=0.0)
+        maps = cv2.fisheye.initUndistortRectifyMap(
+            k, d, np.eye(3), target, size, cv2.CV_16SC2)
+    else:
+        target, _ = cv2.getOptimalNewCameraMatrix(k, d, size, 0, size)
+        maps = cv2.initUndistortRectifyMap(k, d, None, target, size, cv2.CV_16SC2)
+    expected = cv2.remap(rgb, *maps, cv2.INTER_LINEAR)
+    actual = iio.imread(tmp_path / 'output/images/00000.png')
+    np.testing.assert_array_equal(actual, expected)
+    transforms = json.loads((tmp_path / 'output/transforms.json').read_text())
+    np.testing.assert_allclose(
+        [transforms[key] for key in ['fl_x', 'fl_y', 'cx', 'cy']],
+        [target[0, 0], target[1, 1], target[0, 2], target[1, 2]])
+    assert all(transforms[key] == 0.0 for key in ['k1', 'k2', 'p1', 'p2', 'k3'])
+
+    # Rectification is the supported path into pinhole training/coloring.
+    import lidarslam_benchmark_tools.gaussian_splatting.train_gsplat as tg
+    loaded = tg.load_transforms(tmp_path / 'output/transforms.json')
+    np.testing.assert_allclose(loaded['K'], target)
+
+    args.undistort = False
+    args.out = str(tmp_path / 'raw_output')
+    if model == 'rational_polynomial':
+        with pytest.raises(ValueError, match='undistort'):
+            ex.extract(args)
+        assert not Path(args.out).exists()
+    else:
+        assert ex.extract(args)['kept'] == 1
+        np.testing.assert_array_equal(iio.imread(Path(args.out) / 'images/00000.png'), rgb)
+        with pytest.raises(ValueError, match='undistort'):
+            tg.load_transforms(Path(args.out) / 'transforms.json')

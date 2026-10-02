@@ -57,6 +57,15 @@ def _args(tmp_path, *extra):
     ])
 
 
+def _record_completed_commands(args):
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    cmp.save_stage_commands(out, {
+        name: cmp.stage_command_key(command)
+        for name, command in cmp.build_commands(args, _all_stages=True)
+    })
+
+
 def test_build_commands_connects_extract_to_robust_map(tmp_path):
     commands = cmp.build_commands(_args(tmp_path))
     assert [name for name, _ in commands] == ['posed images', 'coloured map']
@@ -166,6 +175,7 @@ def test_dynamic_masks_are_cached_and_new_masks_rebuild_dependents(tmp_path):
     _write_at(out / 'posed_images' / 'transforms_dynamic_masks.json', '{}', 3)
     _write_at(out / 'colored_map.ply', 'ply\n', 4)
     args = _args(tmp_path, '--dynamic-mask-dir', str(masks))
+    _record_completed_commands(args)
     assert cmp.build_commands(args) == []
     os.utime(masks / 'frame.png', ns=(5, 5))
     assert [name for name, _ in cmp.build_commands(args)] == [
@@ -188,8 +198,9 @@ def test_existing_spatiotemporal_outputs_are_reused(tmp_path):
     (out / 'posed_images' / 'transforms_spatiotemporal.json').write_text('{}')
     (out / 'spatiotemporal_calibration.json').write_text('{}')
     (out / 'colored_map.ply').write_text('ply\n')
-    assert cmp.build_commands(_args(
-        tmp_path, '--refine-spatiotemporal-calibration')) == []
+    args = _args(tmp_path, '--refine-spatiotemporal-calibration')
+    _record_completed_commands(args)
+    assert cmp.build_commands(args) == []
 
 
 def test_force_calibration_requires_opt_in(tmp_path):
@@ -220,6 +231,7 @@ def test_existing_dense_trajectory_and_outputs_are_reused(tmp_path):
     (out / 'posed_images' / 'transforms.json').write_text('{}')
     (out / 'colored_map.ply').write_text('ply\n')
     args = _args(tmp_path, '--raw-traj', str(tmp_path / 'raw.tum'))
+    _record_completed_commands(args)
     assert cmp.build_commands(args) == []
 
 
@@ -262,6 +274,7 @@ def test_newer_posed_images_rebuild_only_map(tmp_path):
     _write_at(tmp_path / 'traj.tum', 'dense\n', 1)
     _write_at(out / 'colored_map.ply', 'ply\n', 2)
     _write_at(out / 'posed_images' / 'transforms.json', '{}', 3)
+    _record_completed_commands(_args(tmp_path))
     assert [name for name, _ in cmp.build_commands(_args(tmp_path))] == [
         'coloured map']
 
@@ -271,6 +284,7 @@ def test_build_commands_reuses_existing_outputs(tmp_path):
     (out / 'posed_images').mkdir(parents=True)
     (out / 'posed_images' / 'transforms.json').write_text('{}')
     (out / 'colored_map.ply').write_text('ply\n')
+    _record_completed_commands(_args(tmp_path))
     assert cmp.build_commands(_args(tmp_path)) == []
 
 
@@ -278,6 +292,7 @@ def test_force_map_reuses_images_but_rebuilds_map(tmp_path):
     posed = tmp_path / 'out' / 'posed_images'
     posed.mkdir(parents=True)
     (posed / 'transforms.json').write_text('{}')
+    _record_completed_commands(_args(tmp_path))
     commands = cmp.build_commands(_args(tmp_path, '--force-map'))
     assert [name for name, _ in commands] == ['coloured map']
 
@@ -560,3 +575,205 @@ def test_planar_roughness_profile_enables_evaluator_automatically(tmp_path):
     commands = cmp.build_commands(_args(
         tmp_path, '--quality-profile', str(profile)))
     assert '--planar-roughness' in dict(commands)['appearance']
+
+
+def test_heldout_uses_effective_map_fusion_options(tmp_path):
+    import json
+
+    commands = dict(cmp.build_commands(_args(
+        tmp_path, '--quality-profile', str(tmp_path / 'profile.json'),
+        '--color-max-samples', '5', '--color-min-samples', '3',
+        '--color-no-normalize-exposure', '--color-exposure-scale-limit', '1.2',
+        '--color-geometry-aware', '--color-depth-edge-margin-px', '2',
+        '--color-view-score-power', '3')))
+    command = commands['held-out colour']
+    options = json.loads(command[command.index('--fusion-options') + 1])
+    assert options['robust'] is True
+    assert options['max_samples'] == 5
+    assert options['min_samples'] == 3
+    assert options['normalize_exposure'] is False
+    assert options['depth_edge_margin_px'] == 2
+    # Pipeline's unused view-score default must not override the builder default.
+    assert options['view_score_power'] == 1.0
+    assert '--no-normalize-exposure' in command
+    assert command[command.index('--exposure-scale-limit') + 1] == '1.2'
+
+
+def test_heldout_cache_requires_matching_fusion_settings(tmp_path):
+    import json
+
+    path = tmp_path / 'heldout.json'
+    options = {'normalize_exposure': False, 'exposure_scale_limit': 1.2,
+               'min_samples': 3}
+    path.write_text('{}')
+    assert not cmp.colour_report_matches_options(path, options)
+    path.write_text(json.dumps({'fusion_options': options,
+                                'normalize_exposure': False,
+                                'exposure_scale_limit': 1.2}))
+    assert cmp.colour_report_matches_options(path, options)
+    assert not cmp.colour_report_matches_options(path, dict(options, min_samples=4))
+
+
+def _cached_map(tmp_path):
+    _write_at(tmp_path / 'out/posed_images/transforms.json', '{}', 2)
+    _write_at(tmp_path / 'out/colored_map.ply', 'ply\n', 3)
+    args = _args(tmp_path)
+    _record_completed_commands(args)
+    return args
+
+
+def test_changed_color_recipe_rebuilds_map_and_quality_only(tmp_path):
+    _cached_map(tmp_path)
+    commands = dict(cmp.build_commands(_args(
+        tmp_path, '--color-max-samples', '2', '--color-no-normalize-exposure',
+        '--quality-profile', str(tmp_path / 'profile.yaml'))))
+    assert 'posed images' not in commands
+    assert list(commands) == ['coloured map', 'camera-LiDAR alignment',
+                              'held-out colour', 'appearance', 'quality gate']
+    map_args = cmp.bli.build_parser().parse_args(commands['coloured map'][2:])
+    assert map_args.color_max_samples == 2
+    assert not map_args.color_normalize_exposure
+
+
+def test_changed_camera_time_rebuilds_images_and_map(tmp_path):
+    _cached_map(tmp_path)
+    commands = cmp.build_commands(_args(tmp_path, '--time-offset-adjustment', '.2'))
+    assert [name for name, _ in commands] == ['posed images', 'coloured map']
+
+
+def test_changed_extrinsic_file_rebuilds_images_and_map(tmp_path):
+    args = _cached_map(tmp_path)
+    _write_at(tmp_path / 'calib.json', '{"matrix": []}', 4)
+    assert [name for name, _ in cmp.build_commands(args)] == [
+        'posed images', 'coloured map']
+
+
+def test_legacy_or_corrupt_history_cannot_certify_cached_settings(tmp_path):
+    args = _cached_map(tmp_path)
+    history = tmp_path / 'out/pipeline_stage_commands.json'
+    history.unlink()
+    assert [n for n, _ in cmp.build_commands(args)] == ['posed images', 'coloured map']
+    for text in ('{', '[]', '{"posed images": null}'):
+        history.write_text(text)
+        assert [n for n, _ in cmp.build_commands(args)] == ['posed images', 'coloured map']
+
+
+def test_unused_colour_parameters_do_not_invalidate_cache(tmp_path):
+    _cached_map(tmp_path)
+    assert cmp.build_commands(_args(tmp_path, '--color-view-score-power', '3')) == []
+
+
+def test_cache_dry_run_does_not_change_history_or_outputs(tmp_path):
+    _cached_map(tmp_path)
+    paths = [p for p in (tmp_path / 'out').rglob('*') if p.is_file()]
+    before = {p: (p.read_bytes(), p.stat().st_mtime_ns) for p in paths}
+    cmp.run_pipeline(_args(tmp_path, '--color-max-samples', '2', '--dry-run'))
+    assert before == {p: (p.read_bytes(), p.stat().st_mtime_ns) for p in paths}
+
+
+def test_failed_map_leaves_pending_receipt_and_resumes_without_images(tmp_path, monkeypatch):
+    import subprocess
+    import pytest
+
+    _cached_map(tmp_path)
+    args = _args(tmp_path, '--time-offset-adjustment', '.2')
+    monkeypatch.setattr(cmp, 'validate_trajectory_density', lambda *a: None)
+    monkeypatch.setattr(cmp, 'validate_colour_source', lambda *a: {})
+    calls = []
+
+    def execute(command, check):
+        assert check
+        tool = Path(command[1]).name
+        calls.append(tool)
+        output = Path(command[command.index('--out') + 1])
+        if tool == 'extract_posed_images.py':
+            (output / 'transforms.json').write_text('{}')
+        else:
+            output.write_text('partial')
+            raise subprocess.CalledProcessError(1, command)
+
+    monkeypatch.setattr(cmp.subprocess, 'run', execute)
+    with pytest.raises(subprocess.CalledProcessError):
+        cmp.run_pipeline(args)
+    assert calls == ['extract_posed_images.py', 'build_lidar_init.py']
+    assert cmp.load_stage_commands(Path(args.out))['coloured map'] is None
+    assert [n for n, _ in cmp.build_commands(args)] == ['coloured map']
+    monkeypatch.setattr(cmp.subprocess, 'run', lambda command, check: (
+        Path(command[command.index('--out') + 1]).write_text('completed')))
+    cmp.run_pipeline(args)
+    assert cmp.build_commands(args) == []
+
+
+def test_changed_camera_settings_recalibrate_without_rebuilding_geometry(tmp_path):
+    out = tmp_path / 'out'
+    for name, stamp in [('posed_images/transforms.json', 2),
+                        ('spatiotemporal_calibration_geometry.ply', 2),
+                        ('posed_images/transforms_spatiotemporal.json', 3),
+                        ('spatiotemporal_calibration.json', 3),
+                        ('colored_map.ply', 4)]:
+        _write_at(out / name, '{}', stamp)
+    _record_completed_commands(_args(tmp_path, '--refine-spatiotemporal-calibration'))
+    commands = cmp.build_commands(_args(
+        tmp_path, '--refine-spatiotemporal-calibration', '--time-offset-adjustment', '.2'))
+    assert [n for n, _ in commands] == [
+        'posed images', 'spatiotemporal calibration', 'coloured map']
+    commands = cmp.build_commands(_args(
+        tmp_path, '--refine-spatiotemporal-calibration', '--color-max-samples', '2'))
+    assert [n for n, _ in commands] == ['coloured map']
+
+
+def test_new_lidar_calibration_rebuilds_calibration_geometry(tmp_path):
+    out = tmp_path / 'out'
+    for name, stamp in [('posed_images/transforms.json', 2),
+                        ('spatiotemporal_calibration_geometry.ply', 2),
+                        ('posed_images/transforms_spatiotemporal.json', 3),
+                        ('spatiotemporal_calibration.json', 3),
+                        ('colored_map.ply', 4)]:
+        _write_at(out / name, '{}', stamp)
+    args = _args(tmp_path, '--refine-spatiotemporal-calibration',
+                 '--lidar-calibration', str(tmp_path / 'lidar.yaml'))
+    _record_completed_commands(args)
+    _write_at(tmp_path / 'lidar.yaml', '{}', 5)
+    assert [n for n, _ in cmp.build_commands(args)] == [
+        'posed images', 'calibration geometry', 'spatiotemporal calibration', 'coloured map']
+
+
+def test_interrupted_upstream_invalidates_downstream_history(tmp_path, monkeypatch):
+    import pytest
+
+    _cached_map(tmp_path)
+    args = _args(tmp_path, '--time-offset-adjustment', '.2')
+    monkeypatch.setattr(cmp, 'validate_trajectory_density', lambda *a: None)
+
+    def interrupt(command, check):
+        assert Path(command[1]).name == 'extract_posed_images.py'
+        raise KeyboardInterrupt()
+
+    monkeypatch.setattr(cmp.subprocess, 'run', interrupt)
+    with pytest.raises(KeyboardInterrupt):
+        cmp.run_pipeline(args)
+    records = cmp.load_stage_commands(Path(args.out))
+    assert records['posed images'] is None
+    assert records['coloured map'] is None
+    assert [n for n, _ in cmp.build_commands(args)] == ['posed images', 'coloured map']
+
+
+def test_identical_generated_kalibr_extrinsic_does_not_invalidate_cache(tmp_path, monkeypatch):
+    import json
+    import extract_posed_images as extractor
+
+    out = tmp_path / 'out'
+    generated = out / 'generated_body_camera_extrinsic.json'
+    _write_at(generated, json.dumps({'matrix': np.eye(4).tolist()}, indent=2), 1)
+    _write_at(out / 'posed_images/transforms.json', '{}', 2)
+    _write_at(out / 'colored_map.ply', 'ply', 3)
+    args = cmp.build_parser().parse_args([
+        str(tmp_path / 'bag'), str(tmp_path / 'traj'), str(out),
+        '--kalibr-camchain', str(tmp_path / 'camchain'),
+        '--lidar-calibration', str(tmp_path / 'lidar')])
+    _record_completed_commands(args)
+    monkeypatch.setattr(extractor, 'load_kalibr_body_camera_extrinsic',
+                        lambda *a, **kw: np.eye(4))
+    monkeypatch.setattr(cmp, 'validate_trajectory_density', lambda *a: None)
+    assert cmp.run_pipeline(args)['stages'] == []
+    assert generated.stat().st_mtime_ns == 1

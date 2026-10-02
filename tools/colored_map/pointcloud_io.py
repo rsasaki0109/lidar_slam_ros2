@@ -270,7 +270,10 @@ def colorize_by_projection(points: np.ndarray, viewmats: np.ndarray,
         idx = np.nonzero(inb)[0]
         if idx.size == 0:
             continue
-        cols = np.asarray(img)[vi[idx], ui[idx]]
+        image = np.asarray(img)
+        if image.shape[:2] != (height, width):
+            raise ValueError('image dimensions must match projection calibration')
+        cols = image[vi[idx], ui[idx]]
         if cols.ndim == 1:
             cols = np.repeat(cols[:, None], 3, axis=1)
         sum_rgb[idx] += cols[:, :3]
@@ -292,14 +295,16 @@ def _sample_pixels(img: np.ndarray, uf: np.ndarray, vf: np.ndarray,
     real pixel when the local RGB range exceeds ``edge_threshold``, preventing
     foreground/background colour bleed. A 2-D image is broadcast to RGB.
     """
-    im = np.asarray(img).astype(np.float32)
+    im = np.asarray(img)
+    if im.shape[:2] != (height, width):
+        raise ValueError('image dimensions must match projection calibration')
     if im.ndim == 2:
-        im = np.repeat(im[:, :, None], 3, axis=2)
+        im = np.broadcast_to(im[:, :, None], (*im.shape, 3))
     im = im[:, :, :3]
     if interp == 'nearest':
         ui = np.clip(np.round(uf).astype(np.int64), 0, width - 1)
         vi = np.clip(np.round(vf).astype(np.int64), 0, height - 1)
-        return im[vi, ui]
+        return im[vi, ui].astype(np.float32)
     if interp not in ('bilinear', 'edge-aware'):
         raise ValueError(
             "interp must be 'nearest', 'bilinear', or 'edge-aware', "
@@ -312,13 +317,13 @@ def _sample_pixels(img: np.ndarray, uf: np.ndarray, vf: np.ndarray,
     y1 = np.minimum(y0 + 1, height - 1)
     wx = np.clip(uf - x0, 0.0, 1.0)[:, None].astype(np.float32)
     wy = np.clip(vf - y0, 0.0, 1.0)[:, None].astype(np.float32)
-    p00, p10 = im[y0, x0], im[y0, x1]
+    p00, p10 = im[y0, x0].astype(np.float32), im[y0, x1].astype(np.float32)
     if interp == 'edge-aware':
         local_minimum = np.minimum(p00, p10)
         local_maximum = np.maximum(p00, p10)
     top = p00 * (1.0 - wx) + p10 * wx
     del p00, p10
-    p01, p11 = im[y1, x0], im[y1, x1]
+    p01, p11 = im[y1, x0].astype(np.float32), im[y1, x1].astype(np.float32)
     if interp == 'edge-aware':
         np.minimum(local_minimum, p01, out=local_minimum)
         np.minimum(local_minimum, p11, out=local_minimum)
@@ -339,9 +344,16 @@ def _sample_pixels(img: np.ndarray, uf: np.ndarray, vf: np.ndarray,
     return bilinear
 
 
-def _median_luminance(img: np.ndarray) -> float:
+def _median_luminance(img: np.ndarray, exclusion_mask=None) -> float:
     """Median luminance of mono or RGB(A) image data."""
     arr = np.asarray(img, dtype=np.float32)
+    if exclusion_mask is not None:
+        excluded = np.asarray(exclusion_mask, dtype=bool)
+        if excluded.shape != arr.shape[:2]:
+            raise ValueError('exclusion mask must match image dimensions')
+        if excluded.all():
+            return 0.0  # No evidence for an exposure estimate.
+        arr = arr[~excluded][:, None]
     if arr.ndim == 2:
         return float(np.median(arr))
     if arr.ndim != 3 or arr.shape[2] == 0:
@@ -356,7 +368,8 @@ def estimate_radial_vignette_gains(images, width: int, height: int, *,
                                    cx: Optional[float] = None,
                                    cy: Optional[float] = None,
                                    bins: int = 32, sample_stride: int = 8,
-                                   gain_limit: float = 2.5) -> np.ndarray:
+                                   gain_limit: float = 2.5,
+                                   exclusion_masks=None) -> np.ndarray:
     """Estimate one robust radial luminance correction shared by all views.
 
     Each image is normalised by its central luminance before annular profiles
@@ -386,7 +399,7 @@ def estimate_radial_vignette_gains(images, width: int, height: int, *,
     central = radius <= 0.2
     profiles = []
     coeff = np.asarray([0.299, 0.587, 0.114], dtype=np.float32)
-    for image in images:
+    for view_index, image in enumerate(images):
         arr = np.asarray(image, dtype=np.float32)
         if arr.shape[:2] != (height, width):
             raise ValueError('all images must match width and height')
@@ -399,12 +412,21 @@ def estimate_radial_vignette_gains(images, width: int, height: int, *,
         else:
             raise ValueError(f'image must be HxW or HxWxC, got {arr.shape}')
         sampled = lum[::sample_stride, ::sample_stride]
-        reference = float(np.median(sampled[central]))
+        usable = np.ones(sampled.shape, dtype=bool)
+        if exclusion_masks is not None and exclusion_masks[view_index] is not None:
+            excluded = np.asarray(exclusion_masks[view_index], dtype=bool)
+            if excluded.shape != (height, width):
+                raise ValueError('exclusion mask must match image dimensions')
+            usable &= ~excluded[::sample_stride, ::sample_stride]
+        reference_pixels = sampled[central & usable]
+        if not reference_pixels.size:
+            continue
+        reference = float(np.median(reference_pixels))
         if reference <= 1.0e-6:
             continue
         profile = np.asarray([
-            np.median(sampled[bin_ids == index]) / reference
-            if np.any(bin_ids == index) else np.nan
+            np.median(sampled[(bin_ids == index) & usable]) / reference
+            if np.any((bin_ids == index) & usable) else np.nan
             for index in range(bins)
         ], dtype=np.float32)
         valid_bins = np.flatnonzero(np.isfinite(profile))
@@ -483,7 +505,8 @@ def estimate_overlap_rgb_gains(points: np.ndarray, viewmats: np.ndarray,
                                sample_limit: int = 50000,
                                min_shared: int = 64,
                                neighbour_span: int = 8,
-                               regularization: float = 256.0) -> np.ndarray:
+                               regularization: float = 256.0,
+                               exclusion_masks=None) -> np.ndarray:
     """Solve per-view RGB gains from shared, visible 3D observations.
 
     For nearby image pairs, the same unoccluded LiDAR points provide direct
@@ -508,17 +531,11 @@ def estimate_overlap_rgb_gains(points: np.ndarray, viewmats: np.ndarray,
     if len(xyz) > sample_limit:
         choose = np.linspace(0, len(xyz) - 1, sample_limit).astype(np.intp)
         xyz = xyz[choose]
-    fx, fy, cx, cy = (float(K[0, 0]), float(K[1, 1]),
-                      float(K[0, 2]), float(K[1, 2]))
     observations = []
-    for vm, image in zip(views, images):
+    for view_index, (vm, image) in enumerate(zip(views, images)):
         cam = xyz @ vm[:3, :3].T + vm[:3, 3]
         z = cam[:, 2]
-        with np.errstate(divide='ignore', invalid='ignore'):
-            uf = np.nan_to_num(fx * cam[:, 0] / z + cx, nan=-1.0,
-                               posinf=-1.0, neginf=-1.0)
-            vf = np.nan_to_num(fy * cam[:, 1] / z + cy, nan=-1.0,
-                               posinf=-1.0, neginf=-1.0)
+        uf, vf = project_camera_pixels(cam, K)
         u = np.round(uf).astype(np.int64)
         v = np.round(vf).astype(np.int64)
         inside = ((z > 1.0e-6) & (u >= 0) & (u < width) &
@@ -532,13 +549,16 @@ def estimate_overlap_rgb_gains(points: np.ndarray, viewmats: np.ndarray,
         np.minimum.at(depth, pixel, z[ids].astype(np.float32))
         visible = z[ids] <= depth[pixel] + 0.15 + 0.02 * z[ids]
         ids = ids[visible]
+        if exclusion_masks is not None and exclusion_masks[view_index] is not None:
+            excluded = np.asarray(exclusion_masks[view_index], dtype=bool)
+            if excluded.shape != (height, width):
+                raise ValueError('exclusion mask must match image dimensions')
+            ids = ids[~excluded[v[ids], u[ids]]]
         colours = _sample_pixels(
             image, uf[ids], vf[ids], width, height, 'nearest', 48.0)
-        if colours.ndim == 1:
-            colours = np.repeat(colours[:, None], 3, axis=1)
-        elif colours.shape[1] == 1:
+        if colours.shape[1] == 1:
             colours = np.repeat(colours, 3, axis=1)
-        observations.append((ids, colours[:, :3].astype(np.float32)))
+        observations.append((ids, colours))
 
     rows = []
     targets = []
@@ -568,7 +588,9 @@ def estimate_overlap_rgb_gains(points: np.ndarray, viewmats: np.ndarray,
         # drive almost every gain into its clamp.  The existing, conservative
         # luminance-only normalisation is a stable prior; overlap RGB ratios
         # refine white balance locally without being allowed to drift away.
-        medians = np.asarray([_median_luminance(image) for image in images])
+        medians = np.asarray([
+            _median_luminance(image, None if exclusion_masks is None else exclusion_masks[i])
+            for i, image in enumerate(images)])
         valid = medians > 1.0e-6
         scalar = np.ones(len(images), dtype=np.float64)
         if valid.any():
@@ -601,8 +623,8 @@ def observed_color_medoids(samples: np.ndarray, chunk: int = 20000) -> np.ndarra
     A channel-wise median can synthesize a colour that no camera observed. For
     example, red, green, and blue samples produce black. The L1 medoid retains
     median-like outlier resistance while guaranteeing that every output row is
-    one of the input camera observations. Chunking bounds the temporary pairwise
-    distance array for large maps.
+    one of the input camera observations. Per-channel sorting and prefix sums
+    compute the L1 scores with temporary storage linear in the sample count.
     """
     values = np.asarray(samples, dtype=np.uint8)
     if values.ndim != 3 or values.shape[2] != 3 or values.shape[1] < 1:
@@ -610,13 +632,77 @@ def observed_color_medoids(samples: np.ndarray, chunk: int = 20000) -> np.ndarra
     if chunk < 1:
         raise ValueError('chunk must be >= 1')
     out = np.empty((values.shape[0], 3), dtype=np.uint8)
+    count = values.shape[1]
+    weights = 2 * np.arange(count, dtype=np.int32) - count + 2
     for start in range(0, len(values), chunk):
-        block = values[start:start + chunk].astype(np.int16)
-        pairwise = np.abs(block[:, :, None, :] - block[:, None, :, :])
-        scores = pairwise.sum(axis=(2, 3), dtype=np.int32)
+        block = values[start:start + chunk]
+        rows = np.arange(len(block))[:, None]
+        scores = np.zeros(block.shape[:2], dtype=np.int32)
+        for channel in range(3):
+            order = np.argsort(block[:, :, channel], axis=1)
+            ordered = np.take_along_axis(
+                block[:, :, channel], order, axis=1).astype(np.int32)
+            prefix = np.cumsum(ordered, axis=1, dtype=np.int32)
+            # Sum distances to values on either side in sorted order.
+            costs = ordered * weights + prefix[:, -1:] - 2 * prefix
+            scores[rows, order] += costs
+        # Scatter back before argmin to preserve the first-observation tie rule.
         choice = np.argmin(scores, axis=1)
         out[start:start + len(block)] = block[np.arange(len(block)), choice]
     return out
+
+
+def project_camera_pixels(cam, K, *, distortion=None, distortion_model='plumb_bob'):
+    """Project camera-frame points, optionally into an unrectified image.
+
+    None means pinhole/rectified. Fisheye with zero coefficients still uses
+    the equidistant projection. OpenCV is needed only for distorted images.
+    """
+    cam = np.asarray(cam, dtype=np.float64)
+    K = np.asarray(K, dtype=np.float64).reshape(3, 3)
+    if distortion is not None:
+        if distortion_model not in ('plumb_bob', 'rational_polynomial',
+                                    'equidistant', 'fisheye'):
+            raise ValueError(f'unsupported distortion model: {distortion_model}')
+        fisheye = distortion_model in ('equidistant', 'fisheye')
+        d = np.asarray(distortion, dtype=np.float64)
+        if fisheye or np.any(d):
+            import cv2
+            if fisheye and d.size == 0:
+                d = np.zeros(4)
+            uv = np.full((len(cam), 2), -1.0)
+            valid = np.isfinite(cam).all(axis=1) & (cam[:, 2] > 1e-6)
+            if valid.any():
+                project = cv2.fisheye.projectPoints if fisheye else cv2.projectPoints
+                uv[valid] = project(
+                    cam[valid, None, :], np.zeros(3), np.zeros(3), K, d)[0].reshape(-1, 2)
+            # Polynomial extensions can fold rays far outside the lens field
+            # back into the image. Only keep the branch recovered by the lens
+            # inverse; otherwise a spurious foreground point can occlude a
+            # valid point before any color is sampled.
+            indices = np.flatnonzero(valid & np.isfinite(uv).all(axis=1))
+            if indices.size:
+                pixels = uv[indices, None, :]
+                criteria = (cv2.TERM_CRITERIA_COUNT | cv2.TERM_CRITERIA_EPS, 50, 1e-12)
+                if fisheye:
+                    rays = cv2.fisheye.undistortPoints(pixels, K, d, criteria=criteria)
+                else:
+                    rays = cv2.undistortPointsIter(pixels, K, d, None, None, criteria)
+                rays = rays.reshape(-1, 2)
+                expected = cam[indices, :2] / cam[indices, 2, None]
+                # Numerical inverse tolerance in normalized ray coordinates,
+                # independent of scene colors, depth gates and GT.
+                consistent = (np.isfinite(rays).all(axis=1)
+                              & np.isclose(rays, expected, rtol=1e-6, atol=1e-8).all(axis=1))
+                uv[indices[~consistent]] = -1.0
+            uv = np.nan_to_num(uv, nan=-1.0, posinf=-1.0, neginf=-1.0)
+            return uv[:, 0], uv[:, 1]
+    with np.errstate(divide='ignore', invalid='ignore'):
+        u = np.nan_to_num(K[0, 0] * cam[:, 0] / cam[:, 2] + K[0, 2],
+                          nan=-1.0, posinf=-1.0, neginf=-1.0)
+        v = np.nan_to_num(K[1, 1] * cam[:, 1] / cam[:, 2] + K[1, 2],
+                          nan=-1.0, posinf=-1.0, neginf=-1.0)
+    return u, v
 
 
 def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
@@ -649,6 +735,8 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
                                       Sequence[float]] = None,
                                   calibration_sigma_multiplier: float = 0.0,
                                   maximum_uncertainty_margin_px: int = 12,
+                                  distortion=None,
+                                  distortion_model: str = 'plumb_bob',
                                   return_counts: bool = False,
                                   return_diagnostics: bool = False):
     """Occlusion-aware, exposure-normalised, median-robust point colorization.
@@ -690,6 +778,13 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
     triple ``(rgb, seen, counts uint16 (N,))`` giving each point's surviving
     sample count (a colour-confidence signal). Unseen points get ``default_rgb``.
 
+    ``distortion`` supplies raw-image coefficients shared by all views;
+    ``None`` preserves pinhole projection. ``distortion_model`` follows
+    CameraInfo (plumb_bob, rational_polynomial, equidistant/fisheye).
+    Raw-image projection supports pixel sampling and z-buffer occlusion;
+    pinhole overlap, scale and calibration-uncertainty weighting require
+    rectified images instead.
+
     Geometry-aware fusion is opt-in. ``occlusion_margin_px`` tests nearby
     z-buffer cells so a foreground silhouette suppresses background colour
     samples in adjacent pixels. ``depth_edge_margin_px`` rejects both sides of
@@ -698,6 +793,11 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
     three guards per observation after propagation through range, focal length,
     and camera motion. ``return_diagnostics`` appends rejection counters.
     """
+    if distortion is not None and (
+            overlap_color_balance or calibration_sigma_multiplier > 0.0
+            or min_projected_scale > 0.0 or view_score_power > 0.0):
+        raise ValueError('rectify images before using pinhole overlap, scale, '
+                         'or calibration-uncertainty weighting')
     points = np.asarray(points, dtype=np.float64)
     n = points.shape[0]
     if observation_mask is not None:
@@ -766,16 +866,20 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
     fx, fy, cx, cy = K[0, 0], K[1, 1], K[0, 2], K[1, 2]
     zb_w = (int(width) + zbuf_bin - 1) // zbuf_bin
     zb_h = (int(height) + zbuf_bin - 1) // zbuf_bin
-    samples = np.empty((n, int(max_samples), 3), dtype=np.uint8)
-    # Depth stored alongside each sample so a nearer view can evict the farthest.
-    sample_z = np.full((n, int(max_samples)), np.inf, dtype=np.float32)
-    sample_quality = np.full((n, int(max_samples)), -np.inf, dtype=np.float32)
+    # Each image contributes at most one observation per point.
+    capacity = min(int(max_samples), len(images))
+    samples = np.empty((n, capacity, 3), dtype=np.uint8)
+    # Only one ranking criterion is used for all observations in this call.
+    rank_by_quality = point_normals is not None or min_projected_scale > 0.0
+    sample_rank = (np.full(
+        (n, capacity), -np.inf if rank_by_quality else np.inf,
+        dtype=np.float32) if prefer_near and capacity < len(images) else None)
     vignette_gains = None
     vignette_radius = 1.0
     if vignette_gain_limit > 1.0:
         vignette_gains = estimate_radial_vignette_gains(
             images, width, height, cx=cx, cy=cy,
-            gain_limit=vignette_gain_limit)
+            gain_limit=vignette_gain_limit, exclusion_masks=exclusion_masks)
         vignette_radius = max(
             np.hypot(x - cx, y - cy)
             for x in (0.0, width - 1.0) for y in (0.0, height - 1.0))
@@ -784,10 +888,11 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
     if overlap_color_balance:
         scales = estimate_overlap_rgb_gains(
             points, viewmats, K, images, width, height,
-            gain_limit=exposure_scale_limit)
+            gain_limit=exposure_scale_limit, exclusion_masks=exclusion_masks)
     elif normalize_exposure:
-        meds = np.asarray([_median_luminance(img) for img in images],
-                          dtype=np.float32)
+        meds = np.asarray([
+            _median_luminance(img, None if exclusion_masks is None else exclusion_masks[i])
+            for i, img in enumerate(images)], dtype=np.float32)
         valid = meds > 1.0e-6
         if valid.any():
             scalar = float(np.median(meds[valid])) / meds[valid]
@@ -800,11 +905,8 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
         vm = np.asarray(vm, dtype=np.float64)
         cam = points @ vm[:3, :3].T + vm[:3, 3]
         z = cam[:, 2]
-        with np.errstate(divide='ignore', invalid='ignore'):
-            uf = np.nan_to_num(fx * cam[:, 0] / z + cx, nan=-1.0,
-                               posinf=-1.0, neginf=-1.0)
-            vf = np.nan_to_num(fy * cam[:, 1] / z + cy, nan=-1.0,
-                               posinf=-1.0, neginf=-1.0)
+        uf, vf = project_camera_pixels(
+            cam, K, distortion=distortion, distortion_model=distortion_model)
         u = np.round(uf).astype(np.int64)
         v = np.round(vf).astype(np.int64)
         inb = (z > 1e-6) & (u >= 0) & (u < width) & (v >= 0) & (v < height)
@@ -813,8 +915,8 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
         diagnostics['projected'] += int(inb.sum())
         zbin = (v[inb] // zbuf_bin) * zb_w + (u[inb] // zbuf_bin)
         zbuf = np.full(zb_w * zb_h, np.inf, dtype=np.float32)
-        np.minimum.at(zbuf, zbin, z[inb].astype(np.float32))
         projected_z = z[inb].astype(np.float32)
+        np.minimum.at(zbuf, zbin, projected_z)
         uncertainty_margin = gaf.calibration_pixel_radii(
             projected_z, max(float(fx), float(fy)), calibration,
             linear_speed=linear_speeds[vi],
@@ -823,18 +925,18 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
             maximum_radius=maximum_uncertainty_margin_px)
         zbuffer_image = zbuf.reshape(zb_h, zb_w)
         occlusion_radii = uncertainty_margin + int(occlusion_margin_px)
-        if np.any(occlusion_radii > 0):
-            local_minimum, _, _ = gaf.neighborhood_depth_statistics(
-                zbuffer_image, u[inb], v[inb], occlusion_radii)
-        else:
-            local_minimum = zbuf[zbin]
         zbuffer_visible = projected_z <= (
             zbuf[zbin] + depth_tol + 0.02 * projected_z)
         diagnostics['rejected_zbuffer'] += int((~zbuffer_visible).sum())
-        visible = projected_z <= (
-            local_minimum + depth_tol + 0.02 * projected_z)
-        diagnostics['rejected_occlusion_margin'] += int(
-            (zbuffer_visible & ~visible).sum())
+        if np.any(occlusion_radii > 0):
+            local_minimum, _, _ = gaf.neighborhood_depth_statistics(
+                zbuffer_image, u[inb], v[inb], occlusion_radii)
+            visible = projected_z <= (
+                local_minimum + depth_tol + 0.02 * projected_z)
+            diagnostics['rejected_occlusion_margin'] += int(
+                (zbuffer_visible & ~visible).sum())
+        else:
+            visible = zbuffer_visible
         diagnostics['rejected_occlusion'] += int((~visible).sum())
 
         edge_radii = uncertainty_margin + int(depth_edge_margin_px)
@@ -853,8 +955,22 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
 
         if exclusion_masks is not None and exclusion_masks[vi] is not None:
             mask_radii = uncertainty_margin + int(dynamic_mask_margin_px)
+            mask_u, mask_v = u[inb], v[inb]
+            if interp != 'nearest':
+                # Bilinear (including edge-aware fallback) may mix four pixels.
+                # Check its support conservatively before inspecting RGB edges;
+                # a masked neighbour must not leak into an unmasked sample.
+                x0 = np.clip(np.floor(uf[inb]).astype(np.int64), 0, width - 1)
+                x1 = np.clip(np.ceil(uf[inb]).astype(np.int64), 0, width - 1)
+                y0 = np.clip(np.floor(vf[inb]).astype(np.int64), 0, height - 1)
+                y1 = np.clip(np.ceil(vf[inb]).astype(np.int64), 0, height - 1)
+                mask_u = np.stack((x0, x1, x0, x1), axis=1).ravel()
+                mask_v = np.stack((y0, y0, y1, y1), axis=1).ravel()
+                mask_radii = np.repeat(mask_radii, 4)
             dynamic = gaf.mask_neighborhood_any(
-                exclusion_masks[vi], u[inb], v[inb], mask_radii)
+                exclusion_masks[vi], mask_u, mask_v, mask_radii)
+            if interp != 'nearest':
+                dynamic = dynamic.reshape(-1, 4).any(axis=1)
             diagnostics['rejected_dynamic_mask'] += int(
                 (visible & dynamic).sum())
             visible &= ~dynamic
@@ -866,18 +982,18 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
                         (v[inb] >= image_margin) &
                         (v[inb] < height - image_margin))
         cand = ids[inb][visible]  # unique point ids seen (unoccluded) this view
+        cand_z = projected_z[visible]
         if observation_mask is not None:
             keep = observation_mask[cand, vi]
             cand = cand[keep]
-            cand_z = z[inb][visible].astype(np.float32)[keep]
-        else:
-            cand_z = z[inb][visible].astype(np.float32)
-        quality = (float(fx) / np.maximum(cand_z, 1.0e-6)).astype(np.float32)
-        if calibration_sigma_multiplier > 0.0 and cand.size:
-            kept_uncertainty = uncertainty_margin[visible]
-            if observation_mask is not None:
-                kept_uncertainty = kept_uncertainty[keep]
-            quality /= 1.0 + kept_uncertainty.astype(np.float32)
+            cand_z = cand_z[keep]
+        if rank_by_quality:
+            quality = (float(fx) / np.maximum(cand_z, 1.0e-6)).astype(np.float32)
+            if calibration_sigma_multiplier > 0.0 and cand.size:
+                kept_uncertainty = uncertainty_margin[visible]
+                if observation_mask is not None:
+                    kept_uncertainty = kept_uncertainty[keep]
+                quality /= 1.0 + kept_uncertainty.astype(np.float32)
         if point_normals is not None and cand.size:
             camera_centre = -vm[:3, :3].T @ vm[:3, 3]
             sight = camera_centre[None, :] - points[cand]
@@ -915,32 +1031,31 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
             cols *= gain[:, None]
         cols = np.clip(cols * scales[vi][None, :], 0.0, 255.0).astype(np.uint8)
 
+        rank = quality if rank_by_quality else cand_z
         # Points with room: append into the next free slot.
         room = counts[cand] < max_samples
         if room.any():
             rc = cand[room]
             slot = counts[rc].astype(np.intp)
             samples[rc, slot, :] = cols[room]
-            sample_z[rc, slot] = cand_z[room]
-            sample_quality[rc, slot] = quality[room]
+            if sample_rank is not None:
+                sample_rank[rc, slot] = rank[room]
             counts[rc] += 1
         # Full points: if enabled, evict the farthest stored sample when nearer.
-        if prefer_near and (~room).any():
+        if sample_rank is not None and (~room).any():
             fc = cand[~room]
-            fcz = cand_z[~room]
             fcols = cols[~room]
-            if point_normals is not None or min_projected_scale > 0.0:
-                replace_slot = np.argmin(sample_quality[fc], axis=1)
-                better = quality[~room] > sample_quality[fc, replace_slot]
+            if rank_by_quality:
+                replace_slot = np.argmin(sample_rank[fc], axis=1)
+                better = rank[~room] > sample_rank[fc, replace_slot]
             else:
-                replace_slot = np.argmax(sample_z[fc], axis=1)
-                better = fcz < sample_z[fc, replace_slot]
+                replace_slot = np.argmax(sample_rank[fc], axis=1)
+                better = rank[~room] < sample_rank[fc, replace_slot]
             if better.any():
                 fb = fc[better]
                 sb = replace_slot[better]
                 samples[fb, sb, :] = fcols[better]
-                sample_z[fb, sb] = fcz[better]
-                sample_quality[fb, sb] = quality[~room][better]
+                sample_rank[fb, sb] = rank[~room][better]
 
     seen = counts > 0
     seen_idx = np.flatnonzero(seen)
@@ -969,18 +1084,13 @@ def project_depth_maps(points: np.ndarray, viewmats, K: np.ndarray,
     fewer than the point count after the z-buffer dedups colliding pixels).
     """
     pts = np.asarray(points, dtype=np.float64)
-    fx, fy, cx, cy = K[0, 0], K[1, 1], K[0, 2], K[1, 2]
     npix = int(width) * int(height)
     out = []
     for vm in viewmats:
         vm = np.asarray(vm, dtype=np.float64)
         cam = pts @ vm[:3, :3].T + vm[:3, 3]
         z = cam[:, 2]
-        with np.errstate(divide='ignore', invalid='ignore'):
-            u = np.nan_to_num(fx * cam[:, 0] / z + cx, nan=-1.0,
-                              posinf=-1.0, neginf=-1.0)
-            v = np.nan_to_num(fy * cam[:, 1] / z + cy, nan=-1.0,
-                              posinf=-1.0, neginf=-1.0)
+        u, v = project_camera_pixels(cam, K)
         ui = np.round(u).astype(np.int64)
         vi = np.round(v).astype(np.int64)
         inb = (z > 1e-6) & (ui >= 0) & (ui < width) & (vi >= 0) & (vi < height)

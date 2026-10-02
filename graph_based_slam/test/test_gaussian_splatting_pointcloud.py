@@ -35,6 +35,7 @@ from pathlib import Path
 import sys
 
 import numpy as np
+import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TOOL_DIR = REPO_ROOT / 'tools' / 'gaussian_splatting'
@@ -352,6 +353,23 @@ def test_observed_color_medoid_validates_shape_and_chunk():
         pcio.observed_color_medoids(np.zeros((2, 0, 3), dtype=np.uint8))
     with np.testing.assert_raises(ValueError):
         pcio.observed_color_medoids(np.zeros((2, 1, 3), dtype=np.uint8), chunk=0)
+
+
+def test_observed_color_medoid_matches_pairwise_distance_oracle():
+    rng = np.random.default_rng(987)
+    for count in (1, 2, 3, 12, 32, 64):
+        for points in (0, 1, 37):
+            for upper in (2, 256):
+                samples = rng.integers(0, upper, (points, count, 3),
+                                       dtype=np.uint8)
+                # Independent quadratic oracle covers duplicate values and ties.
+                wide = samples.astype(np.int16)
+                distances = np.abs(wide[:, :, None] - wide[:, None, :])
+                scores = distances.sum(axis=(2, 3), dtype=np.int32)
+                expected = samples[np.arange(points), np.argmin(scores, axis=1)]
+                for chunk in (1, 11, 20000):
+                    np.testing.assert_array_equal(
+                        pcio.observed_color_medoids(samples, chunk), expected)
 
 
 def test_colorize_robust_occluded_point_is_unseen():
@@ -935,3 +953,165 @@ def test_dynamic_map_cleaner_forwards_fusion_evidence_and_reports_removal():
     assert report['evidence_stride'] == 2
     assert report['removed_points'] == 1
     assert report['removed_ratio'] == 1 / 3
+
+
+def test_builder_training_subset_excludes_heldout_images_and_masks(tmp_path, monkeypatch):
+    import imageio as iio
+    import json
+
+    image = np.full((100, 100, 3), 73, dtype=np.uint8)
+    mask = np.zeros((100, 100), dtype=np.uint8)
+    iio.imwrite(tmp_path / 'train.png', image)
+    iio.imwrite(tmp_path / 'train_mask.png', mask)
+    pose = np.diag([1.0, -1.0, -1.0, 1.0]).tolist()
+    frames = [
+        {'file_path': 'missing_heldout.png', 'timestamp': 10.0,
+         'dynamic_mask_path': 'missing_mask.png', 'transform_matrix': pose},
+        {'file_path': 'train.png', 'timestamp': 20.0,
+         'dynamic_mask_path': 'train_mask.png', 'transform_matrix': pose},
+    ]
+    document = {'w': 100, 'h': 100, 'fl_x': 100.0, 'fl_y': 100.0,
+                'cx': 50.0, 'cy': 50.0, 'frames': frames}
+    transforms = tmp_path / 'transforms.json'
+    transforms.write_text(json.dumps(document))
+    points = np.array([[0.0, 0.0, 5.0]])
+    rgb, seen = bli._colorize(
+        points, str(transforms), robust=True, frame_indices=[1],
+        normalize_exposure=False, geometry_aware=True, dynamic_exclusion=True)
+    assert seen.tolist() == [True]
+    np.testing.assert_allclose(rgb[0], [73, 73, 73], atol=1e-5)
+    with monkeypatch.context() as patch:
+        def unexpected_read(path):
+            raise AssertionError(f'image decoded again: {path}')
+        patch.setattr(iio, 'imread', unexpected_read)
+        loaded = [np.full_like(image, 255), image]
+        reused_rgb, reused_seen = bli._colorize(
+            points, str(transforms), robust=True, frame_indices=[1],
+            normalize_exposure=False, loaded_images=loaded)
+        np.testing.assert_array_equal(reused_rgb, rgb)
+        np.testing.assert_array_equal(reused_seen, seen)
+        _, limited_seen = bli._colorize(
+            points, str(transforms), robust=True, frame_indices=[1],
+            normalize_exposure=False, min_samples=2, loaded_images=loaded)
+        assert limited_seen.tolist() == [False]
+        with np.testing.assert_raises(ValueError):
+            bli._colorize(points, str(transforms), loaded_images=[image])
+    for indices in ([], [1, 1], [-1], [2], [0.5]):
+        with np.testing.assert_raises(ValueError):
+            bli._colorize(points, str(transforms), frame_indices=indices)
+
+
+@pytest.mark.parametrize('interp', ['bilinear', 'edge-aware'])
+@pytest.mark.parametrize('offset', [(0.25, 0.0), (0.0, 0.25), (0.25, 0.25)])
+def test_dynamic_mask_excludes_interpolation_support(interp, offset):
+    image = np.full((4, 4, 3), 100, dtype=np.uint8)
+    mask = np.zeros((4, 4), dtype=bool)
+    x, y = (2 if offset[0] else 1), (2 if offset[1] else 1)
+    mask[y, x] = True
+    image[y, x] = 140  # Below edge-aware threshold, but still excluded.
+    points = np.array([[1 + offset[0], 1 + offset[1], 1.]])
+    _, seen, counts, diagnostics = pcio.colorize_by_projection_robust(
+        points, [np.eye(4)], np.eye(3), [image], 4, 4,
+        interp=interp, normalize_exposure=False, exclusion_masks=[mask],
+        return_counts=True, return_diagnostics=True)
+    assert not seen[0] and counts[0] == 0
+    assert diagnostics['rejected_dynamic_mask'] == 1
+    assert diagnostics['accepted_samples'] == 0
+
+
+@pytest.mark.parametrize('interp', ['nearest', 'bilinear', 'edge-aware'])
+def test_dynamic_mask_preserves_unused_neighbours_and_clamped_borders(interp):
+    image = np.full((4, 4, 3), 100, dtype=np.uint8)
+    mask = np.zeros((4, 4), dtype=bool)
+    mask[1, 2] = True
+    image[1, 2] = 140
+    points = np.array([[1., 1., 1.], [-0.25, 0., 1.], [3.25, 3., 1.]])
+    rgb, seen = pcio.colorize_by_projection_robust(
+        points, [np.eye(4)], np.eye(3), [image], 4, 4,
+        interp=interp, normalize_exposure=False, exclusion_masks=[mask])
+    assert seen.all()
+    assert np.all(rgb == 100)
+    if interp == 'nearest':
+        rgb, seen = pcio.colorize_by_projection_robust(
+            np.array([[1.25, 1., 1.]]), [np.eye(4)], np.eye(3), [image], 4, 4,
+            interp=interp, normalize_exposure=False, exclusion_masks=[mask])
+        assert seen[0] and np.all(rgb == 100)
+
+
+@pytest.mark.parametrize('value', [20, 100, 200])
+def test_fully_masked_image_cannot_change_other_exposure(value):
+    clean = np.full((4, 4, 3), 100, dtype=np.uint8)
+    excluded = np.full_like(clean, value)
+    rgb, seen, counts = pcio.colorize_by_projection_robust(
+        np.array([[1., 1., 1.]]), [np.eye(4)] * 2, np.eye(3),
+        [clean, excluded], 4, 4,
+        exclusion_masks=[None, np.ones((4, 4), dtype=bool)], return_counts=True)
+    assert seen[0] and counts[0] == 1
+    np.testing.assert_array_equal(rgb, [[100, 100, 100]])
+
+
+@pytest.mark.parametrize('channels', [None, 1, 3, 4])
+def test_masked_luminance_uses_only_static_pixels(channels):
+    shape = (4, 4) if channels is None else (4, 4, channels)
+    image = np.full(shape, 200, dtype=np.uint8)
+    image[0, 0] = 100
+    mask = np.ones((4, 4), dtype=bool)
+    mask[0, 0] = False
+    assert pcio._median_luminance(image, mask) == pytest.approx(100)
+    assert pcio._median_luminance(image, np.ones_like(mask)) == 0
+
+
+@pytest.mark.parametrize('regularization', [0., 256.])
+def test_overlap_gain_ignores_masked_correspondences_and_prior(regularization):
+    x, y = np.meshgrid(np.arange(1, 7), np.arange(1, 7))
+    points = np.column_stack([x.ravel(), y.ravel(), np.ones(x.size)])
+    mask = np.zeros((8, 8), dtype=bool)
+    mask[:, 4:] = True
+    gains = []
+    for value in [20, 200]:
+        clean = np.full((8, 8, 3), 100, dtype=np.uint8)
+        changed = clean.copy()
+        changed[mask] = value
+        gains.append(pcio.estimate_overlap_rgb_gains(
+            points, [np.eye(4)] * 2, np.eye(3), [clean, changed], 8, 8,
+            exclusion_masks=[mask, mask], min_shared=8,
+            regularization=regularization))
+    np.testing.assert_array_equal(gains[0], gains[1])
+    np.testing.assert_allclose(gains[0], 1.)
+
+
+def test_radial_gain_ignores_masked_pixels_and_unsupported_centre():
+    y, x = np.mgrid[:64, :64]
+    mask = ((x - 32)**2 + (y - 32)**2) > 22**2
+    curves = []
+    for value in [20, 200]:
+        image = np.full((64, 64, 3), 100, dtype=np.uint8)
+        image[mask] = value
+        curves.append(pcio.estimate_radial_vignette_gains(
+            [image], 64, 64, sample_stride=1, exclusion_masks=[mask]))
+    np.testing.assert_array_equal(curves[0], curves[1])
+    np.testing.assert_array_equal(curves[0], np.ones(32))
+    empty = pcio.estimate_radial_vignette_gains(
+        [image], 64, 64, exclusion_masks=[np.ones_like(mask)])
+    np.testing.assert_array_equal(empty, np.ones(32))
+
+
+@pytest.mark.parametrize('size', [(80, 100), (100, 80), (120, 100), (100, 120)])
+@pytest.mark.parametrize('channels', [None, 1, 3, 4])
+@pytest.mark.parametrize('mode', ['average', 'nearest', 'bilinear', 'edge-aware', 'overlap'])
+def test_colour_sampling_rejects_image_calibration_size_mismatch(size, channels, mode):
+    vms, K, width, height = _cam()
+    shape = size if channels is None else (*size, channels)
+    image = np.full(shape, 100, dtype=np.uint8)
+    # This pixel is inside both sizes, so a stale calibration used to silently
+    # take a valid pixel from the wrong image coordinate system.
+    points = np.array([[0., 0., 5.]])
+    with pytest.raises(ValueError, match='image dimensions.*calibration'):
+        if mode == 'average':
+            pcio.colorize_by_projection(points, vms, K, [image], width, height)
+        elif mode == 'overlap':
+            pcio.estimate_overlap_rgb_gains(points, vms, K, [image], width, height)
+        else:
+            pcio.colorize_by_projection_robust(
+                points, vms, K, [image], width, height, interp=mode,
+                normalize_exposure=False)
