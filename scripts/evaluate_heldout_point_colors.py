@@ -171,7 +171,10 @@ def main() -> int:
     if args.view_stride < 1:
         raise SystemExit('--view-stride must be >= 1')
 
-    import imageio.v3 as iio
+    try:
+        import imageio.v3 as iio
+    except ImportError:  # imageio < 2.16 (Ubuntu 22.04)
+        import imageio as iio
     points, stored_colors = pcio.read_point_cloud_xyz(args.pointcloud)
     dataset = tg.load_transforms(args.transforms)
     viewmats = np.asarray(dataset['viewmats'], dtype=np.float64)
