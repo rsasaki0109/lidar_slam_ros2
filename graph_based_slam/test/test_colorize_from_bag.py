@@ -556,7 +556,7 @@ def test_direct_coloring_uses_camera_info_model(
         'bag', str(tmp_path / 'colored'), '--extrinsic', '0', '0', '0', '0', '0', '0', '1'])
     args.no_undistort = not undistort
     monkeypatch.setattr(cfb, '_collect', lambda *a, **kw: (
-        None, {args.camera_info_topic: info}, [1], {args.image_topic: [1]}, {}))
+        None, {args.camera_info_topic: [(0, info)]}, [1], {args.image_topic: [1]}, {}))
     monkeypatch.setattr(cfb, '_grab_messages', lambda *a: {
         (args.pc_topic, 1): None, (args.image_topic, 1): image})
     monkeypatch.setattr(cfb, '_read_xyz', lambda _msg: np.array([[0.0, 0.0, 2.0]]))
@@ -615,7 +615,7 @@ def test_raw_image_coloring_projects_camera_model(tmp_path, monkeypatch, model, 
     args.normalize_exposure = False
     args.diagnostic_overlay = str(tmp_path / 'overlay.png')
     monkeypatch.setattr(cfb, '_collect', lambda *a, **kw: (
-        None, {args.camera_info_topic: info}, [1], {args.image_topic: [1]}, {}))
+        None, {args.camera_info_topic: [(0, info)]}, [1], {args.image_topic: [1]}, {}))
     monkeypatch.setattr(cfb, '_grab_messages', lambda *a: {
         (args.pc_topic, 1): None, (args.image_topic, 1): image})
     monkeypatch.setattr(cfb, '_read_xyz', lambda _: xyz)
