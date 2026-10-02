@@ -733,6 +733,28 @@ bash scripts/run_rko_lio_mid360_crossval_benchmark.sh
 The public benchmark and release-report flow is documented in
 [benchmarking.md](benchmarking.md).
 
+## Online RKO LiDAR reliability
+
+The RKO `online_node` accepts the standard ROS startup override for LiDAR
+subscription reliability. Add this parameter to the node's existing ROS arguments,
+using the fully resolved LiDAR topic name (here `/rko/lidar`):
+
+```bash
+-p qos_overrides./rko/lidar.subscription.reliability:=reliable
+```
+
+Omitting the override retains `best_effort`; LiDAR queue depth remains 10 and
+IMU QoS is unchanged. A reliable subscriber requires a reliable publisher, so
+check the publisher with `ros2 topic info <topic> --verbose` before selecting it.
+This override applies to `online_node`, not `online_imu_rate_node`.
+
+Two Go2 Outdoor2 replays in opposite comparison orders produced all 12,784
+frontend poses with `reliable`, versus 30 and 41 absent poses with `best_effort`.
+Return-segment localization RMSE stayed near 3 cm in all four runs. Localization
+still skipped some input scans; output gaps varied between 0.20 and 0.30 seconds
+in both modes. This is an option for preserving input delivery, not evidence of
+lower latency, identical trajectories, or accuracy throughout the GT-sparse route.
+
 ## Related Docs
 
 - [Autoware Quickstart](autoware-quickstart.md)
