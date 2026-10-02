@@ -426,13 +426,6 @@ def ordered_payload_stream_sha256(records: Iterable[dict[str, Any]]) -> str:
     return digest.hexdigest()
 
 
-def _stats(records: Iterable[dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    accumulator = _StreamAccumulator()
-    for record in records:
-        accumulator.add(record)
-    return accumulator.document()
-
-
 def _connection_identity(connection: Any, *, include_id: bool = True) -> dict[str, Any]:
     ext = getattr(connection, 'ext', None)
     serialization = getattr(ext, 'serialization_format', None)

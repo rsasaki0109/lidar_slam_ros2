@@ -289,14 +289,6 @@ def set_coverage(events: dict[str, Any], *, mode: str,
     })
 
 
-def _elapsed_report(value: str) -> float:
-    fields = [float(item) for item in value.split(':')]
-    if not 1 <= len(fields) <= 3:
-        raise ValueError(value)
-    return sum(field * (60 ** index)
-               for index, field in enumerate(reversed(fields)))
-
-
 def read_time_report(path: Path) -> dict[str, Any]:
     if not path.is_file():
         return {'status': 'unavailable', 'scope': None, 'source': str(path),

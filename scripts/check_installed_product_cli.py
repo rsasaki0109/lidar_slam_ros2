@@ -295,6 +295,41 @@ def _release_image_fixture() -> dict[str, object]:
     }
 
 
+def _validate_benchmark_imports(prefix: Path) -> None:
+    """Check installed package boundaries without checkout or PYTHONPATH fallback."""
+    site = prefix / 'lib' / (
+        f'python{sys.version_info.major}.{sys.version_info.minor}'
+    ) / 'site-packages'
+    code = '''
+import importlib
+from pathlib import Path
+import sys
+sys.path.insert(0, sys.argv[1])
+for name in (
+    'lidarslam_benchmark_tools',
+    'lidarslam_benchmark_tools.lidarslam_tools.serialization',
+    'lidarslam_benchmark_tools.lidarslam_tools.report_charts',
+    'lidarslam_benchmark_tools.gaussian_splatting',
+):
+    module = importlib.import_module(name)
+    if not Path(module.__file__).resolve().is_relative_to(Path(sys.argv[1])):
+        raise RuntimeError('module escaped install prefix: ' + name)
+from lidarslam_benchmark_tools import resolve_benchmark_resource
+for resource in (
+    'scripts/benchmark_phase_contract.py',
+    'scripts/container_phase_evidence.sh',
+    'scripts/sample_container_process_rss.py',
+    'scripts/container_memory_evidence.py',
+):
+    resolve_benchmark_resource(resource)
+'''
+    result = _run(
+        [sys.executable, '-I', '-B', '-c', code, str(site)], prefix,
+        clean_ros_environment=True,
+    )
+    _require_success(result, 'installed benchmark package imports')
+
+
 def validate_install(
     prefix: Path,
     expected_source_revision: str | None = None,
@@ -314,6 +349,7 @@ def validate_install(
     installed_runtime_manifest = product_root / 'product-runtime-files.txt'
 
     bytecode_before = _python_bytecode_snapshot(prefix)
+    _validate_benchmark_imports(prefix)
 
     for path in (path_command, ros_shim, historical_node):
         if not path.is_file() or not os.access(path, os.X_OK):

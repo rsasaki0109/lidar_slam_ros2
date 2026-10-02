@@ -382,18 +382,6 @@ def _validated_text(value: str, label: str) -> str:
     return value
 
 
-def _receipt_value(receipt: Mapping[str, Any], path: str, key: str) -> Any:
-    """Read one required receipt field and fail closed when it is absent."""
-    value: Any = receipt
-    for component in path.split('.'):
-        if not isinstance(value, Mapping) or component not in value:
-            raise LaunchError(
-                'EVIDENCE_RECEIPT_INVALID',
-                f'{key}: missing receipt field {path}')
-        value = value[component]
-    return value
-
-
 def _load_verified_receipt(key: str) -> tuple[dict[str, Any], str]:
     if key not in EVIDENCE_RECEIPT_PATHS or key not in EVIDENCE_RECEIPT_SHA256:
         raise LaunchError('EVIDENCE_RECEIPT_INVALID', f'unpinned receipt key: {key}')

@@ -266,13 +266,6 @@ def _sealed_response(path: Path) -> tuple[dict[str, Any], dict[str, Any]]:
     return response, descriptor
 
 
-def _binding_descriptor(path: Path, label: str, *, schema: str,
-                        identity_field: str) -> tuple[dict[str, Any], dict[str, Any]]:
-    value, descriptor, data = _descriptor(
-        path, label, schema=schema, identity_field=identity_field)
-    return value, {**descriptor, 'data_sha256': _sha(data)}
-
-
 def _load_fixed_candidate() -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     try:
         report = _CLOSURE.validate_checked_in(ROOT)

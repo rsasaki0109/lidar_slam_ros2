@@ -449,15 +449,6 @@ def _read_json(path: Path, label: str, *, schema: str,
     return value, data, identity
 
 
-def _input_ref(path: Path, value: Mapping[str, Any], data: bytes) -> dict[str, Any]:
-    return {
-        'schema': value['schema'], 'path': path.name, 'file_sha256': _sha(data),
-        'file_bytes': len(data), 'canonical_sha256': value['canonical_sha256'],
-        'campaign_domain': value['campaign_domain'],
-        'campaign_id': value['campaign_id'],
-    }
-
-
 def _sidecar(path: Path, data: bytes, value: Mapping[str, Any], schema: str) -> dict[str, Any]:
     return {'schema': schema, 'schema_version': 1, 'artifact_path': path.name,
             'artifact_bytes': len(data), 'artifact_sha256': _sha(data),
