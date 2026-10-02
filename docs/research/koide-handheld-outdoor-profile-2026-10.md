@@ -90,6 +90,30 @@ On 02a and 02b, most of the error is vertical. Slow pitch/roll drift integrates 
   - Back to back under the same load, total CPU time was 599 s without re-levelling and 567 s with it, so the overhead is not measurable.
 - Both modes reproduce identical APE on reruns.
 
+## Held-out check (01a) and occluded scans
+
+`outdoor_hard_01a` was not used for any of the choices above.
+
+| Setting | xy | z | 3D |
+| --- | --- | --- | --- |
+| Previous outdoor settings | 0.58 m | 2.90 m | 2.96 m |
+| Profile (with re-levelling) | 0.61 m | 1.44 m | 1.56 m |
+| **Profile + `min_icp_keypoints: 100`** | 0.65 m | **0.31 m** | **0.72 m** |
+
+- **Symptom:** both earlier settings jump about 7 m upward within 0.6 s at 126 s into the run, while the ground truth stays flat. The jump stays in the map.
+- **Cause:**
+  - The scan at 125.9 s keeps only 55 of its 20k points beyond 1 m. The sensor was most likely covered by a hand or the operator's body.
+  - RKO-LIO refused only scans with fewer than 10 ICP keypoints, so ICP ran on a few dozen and slid vertically.
+- **Fix:** `min_icp_keypoints: 100` (rko_lio [#18](https://github.com/rsasaki0109/rko_lio/pull/18), default 10). Such scans are skipped, and IMU propagation continues.
+  - 10–20 scans per sequence are skipped.
+  - 300 gives the same 01a result.
+
+| Sequence | Profile | + `min_icp_keypoints: 100` |
+| --- | --- | --- |
+| 02a | 0.53 m | 0.55 m |
+| 02b | 0.34 m | 0.34 m |
+| 01b | 0.31 m | 0.31 m |
+
 ## Reference: GLIM odometry on the same sequences
 
 - **Source:** GLIM v1.2.2 (GICP, container `glim-ros2:jazzy-v1.2.2`) runs from 2026-07-16, full sequences, 4 runs each.
@@ -98,8 +122,9 @@ On 02a and 02b, most of the error is vertical. Slow pitch/roll drift integrates 
 
 | Sequence | GLIM 3D RMSE (4 runs) | GLIM xy / z (run 1) | Profile, xy / z / 3D |
 | --- | --- | --- | --- |
-| 02a | 0.72–0.80 m | 0.69 / 0.21 m | 0.47 / 0.23 / 0.53 m |
+| 02a | 0.72–0.80 m | 0.69 / 0.21 m | 0.49 / 0.24 / 0.55 m |
 | 02b | 0.37–0.40 m | 0.34 / 0.17 m | 0.28 / 0.19 / 0.34 m |
 | 01b | 0.30–0.37 m | – | 0.28 / 0.13 / 0.31 m |
+| 01a | not run | – | 0.65 / 0.31 / 0.72 m |
 
 - GLIM still has slightly lower vertical error on 02a and 02b.
