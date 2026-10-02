@@ -98,8 +98,8 @@ def test_no_argument_lists_bags_and_shows_example(tmp_path: Path, capsys):
 
 def test_dry_run_does_not_create_output(tmp_path: Path, capsys, monkeypatch):
     def unexpected_discovery(_roots):
-        raise AssertionError("Explicit bags must not scan unrelated mounts")
-    monkeypatch.setattr("run_lidar_slam.discover_bags", unexpected_discovery)
+        raise AssertionError('Explicit bags must not scan unrelated mounts')
+    monkeypatch.setattr('run_lidar_slam.discover_bags', unexpected_discovery)
     bag = _bag(tmp_path / 'exp01_ros2')
     out = tmp_path / 'output'
     assert main([str(bag), '-o', str(out), '--dry-run']) == 0
@@ -109,8 +109,8 @@ def test_dry_run_does_not_create_output(tmp_path: Path, capsys, monkeypatch):
 
 def test_unsupported_sensor_explains_current_limit(tmp_path: Path, capsys, monkeypatch):
     def unexpected_discovery(_roots):
-        raise AssertionError("Explicit bags must not scan unrelated mounts")
-    monkeypatch.setattr("run_lidar_slam.discover_bags", unexpected_discovery)
+        raise AssertionError('Explicit bags must not scan unrelated mounts')
+    monkeypatch.setattr('run_lidar_slam.discover_bags', unexpected_discovery)
     bag = _bag(tmp_path / 'other_ros2', '/livox/lidar')
     assert main([str(bag), '--dry-run']) == 2
     assert '/hesai/pandar' in capsys.readouterr().err
