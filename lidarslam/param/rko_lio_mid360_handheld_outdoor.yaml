@@ -1,11 +1,11 @@
 # RKO-LIO profile for a handheld (or walking-robot) Livox MID-360 outdoors.
 #
 # Selected on Koide Hard Point Cloud Localization Dataset outdoor_hard_02a
-# (CC BY 4.0) and checked unchanged on outdoor_hard_02b / 01b; see
-# docs/readme-media.md. Compared with the previous outdoor settings
-# (voxel_size 1.0, no gravity alignment), vertical drift drops on all three
-# sequences (z RMSE 0.54-0.64 m -> 0.13-0.23 m) and 3D APE drops from
-# 1.03 m to 0.53 m (02a), 0.63 m to 0.34 m (02b) and 4.82 m to 0.31 m (01b).
+# (CC BY 4.0), checked on outdoor_hard_02b / 01b and on the held-out 01a; see
+# docs/research/koide-handheld-outdoor-profile-2026-10.md. Compared with the
+# previous outdoor settings (voxel_size 1.0, no gravity alignment), 3D APE
+# drops from 1.03 m to 0.55 m (02a), 0.63 m to 0.34 m (02b), 4.82 m to 0.31 m
+# (01b) and 2.96 m to 0.72 m (01a).
 #
 # The datasets publish IMU acceleration in g; rescale to m/s^2 first
 # (tools/readme_media/scale_imu_bag.py).
@@ -34,3 +34,7 @@ async.output_publish_delay_ms: 20
 # before that the turn made during the gap was lost, 01b APE 4.8 m). Up to
 # 3 s, the scan is registered from the IMU prediction instead of dropped.
 max_scan_delta_sec: 3.0
+# A handheld sensor is sometimes covered by a hand or the body: on outdoor_hard_01a
+# a scan kept only 55 of 20k points beyond 1 m, and ICP on its few dozen keypoints
+# slid ~7 m upward into the map. Such scans are skipped (IMU propagation continues).
+min_icp_keypoints: 100
