@@ -123,7 +123,7 @@ def test_score_heldout_view_can_compare_raw_exposure():
 
 
 def test_shared_fusion_cli_preserves_split_and_observation_threshold(tmp_path, monkeypatch):
-    import imageio.v3 as iio
+    import imageio as iio
     import json
     import sys
 

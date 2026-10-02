@@ -71,7 +71,7 @@ def test_cli_colors_from_external_directory_without_pythonpath(tmp_path):
     import os
     import subprocess
 
-    import imageio.v3 as iio
+    import imageio as iio
 
     image = np.full((8, 8, 3), [30, 90, 150], dtype=np.uint8)
     iio.imwrite(tmp_path / 'image.png', image)
