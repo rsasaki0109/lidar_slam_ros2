@@ -187,3 +187,102 @@ Pixel normals from a sparse depth raster are not stable enough around shelves,
 corners, and thin structures. The next candidate should group contour pixels
 into supported line segments and estimate one robust tangent per segment,
 rather than loosening this per-pixel gate until it becomes distance-only again.
+
+### Objective power check (2026-10)
+
+Before building segment tangents, the nearest-edge objective itself was tested.
+The setup reused the K4 geometry, the 26 views at stride 10, and fixed geometry-only
+contours capped at 50,000 per view. Each view's pose was perturbed by a known amount,
+and the unchanged metric was recomputed against the image edges at the 95th
+gradient percentile.
+
+| Pose given to the metric | median | 2 px inliers | unmatched (>12 px) |
+| --- | --- | --- | --- |
+| current calibration | 7.62 px | 22.0% | 36.0% |
+| camera yaw +0.5 deg | 7.62 px | 22.0% | 36.1% |
+| camera yaw +1 deg | 7.81 px | 21.9% | 36.2% |
+| camera yaw +3 deg (~44 px at f=849) | 8.00 px | 21.7% | 36.7% |
+| camera x +10 cm | 7.62 px | 22.0% | 36.1% |
+| contours scored against a different view's image | 8.94 px | 20.3% | 40.8% |
+
+- **Chance agreement:** a 3 deg error moves every point by tens of pixels, yet the
+  median changes by 0.4 px. Scoring against an unrelated image keeps 20.3% of 2 px
+  inliers, so only ~1.7 points of the 22.0% reflect real alignment. In this cluttered
+  warehouse the 95th-percentile image edges are dense enough that almost any projected
+  point finds one within a few pixels.
+- **Not caused by see-through edges:** a 3D test split the contour points by their
+  full-density neighbourhood (largest tangent-plane angular gap >= 120 deg within
+  0.10 m). Boundary points (median 7.0 px, 34% unmatched) and surface-interior points
+  (7.8 px, 36%) scored alike.
+- **Not caused by uncorrected lens distortion:** matched offsets show no radial bias.
+  50.0-50.8% point outward in every radius band, with a mean radial offset of
+  -0.01 to -0.12 px.
+
+Consequence: the flat loss surfaces, failed observability checks and sub-1% held-out
+gains above are what this metric produces at any pose. Contour-side refinements
+(support filters, fixed contours, orientation, segment tangents) cannot add the
+missing information.
+
+Cross-view colour agreement does not help with a constant extrinsic error either. The
+check sampled 200k points visible in at least three of 52 views (stride 5), kept the
+textured ones (image gradient at or above the 80th percentile, 131k), and measured the
+per-point RGB standard deviation across views:
+
+| Pose | median RGB std | p90 |
+| --- | --- | --- |
+| current calibration | 58.8 | 102.4 |
+| camera yaw +3 deg | 58.7 | 103.5 |
+| camera yaw +10 deg (~150 px) | 60.9 | 105.2 |
+| chance (colours shuffled within each view) | 89.8 | 114.0 |
+
+The current poses agree far better than chance, yet even 10 deg barely changes the
+score. A constant camera-frame rotation shifts every view's sample by the same angle,
+so the views keep agreeing with each other while all being wrong. Held-out colour error
+of a recoloured map has the same blind spot. Such signals can detect errors that differ
+between views (time offset under motion, per-frame pose error), not a constant
+extrinsic rotation.
+
+A constant extrinsic needs a signal tied to the LiDAR geometry itself.
+
+### LiDAR-intensity mutual information (2026-10)
+
+The K4 PLY stores no intensity. For each view, the raw `/livox/points` scans within
+±0.3 s of the image stamp were deskewed with the same trajectory as
+`build_lidar_init.py`, which gives about 67k points per view. They were z-buffered into
+the view with a 140 px vignette margin, and the (intensity, grey) pairs were scored by
+mutual information (32×32 bins).
+
+**The point population must be fixed.** A pose change moves points across the
+margin and changes z-buffer winners, so MI over "whatever projects" mixes alignment with
+population. A first table without that control suggested a +2 deg pitch optimum, about
++5% on both search and confirmation views. Scoring only the points that win the
+z-buffer under both poses, and pooling them over the views, changes the picture.
+Search views are at stride 10 from view 0; confirmation views are at stride 10 from
+view 5.
+
+| Perturbation | search views | confirmation views |
+| --- | --- | --- |
+| pitch -1 deg | -12.2% | -9.0% |
+| yaw +1 deg | -8.0% | -10.1% |
+| pitch +1 deg | +5.3% | +0.7% |
+| pitch +2 deg | +4.4% | -1.6% |
+| camera y -5 cm | +8.0% | +2.3% |
+
+- **MI is a pose-sensitive signal.** Wrong poses cost 8-12% per degree, unlike the
+  edge and colour signals above.
+- **The +2 deg optimum does not survive.** On the confirmation views it gives -1.6%.
+- **The recoloured map agrees.** Recolouring the K4 geometry with the configuration-I
+  options (`recolor_pointcloud.py --image-margin 120 --vignette-gain-limit 2.5
+  --min-samples 3`) under the current poses and under pitch +2 deg, then scoring map
+  luminance against LiDAR intensity on about 1.4 M scan points matched within 2 cm,
+  gives 0.0449 vs 0.0426 (search) and 0.0444 vs 0.0419 (confirmation). The corrected
+  map is worse.
+- **Appearance roughness does not discriminate.** Median 4.98 vs 4.95; planar median
+  6.10 vs 7.09.
+- **Conclusion:** the current calibration is within about ±1 deg (or a few cm)
+  vertically. The remaining colour blur is not explained by a constant extrinsic error,
+  and no correction was adopted. Artefacts are in
+  `benchmarks/rtkslam_seq1_colored_map_20260718/k5_mi_check/`.
+
+Any future K5 objective must hold the scored population fixed across candidate poses,
+and must pass the perturbation table on held-out views before it is optimized.

@@ -386,3 +386,29 @@ search boundaryへ到達し、曲率不足/不安定、time-translation pair非�
 stationary point、ill-conditionでもFAILしたため不採用。疎depth rasterのpixel normalは
 棚・角・細構造で不安定。次は角度を緩めるのでなく、contourを支持付きline segmentへ
 束ねてsegment tangentをrobust推定する。K4 pose/assetは引き続き未変更。
+
+## 20. 追記 (2026-10-03): edge objective の検出力チェック
+
+segment tangent に進む前に、nearest-edge 目的関数そのものの検出力を測った。K4 / 26 view
+/ fixed geometry contours で既知の姿勢誤差を与えた結果、camera yaw 3 度（f=849 で約 44 px）でも
+median 7.62→8.00 px、2 px inlier 22.0→21.7% しか変わらない。別 view の画像と照合しても
+inlier は 20.3% 残り、正しい整列に由来するのは約 1.7 ポイントだけ。3D 境界判定
+（0.10 m 近傍の接平面角度ギャップ ≥120 度）で境界点と面内点に分けても残差は同等で、
+レンズ歪みの未補正を示す放射方向の偏りもない。この倉庫では image edge が密すぎて、
+どこに投影しても数 px 以内に edge がある。よって contour 側の工夫（support filter、
+fixed contours、orientation、segment tangent）では改善しない。さらに view 間の色一致も
+一定の外部回転には盲目（textured 131k 点の RGB std median: 現行 58.8 / yaw 3 度 58.7 /
+yaw 10 度 60.9 / chance 89.8）。全 view が同じ角度だけずれて同じ誤り方をするため互いに
+一致し続ける。held-out 色誤差も同じ。一定の外部パラメータには LiDAR 幾何に紐づく信号が要る。
+
+**LiDAR intensity と画像輝度の相互情報量（MI）は姿勢に感度がある。** 各 view の画像時刻
+±0.3 s の生 `/livox/points` を build_lidar_init と同じ軌跡で deskew して投影した（地図の作り直し
+不要）。**評価する点集合を両姿勢で固定**して pooled MI を取ると、pitch -1 度で -12.2%/-9.0%、
+yaw +1 度で -8.0%/-10.1% と明確に下がる（探索/確認 view）。最初は点集合を固定しておらず、
+pitch +2 度が最適（+5%）に見えた。固定すると確認 view では -1.6% で、再着色地図の MI も
++2 度のほうが低い（0.0449→0.0426）。→ 現行キャリブは縦 ±1 度程度以内で、一定の外部
+パラメータ誤差では色のぼけを説明できない。補正は採用しない。成果物は
+`benchmarks/rtkslam_seq1_colored_map_20260718/k5_mi_check/`。
+候補は最適化に使う前に同じ摂動表で検出力を確認すること。詳細は
+`docs/research/colored-map-spatiotemporal-calibration-2026-07.md` の
+"Objective power check"。
