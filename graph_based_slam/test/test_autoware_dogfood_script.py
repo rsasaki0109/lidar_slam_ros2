@@ -355,6 +355,50 @@ def test_offline_subscriber_barrier_runs_only_after_stable_counts(tmp_path: Path
     assert result.stdout.count('RKO LIO offline processing complete') == 1
 
 
+def _run_barrier(tmp_path: Path, fake_ros2_body: str, timeout_secs: str = '5'):
+    fake_ros2 = tmp_path / 'ros2'
+    fake_ros2.write_text('#!/usr/bin/env bash\n' + fake_ros2_body, encoding='utf-8')
+    fake_ros2.chmod(0o755)
+    marker = tmp_path / 'command-ran'
+    result = subprocess.run(
+        ['bash', str(BARRIER_SCRIPT), '--odom-topic', '/odom', '--deskewed-topic', '/cloud',
+         '--min-odom', '1', '--min-deskewed', '1', '--timeout-secs', timeout_secs,
+         '--settle-polls', '3', '--', 'touch', str(marker)],
+        check=False,
+        capture_output=True,
+        text=True,
+        env={'PATH': f'{tmp_path}:/usr/bin:/bin', 'BARRIER_TEST_DIR': str(tmp_path)},
+    )
+    return result, marker
+
+
+def test_offline_subscriber_barrier_tolerates_discovery_misses(tmp_path: Path):
+    # A fresh no-daemon participant misses the topic on some polls even while
+    # the subscriber exists; those misses must not reset the settle count.
+    result, marker = _run_barrier(
+        tmp_path,
+        'n=$(cat "$BARRIER_TEST_DIR/calls" 2>/dev/null || echo 0)\n'
+        'echo $((n + 1)) > "$BARRIER_TEST_DIR/calls"\n'
+        'if (( n % 3 == 2 )); then echo "Unknown topic \'$6\'" >&2; exit 1; fi\n'
+        "printf 'Type: test/msg/Fake\\nPublisher count: 0\\nSubscription count: 1\\n'\n",
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert marker.is_file()
+
+
+def test_offline_subscriber_barrier_still_times_out_without_subscribers(tmp_path: Path):
+    result, marker = _run_barrier(
+        tmp_path,
+        "printf 'Type: test/msg/Fake\\nPublisher count: 0\\nSubscription count: 0\\n'\n",
+        timeout_secs='2',
+    )
+
+    assert result.returncode == 70
+    assert not marker.exists()
+    assert '[offline-subscriber-barrier-timeout]' in result.stderr
+
+
 def test_default_raw_trajectory_uses_complete_native_rko_results():
     source = DOGFOOD_SCRIPT.read_text(encoding='utf-8')
     assert 'USE_NATIVE_RAW_TRAJECTORY=true' in source
