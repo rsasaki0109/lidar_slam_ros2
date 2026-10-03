@@ -399,8 +399,16 @@ inlier は 20.3% 残り、正しい整列に由来するのは約 1.7 ポイン�
 fixed contours、orientation、segment tangent）では改善しない。さらに view 間の色一致も
 一定の外部回転には盲目（textured 131k 点の RGB std median: 現行 58.8 / yaw 3 度 58.7 /
 yaw 10 度 60.9 / chance 89.8）。全 view が同じ角度だけずれて同じ誤り方をするため互いに
-一致し続ける。held-out 色誤差も同じ。一定の外部パラメータには LiDAR 幾何に紐づく信号
-（LiDAR intensity と画像輝度の相互情報量など）が要るが、K4 の PLY は intensity を持たない。
+一致し続ける。held-out 色誤差も同じ。一定の外部パラメータには LiDAR 幾何に紐づく信号が要る。
+
+**LiDAR intensity と画像輝度の相互情報量（MI）は効く。** 各 view の画像時刻の ±0.3 s の
+生 `/livox/points` を build_lidar_init と同じ軌跡で deskew して投影した（地図の作り直し不要）。
+yaw 1/3 度で -6.9/-17.2%、別画像で -25.1% と明確に下がる。さらに pitch +2 度（または camera-y
+-5 cm、両者は区別不能な ridge）で探索 view +5.2% / 確認 view +4.7% と、**現行の姿勢より MI が上がる**。
+木箱の重ね合わせでも現行は反射点が箱の下の暗部へはみ出し、+2 度で縁に揃う。
+→ 現行キャリブに縦方向のずれ（画像上で約 30 px 相当）がある。次は per-scan MI を K5 目的関数にし、
+回転/並進の ridge を扱ったうえで再着色し、境界を目視比較する（held-out 色誤差は一定オフセットを
+見ない）。成果物は `benchmarks/rtkslam_seq1_colored_map_20260718/k5_mi_check/`。
 候補は最適化に使う前に同じ摂動表で検出力を確認すること。詳細は
 `docs/research/colored-map-spatiotemporal-calibration-2026-07.md` の
 "Objective power check"。

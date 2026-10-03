@@ -242,7 +242,46 @@ of a recoloured map has the same blind spot. Such signals can detect errors that
 between views (time offset under motion, per-frame pose error), not a constant
 extrinsic rotation.
 
-A constant extrinsic needs a signal tied to the LiDAR geometry itself, for example
-mutual information between LiDAR intensity and image intensity. The K4 geometry PLY
-stores no intensity, so that requires an intensity-attributed map or per-scan
-projection. Run the same perturbation table on any candidate before optimizing with it.
+A constant extrinsic needs a signal tied to the LiDAR geometry itself.
+
+### LiDAR-intensity mutual information (2026-10)
+
+The K4 PLY stores no intensity, so each view used the raw `/livox/points` scans within
+±0.3 s of its image stamp. They were deskewed with the same trajectory as
+`build_lidar_init.py` (≈67k points per view) and z-buffered into the view, with a
+140 px vignette margin. The (intensity, grey) pairs were then scored by mutual
+information (32×32 bins).
+
+Mutual information sees errors the edge and colour signals miss. Search views are at
+stride 10 from view 0; confirmation views are at stride 10 from view 5. Changes are
+relative to the current poses:
+
+| Perturbation | search views | confirmation views |
+| --- | --- | --- |
+| yaw +0.5 / +1 / +3 deg | -3.1 / -6.9 / -17.2% | |
+| camera x +5 cm | -4.8% | -4.4% |
+| image of a different view | -25.1% | |
+| pitch -1 deg | -11.0% | -9.2% |
+| pitch +1 / +2 / +3 deg | +4.1 / **+5.2** / +2.1% | +2.7 / **+4.7** / +1.0% |
+| camera y -5 cm | +5.1% | +4.0% |
+| roll ±1 deg, yaw ±0.25 deg | ≤ ±1.7% | ≤ ±1.7% |
+| camera z ±5 cm | ≤ 0.8% | ≤ 0.8% |
+
+- **A vertical misregistration exists.** Both view sets peak away from the current
+  poses, by a consistent vertical correction.
+- **Its rotation/translation split is not observable here.** A joint pitch × camera-y
+  grid shows a ridge: pitch +2 deg with no shift and camera-y −5 cm with no rotation
+  both give about +5% on both sets. Camera z (forward) is flat, as expected for a
+  forward-looking camera.
+- **Visual check:** a full-resolution overlay of the wooden box in confirmation view 3
+  shows high-intensity points spilling about one box-edge height into the dark gap
+  below the box with the current poses; with pitch +2 deg they stop at the edge. A
+  cluttered second view was inconclusive.
+- **Artefacts:** scripts, logs and overlays are in
+  `benchmarks/rtkslam_seq1_colored_map_20260718/k5_mi_check/`.
+
+Next: use per-scan intensity mutual information as the K5 objective, with the
+rotation/translation ridge handled explicitly. Either fix one of the two from the rig
+drawing, or report only the image-plane correction. Then recolour and compare
+boundaries visually; held-out colour error cannot see a constant offset. Run the same
+perturbation table on any candidate before optimizing with it.
