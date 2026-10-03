@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import re
 import subprocess
 
 import jsonschema
@@ -2184,12 +2185,35 @@ def test_source_quickstart_bootstraps_dependencies_and_keeps_dev_tests():
     for package in (
         'graph_based_slam',
         'lidarslam',
+        'lidarslam_default_plugins',
+        'lidarslam_fake_registration_plugins',
         'lidarslam_msgs',
+        'lidarslam_plugin_interfaces',
+        'lidarslam_registration_loader',
         'ndt_omp_ros2',
         'rko_lio',
         'scanmatcher',
     ):
         assert package in quickstart_script
+
+    # The inventory gate must match what colcon actually discovers, or every
+    # beginner run stops at [source-package-inventory-mismatch].
+    def discovered_by_colcon(manifest):
+        # colcon stops descending at the first directory that is a package.
+        relative = manifest.parent.relative_to(REPO_ROOT)
+        if {'build', 'install', 'log'} & set(relative.parts):
+            return False
+        ancestors = [REPO_ROOT.joinpath(*relative.parts[:depth])
+                     for depth in range(1, len(relative.parts))]
+        return not any((ancestor / 'package.xml').is_file()
+                       or (ancestor / 'CMakeLists.txt').is_file()
+                       for ancestor in ancestors)
+
+    manifests = [path for path in REPO_ROOT.rglob('package.xml')
+                 if discovered_by_colcon(path)]
+    for manifest in manifests:
+        name = re.search(r'<name>([^<]+)</name>', manifest.read_text(encoding='utf-8'))
+        assert name and f'  {name.group(1)}\n' in quickstart_script, manifest
     assert '--repo-only' in quickstart_script
     assert '--dry-run' in quickstart_script
     assert '--json' in quickstart_script

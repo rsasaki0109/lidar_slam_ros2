@@ -115,13 +115,25 @@ esac
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd "${SCRIPT_DIR}/.." && pwd)
 DEPENDENCY_HELPER="${SCRIPT_DIR}/install_source_dependencies.sh"
+# Built by the beginner path: the product packages and the registration plugin
+# packages they depend on (colcon also resolves the loader's fake-plugin test
+# dependency). Keep both lists in C-locale sort order.
 EXPECTED_SOURCE_PACKAGES=(
   graph_based_slam
   lidarslam
+  lidarslam_default_plugins
+  lidarslam_fake_registration_plugins
   lidarslam_msgs
+  lidarslam_plugin_interfaces
+  lidarslam_registration_loader
   ndt_omp_ros2
   rko_lio
   scanmatcher
+)
+# Present in the repository but outside the beginner build.
+UNBUILT_SOURCE_PACKAGES=(
+  glim_clean_room_adapter
+  lidarslam_registration_plugin_template
 )
 
 if [[ -z "${WORKSPACE_ROOT}" ]]; then
@@ -500,20 +512,24 @@ mapfile -t DISCOVERED_SOURCE_PACKAGES < <(
     sed '/^[[:space:]]*$/d' |
     LC_ALL=C sort -u
 )
+mapfile -t KNOWN_SOURCE_PACKAGES < <(
+  printf '%s\n' "${EXPECTED_SOURCE_PACKAGES[@]}" "${UNBUILT_SOURCE_PACKAGES[@]}" |
+    LC_ALL=C sort -u
+)
 PACKAGE_INVENTORY_MATCH=true
-if [[ ${#DISCOVERED_SOURCE_PACKAGES[@]} -ne ${#EXPECTED_SOURCE_PACKAGES[@]} ]]; then
+if [[ ${#DISCOVERED_SOURCE_PACKAGES[@]} -ne ${#KNOWN_SOURCE_PACKAGES[@]} ]]; then
   PACKAGE_INVENTORY_MATCH=false
 else
-  for index in "${!EXPECTED_SOURCE_PACKAGES[@]}"; do
-    if [[ "${DISCOVERED_SOURCE_PACKAGES[index]}" != "${EXPECTED_SOURCE_PACKAGES[index]}" ]]; then
+  for index in "${!KNOWN_SOURCE_PACKAGES[@]}"; do
+    if [[ "${DISCOVERED_SOURCE_PACKAGES[index]}" != "${KNOWN_SOURCE_PACKAGES[index]}" ]]; then
       PACKAGE_INVENTORY_MATCH=false
       break
     fi
   done
 fi
 if [[ "${PACKAGE_INVENTORY_MATCH}" != true ]]; then
-  echo "error: [source-package-inventory-mismatch] expected the maintained six-package source set." >&2
-  echo "expected: ${EXPECTED_SOURCE_PACKAGES[*]}" >&2
+  echo "error: [source-package-inventory-mismatch] expected the maintained source package set." >&2
+  echo "expected: ${KNOWN_SOURCE_PACKAGES[*]}" >&2
   echo "found: ${DISCOVERED_SOURCE_PACKAGES[*]:-(none)}" >&2
   exit 2
 fi

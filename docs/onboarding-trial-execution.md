@@ -376,7 +376,7 @@ This mode requires no ROS installation, trial directory, or acknowledgement.
 It performs GitHub reads only and writes nothing. `READY` exits `0`, a public
 but unavailable route returns `NOT_READY` and exits `1`, and an API, decoding,
 or observer failure exits `2`. The route is ready only when the same commit
-contains the exact six-package quickstart inventory, explicit package selection,
+contains the exact quickstart package inventory, explicit package selection,
 repository-only dependency helper, tests-disabled build, canonical Getting
 Started instructions, and matching `VERSION`.
 
@@ -582,7 +582,7 @@ GETTING_STARTED_CONTENT="$(gh api \
   --jq .content | base64 --decode)"
 grep -Fq 'bash scripts/source_quickstart.sh' \
   <<<"$GETTING_STARTED_CONTENT"
-grep -Fq '6 ROS packages' <<<"$GETTING_STARTED_CONTENT"
+grep -Fq '10 ROS packages' <<<"$GETTING_STARTED_CONTENT"
 grep -Fq 'BUILD_TESTING=OFF' <<<"$GETTING_STARTED_CONTENT"
 test "$(gh api \
   "repos/rsasaki0109/lidar_slam_ros2/contents/VERSION?ref=$SOURCE_COMMIT" \

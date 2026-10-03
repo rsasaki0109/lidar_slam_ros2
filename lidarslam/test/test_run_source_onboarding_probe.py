@@ -103,7 +103,7 @@ def _public_route_contents() -> dict[str, str]:
         ),
         'docs/getting-started.md': (
             'bash scripts/source_quickstart.sh\n'
-            '6 ROS packages with BUILD_TESTING=OFF\n'
+            '10 ROS packages with BUILD_TESTING=OFF\n'
             'without changing your shell\n'
         ),
         'VERSION': '0.9.0\n',

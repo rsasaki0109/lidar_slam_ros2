@@ -255,17 +255,21 @@ bash scripts/source_quickstart.sh
 
 The helper initializes missing pinned submodules, installs `rosdep` or `colcon`
 when absent, resolves only this repository's dependencies, and builds only its
-6 ROS packages with `BUILD_TESTING=OFF`. It may ask for your sudo password. It
+10 ROS packages with `BUILD_TESTING=OFF`. It may ask for your sudo password. It
 does not install ROS itself, pipe a remote script into a shell, or discover and
 build unrelated packages elsewhere in the workspace. Its final stage runs the
 fixed verified first-map demo below.
 
 Before dependency installation or compilation, it asks `colcon` for the source
-inventory and requires exactly `graph_based_slam`, `lidarslam`,
-`lidarslam_msgs`, `ndt_omp_ros2`, `rko_lio`, and `scanmatcher`. The build passes
-that same explicit list to `--packages-select`. An omitted package or an
-unexpected experimental package fails as `[source-package-inventory-mismatch]`
-instead of silently expanding or weakening the beginner build.
+inventory. It builds `graph_based_slam`, `lidarslam`, `lidarslam_msgs`,
+`ndt_omp_ros2`, `rko_lio`, `scanmatcher` and the registration plugin packages they
+depend on (`lidarslam_plugin_interfaces`, `lidarslam_default_plugins`,
+`lidarslam_registration_loader`, `lidarslam_fake_registration_plugins`), passing
+that explicit list to `--packages-select`. `glim_clean_room_adapter` and
+`lidarslam_registration_plugin_template` are expected but not built. An omitted
+package or an unexpected experimental package fails as
+`[source-package-inventory-mismatch]` instead of silently expanding or weakening
+the beginner build.
 
 Inspect the resolved ROS distribution, paths, missing tools, and exact commands
 without network, APT, submodule checkout, build, or filesystem writes:
@@ -275,6 +279,22 @@ bash scripts/source_quickstart.sh --dry-run
 ```
 
 For CI or a wrapper that needs machine-readable review, add `--json`:
+
+```bash
+bash scripts/source_quickstart.sh --dry-run --json
+```
+
+This emits the versioned [`source-quickstart-plan-v1` schema](schemas/source-quickstart-plan-v1.schema.json)
+to stdout only. It still performs no network access, APT, submodule checkout,
+build, demo, or filesystem write; the plan reports missing bootstrap actions and
+the exact command arrays that a live run would execute. Because it contains
+local paths, keep raw output local rather than pasting it into an issue.
+
+The dry run prints the selected public workflow before anything starts. The real
+run writes the map under `output/` by default. A user-supplied `--output-dir`
+must be empty: the runner fails closed instead of mixing a previous or partial
+map with a new execution. Operational resume is not advertised until the
+mapping pipeline has an identity-bound checkpoint contract.
 
 For the maintained public demo, source a built workspace; one command then downloads
 the public MID-360 bag when necessary and runs the product CLI with the MID-360
@@ -287,23 +307,6 @@ bash scripts/run_first_map_demo.sh
 
 `DEMO_DATA_DIR` and `DEMO_OUTPUT_DIR` override the dataset cache and output
 directories. The Docker image runs the same script as its default command.
-
-For your own bag:
-
-```bash
-bash scripts/source_quickstart.sh --dry-run --json
-```
-
-The dry run prints the selected public workflow before anything starts. The real
-run writes the map under `output/` by default. A user-supplied `--output-dir`
-must be empty: the runner fails closed instead of mixing a previous or partial
-map with a new execution. Operational resume is not advertised until the
-mapping pipeline has an identity-bound checkpoint contract.
-This emits the versioned [`source-quickstart-plan-v1` schema](schemas/source-quickstart-plan-v1.schema.json)
-to stdout only. It still performs no network access, APT, submodule checkout,
-build, demo, or filesystem write; the plan reports missing bootstrap actions and
-the exact command arrays that a live run would execute. Because it contains
-local paths, keep raw output local rather than pasting it into an issue.
 
 Use `--viewer none` on a headless machine or `--build-only` to install without
 downloading and mapping the public demo. Every stage is idempotent; a failed

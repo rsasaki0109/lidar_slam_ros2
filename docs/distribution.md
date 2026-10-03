@@ -9,7 +9,7 @@ packages.
 Humble on Ubuntu 22.04 and Jazzy on Ubuntu 24.04 are the supported source-build
 targets. Install the matching ROS distribution first. The source quickstart
 selects its `/opt/ros` setup, prepares pinned submodules and repository-only
-dependencies, verifies the exact six-package source inventory, builds only that
+dependencies, verifies the exact source package inventory, builds only that
 explicit package list, then runs the verified demo. It may ask for your sudo
 password. Inventory drift fails before rosdep or compilation rather than
 silently adding an experimental package to the beginner path.

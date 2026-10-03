@@ -46,11 +46,21 @@ PLAN_SCHEMA = REPO_ROOT / 'docs' / 'schemas' / (
 EXPECTED_PACKAGES = (
     'graph_based_slam',
     'lidarslam',
+    'lidarslam_default_plugins',
+    'lidarslam_fake_registration_plugins',
     'lidarslam_msgs',
+    'lidarslam_plugin_interfaces',
+    'lidarslam_registration_loader',
     'ndt_omp_ros2',
     'rko_lio',
     'scanmatcher',
 )
+# Discovered by colcon in the repository but outside the beginner build.
+UNBUILT_PACKAGES = (
+    'glim_clean_room_adapter',
+    'lidarslam_registration_plugin_template',
+)
+DISCOVERED_PACKAGES = tuple(sorted(EXPECTED_PACKAGES + UNBUILT_PACKAGES))
 
 
 def _bash_q(path: Path) -> str:
@@ -67,7 +77,7 @@ def _fixture(
     *,
     colcon_exit: int = 0,
     include_submodules: bool = True,
-    package_names: tuple[str, ...] = EXPECTED_PACKAGES,
+    package_names: tuple[str, ...] = DISCOVERED_PACKAGES,
 ) -> tuple[Path, Path, dict[str, str], Path]:
     workspace = tmp_path / 'workspace with spaces'
     fake_repo = workspace / 'src' / 'lidar_slam_ros2'
@@ -206,7 +216,7 @@ def test_dry_run_is_read_only_and_prints_repo_scoped_plan(tmp_path):
     result = _run(script, '--viewer', 'none', '--dry-run', cwd=fake_repo, env=env)
 
     assert result.returncode == 0, result.stderr
-    assert 'Build scope: this repository only (6 ROS packages)' in result.stdout
+    assert 'Build scope: this repository only (10 ROS packages)' in result.stdout
     assert 'Commands (--dry-run; nothing executed)' in result.stdout
     assert '--repo-only' in result.stdout
     assert f'--base-paths {_bash_q(fake_repo)}' in result.stdout
@@ -406,7 +416,7 @@ def test_build_failure_preserves_code_and_prints_idempotent_retry(tmp_path):
 def test_unexpected_source_package_fails_before_dependencies_or_build(tmp_path):
     workspace, fake_repo, env, call_log = _fixture(
         tmp_path,
-        package_names=EXPECTED_PACKAGES + ('research_only_package',),
+        package_names=DISCOVERED_PACKAGES + ('research_only_package',),
     )
     script = fake_repo / 'scripts' / SCRIPT.name
 
