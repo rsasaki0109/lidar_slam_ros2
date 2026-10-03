@@ -23,7 +23,7 @@ bash scripts/run_rko_lio_graph_benchmark.sh \
 ```
 
 - `gt_02a.tum` is the dataset ground truth for this sequence in TUM format. `ref_meta.json` is `{}`.
-- RKO-LIO uses `lidarslam/param/rko_lio_mid360_handheld_outdoor.yaml`. Its two changes from the earlier outdoor settings (`voxel_size` 0.5, gravity alignment over a 40 s window) were **selected on this sequence**. They were then checked unchanged on `outdoor_hard_02b` and `01b`. Three later changes were checked on all sequences: `max_scan_delta_sec` of 3 s fixes a heading failure on `01b` and leaves this sequence unchanged, re-levelling the local map lowers vertical error on all three, and `min_icp_keypoints: 100` skips occluded scans (held-out `01a` 1.56 → 0.72 m, this sequence 0.53 → 0.55 m). See [the profile study](research/koide-handheld-outdoor-profile-2026-10.md).
+- RKO-LIO uses `lidarslam/param/rko_lio_mid360_handheld_outdoor.yaml`. Its two changes from the earlier outdoor settings (`voxel_size` 0.5, gravity alignment over a 40 s window) were **selected on this sequence**. They were then checked unchanged on `outdoor_hard_02b` and `01b`. Later changes were checked on all sequences: `max_scan_delta_sec` of 3 s fixes a heading failure on `01b` and leaves this sequence unchanged, and re-levelling the local map lowers vertical error on all three. `voxel_size` then went back to 1.0 with the default `min_icp_keypoints`, the only combination tried that tracks `01a` and both `outdoor_kidnap` sequences as well (kidnap 12–20 m → 0.07 m, this sequence 0.55 → 0.56 m). See [the profile study](research/koide-handheld-outdoor-profile-2026-10.md).
 - `scanmatcher` and `graph_based_slam` were built from `acffebf`. Its C++ sources, launch files and parameters are identical to `develop` at `1c1bc322`; only two Python tests differ.
 - RKO-LIO was built from the pinned `e5f731f`.
 
@@ -31,11 +31,11 @@ bash scripts/run_rko_lio_graph_benchmark.sh \
 
 | Metric | Value |
 | --- | --- |
-| Scans tracked | 2870 / 2880 (99.7%) |
-| Raw APE RMSE / max | 0.55 m / 1.42 m (previous outdoor settings: 1.03 m / 2.08 m) |
-| Corrected APE RMSE | 0.58 m |
+| Scans tracked | 2871 / 2880 (99.7%) |
+| Raw APE RMSE / max | 0.56 m / 1.53 m (previous outdoor settings: 1.03 m / 2.08 m) |
+| Corrected APE RMSE | 0.60 m |
 | Loop closures | 0 |
-| Real-time factor | 0.44 (shared workstation) |
+| Real-time factor | 0.34 (shared workstation) |
 | Autoware map check | 8 PASS / 0 FAIL |
 
 **Render:**

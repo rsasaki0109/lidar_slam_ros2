@@ -2,7 +2,7 @@
 
 **Question:** where does the SLAM front end lose accuracy on handheld outdoor MID-360 data, and does a configuration-only change fix it?
 
-**Data:** [Hard Point Cloud Localization Dataset](https://zenodo.org/records/10122133) (CC BY 4.0), `outdoor_hard_02a`, `02b` and `01b`.
+**Data:** [Hard Point Cloud Localization Dataset](https://zenodo.org/records/10122133) (CC BY 4.0), `outdoor_hard_02a`, `02b` and `01b`; later `01a` and `outdoor_kidnap_a` / `_b`.
 - IMU acceleration is rescaled from g to m/s² (`tools/readme_media/scale_imu_bag.py`).
 - Pipeline: `scripts/run_rko_lio_graph_benchmark.sh`, with `lidarslam/param/lidarslam.yaml` for the backend.
 - Metrics: APE after Umeyama SE(3) alignment against the dataset ground truth (nearest pose within 0.05 s).
@@ -114,6 +114,31 @@ On 02a and 02b, most of the error is vertical. Slow pitch/roll drift integrates 
 | 02b | 0.34 m | 0.34 m |
 | 01b | 0.31 m | 0.31 m |
 
+## Kidnap sequences: voxel size and keypoint threshold
+
+`outdoor_kidnap_a` and `_b`: the operator covers the sensor and carries it elsewhere. Reference: the dataset reference trajectories (`outdoor_kidnap_{a,b}_reference.csv`), same alignment as above.
+
+- **Symptom:** the profile above drifts 12.1 m (a) and 20.0 m (b). The previous outdoor settings gave 677 m and 0.47 m.
+- **What happens:** about 740 scans of `_b` are skipped while the sensor is covered. 726 of them have fewer than 10 keypoints and are skipped at any threshold. Past `max_scan_delta_sec`, the state re-anchors every ~3 s at the IMU-propagated pose.
+- **Negative result:** keeping only the IMU rotation (not translation) across long gaps made both worse (34 m / 29 m), because the operator keeps walking while the sensor is covered.
+
+3D APE in m (– = not run):
+
+| `voxel_size` | `min_icp_keypoints` | 02a | 02b | 01b | 01a | kidnap_a | kidnap_b |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 0.5 | 100 (previous profile) | 0.55 | 0.34 | 0.31 | 0.72 | 12.1 | 20.0 |
+| 0.5 | 10 | – | – | – | – | 12.8 | 0.18 |
+| 0.5 | 50 | 0.55 | 0.34 | 0.30 | 0.74 | 0.07 | 26.9 |
+| 1.0 | 100 | – | – | – | – | 0.06 | 23.9 |
+| 1.0 | 50 | 0.53 | 0.35 | 0.35 | 0.57 | 0.06 | 22.6 |
+| 1.0 | 30 | 0.53 | 0.34 | 1.12 | 0.61 | 0.07 | 0.13 |
+| **1.0** | **10 (new profile)** | **0.56** | **0.34** | **0.35** | **0.77** | **0.07** | **0.06** |
+
+- **Fragile outcomes:** each sequence either tracks or fails by metres, and the outcome is not monotonic in the threshold. On 01b, a single scan with 30–40 keypoints decides between 0.35 m and 1.12 m. On kidnap_b, about 18 scans with 10–50 keypoints decide between 0.2 m and 20+ m.
+- **Choice:** `voxel_size` 1.0 with the default threshold is the only combination tried that tracks all six sequences. It also lowers RKO-LIO CPU time on 02a from 393 s to 112 s (user time).
+- **Cost:** the 01a slide described above returns partly (about 4 m upward at 126 s; z 0.31 → 0.62 m, 3D 0.72 → 0.77 m). 01b goes from 0.31 m to 0.35 m.
+- No sequence is held out after this step: all six were used to choose it.
+
 ## Reference: GLIM odometry on the same sequences
 
 - **Source:** GLIM v1.2.2 (GICP, container `glim-ros2:jazzy-v1.2.2`) runs from 2026-07-16, full sequences, 4 runs each.
@@ -122,9 +147,9 @@ On 02a and 02b, most of the error is vertical. Slow pitch/roll drift integrates 
 
 | Sequence | GLIM 3D RMSE (4 runs) | GLIM xy / z (run 1) | Profile, xy / z / 3D |
 | --- | --- | --- | --- |
-| 02a | 0.72–0.80 m | 0.69 / 0.21 m | 0.49 / 0.24 / 0.55 m |
-| 02b | 0.37–0.40 m | 0.34 / 0.17 m | 0.28 / 0.19 / 0.34 m |
-| 01b | 0.30–0.37 m | – | 0.28 / 0.13 / 0.31 m |
-| 01a | not run | – | 0.65 / 0.31 / 0.72 m |
+| 02a | 0.72–0.80 m | 0.69 / 0.21 m | 0.52 / 0.23 / 0.56 m |
+| 02b | 0.37–0.40 m | 0.34 / 0.17 m | 0.31 / 0.15 / 0.34 m |
+| 01b | 0.30–0.37 m | – | 0.32 / 0.16 / 0.35 m |
+| 01a | not run | – | 0.46 / 0.62 / 0.77 m |
 
-- GLIM still has slightly lower vertical error on 02a and 02b.
+- GLIM still has slightly lower vertical error on 02a; ours is lower on 02b.
