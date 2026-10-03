@@ -32,8 +32,8 @@
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
+import re
 import subprocess
 
 import jsonschema
