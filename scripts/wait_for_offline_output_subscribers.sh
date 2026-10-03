@@ -98,18 +98,29 @@ subscription_count() {
     ros2 topic info --no-daemon --spin-time "$DISCOVERY_SPIN_SECS" \
       "$topic" 2>/dev/null || true
   )
-  awk '/^Subscription count:/ {print $3; found=1; exit} END {if (!found) print 0}' <<<"$output"
+  # A fresh participant sometimes has not discovered the topic yet ("Unknown
+  # topic"); report that as unknown instead of zero subscribers.
+  awk '/^Subscription count:/ {print $3; found=1; exit} END {if (!found) print "unknown"}' <<<"$output"
 }
 
 echo "Waiting for offline output subscribers before reading the bag: ${ODOM_TOPIC} >= ${MIN_ODOM}, ${DESKEWED_TOPIC} >= ${MIN_DESKEWED}."
 deadline=$((SECONDS + TIMEOUT_SECS))
 ready_polls=0
-odom_count=0
-deskewed_count=0
+odom_count=unknown
+deskewed_count=unknown
 while (( SECONDS < deadline )); do
-  odom_count=$(subscription_count "$ODOM_TOPIC")
-  deskewed_count=$(subscription_count "$DESKEWED_TOPIC")
-  if (( odom_count >= MIN_ODOM && deskewed_count >= MIN_DESKEWED )); then
+  # Keep the last observed count per topic: a discovery miss says nothing about
+  # the subscribers, so only an observed count below the minimum resets settling.
+  odom_now=$(subscription_count "$ODOM_TOPIC")
+  deskewed_now=$(subscription_count "$DESKEWED_TOPIC")
+  [[ "$odom_now" == unknown ]] || odom_count="$odom_now"
+  [[ "$deskewed_now" == unknown ]] || deskewed_count="$deskewed_now"
+  if [[ "$odom_now" == unknown && "$deskewed_now" == unknown ]]; then
+    sleep 0.1
+    continue
+  fi
+  if [[ "$odom_count" != unknown && "$deskewed_count" != unknown ]] &&
+    (( odom_count >= MIN_ODOM && deskewed_count >= MIN_DESKEWED )); then
     ready_polls=$((ready_polls + 1))
     if (( ready_polls >= SETTLE_POLLS )); then
       echo "Offline output subscribers ready: odometry=${odom_count}, deskewed scan=${deskewed_count}. Starting bag processing."
