@@ -171,28 +171,20 @@ input, capability mismatch, disabled-initial-guess behavior, repeated
 determinism when advertised, and reset-after-align. The template provides both
 a C++14 direct contract test and a C++17 shell-loader discovery/lifetime test.
 
-Run the template proof from the repository root:
+Build and run both template tests from the workspace root:
 
 ```bash
-bash scripts/run_registration_plugin_template_check.sh --keep-work-dir
+colcon build --packages-up-to lidarslam_registration_plugin_template
+colcon test --packages-select lidarslam_registration_plugin_template
+colcon test-result --verbose
 ```
 
-The script copies only the interface and loader into a temporary underlay,
-copies the template into a separate temporary overlay, starts from
-`/opt/ros/$ROS_DISTRO/setup.bash`, and never sources the repository install
-space. It builds the plugin target as C++14, runs the direct contract fixture,
-then loads the installed class through the shell loader. A passing receipt
-contains:
+`test_registration_plugin_template` is the direct contract fixture;
+`test_registration_plugin_template_loader` loads the installed class through the
+shell loader. (The clean-room script that built the template in an isolated
+underlay/overlay and wrote a receipt was removed with the plugin release machinery
+in ca7b4aa4.)
 
-```text
-m1_template_proof=pass
-template_package=lidarslam_registration_plugin_template
-template_class=lidarslam_registration_plugin_template/Identity
-plugin_cxx_standard=14
-loader_test_cxx_standard=17
-repository_install_sourced=false
-```
-
-Run it once on Humble and once on Jazzy. Keep the image/compiler, PCL/Eigen,
-pluginlib version, resolved manifest path, and library path with the receipt.
+Run them once on Humble and once on Jazzy. Keep the image/compiler, PCL/Eigen,
+pluginlib version, resolved manifest path, and library path with the test results.
 These are compatibility and contract results, not an accuracy or SOTA claim.
