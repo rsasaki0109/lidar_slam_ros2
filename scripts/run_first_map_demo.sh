@@ -104,6 +104,10 @@ print_demo_artifacts() {
   echo
   echo "== first-map artifacts =="
   echo "outputs under ${OUT_DIR}:"
+  if [[ -f "${LIDARSLAM_DOCKER_MARKER:-/.dockerenv}" ]]; then
+    echo "  (Docker: $(dirname -- "${OUT_DIR}") is the host directory mounted with -v;"
+    echo "   with the documented command, look in ./lidarslam_output/$(basename -- "${OUT_DIR}"))"
+  fi
   echo "  map.pcd                           downsampled point-cloud map"
   echo "  pointcloud_map/                   Autoware map tiles (+ metadata)"
   echo "  map_projector_info.yaml           Autoware projector info (local)"
