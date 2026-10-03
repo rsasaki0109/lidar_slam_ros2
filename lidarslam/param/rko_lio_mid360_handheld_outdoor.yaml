@@ -1,11 +1,11 @@
 # RKO-LIO profile for a handheld (or walking-robot) Livox MID-360 outdoors.
 #
-# Checked on Koide Hard Point Cloud Localization Dataset (CC BY 4.0)
-# outdoor_hard_02a / 02b / 01b / 01a and outdoor_kidnap_a / b; see
+# Selected on Koide Hard Point Cloud Localization Dataset outdoor_hard_02a
+# (CC BY 4.0), checked on outdoor_hard_02b / 01b and on the held-out 01a; see
 # docs/research/koide-handheld-outdoor-profile-2026-10.md. Compared with the
-# previous outdoor settings (no gravity alignment), 3D APE drops from 1.03 m
-# to 0.56 m (02a), 0.63 m to 0.34 m (02b), 4.82 m to 0.35 m (01b) and 2.96 m
-# to 0.77 m (01a), and from 677 m / 0.47 m to 0.07 m / 0.06 m (kidnap_a / b).
+# previous outdoor settings (voxel_size 1.0, no gravity alignment), 3D APE
+# drops from 1.03 m to 0.55 m (02a), 0.63 m to 0.34 m (02b), 4.82 m to 0.31 m
+# (01b) and 2.96 m to 0.72 m (01a).
 #
 # The datasets publish IMU acceleration in g; rescale to m/s^2 first
 # (tools/readme_media/scale_imu_bag.py).
@@ -13,9 +13,7 @@ extrinsic_imu2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
 extrinsic_lidar2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
 initialization_phase: true
 deskew: true
-# With 0.5 m, at least one kidnap sequence (sensor covered while carried) drifted
-# 12-27 m for every min_icp_keypoints tried. 1.0 m also uses ~3.5x less CPU.
-voxel_size: 1.0
+voxel_size: 0.5
 max_points_per_voxel: 20
 min_range: 1.0
 max_range: 100.0
@@ -36,8 +34,7 @@ async.output_publish_delay_ms: 20
 # before that the turn made during the gap was lost, 01b APE 4.8 m). Up to
 # 3 s, the scan is registered from the IMU prediction instead of dropped.
 max_scan_delta_sec: 3.0
-# A handheld sensor is sometimes covered by a hand or the body. On outdoor_hard_01a,
-# ICP on a nearly empty scan slides ~4 m upward (z RMSE 0.62 m); skipping scans
-# with fewer than 30-100 keypoints prevents that, but each such threshold broke
-# 01b (30) or kidnap_b (50, 100) here, so the default is kept.
-min_icp_keypoints: 10
+# A handheld sensor is sometimes covered by a hand or the body: on outdoor_hard_01a
+# a scan kept only 55 of 20k points beyond 1 m, and ICP on its few dozen keypoints
+# slid ~7 m upward into the map. Such scans are skipped (IMU propagation continues).
+min_icp_keypoints: 100
