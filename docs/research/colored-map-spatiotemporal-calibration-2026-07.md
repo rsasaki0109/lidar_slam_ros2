@@ -221,7 +221,28 @@ gradient percentile.
 Consequence: the flat loss surfaces, failed observability checks and sub-1% held-out
 gains above are what this metric produces at any pose. Contour-side refinements
 (support filters, fixed contours, orientation, segment tangents) cannot add the
-missing information. K5 needs a correspondence signal that a wrong pose degrades, for
-example cross-view colour consistency or held-out colour error of the recoloured map,
-and the same perturbation table should be run on any candidate before optimizing
-with it.
+missing information.
+
+Cross-view colour agreement does not help with a constant extrinsic error either. The
+check sampled 200k points visible in at least three of 52 views (stride 5), kept the
+textured ones (image gradient at or above the 80th percentile, 131k), and measured the
+per-point RGB standard deviation across views:
+
+| Pose | median RGB std | p90 |
+| --- | --- | --- |
+| current calibration | 58.8 | 102.4 |
+| camera yaw +3 deg | 58.7 | 103.5 |
+| camera yaw +10 deg (~150 px) | 60.9 | 105.2 |
+| chance (colours shuffled within each view) | 89.8 | 114.0 |
+
+The current poses agree far better than chance, yet even 10 deg barely changes the
+score. A constant camera-frame rotation shifts every view's sample by the same angle,
+so the views keep agreeing with each other while all being wrong. Held-out colour error
+of a recoloured map has the same blind spot. Such signals can detect errors that differ
+between views (time offset under motion, per-frame pose error), not a constant
+extrinsic rotation.
+
+A constant extrinsic needs a signal tied to the LiDAR geometry itself, for example
+mutual information between LiDAR intensity and image intensity. The K4 geometry PLY
+stores no intensity, so that requires an intensity-attributed map or per-scan
+projection. Run the same perturbation table on any candidate before optimizing with it.

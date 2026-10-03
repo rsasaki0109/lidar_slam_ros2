@@ -396,8 +396,11 @@ inlier は 20.3% 残り、正しい整列に由来するのは約 1.7 ポイン�
 （0.10 m 近傍の接平面角度ギャップ ≥120 度）で境界点と面内点に分けても残差は同等で、
 レンズ歪みの未補正を示す放射方向の偏りもない。この倉庫では image edge が密すぎて、
 どこに投影しても数 px 以内に edge がある。よって contour 側の工夫（support filter、
-fixed contours、orientation、segment tangent）では改善しない。K5 は誤った姿勢で
-確実に悪化する信号（view 間の色一致、再着色地図の held-out 色誤差など）が必要で、候補は
-最適化に使う前に同じ摂動表で検出力を確認すること。詳細は
+fixed contours、orientation、segment tangent）では改善しない。さらに view 間の色一致も
+一定の外部回転には盲目（textured 131k 点の RGB std median: 現行 58.8 / yaw 3 度 58.7 /
+yaw 10 度 60.9 / chance 89.8）。全 view が同じ角度だけずれて同じ誤り方をするため互いに
+一致し続ける。held-out 色誤差も同じ。一定の外部パラメータには LiDAR 幾何に紐づく信号
+（LiDAR intensity と画像輝度の相互情報量など）が要るが、K4 の PLY は intensity を持たない。
+候補は最適化に使う前に同じ摂動表で検出力を確認すること。詳細は
 `docs/research/colored-map-spatiotemporal-calibration-2026-07.md` の
 "Objective power check"。
