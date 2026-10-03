@@ -246,42 +246,43 @@ A constant extrinsic needs a signal tied to the LiDAR geometry itself.
 
 ### LiDAR-intensity mutual information (2026-10)
 
-The K4 PLY stores no intensity, so each view used the raw `/livox/points` scans within
-±0.3 s of its image stamp. They were deskewed with the same trajectory as
-`build_lidar_init.py` (≈67k points per view) and z-buffered into the view, with a
-140 px vignette margin. The (intensity, grey) pairs were then scored by mutual
-information (32×32 bins).
+The K4 PLY stores no intensity. For each view, the raw `/livox/points` scans within
+±0.3 s of the image stamp were deskewed with the same trajectory as
+`build_lidar_init.py`, which gives about 67k points per view. They were z-buffered into
+the view with a 140 px vignette margin, and the (intensity, grey) pairs were scored by
+mutual information (32×32 bins).
 
-Mutual information sees errors the edge and colour signals miss. Search views are at
-stride 10 from view 0; confirmation views are at stride 10 from view 5. Changes are
-relative to the current poses:
+**The point population must be fixed.** A pose change moves points across the
+margin and changes z-buffer winners, so MI over "whatever projects" mixes alignment with
+population. A first table without that control suggested a +2 deg pitch optimum, about
++5% on both search and confirmation views. Scoring only the points that win the
+z-buffer under both poses, and pooling them over the views, changes the picture.
+Search views are at stride 10 from view 0; confirmation views are at stride 10 from
+view 5.
 
 | Perturbation | search views | confirmation views |
 | --- | --- | --- |
-| yaw +0.5 / +1 / +3 deg | -3.1 / -6.9 / -17.2% | |
-| camera x +5 cm | -4.8% | -4.4% |
-| image of a different view | -25.1% | |
-| pitch -1 deg | -11.0% | -9.2% |
-| pitch +1 / +2 / +3 deg | +4.1 / **+5.2** / +2.1% | +2.7 / **+4.7** / +1.0% |
-| camera y -5 cm | +5.1% | +4.0% |
-| roll ±1 deg, yaw ±0.25 deg | ≤ ±1.7% | ≤ ±1.7% |
-| camera z ±5 cm | ≤ 0.8% | ≤ 0.8% |
+| pitch -1 deg | -12.2% | -9.0% |
+| yaw +1 deg | -8.0% | -10.1% |
+| pitch +1 deg | +5.3% | +0.7% |
+| pitch +2 deg | +4.4% | -1.6% |
+| camera y -5 cm | +8.0% | +2.3% |
 
-- **A vertical misregistration exists.** Both view sets peak away from the current
-  poses, by a consistent vertical correction.
-- **Its rotation/translation split is not observable here.** A joint pitch × camera-y
-  grid shows a ridge: pitch +2 deg with no shift and camera-y −5 cm with no rotation
-  both give about +5% on both sets. Camera z (forward) is flat, as expected for a
-  forward-looking camera.
-- **Visual check:** a full-resolution overlay of the wooden box in confirmation view 3
-  shows high-intensity points spilling about one box-edge height into the dark gap
-  below the box with the current poses; with pitch +2 deg they stop at the edge. A
-  cluttered second view was inconclusive.
-- **Artefacts:** scripts, logs and overlays are in
+- **MI is a pose-sensitive signal.** Wrong poses cost 8-12% per degree, unlike the
+  edge and colour signals above.
+- **The +2 deg optimum does not survive.** On the confirmation views it gives -1.6%.
+- **The recoloured map agrees.** Recolouring the K4 geometry with the configuration-I
+  options (`recolor_pointcloud.py --image-margin 120 --vignette-gain-limit 2.5
+  --min-samples 3`) under the current poses and under pitch +2 deg, then scoring map
+  luminance against LiDAR intensity on about 1.4 M scan points matched within 2 cm,
+  gives 0.0449 vs 0.0426 (search) and 0.0444 vs 0.0419 (confirmation). The corrected
+  map is worse.
+- **Appearance roughness does not discriminate.** Median 4.98 vs 4.95; planar median
+  6.10 vs 7.09.
+- **Conclusion:** the current calibration is within about ±1 deg (or a few cm)
+  vertically. The remaining colour blur is not explained by a constant extrinsic error,
+  and no correction was adopted. Artefacts are in
   `benchmarks/rtkslam_seq1_colored_map_20260718/k5_mi_check/`.
 
-Next: use per-scan intensity mutual information as the K5 objective, with the
-rotation/translation ridge handled explicitly. Either fix one of the two from the rig
-drawing, or report only the image-plane correction. Then recolour and compare
-boundaries visually; held-out colour error cannot see a constant offset. Run the same
-perturbation table on any candidate before optimizing with it.
+Any future K5 objective must hold the scored population fixed across candidate poses,
+and must pass the perturbation table on held-out views before it is optimized.
