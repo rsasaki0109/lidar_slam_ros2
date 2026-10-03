@@ -286,3 +286,35 @@ view 5.
 
 Any future K5 objective must hold the scored population fixed across candidate poses,
 and must pass the perturbation table on held-out views before it is optimized.
+
+### Time offset and per-view refinement (2026-10)
+
+- **Time offset is fine.** Each camera pose was re-interpolated at stamp + dt with the
+  inferred body-to-camera transform, and fixed-population MI was scored. The optimum
+  lies within ±10 ms on both view sets, and ±40-80 ms costs 2-11%. At a median camera
+  speed of 0.6 m/s, 10 ms is about 6 mm.
+- **Per-view MI optima look real.** A pitch/yaw search over ±1.5 deg on every one of the
+  260 views (0.5 deg grid, then 0.25 deg refinement) found none of them at the current
+  pose. Split-half point sets agreed within one 0.5 deg step on 92% of the views, and
+  the corrections are temporally correlated (lag-1: pitch 0.50, yaw 0.35; median
+  |correction|: pitch 1.0 deg, yaw 0.5 deg).
+- **They make the colours worse.** Held-out RGB was evaluated independently of LiDAR
+  intensity, with `evaluate_heldout_point_colors.py` fold 0. The training fold was
+  recoloured with the configuration-I fusion options and the held-out views scored with
+  a 140 px margin:
+
+| Poses | RGB L2 median | p90 | inlier 20 |
+| --- | --- | --- | --- |
+| current | **36.3** | **148.5** | **33.3%** |
+| per-view MI correction | 39.5 | 152.6 | 30.1% |
+| same, temporally median-smoothed (5 views) | 39.2 | 152.7 | 30.6% |
+
+The per-view MI maxima are reproducible but biased. Intensity depends on range and
+incidence, and image brightness on lighting and vignetting, so the MI peak shifts with
+scene structure. Split halves see the same structure and reproduce the bias. MI is
+useful for detecting errors of a degree or more. It is not accurate enough to refine
+these poses, which every signal tested here leaves within about 1 deg and 10 ms.
+
+K5 stops here with the current K4 poses. The remaining colour blur should be looked
+for in fusion and rendering rather than in camera registration. Artefacts are in
+`benchmarks/rtkslam_seq1_colored_map_20260718/k5_mi_check/`.
