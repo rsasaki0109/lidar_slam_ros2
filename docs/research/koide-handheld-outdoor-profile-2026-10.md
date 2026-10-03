@@ -114,6 +114,17 @@ On 02a and 02b, most of the error is vertical. Slow pitch/roll drift integrates 
 | 02b | 0.34 m | 0.34 m |
 | 01b | 0.31 m | 0.31 m |
 
+## Kidnap sequences: out of scope for this profile
+
+`outdoor_kidnap_a` (204 s) and `_b` (349 s): the operator covers the sensor and carries it elsewhere.
+
+- **With this profile:** `_a` loses track 80 s into the run. `_b` runs to the end with 20.0 m APE.
+- **Other settings tried:** nine, covering the previous outdoor settings, `voxel_size` 0.5/1.0, `min_icp_keypoints` 10–100, no `max_scan_delta_sec`, and carrying only the IMU rotation across long gaps.
+  - **`_a`:** no setting reached the end. Every run lost track 28–80 s in.
+  - **`_b`:** every run either lost track 30–34 s in, or ran to the end with 20–34 m APE.
+- **Truncated runs mislead:** a run that loses track stops publishing poses, so its APE covers only the part before the sensor was covered. Such runs read 0.06–0.47 m. Read APE together with the trajectory duration.
+- **Not an odometry problem:** odometry alone cannot recover a pose after the sensor is carried while covered. That needs global relocalization; see `configs/mid360_robot/rko_lio_mid360_kidnap_tolerant.yaml`.
+
 ## Reference: GLIM odometry on the same sequences
 
 - **Source:** GLIM v1.2.2 (GICP, container `glim-ros2:jazzy-v1.2.2`) runs from 2026-07-16, full sequences, 4 runs each.
