@@ -85,7 +85,11 @@ OS_VERSION = {'humble': '22.04', 'jazzy': '24.04'}
 EXPECTED_SOURCE_PACKAGES = (
     'graph_based_slam',
     'lidarslam',
+    'lidarslam_default_plugins',
+    'lidarslam_fake_registration_plugins',
     'lidarslam_msgs',
+    'lidarslam_plugin_interfaces',
+    'lidarslam_registration_loader',
     'ndt_omp_ros2',
     'rko_lio',
     'scanmatcher',
@@ -529,7 +533,7 @@ def _preflight_public_source(
         raise RouteUnavailable(
             'source-route-contract-missing',
             'public source quickstart package inventory differs from the '
-            'maintained six-package contract',
+            'maintained source package contract',
         )
     _require_markers(
         helper,
@@ -564,7 +568,7 @@ def _preflight_public_source(
         getting_started,
         (
             'bash scripts/source_quickstart.sh',
-            '6 ROS packages',
+            '10 ROS packages',
             'BUILD_TESTING=OFF',
             'without changing your shell',
         ),

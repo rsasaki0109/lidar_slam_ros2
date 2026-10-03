@@ -37,13 +37,17 @@
           "const": [
             "graph_based_slam",
             "lidarslam",
+            "lidarslam_default_plugins",
+            "lidarslam_fake_registration_plugins",
             "lidarslam_msgs",
+            "lidarslam_plugin_interfaces",
+            "lidarslam_registration_loader",
             "ndt_omp_ros2",
             "rko_lio",
             "scanmatcher"
           ]
         },
-        "package_count": {"const": 6}
+        "package_count": {"const": 10}
       }
     },
     "workspace": {
@@ -125,7 +129,11 @@
               "const": [
                 "graph_based_slam",
                 "lidarslam",
+                "lidarslam_default_plugins",
+                "lidarslam_fake_registration_plugins",
                 "lidarslam_msgs",
+                "lidarslam_plugin_interfaces",
+                "lidarslam_registration_loader",
                 "ndt_omp_ros2",
                 "rko_lio",
                 "scanmatcher"

@@ -54,7 +54,7 @@ When both human observations are unavailable, both helpers accept
 typing the two individual unknown flags.
 Before provisioning a trial VM, `--public-preflight` checks only the immutable
 GitHub source route and returns machine-readable `READY` or `NOT_READY` without
-writing files. It requires the exact six-package inventory, dependency helper,
+writing files. It requires the exact package inventory, dependency helper,
 fast build, Getting Started route, and matching product version from one
 commit; API/tool failure remains distinct from an unavailable route.
 For its GitHub API reads, the observer uses an explicit `GITHUB_TOKEN` when
