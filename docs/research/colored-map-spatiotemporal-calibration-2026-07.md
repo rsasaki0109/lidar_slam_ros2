@@ -318,3 +318,33 @@ these poses, which every signal tested here leaves within about 1 deg and 10 ms.
 K5 stops here with the current K4 poses. The remaining colour blur should be looked
 for in fusion and rendering rather than in camera registration. Artefacts are in
 `benchmarks/rtkslam_seq1_colored_map_20260718/k5_mi_check/`.
+
+### Where the colour blur comes from (2026-10)
+
+The K4 geometry was rendered into 8 held-out views (fold 0, every fifth) with the CPU
+splat renderer (`render_frames_cpu`, sigma 0.012 m, supersample 2, half resolution).
+Each render was compared with the photo on covered pixels.
+
+| Colours | gradient energy vs photo | RGB L2 median (gain-normalised) |
+| --- | --- | --- |
+| oracle: each point takes the held-out photo's own pixel | 1.11 | 8.1 |
+| configuration I, training fold only (max_samples 12) | 0.90 | 33.7 |
+| single nearest training view (max_samples 1) | 1.34 | 38.6 |
+
+- **Rendering is not the cause.** With oracle colours the render matches the photo.
+  The loss comes from fusing training views that disagree slightly: residual pose
+  error up to about 1 deg, plus exposure and view-dependent appearance.
+- **Fewer fused views do not help.** Lowering `max_samples` to 6 looked better on this
+  render metric (gradient 1.03, L2 32.6). The established point-level held-out protocol
+  (`evaluate_heldout_point_colors.py`) rejects it on both folds:
+
+| max_samples | fold 0 median / inlier 20 | fold 1 median / inlier 20 |
+| --- | --- | --- |
+| 12 (current) | **36.3 / 33.3%** | **36.0 / 33.7%** |
+| 6 | 43.2 / 27.2% | 43.1 / 27.0% |
+
+- **Gradient energy cannot tell detail from noise.** Trust the point-level protocol
+  over render-based scores.
+- **Next lever:** sharper fused colour needs cross-view consistency below about 1 deg,
+  which none of the signals tested in K5 could deliver. Artefacts are in
+  `benchmarks/rtkslam_seq1_colored_map_20260718/k5_mi_check/`.
