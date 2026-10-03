@@ -276,15 +276,17 @@ bash scripts/source_quickstart.sh --dry-run
 
 For CI or a wrapper that needs machine-readable review, add `--json`:
 
-For the maintained public demo, one command performs the doctor, downloads the
-dataset when necessary, and launches the existing quickstart:
+For the maintained public demo, source a built workspace; one command then downloads
+the public MID-360 bag when necessary and runs the product CLI with the MID-360
+profile:
 
 ```bash
-bash scripts/run_first_map.sh
+source install/setup.bash
+bash scripts/run_first_map_demo.sh
 ```
 
-Use `--dry-run` to inspect the selected path without running checks, downloads,
-containers, or SLAM. Force a path with `--path source` or `--path docker`.
+`DEMO_DATA_DIR` and `DEMO_OUTPUT_DIR` override the dataset cache and output
+directories. The Docker image runs the same script as its default command.
 
 For your own bag:
 
