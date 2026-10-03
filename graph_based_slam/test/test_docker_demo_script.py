@@ -188,6 +188,27 @@ def test_demo_selects_nested_directory_that_contains_metadata(tmp_path: Path):
     assert 'Demo stage 3/3' in result.stdout
 
 
+def test_demo_names_the_host_directory_when_run_in_docker(tmp_path: Path, monkeypatch):
+    # Inside the image the artifact paths are container paths; point users at
+    # the host mount instead of /lidarslam_ws/output, which they cannot open.
+    marker = tmp_path / 'dockerenv'
+    marker.write_text('', encoding='utf-8')
+    monkeypatch.setenv('LIDARSLAM_DOCKER_MARKER', str(marker))
+    result, _, _ = _run_demo(tmp_path, FIRST_MAP_SCRIPT)
+
+    assert result.returncode == 0, result.stderr
+    assert 'is the host directory mounted with -v' in result.stdout
+    assert './lidarslam_output/output' in result.stdout
+
+
+def test_demo_omits_the_docker_host_hint_outside_docker(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv('LIDARSLAM_DOCKER_MARKER', str(tmp_path / 'absent'))
+    result, _, _ = _run_demo(tmp_path, FIRST_MAP_SCRIPT)
+
+    assert result.returncode == 0, result.stderr
+    assert 'host directory mounted with -v' not in result.stdout
+
+
 def test_docker_wrapper_runs_the_canonical_first_map_demo(tmp_path: Path):
     result, bag_dir, capture_path = _run_demo(tmp_path, DOCKER_SCRIPT)
 
