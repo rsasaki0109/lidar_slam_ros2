@@ -187,3 +187,41 @@ Pixel normals from a sparse depth raster are not stable enough around shelves,
 corners, and thin structures. The next candidate should group contour pixels
 into supported line segments and estimate one robust tangent per segment,
 rather than loosening this per-pixel gate until it becomes distance-only again.
+
+### Objective power check (2026-10)
+
+Before building segment tangents, the nearest-edge objective itself was tested.
+The setup reused the K4 geometry, the 26 views at stride 10, and fixed geometry-only
+contours capped at 50,000 per view. Each view's pose was perturbed by a known amount,
+and the unchanged metric was recomputed against the image edges at the 95th
+gradient percentile.
+
+| Pose given to the metric | median | 2 px inliers | unmatched (>12 px) |
+| --- | --- | --- | --- |
+| current calibration | 7.62 px | 22.0% | 36.0% |
+| camera yaw +0.5 deg | 7.62 px | 22.0% | 36.1% |
+| camera yaw +1 deg | 7.81 px | 21.9% | 36.2% |
+| camera yaw +3 deg (~44 px at f=849) | 8.00 px | 21.7% | 36.7% |
+| camera x +10 cm | 7.62 px | 22.0% | 36.1% |
+| contours scored against a different view's image | 8.94 px | 20.3% | 40.8% |
+
+- **Chance agreement:** a 3 deg error moves every point by tens of pixels, yet the
+  median changes by 0.4 px. Scoring against an unrelated image keeps 20.3% of 2 px
+  inliers, so only ~1.7 points of the 22.0% reflect real alignment. In this cluttered
+  warehouse the 95th-percentile image edges are dense enough that almost any projected
+  point finds one within a few pixels.
+- **Not caused by see-through edges:** a 3D test split the contour points by their
+  full-density neighbourhood (largest tangent-plane angular gap >= 120 deg within
+  0.10 m). Boundary points (median 7.0 px, 34% unmatched) and surface-interior points
+  (7.8 px, 36%) scored alike.
+- **Not caused by uncorrected lens distortion:** matched offsets show no radial bias.
+  50.0-50.8% point outward in every radius band, with a mean radial offset of
+  -0.01 to -0.12 px.
+
+Consequence: the flat loss surfaces, failed observability checks and sub-1% held-out
+gains above are what this metric produces at any pose. Contour-side refinements
+(support filters, fixed contours, orientation, segment tangents) cannot add the
+missing information. K5 needs a correspondence signal that a wrong pose degrades, for
+example cross-view colour consistency or held-out colour error of the recoloured map,
+and the same perturbation table should be run on any candidate before optimizing
+with it.
