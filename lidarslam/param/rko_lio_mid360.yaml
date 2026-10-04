@@ -1,3 +1,8 @@
 extrinsic_imu2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
 extrinsic_lidar2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
-initialization_phase: false
+# Level the map frame with gravity from the IMU at the first scans. Without it the
+# map frame is the first sensor pose, so a tilted mount tilts the whole map (7.4 deg
+# on the MID-360 demo bag, 8.4 deg on Koide outdoor_hard_02a). Assumes the sensor is
+# roughly still at the start; Koide outdoor_hard_02b, which starts while walking,
+# still went from 3.9 to 1.4 deg.
+initialization_phase: true
