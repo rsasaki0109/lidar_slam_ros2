@@ -129,20 +129,17 @@ def create_rko_offline_node(context, *args, **kwargs):
         min_deskewed_subscribers = int(
             LaunchConfiguration('min_deskewed_scan_subscribers').perform(context)
         )
-        subscriber_wait_timeout_ms = round(
-            1000.0 * float(
-                LaunchConfiguration('subscriber_wait_timeout_sec').perform(context)
-            )
+        subscriber_wait_timeout_sec = float(
+            LaunchConfiguration('subscriber_wait_timeout_sec').perform(context)
         )
         subscriber_settle_polls = int(
             LaunchConfiguration('subscriber_settle_polls').perform(context)
         )
+        # The barrier below sees subscribers through a separate process. The
+        # offline node must also wait until its own publishers have matched them,
+        # or the first scans it publishes are lost and the map starts late.
         parameters[0].update({
-            'offline.wait_for_output_subscribers': True,
-            'offline.min_odom_subscribers': min_odom_subscribers,
-            'offline.min_deskewed_subscribers': min_deskewed_subscribers,
-            'offline.subscriber_wait_timeout_ms': subscriber_wait_timeout_ms,
-            'offline.subscriber_settle_polls': subscriber_settle_polls,
+            'output_subscriber_timeout_sec': subscriber_wait_timeout_sec,
         })
         prefix = shlex.join([
             barrier_script,
