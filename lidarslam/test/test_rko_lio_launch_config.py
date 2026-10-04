@@ -289,9 +289,18 @@ def test_offline_start_barrier_is_opt_in_and_fail_closed():
     assert "'/rko_lio/odometry'" in launch_source
     assert "'/rko_lio/frame'" in launch_source
     assert 'prefix = shlex.join([' in launch_source
-    assert "'offline.wait_for_output_subscribers': True" in launch_source
-    assert "'offline.min_odom_subscribers': min_odom_subscribers" in launch_source
-    assert "'offline.min_deskewed_subscribers': min_deskewed_subscribers" in launch_source
-    assert "'offline.subscriber_wait_timeout_ms': subscriber_wait_timeout_ms" in launch_source
-    assert "'offline.subscriber_settle_polls': subscriber_settle_polls" in launch_source
+    assert "'output_subscriber_timeout_sec': subscriber_wait_timeout_sec" in launch_source
+    # rko_lio never declared these; passing them left the node's own wait off.
+    assert "'offline." not in launch_source
     assert 'prefix=prefix' in launch_source
+
+
+def test_offline_wait_parameter_exists_in_vendored_rko_lio():
+    offline_node = (
+        REPO_ROOT / 'Thirdparty' / 'rko_lio' / 'rko_lio' / 'ros' / 'offline_node.cpp'
+    )
+    if not offline_node.is_file():
+        return  # submodule not checked out
+    assert 'declare_parameter<double>("output_subscriber_timeout_sec"' in (
+        offline_node.read_text(encoding='utf-8')
+    )
