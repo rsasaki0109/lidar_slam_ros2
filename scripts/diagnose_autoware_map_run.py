@@ -124,6 +124,22 @@ def _load_preflight_module():
     return module
 
 
+def _map_tilt_hint(run_dir: Path) -> str | None:
+    """Best-effort gravity check of the map frame; None when level or unmeasurable."""
+    import importlib.util
+
+    script_path = Path(__file__).resolve().parent / 'check_map_gravity_alignment.py'
+    spec = importlib.util.spec_from_file_location('check_map_gravity_alignment', script_path)
+    if spec is None or spec.loader is None:
+        return None
+    try:
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module.tilt_hint(module.check_run(run_dir))
+    except (ImportError, OSError, RuntimeError, ValueError):
+        return None
+
+
 def _read_text(path: Path | None) -> str:
     if path is None or not path.is_file():
         return ''
@@ -402,6 +418,11 @@ def summarize_run(
         or problem_hints
     ):
         status = 'runtime_failed'
+
+    if status == 'success':
+        tilt_hint = _map_tilt_hint(run_dir)
+        if tilt_hint:
+            problem_hints.append(tilt_hint)
 
     summary: dict[str, Any] = {
         'schema_version': SCHEMA_VERSION,

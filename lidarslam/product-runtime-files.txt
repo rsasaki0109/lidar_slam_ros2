@@ -22,6 +22,7 @@ merge_map_sessions.py
 map_merge.py
 run_map_soak.py
 diagnose_autoware_map_run.py
+check_map_gravity_alignment.py
 verify_autoware_map.py
 verify_map_bundle.py
 first_map_validation_receipt.py

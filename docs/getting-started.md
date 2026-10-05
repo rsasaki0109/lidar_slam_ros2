@@ -795,6 +795,18 @@ creation. Successful projects retain each transformed trajectory separately,
 deduplicate overlapping points, preserve intensity and other PCD fields, and
 publish SHA-256-pinned `map_project.json` and `map_merge_receipt.json`.
 
+Autoware expects the map's z axis to point up. To check how far a run's map frame is
+tilted from gravity, measured from the bag's IMU (the run's diagnosis also reports a
+tilt above 3 deg as a hint):
+
+```bash
+python3 scripts/check_map_gravity_alignment.py output/<run_dir>
+```
+
+It reads the bag path from `run_manifest.json` (or `--bag`) and exits 1 above
+`--max-tilt-deg` (default 3). A map built with RKO-LIO `initialization_phase: false` takes
+the first sensor pose as its frame, so a tilted mount tilts the whole map.
+
 Or inspect an existing output directory:
 
 ```bash

@@ -696,6 +696,7 @@ if(BUILD_TESTING)
     test_mid360_robot_public_completion_gate
     test_mid360_robot_public_continuous_relocalization_gate
     test_navsatfix_covariance_inspector
+    test_map_gravity_alignment
     test_applanix_gsof50_inspector
     test_applanix_navsatfix_bridge
     test_applanix_imu_bridge
