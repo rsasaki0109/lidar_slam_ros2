@@ -77,7 +77,7 @@ Autoware artifacts; `lidarslam-map view "$PWD/output/my_map"` provides offline 3
 source-preserving edit plans that `lidarslam-map edit` applies without extra replay paths.
 Reopen runs with `lidarslam-map sessions`, compare two with `lidarslam-map compare day1 day2`, create a private-by-default issue ZIP with `lidarslam-map support day1`, prepare a verified first-map report with `lidarslam-map support day1 --first-map`, or merge visits with `lidarslam-map merge day1 day2 --output-dir site_project`.
 For fixed Docker/source output, use `lidarslam-map report /path/to/output/mid360_demo --json` when the reviewed candidate CLI is installed; the stable-image fallback and attachment boundary are in the [first-map validation guide](docs/external-first-map-validation.md).
-Automation can use `lidarslam-map run`; direct launches and filtering are in [Operator workflows](docs/workflows.md).
+Automation can use `lidarslam-map run`; direct launches and filtering are in [Operator workflows](docs/workflows.md). To localize a robot on the map afterwards, see [Localize On The Map](docs/getting-started.md#5-localize-on-the-map).
 
 ![Autoware map loaders rendering a pointcloud_map authored by this stack](lidarslam/images/autoware_map_loader_proof.png)
 
