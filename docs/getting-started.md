@@ -832,8 +832,17 @@ bounded log tails only.
 To localize a robot on the map later, use
 [lidar_localization_ros2](https://github.com/rsasaki0109/lidar_localization_ros2).
 Its quickstart loads `output/<run_dir>/map.pcd`, can start without a known pose from an
-occupancy grid made from that map, and takes odometry from this package's RKO-LIO
-(`ros2 run rko_lio online_node`). The commands are in
+occupancy grid made from that map, and takes odometry from this package's RKO-LIO:
+
+```bash
+# MID-360 defaults: /livox/lidar, /livox/imu, odom -> livox_frame, levelled with gravity.
+# Add use_sim_time:=true when replaying a bag with --clock.
+ros2 launch lidarslam rko_lio_odometry.launch.py
+```
+
+Override `lidar_topic`, `imu_topic`, `base_frame`, or `rko_param_file` (extrinsics and
+initialization, default `param/rko_lio_mid360.yaml`) for another sensor or mount. The
+localization commands are in
 [Localizing on a lidar_slam_ros2 map](https://github.com/rsasaki0109/lidar_localization_ros2/blob/main/docs/quickstart.md#localizing-on-a-lidar_slam_ros2-map).
 
 The map frame starts at the first mapping pose, so a robot that starts where mapping
