@@ -600,6 +600,12 @@ wait_for_offline_completion() {
       return 1
     fi
 
+    # The graph node keeps the launch alive after RKO-LIO exits; do not wait out
+    # the timeout for a frontend that has already failed.
+    if grep -Fq "[offline-processing-failed]" "$LAUNCH_LOG" 2>/dev/null; then
+      return 2
+    fi
+
     if [[ -f "$LAUNCH_LOG" ]]; then
       local current_log_size
       current_log_size=$(stat -c %s "$LAUNCH_LOG" 2>/dev/null || echo 0)
@@ -762,7 +768,13 @@ if [[ "$WAIT_FOR_OFFLINE_COMPLETION" == "true" ]]; then
     echo "SLAM launch is up; output subscribers are connected before bag playback"
     echo "Waiting for offline bag playback to finish ..."
   fi
-  if ! wait_for_offline_completion 900 15; then
+  offline_status=0
+  wait_for_offline_completion 900 15 || offline_status=$?
+  if (( offline_status == 2 )); then
+    echo "RKO-LIO offline processing failed. Recent launch log:" >&2
+    tail -n 120 "$LAUNCH_LOG" >&2 || true
+    exit 1
+  elif (( offline_status != 0 )); then
     echo "Timed out waiting for offline completion or quiescent map outputs. Recent launch log:" >&2
     tail -n 120 "$LAUNCH_LOG" >&2 || true
     exit 1

@@ -300,6 +300,74 @@ def test_dogfood_signal_is_not_reported_as_offline_timeout(
         raise AssertionError('interrupted launch group was not reaped')
 
 
+def test_dogfood_stops_when_offline_processing_fails(tmp_path: Path):
+    """A crashed RKO-LIO must fail the run, not wait out the completion timeout."""
+    bag_dir = _write_minimal_bag(tmp_path)
+    graph_param = tmp_path / 'graph.yaml'
+    graph_param.write_text('{}\n', encoding='utf-8')
+    rko_param = tmp_path / 'rko.yaml'
+    rko_param.write_text('{}\n', encoding='utf-8')
+    fake_bin = tmp_path / 'bin'
+    fake_bin.mkdir()
+    fake_ros2 = fake_bin / 'ros2'
+    # The graph node keeps the launch alive after the offline node has died.
+    fake_ros2.write_text(
+        '#!/usr/bin/env bash\n'
+        'if [[ "${1:-}" != "launch" ]]; then exit 1; fi\n'
+        'echo "RKO LIO Node is up!"\n'
+        'echo "[graph_based_slam]: initialization end"\n'
+        'echo "Offline output subscribers ready"\n'
+        'sleep 1\n'
+        'echo "[offline-processing-failed] RKO LIO offline process exited 134." >&2\n'
+        'sleep 60\n',
+        encoding='utf-8',
+    )
+    fake_ros2.chmod(0o755)
+    env = os.environ.copy()
+    env['PATH'] = f'{fake_bin}:/usr/bin:/bin'
+    env.pop('ROS_DISTRO', None)
+    env.pop('LIDARSLAM_PRODUCT_SESSION_OUTPUT', None)
+
+    process = subprocess.Popen(
+        [
+            'bash',
+            str(DOGFOOD_SCRIPT),
+            '--bag',
+            str(bag_dir),
+            '--lidarslam-param',
+            str(graph_param),
+            '--rko-param',
+            str(rko_param),
+            '--output-dir',
+            str(tmp_path / 'map.partial'),
+            '--wait-for-offline-completion',
+            '--capture-corrected-path',
+            'false',
+            '--capture-raw-odometry',
+            'false',
+            '--generate-lanelet2',
+            'false',
+            '--skip-viewer',
+        ],
+        env=env,
+        start_new_session=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        stdout, stderr = process.communicate(timeout=30)
+    finally:
+        if process.poll() is None:
+            os.killpg(process.pid, signal.SIGKILL)
+            process.wait()
+
+    assert process.returncode == 1
+    assert 'RKO-LIO offline processing failed' in stderr
+    assert 'Timed out waiting for offline completion' not in stderr
+    assert 'Calling /map_save' not in stdout
+
+
 def test_workspace_setup_preserves_caller_path_precedence():
     """Explicit command shims must remain ahead of sourced ROS binaries."""
     source = DOGFOOD_SCRIPT.read_text(encoding='utf-8')
