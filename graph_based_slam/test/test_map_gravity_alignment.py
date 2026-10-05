@@ -113,3 +113,40 @@ def test_hint_only_above_the_threshold():
     hint = module.tilt_hint({**base, 'tilt_deg': 8.0, 'level': False})
     assert 'tilted 8.0 deg' in hint
     assert 'initialization_phase' in hint
+
+
+def test_dense_frontend_orientation_follows_sway_between_keyframes():
+    # A walking robot rolls back and forth between graph keyframes seconds apart.
+    module = _load_module()
+    times = np.arange(0.0, 10.001, 0.01)
+    roll = 0.15 * np.sin(2.0 * np.pi * times / 0.8) + 0.05
+    zeros = np.zeros((len(times), 2))
+    quats = np.column_stack([np.sin(roll / 2.0), zeros, np.cos(roll / 2.0)])
+    raw = np.column_stack([times, np.zeros((len(times), 3)), quats])
+    keyframes = raw[::500]
+    # The IMU sees gravity tilted by the roll at each instant.
+    accel = 9.81 * np.column_stack([np.zeros(len(times)), np.sin(roll), np.cos(roll)])
+    identity = np.array([0.0, 0.0, 0.0, 1.0])
+
+    sparse = module.estimate_map_tilt(keyframes, times, accel, identity)
+    dense = module.estimate_map_tilt(
+        module.densify_orientations(keyframes, raw), times, accel, identity
+    )
+
+    assert sparse['tilt_deg'] > 3.0
+    assert dense['tilt_deg'] < 0.01
+
+
+def test_densified_orientations_match_keyframes_and_apply_graph_correction():
+    module = _load_module()
+    times = np.arange(0.0, 4.001, 0.1)
+    identity_quats = np.tile([0.0, 0.0, 0.0, 1.0], (len(times), 1))
+    raw = np.column_stack([times, np.zeros((len(times), 3)), identity_quats])
+    keyframes = raw[::20].copy()
+    keyframes[1:, 4:8] = _quat_about_x(0.1)  # graph rotated later keyframes
+
+    dense = module.densify_orientations(keyframes, raw)
+
+    np.testing.assert_allclose(dense[::20, 4:8], keyframes[:, 4:8], atol=1e-12)
+    np.testing.assert_allclose(dense[25, 4:8], _quat_about_x(0.1), atol=1e-12)
+    np.testing.assert_allclose(dense[5, 4:8], [0.0, 0.0, 0.0, 1.0], atol=1e-12)

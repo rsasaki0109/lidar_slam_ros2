@@ -76,6 +76,38 @@ def _slerp(times: np.ndarray, quats: np.ndarray, query: np.ndarray) -> np.ndarra
     return out / np.linalg.norm(out, axis=1, keepdims=True)
 
 
+def _quat_multiply(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    """Hamilton product of quaternions (N, 4) in x, y, z, w order."""
+    ax, ay, az, aw = a[:, 0], a[:, 1], a[:, 2], a[:, 3]
+    bx, by, bz, bw = b[:, 0], b[:, 1], b[:, 2], b[:, 3]
+    return np.column_stack([
+        aw * bx + ax * bw + ay * bz - az * by,
+        aw * by - ax * bz + ay * bw + az * bx,
+        aw * bz + ax * by - ay * bx + az * bw,
+        aw * bw - ax * bx - ay * by - az * bz,
+    ])
+
+
+def densify_orientations(corrected: np.ndarray, raw: np.ndarray) -> np.ndarray:
+    """Map-frame poses at the frontend's rate, as a TUM array.
+
+    Graph keyframes can be seconds apart; interpolating them misses a walking
+    robot's sway and turns. Each frontend pose gets the graph correction of the
+    keyframe before it, so the result equals the keyframes at their stamps.
+    """
+    inside = raw[(raw[:, 0] >= corrected[0, 0]) & (raw[:, 0] <= corrected[-1, 0])]
+    if inside.shape[0] < 2:
+        return corrected
+    frontend_at_keyframes = _slerp(raw[:, 0], raw[:, 4:8], corrected[:, 0])
+    conjugate = frontend_at_keyframes * np.array([-1.0, -1.0, -1.0, 1.0])
+    corrections = _quat_multiply(corrected[:, 4:8], conjugate)
+    keyframe = np.clip(np.searchsorted(corrected[:, 0], inside[:, 0], side='right') - 1,
+                       0, len(corrected) - 1)
+    dense = inside.copy()
+    dense[:, 4:8] = _quat_multiply(corrections[keyframe], inside[:, 4:8])
+    return dense
+
+
 def estimate_map_tilt(
     trajectory: np.ndarray,
     imu_times: np.ndarray,
@@ -166,6 +198,9 @@ def check_run(
     if bag_path is None:
         raise ValueError('no bag path: pass --bag')
     trajectory = np.loadtxt(trajectory_path, ndmin=2)
+    raw_path = run_dir / 'traj_raw.tum'
+    if raw_path.is_file():
+        trajectory = densify_orientations(trajectory, np.loadtxt(raw_path, ndmin=2))
     imu_times, accelerations, topic = _read_imu(bag_path, imu_topic)
     result = estimate_map_tilt(trajectory, imu_times, accelerations, _read_imu_extrinsic(run_dir))
     result.update({
