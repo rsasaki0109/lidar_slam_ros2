@@ -116,13 +116,13 @@ flowchart LR
 
 ## Camera-coloured point-cloud maps
 
-The pipeline registers LiDAR scans with the corrected trajectory, then projects
-synchronized camera pixels onto that geometry. This RTK-SLAM Construction Hall
-1 result follows the full estimated 60 m walking loop.
+The pipeline registers LiDAR scans with the corrected trajectory, refines each
+camera pose against that geometry, then projects the camera pixels onto it.
+This RTK-SLAM Stadtgarten 2 result follows 110 m of a park walk.
 
-![Camera-coloured SLAM point-cloud map and its estimated trajectory](lidarslam/images/map_flythrough_rtkslam.webp) ([MP4](lidarslam/images/map_flythrough_rtkslam.mp4) · [GIF](lidarslam/images/map_flythrough_rtkslam.gif))
+![Camera-coloured SLAM point-cloud map of a park and its estimated trajectory](lidarslam/images/map_flythrough_stadtgarten.webp) ([MP4](lidarslam/images/map_flythrough_stadtgarten.mp4) · [GIF](lidarslam/images/map_flythrough_stadtgarten.gif))
 
-K4 has 4.91 M points, 76.66% colour coverage, and 11/11 profile checks passing. Pose-aware dynamic cleaning before K3's camera fusion improves held-out RGB median from 41.17 to 40.54 and planar roughness median from 7.23 to 6.40. See the [release-readiness record](docs/research/colored-map-release-readiness-2026-07.md) for paired K3/K4 evidence and limits. The sequence is from RTK-SLAM (CC-BY 4.0); its total-station checkpoints also drive the [accuracy gate](#accuracy).
+Per-view pose refinement ([`refine_camera_poses.py`](tools/colored_map/README.md)) cuts the held-out epipolar error from 4.02 to 0.67 px on this walk; on Construction Hall 1 it cuts it from 3.82 to 0.69 px and the held-out RGB median from 40.0 to 37.7. The Construction Hall 1 K4 map (4.91 M points, 11/11 profile checks) stays the paired release reference; see the [release-readiness record](docs/research/colored-map-release-readiness-2026-07.md). The sequences are from RTK-SLAM (CC-BY 4.0); their total-station checkpoints also drive the [accuracy gate](#accuracy).
 
 If graph optimization outputs sparse keyframes, the coloured-map pipeline can
 propagate their corrections onto the dense SLAM pose stream automatically:

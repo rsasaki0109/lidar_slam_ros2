@@ -231,3 +231,49 @@ K4 採用構成の地図形状（4.9M 点）と posed images（260 view）を固
 形状）。評価画像の姿勢も補正するが、補正には特徴点の対応と LiDAR 形状だけを使い、
 地図の色は使わない。画像だけから推定した F 行列の誤差は同じ対応で約 0.34 px なので、
 補正後もまだ差が残る。
+
+## README の着色フライスルー（RTK-SLAM Stadtgarten 2）
+
+`lidarslam/images/map_flythrough_stadtgarten.{webp,mp4,gif}` は stadtgarten_seq2 の
+20–180 s（公園の約 110 m）から次の手順で作った。`refine_camera_poses.py` の held-out
+エピポーラ誤差は 4.02 → 0.67 px（640 view、447 ペア）。
+
+```bash
+# 1) 軌跡: construction_seq1 と同じ rko_params（deskew:false、initialization_phase:false）。
+#    機材が約 20° 前傾しているため地図全体が傾くが、19 測量点への SE(3) ATE は 1.67 m
+#    （initialization_phase:true は 3.23 m）。描画はカメラ軌跡に沿うので傾きは問題にならない。
+ros2 run rko_lio offline_node --ros-args --params-file rko_params.ros.yaml \
+  -p bag_path:=<stadtgarten_seq2> -p imu_topic:=/livox/imu -p lidar_topic:=/livox/points \
+  -p base_frame:=base_link -p dump_results:=true -p results_dir:=<out> -p run_name:=sg2_rko
+# 2) posed images
+python3 tools/colored_map/extract_posed_images.py --bag <bag> --traj <tum> \
+  --camera-topic /camera/image_raw/compressed \
+  --intrinsics-yaml configs/gaussian_splatting/rtk_slam_cam0_intrinsics.yaml \
+  --extrinsic configs/gaussian_splatting/rtk_slam_cam0_extrinsic.yaml \
+  --undistort --time-offset 0 --start-time 20 --end-time 180 --stride 5 \
+  --max-extrapolation 0.2 --out <out>/posed
+# 3) 形状: 屋外の疎な遠方地面を残すため --min-neighbors 2。一緒に歩く人物の軌跡は
+#    動的除去で消す（pip install 'dynamic-object-removal>=0.5'）。
+python3 tools/colored_map/build_lidar_init.py --bag <bag> --traj <tum> \
+  --points-topic /livox/points --start-time 20 --end-time 180 --voxel 0.015 \
+  --min-range 1.5 --max-range 60 --max-points 12000000 --min-neighbors 2 \
+  --sparse-voxel 0.1 --dynamic-map-cleaner fusion --out geometry.ply
+# 4) 姿勢補正と着色（K4 の着色設定）
+python3 tools/colored_map/refine_camera_poses.py --transforms <out>/posed/transforms.json \
+  --pointcloud geometry.ply --out <out>/posed/transforms_refined.json --workers 4
+python3 tools/colored_map/recolor_pointcloud.py --input geometry.ply \
+  --transforms <out>/posed/transforms_refined.json --out colored.ply \
+  --exposure-scale-limit 1.5 --max-samples 12 --min-samples 3 --image-margin 120 \
+  --vignette-gain-limit 2.5 --overlap-balance --view-confidence --normal-voxel 0.12
+# 5) 描画（CPU、surface splat）と README アセット
+python3 tools/colored_map/render_map_flythrough.py --pointcloud colored.ply \
+  --transforms <out>/posed/transforms_refined.json --color-mode rgb --frames 240 \
+  --fps 30 --point-size 0.03 --scale 0.375 --device cpu --camera-preset cinematic \
+  --surface-splat --loop-fade 12 --label "Camera-coloured LiDAR map (RTK-SLAM Stadtgarten 2)" \
+  --mp4 master.mp4
+ffmpeg -i master.mp4 -vf "fps=15,scale=600:-2:flags=lanczos" -loop 0 \
+  -c:v libwebp -quality 78 map_flythrough_stadtgarten.webp   # + crf26 mp4 / palette gif
+```
+
+既知の残差: 開始直後に立ち止まっていた人物は動的除去で消えず、白い点として残る。
+カメラは前向き 1 台なので、経路から外れた範囲は色が付かない。
