@@ -30,9 +30,11 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 # Defaults fit a Livox MID-360 on its own (no robot TF tree): the odometry
-# tracks the sensor frame, the IMU and LiDAR extrinsics are identity, and the
-# odom frame is levelled with gravity at startup. lidar_localization_ros2's
-# quickstart picks this odometry up when localizing on a lidar_slam_ros2 map.
+# tracks the sensor frame, the IMU and LiDAR extrinsics are identity, the odom
+# frame is levelled with gravity at startup, and IMU acceleration published in
+# g (as Livox drivers do) is detected and converted to m/s^2.
+# lidar_localization_ros2's quickstart picks this odometry up when localizing
+# on a lidar_slam_ros2 map.
 
 import os
 
@@ -67,7 +69,9 @@ def create_online_node(context, *args, **kwargs):
             get_package_share_directory('lidarslam'), 'param', DEFAULT_RKO_PARAM_FILE
         )
     parameters = load_rko_params(param_file)
-    for name in ('lidar_topic', 'imu_topic', 'base_frame', 'odom_frame'):
+    for name in (
+        'lidar_topic', 'imu_topic', 'base_frame', 'odom_frame', 'imu_acceleration_unit',
+    ):
         parameters[name] = LaunchConfiguration(name).perform(context)
     parameters['use_sim_time'] = (
         LaunchConfiguration('use_sim_time').perform(context).strip().lower()
@@ -96,6 +100,11 @@ def generate_launch_description():
             description='Frame the odometry tracks (odom -> base_frame).',
         ),
         DeclareLaunchArgument('odom_frame', default_value='odom'),
+        DeclareLaunchArgument(
+            'imu_acceleration_unit',
+            default_value='auto',
+            description='mps2, g, or auto (g when the first sample is below half of g).',
+        ),
         DeclareLaunchArgument(
             'use_sim_time',
             default_value='false',

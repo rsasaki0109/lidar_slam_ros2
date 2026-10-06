@@ -835,7 +835,8 @@ Its quickstart loads `output/<run_dir>/map.pcd`, can start without a known pose 
 occupancy grid made from that map, and takes odometry from this package's RKO-LIO:
 
 ```bash
-# MID-360 defaults: /livox/lidar, /livox/imu, odom -> livox_frame, levelled with gravity.
+# MID-360 defaults: /livox/lidar, /livox/imu, odom -> livox_frame, levelled with gravity,
+# IMU acceleration in g (as the Livox driver publishes it) converted to m/s^2.
 # Add use_sim_time:=true when replaying a bag with --clock.
 ros2 launch lidarslam rko_lio_odometry.launch.py
 ```
