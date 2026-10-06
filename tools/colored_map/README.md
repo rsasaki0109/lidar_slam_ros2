@@ -15,6 +15,7 @@ numpy ラスタライザで CUDA / torch 不要)。歴史的経緯で
 | `extract_posed_images.py` | bag から姿勢付きカメラ画像 (`transforms.json`) を抽出 |
 | `attach_dynamic_image_masks.py` | 外部の動的物体PNG maskを検証し、hash/coverage付きmanifestへ接続 |
 | `build_lidar_init.py` | スキャン蓄積 + robust着色（overlap RGB balance / view confidence対応） |
+| `refine_camera_poses.py` | 画像特徴点とLiDAR地図で view ごとにカメラ姿勢を補正（held-out ペアのエピポーラ誤差が改善したときだけ採用） |
 | `recolor_pointcloud.py` | 既存PLYのXYZを保持してcamera画像から再着色し、coverage JSONを出力 |
 | `render_map_flythrough.py` | 着色マップ動画（cinematic path / surface splat / 描画指標対応） |
 | `colorize_from_bag.py` | SLAM なし・静的 extrinsic での単発着色 (マルチカメラ融合対応) |
@@ -53,6 +54,25 @@ RTK-SLAM construction_seq1 の較正済み report-only 閾値は
 判定にはコマンドと作業ディレクトリ、および対応する入力の更新時刻を使う。
 ソフトウェアの更新や更新時刻を保持した入力の置換は検出しないため、その場合は
 該当段階を `--force-*` で再生成する。
+
+`refine_camera_poses.py` は着色前に view ごとのカメラ姿勢を補正する。
+近い view 同士（既定 1・3 フレーム差）で ORB 特徴点を対応付け、片方の view の
+深度画像で LiDAR 面に持ち上げた点に、もう片方の view を PnP で合わせる。
+これを全 view で数回繰り返す。2 フレーム差のペアは当てはめに使わず、
+そのエピポーラ（Sampson）誤差が `--min-improvement` 以上下がったときだけ
+補正後の姿勢を書き出す（下がらなければ元の姿勢をそのまま書く）。色は使わないので、
+着色後の held-out 色誤差は独立した確認になる。近い view 同士の食い違い
+（色ぼけの原因）は数回で消えるが、全 view に共通する誤差（一定の外部較正誤差）は
+ほとんど観測できない。RTK-SLAM construction_seq1（260 view）での結果は
+下記「カメラ姿勢の補正」を参照。
+
+```bash
+python3 tools/colored_map/refine_camera_poses.py \
+  --transforms posed/transforms.json --pointcloud geometry.ply \
+  --out posed/transforms_refined.json --workers 4
+python3 tools/colored_map/recolor_pointcloud.py \
+  --input geometry.ply --transforms posed/transforms_refined.json --out colored.ply
+```
 
 realtime nodeの出力確認には`scripts/evaluate_realtime_colored_map.py`を使い、
 confirmed coverageとchromaをJSON保存できる。
@@ -192,3 +212,22 @@ this exporter: use `--undistort`; raw export fails before writing images rather
 than dropping coefficients. This does not add raw-image support to the internal
 pinhole tools. For direct bag coloring without resampling the image,
 `colorize_from_bag.py --no-undistort` projects using the CameraInfo lens model.
+
+## カメラ姿勢の補正（RTK-SLAM construction_seq1）
+
+K4 採用構成の地図形状（4.9M 点）と posed images（260 view）を固定し、
+`refine_camera_poses.py --workers 4`（既定設定、14 分、最大 RSS 1.5 GB）で補正した。
+
+| 指標 | 記録姿勢 | 補正後 |
+|---|---:|---:|
+| held-out ペアのエピポーラ誤差（中央値 / p90、800x600 px、143 ペア） | 3.82 / 8.58 | 0.69 / 2.46 |
+| held-out 色誤差 RGB L2（中央値 / p90） | 40.02 / 151.80 | 37.67 / 150.45 |
+| RGB L2 ≤ 20 の割合 | 0.290 | 0.314 |
+| 評価 view ごとの中央値 | — | 41/52 view で改善（最大悪化 +2.9） |
+
+補正量は回転 中央値 0.40°（p90 1.56°）、カメラ中心 中央値 3.6 cm（p90 18 cm）。
+色誤差は 5 枚に 1 枚（index mod 5 = 1）を評価に残し、残りの 208 枚で K4 の
+着色設定のまま着色して、評価画像に投影して測った（両条件とも同じ分割・設定・
+形状）。評価画像の姿勢も補正するが、補正には特徴点の対応と LiDAR 形状だけを使い、
+地図の色は使わない。画像だけから推定した F 行列の誤差は同じ対応で約 0.34 px なので、
+補正後もまだ差が残る。

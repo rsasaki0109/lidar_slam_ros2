@@ -668,6 +668,7 @@ if(BUILD_TESTING)
     test_gaussian_splatting_pointcloud
     test_lidar_camera_alignment
     test_spatiotemporal_calibration
+    test_refine_camera_poses
     test_geometry_aware_fusion
     test_attach_dynamic_image_masks
     test_recolor_pointcloud
