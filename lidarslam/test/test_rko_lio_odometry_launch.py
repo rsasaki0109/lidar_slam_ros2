@@ -96,6 +96,8 @@ def test_defaults_track_a_standalone_mid360(monkeypatch):
     assert parameters['base_frame'] == 'livox_frame'
     assert parameters['odom_frame'] == 'odom'
     assert parameters['use_sim_time'] is False
+    # Livox drivers publish acceleration in g; RKO-LIO detects and converts it.
+    assert parameters['imu_acceleration_unit'] == 'auto'
 
     context.launch_configurations['use_sim_time'] = 'true'
     context.launch_configurations['base_frame'] = 'base_link'
