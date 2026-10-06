@@ -652,6 +652,36 @@ def observed_color_medoids(samples: np.ndarray, chunk: int = 20000) -> np.ndarra
     return out
 
 
+def undistort_equidistant(pixels, K, distortion, iterations=50):
+    """Normalized rays of equidistant (fisheye) pixels, principal branch.
+
+    Newton iteration on theta_d = theta * (1 + k1 theta^2 + ... + k4 theta^8),
+    started at theta_d, as cv2.fisheye.undistortPoints does. Written out
+    because the OpenCV of ROS Humble (4.5) takes no termination criteria
+    there, and the fold-back check needs a tight inverse.
+    """
+    pixels = np.asarray(pixels, dtype=np.float64).reshape(-1, 2)
+    K = np.asarray(K, dtype=np.float64).reshape(3, 3)
+    k1, k2, k3, k4 = np.resize(np.asarray(distortion, dtype=np.float64), 4)
+    distorted = np.c_[(pixels[:, 0] - K[0, 2] - K[0, 1] *
+                       (pixels[:, 1] - K[1, 2]) / K[1, 1]) / K[0, 0],
+                      (pixels[:, 1] - K[1, 2]) / K[1, 1]]
+    theta_d = np.hypot(distorted[:, 0], distorted[:, 1])
+    theta = theta_d.copy()
+    for _ in range(iterations):
+        t2 = theta * theta
+        poly = 1 + t2 * (k1 + t2 * (k2 + t2 * (k3 + t2 * k4)))
+        slope = 1 + t2 * (3 * k1 + t2 * (5 * k2 + t2 * (7 * k3 + t2 * 9 * k4)))
+        with np.errstate(divide='ignore', invalid='ignore'):
+            step = (theta * poly - theta_d) / slope
+        theta = theta - np.nan_to_num(step)
+        if np.all(np.abs(step) < 1e-15):
+            break
+    with np.errstate(divide='ignore', invalid='ignore'):
+        scale = np.where(theta_d > 1e-15, np.tan(theta) / theta_d, 1.0)
+    return distorted * scale[:, None]
+
+
 def project_camera_pixels(cam, K, *, distortion=None, distortion_model='plumb_bob'):
     """Project camera-frame points, optionally into an unrectified image.
 
@@ -685,7 +715,7 @@ def project_camera_pixels(cam, K, *, distortion=None, distortion_model='plumb_bo
                 pixels = uv[indices, None, :]
                 criteria = (cv2.TERM_CRITERIA_COUNT | cv2.TERM_CRITERIA_EPS, 50, 1e-12)
                 if fisheye:
-                    rays = cv2.fisheye.undistortPoints(pixels, K, d, criteria=criteria)
+                    rays = undistort_equidistant(pixels.reshape(-1, 2), K, d)
                 else:
                     rays = cv2.undistortPointsIter(pixels, K, d, None, None, criteria)
                 rays = rays.reshape(-1, 2)

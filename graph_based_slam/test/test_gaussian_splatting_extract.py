@@ -402,7 +402,7 @@ def test_extract_camera_info_rectification(tmp_path, monkeypatch, model, coeffic
     pytest.importorskip('rosbag2_py')
     from rclpy.serialization import serialize_message
     from sensor_msgs.msg import CameraInfo, Image
-    import imageio.v2 as iio
+    import imageio as iio
     import json
 
     width, height = 80, 60

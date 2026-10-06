@@ -35,6 +35,7 @@
   <test_depend>ament_cmake_gtest</test_depend>
   <test_depend>ament_cmake_pytest</test_depend>
   <test_depend>python3-jsonschema</test_depend>
+  <test_depend>python3-opencv</test_depend>
 
   <export>
     <build_type>ament_cmake</build_type>
