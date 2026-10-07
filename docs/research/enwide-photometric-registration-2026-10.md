@@ -189,27 +189,45 @@ the axis:
 The BIEVR-LIO sensor config uses the same cloud-to-IMU extrinsic as v7: no
 rotation, translation [-0.00625, 0.011775, -0.007645].
 
-The first non-tunnel sequence, KatzenseeD (177 m), uses one offline run each
-with the same scorer. COIN-LIO and BIEVR-LIO reproduce their published ATE
-(0.592 m and 0.243 m):
+## All ten ENWIDE sequences
 
-| KatzenseeD | ATE | 10 m RTE |
-|---|---:|---:|
-| BIEVR-LIO | **0.24 m** | **1.8 %** |
-| RKO-LIO v7 | 0.35 m | 2.0 % |
-| COIN-LIO | 0.59 m | 2.2 % |
-| RKO-LIO, photometric off | 0.70 m | 3.1 % |
+The other eight sequences use one offline run per system with the same scorer
+and the same bag, downloaded once per sequence. The tunnel rows for RKO-LIO v7
+are the profile record above; the rest of the tunnel rows are the reproductions
+above. COIN-LIO and BIEVR-LIO reproduce their published KatzenseeD ATE
+(0.592 m and 0.243 m). ATE in metres, 10 m RTE in percent:
 
-So far RKO-LIO v7 leads on the tunnels, where BIEVR-LIO fails, and BIEVR-LIO
-leads on KatzenseeD. No SOTA claim follows from either.
+| sequence | RKO-LIO v7 | RKO-LIO, photometric off | COIN-LIO | BIEVR-LIO |
+|---|---:|---:|---:|---:|
+| TunnelS (held out) | **0.75** / **2.0** | 37.5 / 128 | 0.78 / 2.2 | 483 / 1194 |
+| TunnelD | **0.34** / **1.7** | 27.8 / 96.5 | 0.52 / **1.7** | 58.3 / 214 |
+| KatzenseeD | 0.35 / 2.0 | 0.70 / 3.1 | 0.59 / 2.2 | **0.24** / **1.8** |
+| KatzenseeS | **0.19** / **1.1** | 0.21 / 1.3 | 0.49 / 1.9 | **0.19** / **1.1** |
+| FieldD | 7.22 / 30.2 | 28.6 / 77.9 | 0.83 / 4.4 | **0.17** / **1.3** |
+| FieldS | 0.69 / 2.6 | 6.57 / 37.4 | 0.20 / 1.2 | **0.16** / **0.8** |
+| IntersectionD | 4.52 / 9.4 | 49.0 / 95.8 | 1.86 / 4.1 | **0.39** / **1.4** |
+| IntersectionS | 0.55 / 1.3 | 1.39 / 3.6 | 0.46 / 1.5 | **0.23** / **1.0** |
+| RunwayD | 50.1 / 50.0 | 34.7 / 108 | **2.90** / **6.5** | 609 / 1013 |
+| RunwayS | 28.9 / 41.1 | 40.1 / 89.0 | 2.80 / 4.6 | **0.73** / **3.1** |
+| median ATE | 0.72 | 28.2 | 0.69 | 0.32 |
+| runs over 20 % RTE | 3 | 7 | **0** | 3 |
+
+- The photometric terms improve every sequence except RunwayD, mostly by an
+  order of magnitude.
+- RKO-LIO v7 is best on both tunnels, where BIEVR-LIO diverges.
+- BIEVR-LIO is best on the open sequences, but it diverges on three.
+- COIN-LIO is the only system that never fails.
+- RKO-LIO v7 fails on FieldD and both runways: open, flat ground with little
+  structure. Against BIEVR-LIO, its FieldD yaw drifts about 11° between 40 s and
+  100 s.
+
+No SOTA claim follows. The profile's win policy needs zero catastrophic failures.
 
 ## Next
 
-1. The remaining ENWIDE environments (Field, Intersection, Runway, KatzenseeS)
-   for all three systems, one bag at a time. Each bag needs about twice its
-   size of free disk (10-14 GB per bag).
+1. The open-ground failures (FieldD, RunwayD, RunwayS). Unlike COIN-LIO's IEKF
+   with point-to-plane terms, RKO-LIO's point-to-point ICP has no IMU coupling
+   in the solve. A gyro prior on the ICP rotation made TunnelD worse
+   (0.34 m to 11 m) and was dropped.
 2. The other profile rivals (FAST-LIO2, Point-LIO) and GEODE's degenerate
    sequences, as the claim policy requires.
-3. Look for the remaining gap to COIN-LIO (1.70 m against 0.52 m). Candidates
-   are IMU coupling of the photometric terms (COIN-LIO updates inside the
-   IEKF), the patch reference refresh, and deskew of the reference patches.
