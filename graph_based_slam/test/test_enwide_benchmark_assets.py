@@ -67,6 +67,10 @@ RKO_ORIENTED_GRID_V6 = (
     ROOT / 'configs' / 'enwide'
     / 'rko_lio_os0_oriented_grid_v6.yaml'
 )
+RKO_PHOTOMETRIC_V7 = (
+    ROOT / 'configs' / 'enwide'
+    / 'rko_lio_os0_photometric_v7.yaml'
+)
 
 
 def _profile():
@@ -242,3 +246,26 @@ def test_enwide_runner_exposes_only_dataset_output_and_repetition_options():
     assert '--skip-map-save' in text
     assert "'sota_claim_allowed': False" in text
     assert 'export ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-87}"' in text
+
+
+def test_enwide_photometric_v7_uses_the_os_sensor_extrinsic_and_beam_model():
+    config = yaml.safe_load(RKO_PHOTOMETRIC_V7.read_text())
+    # Clouds are published in os_sensor, whose axes match os_imu.
+    assert config['extrinsic_lidar2base_quat_xyzw_xyz'] == [
+        0.0, 0.0, 0.0, 1.0, -0.006253, 0.011775, -0.007645,
+    ]
+    assert config['photometric'] is True
+    assert config['photometric_scale'] == 0.003
+    assert config['photometric_channel'] == 'intensity'
+    assert len(config['photometric_model.altitudes_deg']) == 128
+    assert len(config['photometric_model.pixel_shift_by_row']) == 128
+    assert config['photometric_model.columns'] == 1024
+    assert config['photometric_model.beam_offset_mm'] == 27.67
+    assert config['photometric_model.cloud_to_lidar_z_m'] == 0.03617
+    assert len(config['photometric_image.line_highpass']) == 33
+    assert len(config['photometric_image.line_lowpass']) == 33
+    assert config['photometric_image.masks'] == [0, 84, 70, 44, 953, 84, 70, 44]
+    # No external velocity and none of the inactive v1-v6 degeneracy features.
+    assert config['radar_velocity_fusion'] is False
+    assert config['radar_velocity_continuous_fusion'] is False
+    assert not any(key.startswith(('degeneracy_', 'intensity_')) for key in config)

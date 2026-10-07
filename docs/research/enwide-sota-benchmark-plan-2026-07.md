@@ -1,5 +1,11 @@
 # ENWIDE Degenerate-LIO SOTA Benchmark Plan
 
+> Update (2026-10): the LiDAR extrinsic of the v1-v6 configs is wrong by
+> Rz(pi) (the clouds are in os_sensor, not os_lidar), and none of their
+> degeneracy or intensity features ever engages on TunnelD. Photometric
+> registration with the corrected extrinsic takes TunnelD from 27.8 m to
+> 1.70 m ATE; see [photometric registration](enwide-photometric-registration-2026-10.md).
+
 ## Claim status
 
 No SOTA claim is currently permitted. The radar-less tunnel result is an
