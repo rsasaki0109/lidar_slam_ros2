@@ -789,6 +789,14 @@ else
   [[ -f "$REFERENCE_META" ]] || die "--skip-reference-gen set but reference meta not found: $REFERENCE_META (pass --reference-meta, e.g. an empty '{}' JSON if no prism-offset metadata applies)"
 fi
 
+if [[ "$SKIP_MAP_SAVE" == "true" ]]; then
+  # The no-map contract also covers the graph's own writes: with
+  # use_save_map_in_loop an accepted loop closure writes the full map bundle
+  # and pose_graph.g2o, which assert_no_map_artifacts then rejects. The launch
+  # file turns both off under this marker (as the container wrapper sets it).
+  export M6A10_BENCHMARK_NO_MAP_ARTIFACTS=1
+fi
+
 echo "Running RKO-LIO benchmark"
 echo "  bag:            $BAG_PATH"
 if [[ "$GT_BLIND" == "false" ]]; then
