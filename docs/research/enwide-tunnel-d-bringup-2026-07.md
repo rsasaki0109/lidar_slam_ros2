@@ -1,5 +1,11 @@
 # ENWIDE TunnelD public benchmark bring-up (2026-07-29)
 
+> Update (2026-10): the LiDAR extrinsic of the v1-v6 configs is wrong by
+> Rz(pi) (the clouds are in os_sensor, not os_lidar), and none of their
+> degeneracy or intensity features ever engages on TunnelD. Photometric
+> registration with the corrected extrinsic takes TunnelD from 27.8 m to
+> 1.70 m ATE; see [photometric registration](enwide-photometric-registration-2026-10.md).
+
 ## Decision
 
 The first public ENWIDE TunnelD run is a successful pipeline bring-up and a
