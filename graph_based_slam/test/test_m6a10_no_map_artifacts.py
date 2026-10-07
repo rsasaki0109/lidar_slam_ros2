@@ -117,3 +117,15 @@ def test_skip_map_runner_verifies_after_launch_termination():
     assert "-name 'pointcloud_map'" in source
     assert "-name 'map_save.log'" in source
     assert "-name 'pose_graph.g2o'" in source
+
+
+def test_no_map_runner_marks_the_launch_to_skip_graph_map_writes():
+    source = RUNNER.read_text(encoding='utf-8')
+    start = source.index('if [[ "$SKIP_MAP_SAVE" == "true" ]]; then\n  # The no-map contract')
+    block = source[start:source.index('\nfi\n', start)]
+    assert 'export M6A10_BENCHMARK_NO_MAP_ARTIFACTS=1' in block
+    # The launch file is what turns the marker into graph parameters.
+    launch = LAUNCH.read_text(encoding='utf-8')
+    assert "os.environ.get('M6A10_BENCHMARK_NO_MAP_ARTIFACTS') == '1'" in launch
+    assert "overrides['use_save_map_in_loop'] = False" in launch
+    assert "overrides['save_pose_graph_path'] = ''" in launch

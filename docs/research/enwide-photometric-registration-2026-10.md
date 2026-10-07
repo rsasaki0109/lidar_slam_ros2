@@ -143,12 +143,73 @@ The guard removes the jump at every weight, but the ATE gain appears only at
 Result: A and B are identical (0.75 m), since TunnelS has no LiDAR gap and the
 guard never fires, so #22 was merged.
 
+## Profile record (`degenerate_lio_sota_v2`)
+
+`run_enwide_sota_benchmark.sh --profile degenerate_lio_sota_v2` runs RKO-LIO with
+the graph backend, three repetitions, input hashes checked. v2 differs from v1 only
+in the frozen candidate (v7 at rko_lio e9441b3).
+
+| sequence | runs complete | ATE median | 10 m RTE median | RTF | peak RSS |
+|---|---:|---:|---:|---:|---:|
+| TunnelS (held out) | 3/3 | 0.751 m | 1.98 % | 1.4-2.1 | 418 MB |
+| TunnelD (development) | 3/3 | 0.336 m | 1.69 % | 2.3-3.0 | 421 MB |
+
+All three repetitions are identical on both sequences.
+
+The first attempts failed every repetition with exit 125, for an unrelated
+harness reason. In no-map mode the harness rejects any map artifact, but
+`lidarslam.yaml` lets the graph write the map bundle and `pose_graph.g2o` on an
+accepted loop closure. The July runs never closed a loop. TunnelS now returns to
+its start and does, so the harness sets the launch's existing
+`M6A10_BENCHMARK_NO_MAP_ARTIFACTS` marker in no-map mode.
+
+Two operational notes:
+- Running other heavy jobs at the same time slowed registration to about
+  320 ms per scan. A repetition then ended at the harness's quiescence timeout,
+  before the offline node had written its dump.
+- The node survived the process-group kill and kept publishing in the
+  benchmark's ROS domain, which contaminated the following runs.
+
+Run the profile on an otherwise quiet machine.
+
+## Rivals on the same bags
+
+BIEVR-LIO (ethz-asl/BIEVR-LIO 2306022, ROS 2 `process_bag`, its `enwide`
+sensor config) is the profile's newest rival. Its paper (arXiv 2604.14421)
+reports ENWIDE Intersection, Runway, Field and Katzensee, but not the tunnels.
+On the tunnels it diverges here. It tracks for about 30 s, then slides along
+the axis:
+
+| | TunnelS ATE | TunnelS RTE | TunnelD ATE | TunnelD RTE |
+|---|---:|---:|---:|---:|
+| RKO-LIO v7 (profile record) | **0.751 m** | **1.98 %** | **0.336 m** | 1.69 % |
+| COIN-LIO, reproduced | 0.78 m | 2.2 % | 0.52 m | **1.7 %** |
+| BIEVR-LIO, reproduced | 483.34 m | 1194 % | 58.30 m | 214 % |
+
+The BIEVR-LIO sensor config uses the same cloud-to-IMU extrinsic as v7: no
+rotation, translation [-0.00625, 0.011775, -0.007645].
+
+The first non-tunnel sequence, KatzenseeD (177 m), uses one offline run each
+with the same scorer. COIN-LIO and BIEVR-LIO reproduce their published ATE
+(0.592 m and 0.243 m):
+
+| KatzenseeD | ATE | 10 m RTE |
+|---|---:|---:|
+| BIEVR-LIO | **0.24 m** | **1.8 %** |
+| RKO-LIO v7 | 0.35 m | 2.0 % |
+| COIN-LIO | 0.59 m | 2.2 % |
+| RKO-LIO, photometric off | 0.70 m | 3.1 % |
+
+So far RKO-LIO v7 leads on the tunnels, where BIEVR-LIO fails, and BIEVR-LIO
+leads on KatzenseeD. No SOTA claim follows from either.
+
 ## Next
 
-1. Run v7 through `run_enwide_sota_benchmark.sh` (graph backend, three
-   repetitions) on both tunnels for the profile record.
-2. Evaluate the other ENWIDE environments (field, intersection, runway, ...),
-   where geometry is degenerate in other ways.
+1. The remaining ENWIDE environments (Field, Intersection, Runway, KatzenseeS)
+   for all three systems, one bag at a time. Each bag needs about twice its
+   size of free disk (10-14 GB per bag).
+2. The other profile rivals (FAST-LIO2, Point-LIO) and GEODE's degenerate
+   sequences, as the claim policy requires.
 3. Look for the remaining gap to COIN-LIO (1.70 m against 0.52 m). Candidates
    are IMU coupling of the photometric terms (COIN-LIO updates inside the
    IEKF), the patch reference refresh, and deskew of the reference patches.

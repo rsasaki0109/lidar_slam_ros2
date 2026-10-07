@@ -42,6 +42,10 @@ PROFILE = (
     ROOT / 'configs' / 'slam_benchmark_profiles'
     / 'degenerate_lio_sota_v1.yaml'
 )
+PROFILE_V2 = (
+    ROOT / 'configs' / 'slam_benchmark_profiles'
+    / 'degenerate_lio_sota_v2.yaml'
+)
 DOWNLOADER = ROOT / 'scripts' / 'download_enwide.sh'
 RUNNER = ROOT / 'scripts' / 'run_enwide_sota_benchmark.sh'
 RKO_CONFIG = (
@@ -269,3 +273,30 @@ def test_enwide_photometric_v7_uses_the_os_sensor_extrinsic_and_beam_model():
     assert config['radar_velocity_fusion'] is False
     assert config['radar_velocity_continuous_fusion'] is False
     assert not any(key.startswith(('degeneracy_', 'intensity_')) for key in config)
+
+
+def test_enwide_profile_v2_changes_only_the_candidate():
+    v1 = _profile()
+    v2 = yaml.safe_load(PROFILE_V2.read_text())['degenerate_lio_sota_profile']
+    assert v2['name'] == 'degenerate_lio_sota_v2'
+    assert v2['claim_policy']['sota_claim_allowed'] is False
+    for section in ('track', 'win_policy', 'rivals', 'required_metrics'):
+        assert v2[section] == v1[section], section
+    contract = v2['execution_contract']
+    assert contract['candidate_config'] == str(
+        RKO_PHOTOMETRIC_V7.relative_to(ROOT)
+    )
+    assert contract['candidate_rko_lio_revision'] == (
+        'e9441b33fda002be082ef7f20b0375ee0b700a48'
+    )
+    datasets = v2['datasets']
+    assert datasets['enwide_tunnel_d']['used_for_candidate_development'] is True
+    assert datasets['enwide_tunnel_s']['used_for_candidate_development'] is False
+
+
+def test_enwide_runner_selects_the_frozen_candidate_by_profile():
+    text = RUNNER.read_text()
+    assert '--profile NAME' in text
+    assert 'configs/enwide/rko_lio_os0_photometric_v7.yaml' in text
+    assert 'e9441b33fda002be082ef7f20b0375ee0b700a48' in text
+    assert 'PROFILE_NAME=degenerate_lio_sota_v1' in text

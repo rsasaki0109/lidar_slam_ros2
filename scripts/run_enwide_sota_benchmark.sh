@@ -36,6 +36,7 @@ REPO_ROOT=$(cd "${SCRIPT_DIR}/.." && pwd)
 SEQUENCE_DIR=""
 OUTPUT_DIR=""
 RUNS=3
+PROFILE_NAME=degenerate_lio_sota_v1
 MIN_MATCHED_FRACTION=0.98
 export ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-87}"
 
@@ -47,10 +48,12 @@ Options:
   --sequence-dir PATH  ENWIDE tunnel_s or tunnel_d directory
   --output-dir PATH    New directory for all repetitions and the summary
   --runs N             Repetitions (default: 3; official contract requires 3)
+  --profile NAME       degenerate_lio_sota_v1 (default) or degenerate_lio_sota_v2
   -h, --help           Show this help
 
 The dataset topics, sensor configuration, alignment, and scoring policy are
-fixed by degenerate_lio_sota_v1. They are intentionally not CLI options.
+fixed by the profile. They are intentionally not CLI options; the profile
+selects the frozen candidate config and RKO-LIO revision.
 EOF
 }
 
@@ -76,6 +79,11 @@ while [[ $# -gt 0 ]]; do
     --runs)
       require_value "$1" "${2:-}"
       RUNS="$2"
+      shift 2
+      ;;
+    --profile)
+      require_value "$1" "${2:-}"
+      PROFILE_NAME="$2"
       shift 2
       ;;
     -h|--help)
@@ -107,11 +115,23 @@ BAG="${SEQUENCE_DIR}/ros2"
 MANIFEST="${SEQUENCE_DIR}/input_manifest.json"
 SEQUENCE=$(basename "${SEQUENCE_DIR}")
 GT="${SEQUENCE_DIR}/gt-${SEQUENCE}.csv"
-PROFILE="${REPO_ROOT}/configs/slam_benchmark_profiles/degenerate_lio_sota_v1.yaml"
-RKO_CONFIG="${REPO_ROOT}/configs/enwide/rko_lio_os0_degenerate_sota_v1.yaml"
+case "${PROFILE_NAME}" in
+  degenerate_lio_sota_v1)
+    RKO_CONFIG="${REPO_ROOT}/configs/enwide/rko_lio_os0_degenerate_sota_v1.yaml"
+    EXPECTED_RKO_REVISION="add71ee46322a09139fa95e187d2816ed2c36295"
+    ;;
+  degenerate_lio_sota_v2)
+    RKO_CONFIG="${REPO_ROOT}/configs/enwide/rko_lio_os0_photometric_v7.yaml"
+    EXPECTED_RKO_REVISION="e9441b33fda002be082ef7f20b0375ee0b700a48"
+    ;;
+  *)
+    echo "unknown profile: ${PROFILE_NAME}" >&2
+    exit 2
+    ;;
+esac
+PROFILE="${REPO_ROOT}/configs/slam_benchmark_profiles/${PROFILE_NAME}.yaml"
 REFERENCE_META="${REPO_ROOT}/configs/enwide/os_imu_to_prism.json"
 GRAPH_CONFIG="${REPO_ROOT}/lidarslam/param/lidarslam.yaml"
-EXPECTED_RKO_REVISION="add71ee46322a09139fa95e187d2816ed2c36295"
 
 for required in \
   "${BAG}/metadata.yaml" "${MANIFEST}" "${GT}" "${PROFILE}" \
@@ -123,7 +143,7 @@ for required in \
 done
 [[ "$(git -C "${REPO_ROOT}/Thirdparty/rko_lio" rev-parse HEAD)" == \
     "${EXPECTED_RKO_REVISION}" ]] || {
-  echo "RKO-LIO revision does not match the preregistered baseline" >&2
+  echo "RKO-LIO revision does not match the ${PROFILE_NAME} candidate" >&2
   exit 2
 }
 
@@ -215,7 +235,7 @@ done
 
 python3 - \
   "${OUTPUT_DIR}" "${RUNS}" "${SEQUENCE}" "${ROS_DOMAIN_ID}" \
-  "${MIN_MATCHED_FRACTION}" <<'PY'
+  "${MIN_MATCHED_FRACTION}" "${PROFILE_NAME}" <<'PY'
 import json
 from pathlib import Path
 import re
@@ -226,6 +246,7 @@ import sys
 output, requested, sequence = Path(sys.argv[1]), int(sys.argv[2]), sys.argv[3]
 ros_domain_id = int(sys.argv[4])
 minimum_matched_fraction = float(sys.argv[5])
+profile_name = sys.argv[6]
 runs = []
 for index in range(1, requested + 1):
     run_dir = output / f'run_{index:02d}'
@@ -267,7 +288,7 @@ rtes = [
 ]
 document = {
     'schema_version': 1,
-    'profile': 'degenerate_lio_sota_v1',
+    'profile': profile_name,
     'sequence': sequence,
     'provenance': {
         'lidarslam_revision': (
