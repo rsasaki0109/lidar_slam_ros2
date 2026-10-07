@@ -99,10 +99,35 @@ LED strip and is bare concrete. As the July profile probes found, it carries
 almost no along-axis intensity texture. Radar remains the answer there
 (`tunnel_radar.ros.yaml`).
 
+## Scan gaps (rko_lio PR #22, on hold)
+
+The 5.1 m loop-closure error of the 1.70 m run (GT 1.1 m, COIN-LIO 1.3 m)
+comes from one scan. Relative to COIN-LIO's yaw, the estimate jumps 13° at
+22.05 s, right after a 0.28 s gap in the bag's LiDAR stream, and keeps the
+error. Without photometric terms the gap is harmless. rko_lio #22 skips the
+photometric terms on a scan that follows a gap longer than 0.15 s:
+
+| photometric_scale | #21 ATE | #22 ATE | final yaw vs COIN-LIO, #21 → #22 |
+|---:|---:|---:|---:|
+| 0.002 | 1.94 m | 2.38 m | −14.2° → +2.8° |
+| 0.003 | 1.70 m | 0.34 m | about −14° → 0.0° |
+| 0.01 | 2.12 m | 2.24 m | −13.3° → −23.0° |
+
+The guard removes the jump at every weight, but the ATE gain appears only at
+0.003. Both were found on TunnelD.
+
+## Held-out TunnelS evaluation (declared before opening TunnelS)
+
+- A: rko_lio #21 with `configs/enwide/rko_lio_os0_photometric_v7.yaml`.
+- B: rko_lio #22 with the same file.
+- Primary metric: ATE (SE(3), prism lever arm); also 10 m RTE and path length.
+- Sensitivity, reported but not used to choose: photometric_scale 0.002 and 0.01 for A and B.
+- Merge #22 only if B is not worse than A on TunnelS.
+
 ## Next
 
-1. Evaluate the frozen v7 on TunnelS. It is held out: its bag was not
-   downloaded during development.
+1. Run the TunnelS evaluation above. Its bag was not downloaded during
+   development.
 2. Run v7 through `run_enwide_sota_benchmark.sh` (graph backend, three
    repetitions) for the profile record.
 3. Look for the remaining gap to COIN-LIO (1.70 m against 0.52 m). Candidates
