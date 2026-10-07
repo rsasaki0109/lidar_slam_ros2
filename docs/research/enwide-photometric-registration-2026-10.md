@@ -2,12 +2,28 @@
 
 ## Decision
 
-Add opt-in photometric registration to RKO-LIO (rko_lio PR #21, after
-COIN-LIO) and freeze `configs/enwide/rko_lio_os0_photometric_v7.yaml` for the
-held-out TunnelS evaluation. On TunnelD it takes RKO-LIO from 27.8 m to
-1.70 m ATE. That number comes from a weight chosen on TunnelD, so it is a
-development result, not a benchmark claim under
-`degenerate_lio_sota_v1` (`tuning_allowed: false`).
+Use opt-in photometric registration in RKO-LIO (rko_lio PRs #21 and #22,
+after COIN-LIO) with the frozen `configs/enwide/rko_lio_os0_photometric_v7.yaml`.
+On held-out TunnelS, never opened during development, RKO-LIO goes from 37.5 m
+to 0.75 m ATE (10 m RTE 2.0 %). COIN-LIO reproduced on the same bag reaches
+0.78 m (2.2 %); its paper reports 0.743 m (1.60 %). The TunnelD numbers below
+are development results, because the weight and the scan-gap guard were found
+there.
+
+| TunnelS (held out, 251.6 m) | ATE | max | 10 m RTE | path (GT 252 m) |
+|---|---:|---:|---:|---:|
+| RKO-LIO, photometric off | 37.54 m | 88.1 m | 127.9 % | 407 m |
+| **RKO-LIO, v7 (#21 and #22 identical: no LiDAR gap)** | **0.75 m** | 1.3 m | **2.0 %** | 248 m |
+| COIN-LIO, reproduced | 0.78 m | 1.3 m | 2.2 % | 247 m |
+| COIN-LIO, paper | 0.743 m | | 1.60 % | |
+
+Sensitivity (reported, not used to choose): photometric_scale 0.002 gives
+0.74 m (2.0 %) and 0.01 gives 1.44 m (4.1 %). The terms used about 53 patches
+per scan on 2377 of 2379 scans.
+
+This is still not a `degenerate_lio_sota_v1` claim. The profile's other
+conditions are not met: the graph backend, three repetitions, the other
+ENWIDE environments and the hidden tunnel.
 
 ## Why the earlier configurations did nothing
 
@@ -99,7 +115,7 @@ LED strip and is bare concrete. As the July profile probes found, it carries
 almost no along-axis intensity texture. Radar remains the answer there
 (`tunnel_radar.ros.yaml`).
 
-## Scan gaps (rko_lio PR #22, on hold)
+## Scan gaps (rko_lio PR #22, merged after TunnelS)
 
 The 5.1 m loop-closure error of the 1.70 m run (GT 1.1 m, COIN-LIO 1.3 m)
 comes from one scan. Relative to COIN-LIO's yaw, the estimate jumps 13° at
@@ -116,7 +132,7 @@ photometric terms on a scan that follows a gap longer than 0.15 s:
 The guard removes the jump at every weight, but the ATE gain appears only at
 0.003. Both were found on TunnelD.
 
-## Held-out TunnelS evaluation (declared before opening TunnelS)
+## Held-out TunnelS evaluation (declared before opening TunnelS; done)
 
 - A: rko_lio #21 with `configs/enwide/rko_lio_os0_photometric_v7.yaml`.
 - B: rko_lio #22 with the same file.
@@ -124,12 +140,15 @@ The guard removes the jump at every weight, but the ATE gain appears only at
 - Sensitivity, reported but not used to choose: photometric_scale 0.002 and 0.01 for A and B.
 - Merge #22 only if B is not worse than A on TunnelS.
 
+Result: A and B are identical (0.75 m), since TunnelS has no LiDAR gap and the
+guard never fires, so #22 was merged.
+
 ## Next
 
-1. Run the TunnelS evaluation above. Its bag was not downloaded during
-   development.
-2. Run v7 through `run_enwide_sota_benchmark.sh` (graph backend, three
-   repetitions) for the profile record.
+1. Run v7 through `run_enwide_sota_benchmark.sh` (graph backend, three
+   repetitions) on both tunnels for the profile record.
+2. Evaluate the other ENWIDE environments (field, intersection, runway, ...),
+   where geometry is degenerate in other ways.
 3. Look for the remaining gap to COIN-LIO (1.70 m against 0.52 m). Candidates
    are IMU coupling of the photometric terms (COIN-LIO updates inside the
    IEKF), the patch reference refresh, and deskew of the reference patches.

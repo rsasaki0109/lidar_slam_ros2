@@ -9,7 +9,8 @@
 #
 # photometric_scale was chosen on TunnelD (0.002-0.01 all give 1.7-2.1 m ATE),
 # so TunnelD results with this file are development numbers, not a benchmark
-# claim. The file is frozen for the held-out TunnelS evaluation; see
+# claim. Frozen before the held-out TunnelS run: 0.75 m ATE, 10 m RTE 2.0 %
+# (COIN-LIO reproduced: 0.78 m, 2.2 %); see
 # docs/research/enwide-photometric-registration-2026-10.md.
 
 extrinsic_imu2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
