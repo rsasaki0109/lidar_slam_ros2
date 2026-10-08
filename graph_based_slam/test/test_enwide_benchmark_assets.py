@@ -46,6 +46,10 @@ PROFILE_V2 = (
     ROOT / 'configs' / 'slam_benchmark_profiles'
     / 'degenerate_lio_sota_v2.yaml'
 )
+PROFILE_V3 = (
+    ROOT / 'configs' / 'slam_benchmark_profiles'
+    / 'degenerate_lio_sota_v3.yaml'
+)
 DOWNLOADER = ROOT / 'scripts' / 'download_enwide.sh'
 RUNNER = ROOT / 'scripts' / 'run_enwide_sota_benchmark.sh'
 RKO_CONFIG = (
@@ -140,7 +144,7 @@ def test_enwide_downloader_help_is_offline_and_documents_safe_modes():
     )
     assert '--metadata-only' in completed.stdout
     assert '--convert' in completed.stdout
-    assert 'tunnel_s|tunnel_d|all' in completed.stdout
+    assert '--sequence NAME|all' in completed.stdout
     text = DOWNLOADER.read_text()
     assert '.ros2-convert.XXXXXX' in text
     assert "'version': importlib.metadata.version('rosbags')" in text
@@ -310,9 +314,56 @@ def test_enwide_profile_v2_changes_only_the_candidate():
     assert datasets['enwide_tunnel_s']['used_for_candidate_development'] is False
 
 
+def test_enwide_profile_v3_changes_the_candidate_and_adds_all_sequences():
+    v2 = yaml.safe_load(PROFILE_V2.read_text())['degenerate_lio_sota_profile']
+    v3 = yaml.safe_load(PROFILE_V3.read_text())['degenerate_lio_sota_profile']
+    assert v3['name'] == 'degenerate_lio_sota_v3'
+    assert v3['claim_policy']['sota_claim_allowed'] is False
+    for section in ('track', 'win_policy', 'rivals', 'required_metrics'):
+        assert v3[section] == v2[section], section
+    contract = v3['execution_contract']
+    assert contract['candidate_config'] == str(
+        RKO_OPEN_GROUND_V8.relative_to(ROOT)
+    )
+    assert contract['candidate_rko_lio_revision'] == (
+        '8c77478eb48eae96542cf5e048ca736a11686975'
+    )
+    datasets = v3['datasets']
+    assert len(datasets) == 10
+    for name in ('enwide_tunnel_s', 'enwide_tunnel_d'):
+        assert datasets[name] == v2['datasets'][name]
+    assert sorted(
+        name for name, entry in datasets.items()
+        if entry['used_for_candidate_development']
+    ) == ['enwide_field_d', 'enwide_runway_d', 'enwide_tunnel_d']
+
+
+def test_enwide_downloader_knows_every_v3_input():
+    text = DOWNLOADER.read_text()
+    datasets = yaml.safe_load(
+        PROFILE_V3.read_text()
+    )['degenerate_lio_sota_profile']['datasets']
+    for entry in datasets.values():
+        block = text[text.index(f"    {entry['sequence']})\n"):]
+        block = block[:block.index(';;')]
+        assert f'BAG_NAME="{entry["bag_name"]}"' in block
+        assert f'EXPECTED_BAG_BYTES={entry["expected_bag_bytes"]}' in block
+        assert f'EXPECTED_BAG_ETAG="{entry["official_bag_etag"]}"' in block
+        assert (
+            f'EXPECTED_GT_BYTES={entry["expected_ground_truth_bytes"]}'
+            in block
+        )
+        assert (
+            f'EXPECTED_GT_ETAG="{entry["official_ground_truth_etag"]}"'
+            in block
+        )
+
+
 def test_enwide_runner_selects_the_frozen_candidate_by_profile():
     text = RUNNER.read_text()
     assert '--profile NAME' in text
     assert 'configs/enwide/rko_lio_os0_photometric_v7.yaml' in text
     assert 'e9441b33fda002be082ef7f20b0375ee0b700a48' in text
+    assert 'configs/enwide/rko_lio_os0_open_ground_v8.yaml' in text
+    assert '8c77478eb48eae96542cf5e048ca736a11686975' in text
     assert 'PROFILE_NAME=degenerate_lio_sota_v1' in text

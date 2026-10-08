@@ -25,7 +25,7 @@ usage() {
 Usage: download_enwide.sh [options]
 
 Options:
-  --sequence tunnel_s|tunnel_d|all  Sequence to download (default: tunnel_d)
+  --sequence NAME|all               ENWIDE sequence, e.g. tunnel_d (default) or field_d
   --dest PATH                       Destination root (default: datasets/enwide)
   --convert                         Convert rosbag1 to rosbag2 with rosbags-convert
   --drop-bag1                       Remove rosbag1 after successful conversion
@@ -46,15 +46,15 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-case "${SEQUENCE}" in
-  tunnel_s) SEQUENCES=(tunnel_s) ;;
-  tunnel_d) SEQUENCES=(tunnel_d) ;;
-  all) SEQUENCES=(tunnel_s tunnel_d) ;;
-  *)
-    echo "unknown sequence: ${SEQUENCE} (known: tunnel_s, tunnel_d, all)" >&2
-    exit 2
-    ;;
-esac
+ALL_SEQUENCES=(tunnel_s tunnel_d katzensee_d katzensee_s field_d field_s intersection_d intersection_s runway_d runway_s)
+if [[ "${SEQUENCE}" == "all" ]]; then
+  SEQUENCES=("${ALL_SEQUENCES[@]}")
+elif [[ " ${ALL_SEQUENCES[*]} " == *" ${SEQUENCE} "* ]]; then
+  SEQUENCES=("${SEQUENCE}")
+else
+  echo "unknown sequence: ${SEQUENCE} (known: ${ALL_SEQUENCES[*]}, all)" >&2
+  exit 2
+fi
 
 mkdir -p "${DEST_DIR}"
 
@@ -101,6 +101,62 @@ for sequence in "${SEQUENCES[@]}"; do
       EXPECTED_BAG_ETAG="f6afd377894e90a85322e425172f7b89"
       EXPECTED_GT_BYTES=4678234
       EXPECTED_GT_ETAG="f012aef67efd0e14261342fac1ac233f"
+      ;;
+    katzensee_d)
+      BAG_NAME="2023-08-21-10-29-20-katzensee_d.bag"
+      EXPECTED_BAG_BYTES=5401781657
+      EXPECTED_BAG_ETAG="2005ed64f953012152d183d38ba2531a"
+      EXPECTED_GT_BYTES=3250800
+      EXPECTED_GT_ETAG="f9f6bbef855b02daee523f8b694a5b3b"
+      ;;
+    katzensee_s)
+      BAG_NAME="2023-08-21-10-20-22-katzensee_s.bag"
+      EXPECTED_BAG_BYTES=10199153469
+      EXPECTED_BAG_ETAG="d4196d6908cdd9c4573ab67fd718ae5a"
+      EXPECTED_GT_BYTES=6134999
+      EXPECTED_GT_ETAG="f97d14dca51423868dc54d085924476c"
+      ;;
+    field_d)
+      BAG_NAME="2023-08-09-19-25-45-field_d.bag"
+      EXPECTED_BAG_BYTES=9298862315
+      EXPECTED_BAG_ETAG="a1b550749a46e50bdcbf9563d0e11323"
+      EXPECTED_GT_BYTES=5590799
+      EXPECTED_GT_ETAG="2b57f27add0d5eee6b3990222f41d31a"
+      ;;
+    field_s)
+      BAG_NAME="2023-08-09-19-05-05-field_s.bag"
+      EXPECTED_BAG_BYTES=10520238663
+      EXPECTED_BAG_ETAG="ccb3ce229f64d1962724d99b5e336ba0"
+      EXPECTED_GT_BYTES=6226199
+      EXPECTED_GT_ETAG="3eb5fc9d6d1151cdf6eac289638b9f5b"
+      ;;
+    intersection_d)
+      BAG_NAME="2023-08-09-17-58-11-intersection_d.bag"
+      EXPECTED_BAG_BYTES=11508678061
+      EXPECTED_BAG_ETAG="bfb93f2acd77123176a9c1778a48eee9"
+      EXPECTED_GT_BYTES=6417600
+      EXPECTED_GT_ETAG="c03088cfeb255ce9d659fc5048d2fbb0"
+      ;;
+    intersection_s)
+      BAG_NAME="2023-08-09-16-19-09-intersection_s.bag"
+      EXPECTED_BAG_BYTES=12572659507
+      EXPECTED_BAG_ETAG="61ac62e62d5ce5b38de5803ce610d40a"
+      EXPECTED_GT_BYTES=7799222
+      EXPECTED_GT_ETAG="0489b0fd9d29dee7018431dc879c3982"
+      ;;
+    runway_d)
+      BAG_NAME="2023-08-09-18-52-05-runway_d.bag"
+      EXPECTED_BAG_BYTES=11974560985
+      EXPECTED_BAG_ETAG="4bb739838c8ae98f3d5a58fd3269550d"
+      EXPECTED_GT_BYTES=7081547
+      EXPECTED_GT_ETAG="3f733cab0fd4a32a177337c5dff2b949"
+      ;;
+    runway_s)
+      BAG_NAME="2023-08-09-18-44-24-runway_s.bag"
+      EXPECTED_BAG_BYTES=14089937609
+      EXPECTED_BAG_ETAG="9036d54af3ca12836c10efa7cfd11bdd"
+      EXPECTED_GT_BYTES=8376373
+      EXPECTED_GT_ETAG="c03947a4a285b9b61143e1df38e3e907"
       ;;
   esac
 
