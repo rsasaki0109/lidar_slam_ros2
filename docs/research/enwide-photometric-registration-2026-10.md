@@ -293,9 +293,38 @@ This is still not a `degenerate_lio_sota_v1` claim. The remaining conditions are
 the graph backend with three repetitions per sequence, FAST-LIO2 and Point-LIO,
 GEODE and the hidden tunnel.
 
+## Profile record (`degenerate_lio_sota_v3`, 2026-10-08)
+
+`run_enwide_sota_benchmark.sh --profile degenerate_lio_sota_v3` ran v8 at rko_lio
+8c77478 on all ten sequences:
+
+- Graph backend, three repetitions each, input hashes checked.
+- One sequence at a time, on a machine with nothing else heavy running.
+
+| sequence | runs complete | ATE median | 10 m RTE median | RTF | peak RSS |
+|---|---:|---:|---:|---:|---:|
+| TunnelS (held out) | 3/3 | 0.707 m | 2.02 % | 1.29–1.32 | 484–627 MB |
+| TunnelD * | 3/3 | 0.322 m | 1.63 % | 1.49–1.51 | 480–626 MB |
+| KatzenseeD | 3/3 | 0.250 m | 1.58 % | 1.62–1.64 | 590–595 MB |
+| KatzenseeS | 3/3 | 0.175 m | 0.96 % | 1.31–1.33 | 522–530 MB |
+| FieldD * | 3/3 | 0.239 m | 1.55 % | 1.52–1.53 | 622–645 MB |
+| FieldS | 3/3 | 0.177 m | 0.96 % | 1.35–1.37 | 613–628 MB |
+| IntersectionD | 3/3 | 0.378 m | 1.51 % | 1.57–1.58 | 588–594 MB |
+| IntersectionS | 3/3 | 0.194 m | 0.92 % | 1.27–1.28 | 586–593 MB |
+| RunwayD * | 3/3 | 2.345 m | 3.06 % | 1.53–1.55 | 609–618 MB |
+| RunwayS | 3/3 | 0.454 m | 1.73 % | 1.31–1.33 | 612–618 MB |
+
+- All 30 runs completed with at least 99.6 % of the ground truth matched.
+- The three repetitions are identical on every sequence and equal the offline
+  runs above.
+- The real-time factor is 1.27–1.64, so every sequence runs faster than real
+  time.
+- Median over the ten sequences: ATE 0.286 m, 10 m RTE 1.57 %.
+
+This meets the profile's execution contract on ENWIDE. A SOTA claim still needs
+FAST-LIO2 and Point-LIO on the same bags, GEODE and the hidden tunnel.
+
 ## Next
 
-1. A `degenerate_lio_sota_v3` profile with v8 as the candidate, run with the
-   graph backend and three repetitions on all ten sequences, on a quiet machine.
-2. The other profile rivals (FAST-LIO2, Point-LIO) and GEODE's degenerate
+1. The other profile rivals (FAST-LIO2, Point-LIO) and GEODE's degenerate
    sequences, as the claim policy requires.
