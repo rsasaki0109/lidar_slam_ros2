@@ -31,6 +31,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import subprocess
 
@@ -357,6 +358,19 @@ def test_enwide_downloader_knows_every_v3_input():
             f'EXPECTED_GT_ETAG="{entry["official_ground_truth_etag"]}"'
             in block
         )
+
+
+def test_enwide_prism_offset_is_given_in_the_runner_base_frame():
+    meta = json.loads(
+        (ROOT / 'configs' / 'enwide' / 'os_imu_to_prism.json').read_text()
+    )
+    assert meta['base_frame'] == 'os_imu'
+    assert meta['base_to_prism_translation_m'] == (
+        meta['imu_to_prism_translation_m']
+    )
+    assert '--base-frame os_imu' in RUNNER.read_text()
+    harness = (ROOT / 'scripts' / 'run_rko_lio_graph_benchmark.sh').read_text()
+    assert 'meta.get("base_to_prism_translation_m")' in harness
 
 
 def test_enwide_runner_selects_the_frozen_candidate_by_profile():
