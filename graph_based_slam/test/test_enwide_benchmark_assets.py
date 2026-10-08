@@ -75,6 +75,10 @@ RKO_PHOTOMETRIC_V7 = (
     ROOT / 'configs' / 'enwide'
     / 'rko_lio_os0_photometric_v7.yaml'
 )
+RKO_OPEN_GROUND_V8 = (
+    ROOT / 'configs' / 'enwide'
+    / 'rko_lio_os0_open_ground_v8.yaml'
+)
 
 
 def _profile():
@@ -273,6 +277,18 @@ def test_enwide_photometric_v7_uses_the_os_sensor_extrinsic_and_beam_model():
     assert config['radar_velocity_fusion'] is False
     assert config['radar_velocity_continuous_fusion'] is False
     assert not any(key.startswith(('degeneracy_', 'intensity_')) for key in config)
+
+
+def test_enwide_open_ground_v8_adds_only_the_open_ground_options_to_v7():
+    v7 = yaml.safe_load(RKO_PHOTOMETRIC_V7.read_text())
+    v8 = yaml.safe_load(RKO_OPEN_GROUND_V8.read_text())
+    added = {
+        'bump_image_registration': True,
+        'velocity_window_sec': 0.3,
+        'skip_registration_after_gap_sec': 0.15,
+    }
+    assert {key: v8.pop(key) for key in added} == added
+    assert v8 == v7
 
 
 def test_enwide_profile_v2_changes_only_the_candidate():
