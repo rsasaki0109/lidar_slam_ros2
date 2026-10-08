@@ -373,6 +373,31 @@ def test_enwide_prism_offset_is_given_in_the_runner_base_frame():
     assert 'meta.get("base_to_prism_translation_m")' in harness
 
 
+def test_enwide_rival_image_pins_the_profile_revisions():
+    rivals = yaml.safe_load(
+        PROFILE_V3.read_text()
+    )['degenerate_lio_sota_profile']['rivals']
+    dockerfile = (ROOT / 'docker' / 'enwide_rivals_ros1.Dockerfile').read_text()
+    for name in ('fast_lio2', 'point_lio'):
+        assert f"checkout {rivals[name]['revision']}" in dockerfile
+
+
+def test_enwide_rival_configs_change_only_the_sensor_settings():
+    for name in ('fast_lio_os0.yaml', 'point_lio_os0.yaml'):
+        config = yaml.safe_load(
+            (ROOT / 'configs' / 'enwide' / 'rivals' / name).read_text()
+        )
+        assert config['common']['lid_topic'] == '/ouster/points'
+        assert config['common']['imu_topic'] == '/ouster/imu'
+        assert config['preprocess']['lidar_type'] == 3
+        assert config['preprocess']['scan_line'] == 128
+        assert config['preprocess']['timestamp_unit'] == 3
+        assert config['preprocess']['blind'] == 0.65
+        assert config['mapping']['extrinsic_T'] == [-0.006253, 0.011775, -0.007645]
+        assert config['mapping']['extrinsic_R'] == [1, 0, 0, 0, 1, 0, 0, 0, 1]
+        assert config['mapping']['extrinsic_est_en'] is False
+
+
 def test_enwide_runner_selects_the_frozen_candidate_by_profile():
     text = RUNNER.read_text()
     assert '--profile NAME' in text
