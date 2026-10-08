@@ -1065,7 +1065,13 @@ import sys
 from pathlib import Path
 
 meta = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-offset = meta.get("lidar_to_prism_translation_m") or {}
+# The trajectories are in --base-frame; lidar_to_prism is the legacy key for
+# runs whose base frame is the LiDAR.
+offset = (
+    meta.get("base_to_prism_translation_m")
+    or meta.get("lidar_to_prism_translation_m")
+    or {}
+)
 print(offset.get("x", 0.0))
 print(offset.get("y", 0.0))
 print(offset.get("z", 0.0))
