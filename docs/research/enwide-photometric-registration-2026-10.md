@@ -303,28 +303,78 @@ GEODE and the hidden tunnel.
 
 | sequence | runs complete | ATE median | 10 m RTE median | RTF | peak RSS |
 |---|---:|---:|---:|---:|---:|
-| TunnelS (held out) | 3/3 | 0.707 m | 2.02 % | 1.29–1.32 | 484–627 MB |
-| TunnelD * | 3/3 | 0.322 m | 1.63 % | 1.49–1.51 | 480–626 MB |
-| KatzenseeD | 3/3 | 0.250 m | 1.58 % | 1.62–1.64 | 590–595 MB |
-| KatzenseeS | 3/3 | 0.175 m | 0.96 % | 1.31–1.33 | 522–530 MB |
-| FieldD * | 3/3 | 0.239 m | 1.55 % | 1.52–1.53 | 622–645 MB |
-| FieldS | 3/3 | 0.177 m | 0.96 % | 1.35–1.37 | 613–628 MB |
-| IntersectionD | 3/3 | 0.378 m | 1.51 % | 1.57–1.58 | 588–594 MB |
-| IntersectionS | 3/3 | 0.194 m | 0.92 % | 1.27–1.28 | 586–593 MB |
-| RunwayD * | 3/3 | 2.345 m | 3.06 % | 1.53–1.55 | 609–618 MB |
-| RunwayS | 3/3 | 0.454 m | 1.73 % | 1.31–1.33 | 612–618 MB |
+| TunnelS (held out) | 3/3 | 0.708 m | 2.02 % | 1.29–1.32 | 484–627 MB |
+| TunnelD * | 3/3 | 0.324 m | 1.62 % | 1.49–1.51 | 480–626 MB |
+| KatzenseeD | 3/3 | 0.246 m | 1.57 % | 1.62–1.64 | 590–595 MB |
+| KatzenseeS | 3/3 | 0.172 m | 0.95 % | 1.31–1.33 | 522–530 MB |
+| FieldD * | 3/3 | 0.238 m | 1.55 % | 1.52–1.53 | 622–645 MB |
+| FieldS | 3/3 | 0.177 m | 0.95 % | 1.35–1.37 | 613–628 MB |
+| IntersectionD | 3/3 | 0.382 m | 1.53 % | 1.57–1.58 | 588–594 MB |
+| IntersectionS | 3/3 | 0.194 m | 0.94 % | 1.27–1.28 | 586–593 MB |
+| RunwayD * | 3/3 | 2.341 m | 3.08 % | 1.53–1.55 | 609–618 MB |
+| RunwayS | 3/3 | 0.450 m | 1.73 % | 1.31–1.33 | 612–618 MB |
 
 - All 30 runs completed with at least 99.6 % of the ground truth matched.
 - The three repetitions are identical on every sequence and equal the offline
   runs above.
 - The real-time factor is 1.27–1.64, so every sequence runs faster than real
   time.
-- Median over the ten sequences: ATE 0.286 m, 10 m RTE 1.57 %.
+- Median over the ten sequences: ATE 0.285 m, 10 m RTE 1.56 %.
+
+The harness first scored the IMU trajectory without the 11 cm IMU-to-prism lever
+arm (fixed in #490). The numbers above re-score the same saved trajectories with
+it. That changed the ATE by at most 0.004 m. The runs are deterministic, so they
+were not repeated. The v2 record above is still the uncorrected score.
 
 This meets the profile's execution contract on ENWIDE. A SOTA claim still needs
 FAST-LIO2 and Point-LIO on the same bags, GEODE and the hidden tunnel.
 
+## All profile rivals (2026-10-08)
+
+FAST-LIO2 (7cc4175) and Point-LIO (4b86a46), the profile's two remaining rivals,
+ran on the same ROS 1 bags:
+
+- Build: `docker/enwide_rivals_ros1.Dockerfile`.
+- Run: `scripts/run_enwide_rival_ros1.sh`.
+- Configuration: `configs/enwide/rivals/`. Each is the method's own `ouster64.yaml`
+  with only the topics, 128 lines, the 0.65 m blind range of COIN-LIO's ENWIDE
+  config and the os_sensor extrinsic changed.
+- The `ring` field of these clouds is uint16 and the methods expect uint8. Only
+  their feature-extraction path reads it, and that path is off for Ouster.
+
+Every method below is scored the same way:
+
+- `score_position_only_trajectory.py` on the IMU trajectory moved to the prism.
+- v8 is the profile record (median of three identical runs).
+- The rivals are one real-time playback each.
+
+ATE in metres / 10 m RTE in percent:
+
+| sequence | RKO-LIO v8 | COIN-LIO | BIEVR-LIO | FAST-LIO2 | Point-LIO |
+|---|---:|---:|---:|---:|---:|
+| TunnelS (held out) | **0.71** / **2.0** | 0.78 / 2.2 | 483 / 1194 | 38.5 / 177 | 37.6 / 93.5 |
+| TunnelD * | **0.32** / **1.6** | 0.52 / 1.7 | 58.4 / 236 | 27.5 / 107 | 30.8 / 140 |
+| KatzenseeD | 0.25 / **1.6** | 0.59 / 2.2 | **0.24** / 1.8 | 1.29 / 3.4 | 0.39 / 1.8 |
+| KatzenseeS | **0.17** / **0.95** | 0.49 / 1.9 | 0.19 / 1.1 | 1.13 / 3.5 | 0.32 / 1.6 |
+| FieldD * | 0.24 / 1.6 | 0.83 / 4.4 | **0.17** / **1.3** | 17.7 / 21.9 | 33.2 / 111 |
+| FieldS | 0.18 / 0.95 | 0.20 / 1.2 | **0.16** / **0.8** | 0.19 / 1.4 | 0.32 / 3.1 |
+| IntersectionD | **0.38** / 1.5 | 1.86 / 4.1 | 0.39 / **1.4** | 14.3 / 14.2 | 48.5 / 88.1 |
+| IntersectionS | **0.19** / **0.94** | 0.46 / 1.5 | 0.23 / 1.0 | 13.1 / 22.1 | 4.15 / 14.5 |
+| RunwayD * | **2.34** / **3.1** | 2.90 / 6.5 | 609 / 1012 | 68.0 / 121 | 52.2 / 107 |
+| RunwayS | **0.45** / **1.7** | 2.80 / 4.6 | 0.73 / 3.1 | 44.6 / 103 | 892 / 1018 |
+| median ATE | **0.29** | 0.69 | 0.32 | 16.0 | 32.0 |
+| runs over 20 % RTE | **0** | **0** | 3 | 6 | 6 |
+
+- Neither FAST-LIO2 nor Point-LIO holds the tunnels or the runways. Both fail on
+  six sequences.
+- v8 has no failure and the lowest median ATE.
+- On the seven validation sequences v8 has the lowest ATE on five and is within
+  0.02 m of BIEVR-LIO on the other two.
+
+All four profile rivals are now reproduced on identical inputs. A SOTA claim
+still needs GEODE's degenerate sequences and the hidden tunnel.
+
 ## Next
 
-1. The other profile rivals (FAST-LIO2, Point-LIO) and GEODE's degenerate
-   sequences, as the claim policy requires.
+1. GEODE's degenerate sequences and the hidden tunnel, the profile's remaining
+   claim conditions.
