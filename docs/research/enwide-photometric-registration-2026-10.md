@@ -25,6 +25,10 @@ This is still not a `degenerate_lio_sota_v1` claim. The profile's other
 conditions are not met: the graph backend, three repetitions, the other
 ENWIDE environments and the hidden tunnel.
 
+Update 2026-10-08: v8 (below) adds three open-ground options. Over all ten ENWIDE
+sequences it has no failure and a median ATE of 0.29 m, against 0.69 m for
+COIN-LIO and 0.32 m for BIEVR-LIO, which diverges on three.
+
 ## Why the earlier configurations did nothing
 
 All runs below use `offline_node` on the converted TunnelD bag. They are scored
@@ -223,11 +227,75 @@ above. COIN-LIO and BIEVR-LIO reproduce their published KatzenseeD ATE
 
 No SOTA claim follows. The profile's win policy needs zero catastrophic failures.
 
+## Open ground: v8 (2026-10-08)
+
+`configs/enwide/rko_lio_os0_open_ground_v8.yaml` is v7 plus three opt-in rko_lio
+options (rko_lio 8c77478):
+
+- `bump_image_registration` (#23): BIEVR-LIO's voxel-wise height images replace
+  the point-to-point residual. Relief of a few centimetres (grass, asphalt) then
+  fixes the in-plane pose. The photometric terms stay on top.
+- `velocity_window_sec: 0.3` (#26): the velocity is the pose difference over
+  0.3 s instead of one scan. On RunwayD the sensor is spun at about 190 °/s. One
+  0.33 m correction then turned the velocity from 2 into 5 m/s, and the weak
+  in-plane constraint let it run away to 13 m/s.
+- `skip_registration_after_gap_sec: 0.15` (#25): the scan after a LiDAR gap
+  takes the IMU prediction. On TunnelD the bump registration otherwise turned
+  the post-gap scan by 6.3° (it is constrained almost nothing in translation).
+
+How the three were found:
+
+- On the development sequences FieldD, RunwayD and TunnelD only.
+- The configuration was frozen before any of the other seven sequences was run
+  (one offline run each, same scorer, same bags as the rivals).
+
+Two hypotheses failed first and are not in v8:
+
+- **IMU biases.** RKO-LIO takes them from the first scan interval, and on these
+  handheld starts that absorbs motion: up to 0.05 rad/s in the gyro. BIEVR-LIO's
+  online estimate converges to about (-0.023, -0.017, 0.005) rad/s on every
+  sequence. Tracking the gyro bias online, or fixing both biases at BIEVR-LIO's
+  values, made FieldD worse (7.2 m to 14.5–30 m). The drift there comes from the
+  registration, not from the biases.
+- **Photometric weight on open ground.** Only 12–15 patches per scan survive on
+  grass. A higher weight helps FieldD (5.7 m at 0.01) but breaks at 0.03.
+
+ATE in metres / 10 m RTE in percent. Development sequences are marked *:
+
+| sequence | RKO-LIO v8 | RKO-LIO v7 | COIN-LIO | BIEVR-LIO |
+|---|---:|---:|---:|---:|
+| TunnelS (held out) | **0.71** / **2.0** | 0.75 / **2.0** | 0.78 / 2.2 | 483 / 1194 |
+| TunnelD * | **0.32** / **1.6** | 0.34 / 1.7 | 0.52 / 1.7 | 58.3 / 214 |
+| KatzenseeD | 0.25 / **1.6** | 0.35 / 2.0 | 0.59 / 2.2 | **0.24** / 1.8 |
+| KatzenseeS | **0.17** / **0.9** | 0.19 / 1.1 | 0.49 / 1.9 | 0.19 / 1.1 |
+| FieldD * | 0.24 / 1.5 | 7.22 / 30.2 | 0.83 / 4.4 | **0.17** / **1.3** |
+| FieldS | 0.18 / 1.0 | 0.69 / 2.6 | 0.20 / 1.2 | **0.16** / **0.8** |
+| IntersectionD | **0.38** / 1.5 | 4.52 / 9.4 | 1.86 / 4.1 | 0.39 / **1.4** |
+| IntersectionS | **0.19** / **0.9** | 0.55 / 1.3 | 0.46 / 1.5 | 0.23 / 1.0 |
+| RunwayD * | **2.34** / **3.1** | 50.1 / 50.0 | 2.90 / 6.5 | 609 / 1013 |
+| RunwayS | **0.45** / **1.7** | 28.9 / 41.1 | 2.80 / 4.6 | 0.73 / 3.1 |
+| median ATE | **0.29** | 0.72 | 0.69 | 0.32 |
+| runs over 20 % RTE | **0** | 3 | **0** | 3 |
+
+On the seven sequences not used for development:
+
+- v8 has the lowest ATE on five and is within 0.02 m of BIEVR-LIO on the
+  other two (KatzenseeD, FieldS).
+- No run of v8 exceeds 3.1 % RTE.
+- COIN-LIO is the only rival without a failure, and v8 is below it on all ten.
+
+Mean registration time per scan is 46–83 ms on the runs that had the machine to
+themselves. The two Katzensee runs overlapped other jobs and took 115 and 299 ms.
+Peak RSS is 530–630 MB. The profile run must measure the real-time factor on a
+quiet machine.
+
+This is still not a `degenerate_lio_sota_v1` claim. The remaining conditions are
+the graph backend with three repetitions per sequence, FAST-LIO2 and Point-LIO,
+GEODE and the hidden tunnel.
+
 ## Next
 
-1. The open-ground failures (FieldD, RunwayD, RunwayS). Unlike COIN-LIO's IEKF
-   with point-to-plane terms, RKO-LIO's point-to-point ICP has no IMU coupling
-   in the solve. A gyro prior on the ICP rotation made TunnelD worse
-   (0.34 m to 11 m) and was dropped.
+1. A `degenerate_lio_sota_v3` profile with v8 as the candidate, run with the
+   graph backend and three repetitions on all ten sequences, on a quiet machine.
 2. The other profile rivals (FAST-LIO2, Point-LIO) and GEODE's degenerate
    sequences, as the claim policy requires.
