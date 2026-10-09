@@ -1,0 +1,67 @@
+# GEODE device beta (Ouster OS1-64): ENWIDE v8 (configs/enwide/rko_lio_os0_open_ground_v8.yaml)
+# with GEODE's sensor settings only:
+# - extrinsic_lidar2base: the dataset's T_IMU_LiDAR (beta_config.yaml); the base is the
+#   Xsens IMU on /imu/data, the same IMU every method uses.
+# - photometric_model from metadata_beta.json. Its pixel_shift_by_row stops after 62 of
+#   64 rows; all 64 are round(beam_azimuth_deg * 1024 / 360), the rule the file follows
+#   (and ENWIDE's os_enwide.json does for all 128 rows).
+# - no photometric_image mask (ENWIDE's masks hid that rig's handles).
+
+extrinsic_imu2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+extrinsic_lidar2base_quat_xyzw_xyz: [-0.006892256666756416, -0.002318844449334277, -0.025993963174297075, 0.9996356504431766, -0.027172, -0.034873, 0.062643]
+lidar_timestamps.offset_seconds: 0.0
+lidar_timestamps.force_absolute: false
+lidar_timestamps.force_relative: true
+initialization_phase: true
+deskew: true
+voxel_size: 0.25
+icp_keypoint_voxel_multiplier: 1.5
+max_points_per_voxel: 20
+min_range: 0.7
+max_range: 100.0
+max_correspondence_distance: 0.5
+double_downsample: true
+bump_image_registration: true
+velocity_window_sec: 0.3
+skip_registration_after_gap_sec: 0.15
+photometric: true
+photometric_scale: 0.003
+photometric_channel: intensity
+photometric_model.altitudes_deg: [20.5, 19.89, 19.24, 18.62, 17.98, 17.33, 16.67, 16.04, 15.36, 14.72, 14.03, 13.38, 12.7, 12.03, 11.35, 10.68, 9.99, 9.3, 8.59, 7.92, 7.21, 6.53, 5.82, 5.13, 4.43, 3.73,
+  3.03, 2.32, 1.62, 0.91, 0.19, -0.5, -1.21, -1.91, -2.61, -3.33, -4.01, -4.74, -5.43, -6.12, -6.83, -7.52, -8.21, -8.9, -9.59, -10.27, -10.95, -11.65, -12.31, -13.0, -13.66, -14.32, -14.99, -15.64, -16.3,
+  -16.95, -17.59, -18.24, -18.87, -19.52, -20.13, -20.75, -21.36, -21.97]
+photometric_model.beam_offset_mm: 15.806
+photometric_model.cloud_to_lidar_z_m: 0.03618
+photometric_model.columns: 1024
+photometric_model.pixel_shift_by_row: [4, -12, 4, -12, 4, -12, 4, -12, 4, -12, 4, -12, 4, -12, 4, -12, 4, -12, 4, -12, 4, -12, 4, -12, 4, -12, 4, -12, 4, -12, 4, -12, 4, -12, 4, -12, 4, -12, 4, -12, 4,
+  -12, 4, -12, 4, -12, 4, -12, 4, -12, 4, -12, 4, -12, 4, -12, 4, -12, 4, -12, 4, -12, 4, -12]
+photometric_model.u_shift: 0
+photometric_image.blur: true
+photometric_image.brightness_filter: true
+photometric_image.brightness_window_cols: 41
+photometric_image.brightness_window_rows: 7
+photometric_image.erosion_margin: 2
+photometric_image.intensity_scale: 0.25
+photometric_image.line_highpass: [-0.00122687, -0.00152587, 0.0009631, 0.00382838, 0.00071422, -0.00765637, -0.00681285, 0.01015542, 0.01944999, -0.00536835, -0.03792929, -0.01565801, 0.05816374, 0.07138264,
+  -0.07402277, -0.30572514, 0.5802669, -0.30572514, -0.07402277, 0.07138264, 0.05816374, -0.01565801, -0.03792929, -0.00536835, 0.01944999, 0.01015542, -0.00681285, -0.00765637, 0.00071422, 0.00382838,
+  0.0009631, -0.00152587, -0.00122687]
+photometric_image.line_lowpass: [-0.0013038, -0.00117813, -0.00102349, -0.00051396, 0.000759, 0.00322145, 0.00724004, 0.01304552, 0.02066957, 0.02990645, 0.04030759, 0.0512121, 0.06181081, 0.07123596, 0.07866427,
+  0.08341891, 0.08505541, 0.08341891, 0.07866427, 0.07123596, 0.06181081, 0.0512121, 0.04030759, 0.02990645, 0.02066957, 0.01304552, 0.00724004, 0.00322145, 0.000759, -0.00051396, -0.00102349, -0.00117813,
+  -0.0013038]
+photometric_image.line_removal: true
+photometric_image.masks: [0, 0, 0, 0]
+photometric_image.max_range_m: 30.0
+photometric_image.min_range_m: 0.7
+photometric_features.grad_min: 16.5
+photometric_features.margin: 10
+photometric_features.max_lifetime: 25
+photometric_features.ncc_threshold: 0.7075
+photometric_features.num_features: 60
+photometric_features.patch_size: 5
+photometric_features.range_threshold_m: 0.2
+photometric_features.suppression_radius: 10
+radar_velocity_fusion: false
+radar_velocity_continuous_fusion: false
+enable_kidnap_relocalization: false
+reset_on_registration_failure: false
+relocalize_after_scan_gap: false

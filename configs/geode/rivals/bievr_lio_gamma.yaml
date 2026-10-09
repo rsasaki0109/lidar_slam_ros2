@@ -1,0 +1,14 @@
+# GEODE gamma: Xsens /imu/data and the dataset's T_IMU_LiDAR (same inputs as the other methods).
+topics:
+  pointcloud: "/livox/lidar"
+  imu: "/imu/data"
+
+calibration: # T_IMU_LIDAR (LiDAR -> IMU)
+  translation: [0.049258, -0.012500, 0.026946]
+  rotation: [0.9996200, 0.0274630, 0.0024450,
+             -0.0275170, 0.9992990, 0.0253980,
+             -0.0017460, -0.0254560, 0.9996740]
+
+lidar:
+  min_range_m: 0.5
+  max_range_m: 200

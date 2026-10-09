@@ -1,0 +1,14 @@
+# GEODE alpha: Xsens /imu/data and the dataset's T_IMU_LiDAR (same inputs as the other methods).
+topics:
+  pointcloud: "/velodyne_points"
+  imu: "/imu/data"
+
+calibration: # T_IMU_LIDAR (LiDAR -> IMU)
+  translation: [0.010965, -0.086864, 0.060426]
+  rotation: [0.9989892, 0.0444870, -0.0064406,
+             -0.0446353, 0.9986885, -0.0250789,
+             0.0053164, 0.0253410, 0.9996647]
+
+lidar:
+  min_range_m: 0.5
+  max_range_m: 100

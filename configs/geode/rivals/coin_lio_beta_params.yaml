@@ -1,0 +1,55 @@
+# GEODE beta (OS1-64): COIN-LIO params.yaml with 64 lines, the IMU-to-os_lidar extrinsic
+# (T_IMU_LiDAR plus the 36.18 mm lidar_to_sensor offset, as COIN-LIO uses on ENWIDE) and no rig mask.
+common:
+    time_sync_en: false         # ONLY turn on when external time synchronization is really not possible
+
+preprocess:
+    lidar_type: 3                # 1 for Livox serials LiDAR, 2 for Velodyne LiDAR, 3 for ouster LiDAR,
+    scan_line: 64
+    blind: 0.65
+    timestamp_unit: 3
+
+mapping:
+    point_filter_num: 4
+    filter_size_surf: 0.5
+    filter_size_map: 0.5
+    cube_side_length: 1000
+    acc_cov: 0.1
+    gyr_cov: 0.1
+    b_acc_cov: 0.0001
+    b_gyr_cov: 0.0001
+    fov_degree:    180
+    det_range:     150
+    extrinsic_est_en:  false      # true: enable the online estimation of IMU-LiDAR extrinsic
+    extrinsic_T: [-0.027327, -0.034370, 0.098819]
+    extrinsic_R: [0.9986380, 0.0520010, -0.0042780, -0.0519370, 0.9985540, 0.0139000, 0.0049940, -0.0136590, 0.9998940]
+publish:
+    path_en:  false
+    scan_publish_en:  true       # false: close all the point cloud output
+    dense_publish_en: false       # false: low down the points number in a global-frame point clouds scan.
+    scan_bodyframe_pub_en: true  # true: output the point cloud scans in IMU-body-frame
+    dashboard: false
+    debug: false
+
+pcd_save:
+    pcd_save_en: false
+    interval: -1                 # how many LiDAR frames saved in each pcd file;
+                                 # -1 : all frames will be saved in ONE pcd file, may lead to memory crash when having too much frames.
+
+filter:
+    max_iteration: 5
+    photo_scale: 0.00095
+
+image:
+    patch_size: 5
+    max_range: 30
+    max_lifetime: 25
+    min_range: 0.7
+    suppression_radius: 10
+    num_features: 60
+    grad_min: 16.5
+    ncc_threshold: 0.7075
+    margin: 10
+    intensity_scale: 0.25
+    window: [41, 7]
+    masks: [0, 0, 0, 0]

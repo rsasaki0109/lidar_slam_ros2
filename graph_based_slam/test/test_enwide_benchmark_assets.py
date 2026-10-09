@@ -398,6 +398,30 @@ def test_enwide_rival_configs_change_only_the_sensor_settings():
         assert config['mapping']['extrinsic_est_en'] is False
 
 
+def test_geode_v8_configs_change_only_the_sensor_settings():
+    v8 = yaml.safe_load(RKO_OPEN_GROUND_V8.read_text())
+    photometric_model = {
+        key for key in v8
+        if key.startswith('photometric_model.') or key == 'photometric_image.masks'
+    }
+    for device in ('alpha', 'beta', 'gamma'):
+        geode = yaml.safe_load(
+            (ROOT / 'configs' / 'geode' / f'rko_lio_{device}_v8.yaml').read_text()
+        )
+        changed = {key for key in v8 if geode[key] != v8[key]}
+        assert set(geode) == set(v8)
+        allowed = {'extrinsic_lidar2base_quat_xyzw_xyz'}
+        allowed |= photometric_model if device == 'beta' else {'photometric'}
+        assert changed <= allowed, (device, changed - allowed)
+        if device != 'beta':
+            assert geode['photometric'] is False
+    beta = yaml.safe_load(
+        (ROOT / 'configs' / 'geode' / 'rko_lio_beta_v8.yaml').read_text()
+    )
+    assert len(beta['photometric_model.altitudes_deg']) == 64
+    assert len(beta['photometric_model.pixel_shift_by_row']) == 64
+
+
 def test_enwide_runner_selects_the_frozen_candidate_by_profile():
     text = RUNNER.read_text()
     assert '--profile NAME' in text
