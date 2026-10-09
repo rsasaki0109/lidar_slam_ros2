@@ -1,0 +1,14 @@
+# GEODE beta: Xsens /imu/data and the dataset's T_IMU_LiDAR (same inputs as the other methods).
+topics:
+  pointcloud: "/ouster/points"
+  imu: "/imu/data"
+
+calibration: # T_IMU_LIDAR (LiDAR -> IMU)
+  translation: [-0.027172, -0.034873, 0.062643]
+  rotation: [0.9986380, 0.0520010, -0.0042780,
+             -0.0519370, 0.9985540, 0.0139000,
+             0.0049940, -0.0136590, 0.9998940]
+
+lidar:
+  min_range_m: 0.5
+  max_range_m: 100
