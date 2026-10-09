@@ -422,6 +422,15 @@ def test_geode_v8_configs_change_only_the_sensor_settings():
     assert len(beta['photometric_model.pixel_shift_by_row']) == 64
 
 
+def test_geode_v9_configs_add_only_the_rotation_fallback_to_v8():
+    for device in ('alpha', 'beta', 'gamma'):
+        geode = ROOT / 'configs' / 'geode'
+        v8 = yaml.safe_load((geode / f'rko_lio_{device}_v8.yaml').read_text())
+        v9 = yaml.safe_load((geode / f'rko_lio_{device}_v9.yaml').read_text())
+        assert v9.pop('bump_image_max_rotation_correction_deg') == 2.0
+        assert v9 == v8
+
+
 def test_enwide_runner_selects_the_frozen_candidate_by_profile():
     text = RUNNER.read_text()
     assert '--profile NAME' in text

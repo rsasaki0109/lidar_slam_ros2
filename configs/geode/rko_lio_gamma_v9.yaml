@@ -1,0 +1,70 @@
+# GEODE device gamma: v9 = rko_lio_gamma_v8.yaml plus bump_image_max_rotation_correction_deg: 2.0
+# (rko_lio #28; needs rko_lio after 8c77478). A scan whose bump-image registration
+# turns the pose more than 2 deg from the IMU prediction is registered again without
+# the bump terms. Set on development sequences only; see
+# docs/research/geode-hard-evaluation-2026-10.md. Not the ENWIDE candidate (it costs
+# a few cm on three ENWIDE sequences).
+
+extrinsic_imu2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+extrinsic_lidar2base_quat_xyzw_xyz: [-0.012715736530884711, 0.0010479379741671505, -0.013747413870433, 0.9998240947698522, 0.049258, -0.0125, 0.026946]
+lidar_timestamps.offset_seconds: 0.0
+lidar_timestamps.force_absolute: false
+lidar_timestamps.force_relative: true
+initialization_phase: true
+deskew: true
+voxel_size: 0.25
+icp_keypoint_voxel_multiplier: 1.5
+max_points_per_voxel: 20
+min_range: 0.7
+max_range: 100.0
+max_correspondence_distance: 0.5
+double_downsample: true
+bump_image_registration: true
+velocity_window_sec: 0.3
+skip_registration_after_gap_sec: 0.15
+photometric: false
+photometric_scale: 0.003
+photometric_channel: intensity
+photometric_model.altitudes_deg: [45.9052, 44.8424, 44.0789, 43.5846, 42.8873, 41.8531, 41.078, 40.5824, 39.8995, 38.8838, 38.1174, 37.6003, 36.9415, 35.9344, 35.1667, 34.6484, 33.9634, 32.9849, 32.2361,
+  31.7065, 31.0251, 30.0755, 29.3154, 28.7748, 28.0967, 27.1558, 26.425, 25.8632, 25.1982, 24.2863, 23.5444, 22.9819, 22.2994, 21.4067, 20.6839, 20.1105, 19.4305, 18.5671, 17.8335, 17.2394, 16.5615, 15.7173,
+  15.0131, 14.3984, 13.7123, 12.8975, 12.1827, 11.5676, 10.873, 10.0777, 9.38252, 8.74699, 8.02339, 7.27778, 6.58227, 5.91644, 5.22367, 4.47776, 3.78217, 3.10614, 2.40401, 1.69778, 0.992155, 0.285974, -0.405973,
+  -1.11203, -1.80823, -2.52406, -3.23622, -3.9123, -4.59801, -5.3439, -6.04652, -6.6924, -7.39795, -8.14355, -8.86702, -9.50272, -10.1978, -10.9731, -11.6977, -12.323, -13.0176, -13.8124, -14.5385, -15.1333,
+  -15.8274, -16.6415, -17.3795, -17.9536, -18.6571, -19.4905, -20.2306, -20.794, -21.4968, -22.3593, -23.0919, -23.6345, -24.3463, -25.228, -25.9733, -26.495, -27.1959, -28.0965, -28.8748, -29.3755, -30.0854,
+  -31.0049, -31.7765, -32.2661, -32.9849, -33.9332, -34.7084, -35.1867, -35.9142, -36.8713, -37.6703, -38.1374, -38.8536, -39.8493, -40.6524, -41.108, -41.8429, -42.8471, -43.6545, -44.1088, -44.8521, -45.8749]
+photometric_model.beam_offset_mm: 27.67
+photometric_model.cloud_to_lidar_z_m: 0.03617
+photometric_model.columns: 1024
+photometric_model.pixel_shift_by_row: [31, 10, -10, -30, 30, 10, -10, -29, 29, 10, -9, -28, 28, 9, -9, -27, 27, 9, -9, -27, 27, 9, -9, -26, 26, 9, -9, -26, 26, 8, -8, -25, 25, 8, -8, -25, 25, 8, -8, -25,
+  24, 8, -8, -24, 24, 8, -8, -24, 24, 8, -8, -24, 24, 8, -8, -24, 24, 8, -8, -24, 24, 8, -8, -24, 24, 8, -8, -24, 24, 8, -8, -24, 24, 8, -8, -24, 24, 8, -8, -24, 24, 8, -8, -24, 24, 8, -8, -24, 25, 8, -8,
+  -25, 25, 8, -8, -25, 25, 8, -8, -25, 26, 9, -9, -26, 26, 9, -9, -27, 27, 9, -9, -27, 27, 9, -9, -28, 28, 9, -10, -29, 29, 10, -10, -30, 30, 10, -10, -31]
+photometric_model.u_shift: 0
+photometric_image.blur: true
+photometric_image.brightness_filter: true
+photometric_image.brightness_window_cols: 41
+photometric_image.brightness_window_rows: 7
+photometric_image.erosion_margin: 2
+photometric_image.intensity_scale: 0.25
+photometric_image.line_highpass: [-0.00122687, -0.00152587, 0.0009631, 0.00382838, 0.00071422, -0.00765637, -0.00681285, 0.01015542, 0.01944999, -0.00536835, -0.03792929, -0.01565801, 0.05816374, 0.07138264,
+  -0.07402277, -0.30572514, 0.5802669, -0.30572514, -0.07402277, 0.07138264, 0.05816374, -0.01565801, -0.03792929, -0.00536835, 0.01944999, 0.01015542, -0.00681285, -0.00765637, 0.00071422, 0.00382838,
+  0.0009631, -0.00152587, -0.00122687]
+photometric_image.line_lowpass: [-0.0013038, -0.00117813, -0.00102349, -0.00051396, 0.000759, 0.00322145, 0.00724004, 0.01304552, 0.02066957, 0.02990645, 0.04030759, 0.0512121, 0.06181081, 0.07123596, 0.07866427,
+  0.08341891, 0.08505541, 0.08341891, 0.07866427, 0.07123596, 0.06181081, 0.0512121, 0.04030759, 0.02990645, 0.02066957, 0.01304552, 0.00724004, 0.00322145, 0.000759, -0.00051396, -0.00102349, -0.00117813,
+  -0.0013038]
+photometric_image.line_removal: true
+photometric_image.masks: [0, 84, 70, 44, 953, 84, 70, 44]
+photometric_image.max_range_m: 30.0
+photometric_image.min_range_m: 0.7
+photometric_features.grad_min: 16.5
+photometric_features.margin: 10
+photometric_features.max_lifetime: 25
+photometric_features.ncc_threshold: 0.7075
+photometric_features.num_features: 60
+photometric_features.patch_size: 5
+photometric_features.range_threshold_m: 0.2
+photometric_features.suppression_radius: 10
+radar_velocity_fusion: false
+radar_velocity_continuous_fusion: false
+enable_kidnap_relocalization: false
+reset_on_registration_failure: false
+relocalize_after_scan_gap: false
+bump_image_max_rotation_correction_deg: 2.0
