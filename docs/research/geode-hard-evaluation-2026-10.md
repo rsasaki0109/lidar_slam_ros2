@@ -117,6 +117,66 @@ The ablations below are on the development sequences only, with ATE in metres:
   the shield-tunnel failure: the generic degeneracy-aware solve, a gyro rotation prior,
   and mixing in point-to-point.
 
+## v9: fall back to point-to-point when the bump terms turn the pose too far
+
+A correctly registered scan stays close to the gyro prediction. The rotation correction
+of v8's registration (degrees, per scan) separates the cases cleanly:
+
+| development sequence | v8 result | median | 99th percentile | scans over 2° |
+|---|---|---:|---:|---:|
+| GEODE Urban_Tunnel01 | best of all methods | 0.15 | 1.07 | 0 % |
+| ENWIDE FieldD | good | 0.40 | 1.60 | 0.3 % |
+| ENWIDE RunwayD | good | 0.42 | 1.53 | 0.3 % |
+| GEODE flat_surfaces_smooth | fails | 1.70 | 50.9 | 46 % |
+| GEODE Shield_tunnel9 | fails | 5.16 | 31.3 | 68 % |
+
+- **What v9 does.** v9 is v8 plus `bump_image_max_rotation_correction_deg: 2.0`
+  (rko_lio #28). A scan whose bump result turns more than 2° away from the IMU guess is
+  registered again without the bump terms.
+- **How it was frozen.** The threshold was set on the six development sequences and
+  frozen before any validation sequence was run.
+- **Determinism fix.** rko_lio #27 makes the point-to-point system deterministic first.
+  Without it, the chaotic fallback scans varied by about ±0.2 m between runs of the same
+  build.
+- **Configurations.** `configs/geode/rko_lio_{alpha,beta,gamma}_v9.yaml`.
+
+ATE in metres, v8 → v9. Development sequences are marked *.
+
+| GEODE sequence | v8 | v9 |
+|---|---:|---:|
+| Shield_tunnel1 (γ) | 303 | **97.6** |
+| Shield_tunnel2 (γ) | 119 | **104.7** |
+| Shield_tunnel6 (γ) | **0.56** | 25.3 |
+| Shield_tunnel9 (β) * | 441 | **67.2** |
+| Urban_Tunnel01–03, bridge01–02 (α) | same | same |
+| bridge03 (α) | 1095 | **1035** |
+| flat_surfaces_aggressive (γ) | incomplete | **2.62** |
+| flat_surfaces_smooth (γ) * | 3.66 | **2.01** |
+| median of 12 | 253 | **101** |
+
+| ENWIDE sequence | v8 | v9 |
+|---|---:|---:|
+| IntersectionD | **0.38** | 0.52 |
+| TunnelD * | **0.32** | 0.41 |
+| FieldD * | **0.24** | 0.28 |
+| RunwayD * | 2.34 | **1.70** |
+| the other six | same | same |
+| median of 10 | **0.29** | 0.35 |
+
+On GEODE, v9 halves the median and is now the best method on flat_surfaces_aggressive,
+where v8 lost track. But it loses Shield_tunnel6, the one sequence v8 tracked, and on
+ENWIDE it costs up to 0.14 m. It still has no ENWIDE failure and stays below COIN-LIO on
+every sequence.
+
+The profile allows at most 2 % regression on sequences that are not degenerate. v9
+regresses more than that on IntersectionD, so v8 stays the candidate. v9 is the
+configuration for strongly degenerate scenes such as GEODE Hard.
+
+The fallback fires per scan, so a single noisy scan switches registration even where
+the bump terms were right. Requiring the slip to persist over several scans is the
+obvious next step. The validation sequences above have now been seen, so that change
+needs fresh validation, such as the six GEODE sequences not downloaded yet.
+
 ## Reproduction
 
 ```bash
@@ -135,6 +195,4 @@ The ROS 1 rivals run in `docker/enwide_rivals_ros1.Dockerfile`. Each rival's `ou
 ## Next
 
 1. The six remaining Hard sequences, once Google Drive allows the downloads again.
-2. A v9 for circular tunnels: detect when the bump registration slips and fall back to
-   point-to-point there, without losing the vehicle sequences. Develop it on the three
-   development sequences only.
+2. A persistence condition for the v9 fallback, validated on sequences not yet seen.
