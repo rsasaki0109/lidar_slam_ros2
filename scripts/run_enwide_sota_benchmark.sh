@@ -48,7 +48,7 @@ Options:
   --sequence-dir PATH  ENWIDE sequence directory (scripts/download_enwide.sh --convert)
   --output-dir PATH    New directory for all repetitions and the summary
   --runs N             Repetitions (default: 3; official contract requires 3)
-  --profile NAME       degenerate_lio_sota_v1 (default), _v2 or _v3
+  --profile NAME       degenerate_lio_sota_v1 (default), _v2, _v3 or _v4
   -h, --help           Show this help
 
 The dataset topics, sensor configuration, alignment, and scoring policy are
@@ -127,6 +127,10 @@ case "${PROFILE_NAME}" in
   degenerate_lio_sota_v3)
     RKO_CONFIG="${REPO_ROOT}/configs/enwide/rko_lio_os0_open_ground_v8.yaml"
     EXPECTED_RKO_REVISION="8c77478eb48eae96542cf5e048ca736a11686975"
+    ;;
+  degenerate_lio_sota_v4)
+    RKO_CONFIG="${REPO_ROOT}/configs/enwide/rko_lio_os0_open_ground_v10.yaml"
+    EXPECTED_RKO_REVISION="cce5cf47f1c58b618a03e565948e2f5bfbb0e152"
     ;;
   *)
     echo "unknown profile: ${PROFILE_NAME}" >&2

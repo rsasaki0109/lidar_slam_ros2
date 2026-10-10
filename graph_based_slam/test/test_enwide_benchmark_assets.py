@@ -51,6 +51,13 @@ PROFILE_V3 = (
     ROOT / 'configs' / 'slam_benchmark_profiles'
     / 'degenerate_lio_sota_v3.yaml'
 )
+PROFILE_V4 = (
+    ROOT / 'configs' / 'slam_benchmark_profiles'
+    / 'degenerate_lio_sota_v4.yaml'
+)
+RKO_OPEN_GROUND_V10 = (
+    ROOT / 'configs' / 'enwide' / 'rko_lio_os0_open_ground_v10.yaml'
+)
 DOWNLOADER = ROOT / 'scripts' / 'download_enwide.sh'
 RUNNER = ROOT / 'scripts' / 'run_enwide_sota_benchmark.sh'
 RKO_CONFIG = (
@@ -337,6 +344,41 @@ def test_enwide_profile_v3_changes_the_candidate_and_adds_all_sequences():
         name for name, entry in datasets.items()
         if entry['used_for_candidate_development']
     ) == ['enwide_field_d', 'enwide_runway_d', 'enwide_tunnel_d']
+
+
+def test_enwide_profile_v4_changes_only_the_candidate():
+    v3 = yaml.safe_load(PROFILE_V3.read_text())['degenerate_lio_sota_profile']
+    v4 = yaml.safe_load(PROFILE_V4.read_text())['degenerate_lio_sota_profile']
+    assert v4['name'] == 'degenerate_lio_sota_v4'
+    assert v4['claim_policy']['sota_claim_allowed'] is False
+    for section in ('track', 'win_policy', 'rivals', 'required_metrics',
+                    'datasets', 'claim_policy'):
+        assert v4[section] == v3[section], section
+    contract = dict(v4['execution_contract'])
+    assert contract.pop('candidate_config') == str(
+        RKO_OPEN_GROUND_V10.relative_to(ROOT)
+    )
+    assert contract.pop('candidate_rko_lio_revision') == (
+        'cce5cf47f1c58b618a03e565948e2f5bfbb0e152'
+    )
+    v3_contract = dict(v3['execution_contract'])
+    v3_contract.pop('candidate_config')
+    v3_contract.pop('candidate_rko_lio_revision')
+    assert contract == v3_contract
+    runner = RUNNER.read_text()
+    block = runner[runner.index('  degenerate_lio_sota_v4)\n'):]
+    block = block[:block.index(';;')]
+    assert 'rko_lio_os0_open_ground_v10.yaml' in block
+    assert 'cce5cf47f1c58b618a03e565948e2f5bfbb0e152' in block
+
+
+def test_enwide_v10_adds_only_the_persistent_bump_fallback_to_v8():
+    v8 = yaml.safe_load(RKO_OPEN_GROUND_V8.read_text())
+    v10 = yaml.safe_load(RKO_OPEN_GROUND_V10.read_text())
+    assert v10.pop('bump_image_max_rotation_correction_deg') == 2.0
+    assert v10.pop('bump_image_rotation_fallback_window') == 10
+    assert v10.pop('bump_image_rotation_fallback_min_count') == 3
+    assert v10 == v8
 
 
 def test_enwide_downloader_knows_every_v3_input():
