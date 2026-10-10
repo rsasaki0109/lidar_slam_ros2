@@ -31,6 +31,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import struct
 import sys
@@ -427,3 +428,78 @@ def test_shared_camera_loader_rejects_different_frame_intrinsics(tmp_path, key, 
     loaded = tg.load_transforms(path)
     assert loaded['width'] == 64 and loaded['height'] == 48
     np.testing.assert_array_equal(loaded['K'], [[20., 0., 32.], [0., 20., 24.], [0., 0., 1.]])
+
+
+# --------------------------------------------------------------------------- #
+# held-out split, subsets and snapshot wiring
+# --------------------------------------------------------------------------- #
+def test_holdout_split_interleaves_and_partitions():
+    train_ids, held = tg.holdout_split(10, 4)
+    assert held == [2, 6]
+    assert sorted(train_ids + held) == list(range(10))
+    with pytest.raises(ValueError):
+        tg.holdout_split(10, 1)
+
+
+def test_subset_dataset_keeps_frames_aligned():
+    ds = {'K': np.eye(3), 'width': 4, 'height': 3,
+          'image_paths': ['a', 'b', 'c'], 'viewmats': [0, 1, 2],
+          'groups': [0, 0, 1], 'dynamic_mask_paths': [None, None, None],
+          'timestamps': np.array([1.0, 2.0, 3.0])}
+    sub = tg.subset_dataset(ds, [2, 0])
+    assert sub['image_paths'] == ['c', 'a'] and sub['viewmats'] == [2, 0]
+    assert sub['groups'] == [1, 0]
+    np.testing.assert_array_equal(sub['timestamps'], [3.0, 1.0])
+    assert ds['image_paths'] == ['a', 'b', 'c']
+    with pytest.raises(ValueError):
+        tg.subset_dataset(ds, [3])
+
+
+def test_rgb_uint8_replicates_grey_and_drops_alpha():
+    grey = np.full((2, 2), 7, dtype=np.uint8)
+    assert tg._rgb_uint8(grey).shape == (2, 2, 3)
+    rgba = np.zeros((2, 2, 4), dtype=np.uint8)
+    assert tg._rgb_uint8(rgba).shape == (2, 2, 3)
+    with pytest.raises(ValueError):
+        tg._rgb_uint8(np.zeros((2, 2, 3), dtype=np.uint16))
+
+
+def test_main_holds_out_views_and_requests_snapshots(tmp_path, monkeypatch):
+    intr = pi.CameraIntrinsics(64, 48, 50.0, 50.0, 32.0, 24.0)
+    (tmp_path / 'images').mkdir()
+    frames = []
+    for i in range(6):
+        (tmp_path / 'images' / f'{i}.png').write_bytes(b'stub')
+        frames.append(pi.PosedImage(
+            f'images/{i}.png',
+            pi.make_transform([float(i), 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]),
+            float(i)))
+    pi.write_transforms(tmp_path / 'transforms.json', intr, frames)
+    seen = {}
+
+    def fake_train_densify(dataset, **kwargs):
+        seen['train'] = [p.name for p in dataset['image_paths']]
+        seen['holdout'] = [p.name for p in kwargs['holdout']['image_paths']]
+        seen['snapshots'] = [s['name'] for s in kwargs['snapshots']]
+        seen['snapshot_dir'] = kwargs['snapshot_dir']
+        n = 1
+        return {'means': np.zeros((n, 3)), 'scales_log': np.zeros((n, 3)),
+                'quats': np.tile([1.0, 0, 0, 0], (n, 1)),
+                'opacities_logit': np.zeros(n), 'colors_rgb': np.zeros((n, 3)),
+                'loss_history': [0.1], 'psnr': 20.0, 'ssim': 0.5,
+                'holdout_psnr': 18.0, 'holdout_ssim': 0.4, 'holdout_views': 2}
+
+    monkeypatch.setattr(tg, 'train_densify', fake_train_densify)
+    out = tmp_path / 'model.ply'
+    assert tg.main(['--transforms', str(tmp_path / 'transforms.json'),
+                    '--out', str(out), '--holdout-every', '3',
+                    '--render-views', '1,4']) == 0
+    assert seen['holdout'] == ['1.png', '4.png']
+    assert seen['train'] == ['0.png', '2.png', '3.png', '5.png']
+    assert seen['snapshots'] == ['view00001', 'view00004']
+    assert seen['snapshot_dir'] == str(tmp_path / 'model_renders')
+    metrics = json.loads((tmp_path / 'model.ply.metrics.json').read_text())
+    assert metrics['holdout_psnr'] == 18.0 and metrics['train_views'] == 4
+    with pytest.raises(SystemExit):
+        tg.main(['--transforms', str(tmp_path / 'transforms.json'),
+                 '--out', str(out), '--render-views', '6'])

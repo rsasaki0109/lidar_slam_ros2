@@ -252,6 +252,33 @@ python3 tools/gaussian_splatting/render_path.py \
 実データ first light の結果・品質要因・次レバーは
 [`docs/research/3dgs-koide-first-light.md`](../../docs/research/3dgs-koide-first-light.md)。
 
+### Colab で学習する（GPU が手元に無い場合）
+
+posed images と着色済み地図を 1 つの zip にまとめ、Google Drive 経由で
+[`colab_train_3dgs.ipynb`](colab_train_3dgs.ipynb) に渡す。束は PNG を JPEG（既定 q95、
+色差の間引きなし）に変換する。init.ply は既定の灰色（未着色）の点を除き、2 cm voxel に間引き、
+上限 300 万点にする。Stadtgarten 2 の 640 枚は PNG で 1.4 GB ある。
+
+```bash
+python3 tools/gaussian_splatting/pack_colab_bundle.py \
+  --transforms <out>/posed/transforms_refined.json --init-ply colored.ply \
+  --out stadtgarten_bundle.zip --harmonize-exposure
+```
+
+`--harmonize-exposure` は、着色の `--overlap-balance` と同じ LiDAR 由来の view ごとの RGB ゲインを
+各画像に掛けてから JPEG にする。歩行撮影の自動露出は view 間で数十 % 変わる
+（Stadtgarten 2 では 0.67〜1.5 倍で、写真と地図の明るさ比の 95 % がこのゲインで説明できる）。
+`train_gsplat.py` の露出補正は撮影セッション単位なので、揃えないとその揺らぎをガウシアンが覚える。
+
+`train_gsplat.py` の Colab 向けオプション（どれも `--densify` 系の学習を使う）:
+
+- `--holdout-every N`: N 枚に 1 枚を学習から外し、PSNR/SSIM を `<out>.metrics.json` に出す。
+  学習 view の PSNR は新しい視点での品質を表さない。
+- `--render-views 300,304`: 指定フレームを描画し、写真と横に並べた PNG を
+  `--render-dir`（既定 `<out>_renders`）に書く。
+- 正解画像は uint8 のまま CPU に置き、1 step ごとに 1 枚だけ GPU に送る（LiDAR 深度も同じ）。
+  float32 で全枚を GPU に載せると 1600x1200 の 640 枚で 14.7 GB になり、T4 に載らない。
+
 ## 動作確認済み環境
 
 `selftest_gpu.py` は **GPU / CUDA 12.0 / torch 2.10 /
