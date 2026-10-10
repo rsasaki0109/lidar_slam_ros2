@@ -104,6 +104,67 @@ def load_transforms(path: str | Path) -> dict:
     }
 
 
+def holdout_split(count: int, every: int) -> tuple[list[int], list[int]]:
+    """Split ``count`` views into training and held-out index lists.
+
+    Every ``every``-th view, starting in the middle of the first block, is held
+    out, so held-out views sit between training views along the capture.
+    """
+    if every < 2:
+        raise ValueError('holdout spacing must be >= 2')
+    held = [i for i in range(count) if i % every == every // 2]
+    train_ids = [i for i in range(count) if i % every != every // 2]
+    return train_ids, held
+
+
+def subset_dataset(dataset: dict, indices: Sequence[int]) -> dict:
+    """Return ``dataset`` restricted to ``indices`` (per-frame keys only)."""
+    indices = list(indices)
+    if not indices or any(i < 0 or i >= len(dataset['image_paths'])
+                          for i in indices):
+        raise ValueError('subset indices must be valid and nonempty')
+    out = dict(dataset)
+    for key in ('image_paths', 'viewmats', 'groups', 'dynamic_mask_paths'):
+        if dataset.get(key) is not None:
+            out[key] = [dataset[key][i] for i in indices]
+    if dataset.get('timestamps') is not None:
+        out['timestamps'] = np.asarray(dataset['timestamps'])[indices]
+    return out
+
+
+def _rgb_uint8(image: np.ndarray) -> np.ndarray:
+    """Return an 8-bit HxWx3 image (grey is replicated, alpha dropped)."""
+    image = np.asarray(image)
+    if image.dtype != np.uint8:
+        raise ValueError(f'expected 8-bit images, got {image.dtype}')
+    if image.ndim == 2:
+        image = np.stack([image] * 3, axis=-1)
+    return np.ascontiguousarray(image[..., :3])
+
+
+def _host_images(paths):
+    """Load images as one uint8 CPU tensor (C,H,W,3).
+
+    Float32 copies of a few hundred full-resolution frames do not fit on a
+    16 GB GPU (640 x 1600x1200 is 14.7 GB), so frames stay 8-bit on the host
+    and each step moves only the one it needs.
+    """
+    import imageio.v3 as iio
+    import torch
+
+    paths = list(paths)
+    first = _rgb_uint8(iio.imread(paths[0]))
+    # Filled in place: stacking a list would briefly hold every frame twice.
+    out = torch.empty((len(paths),) + first.shape, dtype=torch.uint8)
+    out[0] = torch.from_numpy(first)
+    for i, path in enumerate(paths[1:], start=1):
+        image = _rgb_uint8(iio.imread(path))
+        if image.shape != first.shape:
+            raise ValueError(f'{path}: image size differs from the first frame')
+        out[i] = torch.from_numpy(image)
+    return out
+
+
 def looks_at_poses(radius: float, count: int, *, height: float = 0.0) -> list[np.ndarray]:
     """Generate ``count`` OpenCV camera-to-world poses on a ring looking at origin.
 
@@ -243,16 +304,17 @@ def _photometric_loss(render, gt, ssim_fn, ssim_lambda):
     return loss, mse
 
 
-def _eval_views(render_fn, gts, ssim_fn) -> dict:
-    """Mean PSNR (dB) and SSIM over all views, computed under no_grad."""
+def _eval_views(render_fn, gt_fn, count, ssim_fn) -> dict:
+    """Mean PSNR (dB) and SSIM over ``count`` views, computed under no_grad."""
     import torch
 
     mses, ssims = [], []
     with torch.no_grad():
-        for i in range(gts.shape[0]):
+        for i in range(count):
             r = render_fn(i)
-            mses.append(float(torch.mean((r - gts[i]) ** 2)))
-            ssims.append(float(ssim_fn(r, gts[i])))
+            gt = gt_fn(i)
+            mses.append(float(torch.mean((r - gt) ** 2)))
+            ssims.append(float(ssim_fn(r, gt)))
     mse = sum(mses) / max(len(mses), 1)
     psnr = float('inf') if mse <= 0 else -10.0 * float(np.log10(mse))
     return {'psnr': psnr, 'ssim': sum(ssims) / max(len(ssims), 1), 'mse': mse}
@@ -273,20 +335,16 @@ def train(dataset: dict, *, init_points: Optional[np.ndarray] = None,
     """
     import torch
     import torch.nn.functional as F
-    import imageio.v3 as iio
     from gsplat import rasterization
 
     dev = torch.device(device)
     K = torch.tensor(dataset['K'], dtype=torch.float32, device=dev)[None]
     W, H = dataset['width'], dataset['height']
     viewmats = torch.tensor(np.stack(dataset['viewmats']), dtype=torch.float32, device=dev)
-    gts = []
-    for p in dataset['image_paths']:
-        img = np.asarray(iio.imread(p), dtype=np.float32) / 255.0
-        if img.ndim == 2:
-            img = np.stack([img] * 3, axis=-1)
-        gts.append(torch.tensor(img[..., :3], device=dev))
-    gts = torch.stack(gts)  # (C, H, W, 3)
+    gts = _host_images(dataset['image_paths'])  # (C, H, W, 3) uint8 on host
+
+    def gt(i):
+        return gts[i].to(dev).float() / 255.0
 
     # Seed Gaussians via the shared initialiser (same logic as train_densify),
     # so the fixed-count and densify paths can never drift apart.
@@ -318,7 +376,7 @@ def train(dataset: dict, *, init_points: Optional[np.ndarray] = None,
     loss_history: list[float] = []
     for it in range(iters):
         idx = it % viewmats.shape[0]
-        loss, mse = _photometric_loss(render_view(idx), gts[idx], ssim_fn, ssim_lambda)
+        loss, mse = _photometric_loss(render_view(idx), gt(idx), ssim_fn, ssim_lambda)
         opt.zero_grad()
         loss.backward()
         opt.step()
@@ -330,7 +388,7 @@ def train(dataset: dict, *, init_points: Optional[np.ndarray] = None,
             if log_every:
                 print(f'iter {it:5d}  mse {loss_history[-1]:.6f}', flush=True)
 
-    metrics = _eval_views(render_view, gts, ssim_fn)
+    metrics = _eval_views(render_view, gt, len(gts), ssim_fn)
     return {
         'means': means.detach().cpu().numpy(),
         'scales_log': scales.detach().cpu().numpy(),
@@ -446,7 +504,10 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
                   sh_degree: Optional[int] = None,
                   antialiased: bool = False, mcmc: bool = False,
                   mcmc_cap: int = 500000,
-                  lidar_depth_lambda: float = 0.0) -> dict:
+                  lidar_depth_lambda: float = 0.0,
+                  holdout: Optional[dict] = None,
+                  snapshots: Sequence[dict] = (),
+                  snapshot_dir: Optional[str | Path] = None) -> dict:
     """Train with gsplat DefaultStrategy adaptive density control (densify/prune).
 
     Same I/O contract as ``train`` but the Gaussian count grows/shrinks via the
@@ -479,6 +540,11 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
     is mutually exclusive with the pose-optimisation levers (the GT depth is
     projected at fixed poses, and trusting vs distrusting the poses is
     contradictory).
+
+    ``holdout`` is a dataset of views kept out of training (same camera);
+    their PSNR/SSIM are returned as ``holdout_psnr``/``holdout_ssim``.
+    ``snapshots`` lists ``{'name', 'viewmat', 'image_path', 'group'}`` views
+    written to ``snapshot_dir`` as render-beside-photo PNGs after training.
     """
     if lidar_depth_lambda > 0.0:
         if init_points is None or len(init_points) == 0:
@@ -532,13 +598,10 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
     K = torch.tensor(dataset['K'], dtype=torch.float32, device=dev)[None]
     W, H = dataset['width'], dataset['height']
     viewmats = torch.tensor(np.stack(dataset['viewmats']), dtype=torch.float32, device=dev)
-    gts = []
-    for p in dataset['image_paths']:
-        img = np.asarray(iio.imread(p), dtype=np.float32) / 255.0
-        if img.ndim == 2:
-            img = np.stack([img] * 3, axis=-1)
-        gts.append(torch.tensor(img[..., :3], device=dev))
-    gts = torch.stack(gts)
+    gts = _host_images(dataset['image_paths'])  # uint8 on host
+
+    def gt(i):
+        return gts[i].to(dev).float() / 255.0
 
     # LiDAR depth supervision: project the init cloud into every view as a
     # sparse GT depth map (flattened pixel index + metric z), kept on-device for
@@ -550,8 +613,9 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
         maps = _pcio.project_depth_maps(
             np.asarray(init_points, dtype=np.float64),
             dataset['viewmats'], dataset['K'], W, H)
-        depth_gt = [(torch.tensor(pix, dtype=torch.long, device=dev),
-                     torch.tensor(d, dtype=torch.float32, device=dev))
+        # Kept on the host like the images; one view moves per step.
+        depth_gt = [(torch.tensor(pix, dtype=torch.long),
+                     torch.tensor(d, dtype=torch.float32))
                     for pix, d in maps]
         n_sup = sum(int(p.numel()) for p, _ in depth_gt)
         if n_sup == 0:
@@ -652,10 +716,11 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
         if optimize_exposure:
             e = expo[groups[idx]]
             render = render * (1.0 + e[:3]) + e[3:]
-        loss, mse = _photometric_loss(render, gts[idx], ssim_fn, ssim_lambda)
+        loss, mse = _photometric_loss(render, gt(idx), ssim_fn, ssim_lambda)
         if depth_gt is not None:
             pix, dgt = depth_gt[idx]
             if pix.numel() > 0:
+                pix, dgt = pix.to(dev), dgt.to(dev)
                 # Pull the rendered expected depth toward the LiDAR depth at the
                 # sparse projected pixels (metric L1).
                 dr = depth.reshape(-1)[pix]
@@ -714,7 +779,49 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
             out = out * (1.0 + e[:3]) + e[3:]
         return out
 
-    metrics = _eval_views(_eval_render, gts, ssim_fn)
+    metrics = _eval_views(_eval_render, gt, len(gts), ssim_fn)
+
+    def _corrected(vm, group):
+        vm = torch.as_tensor(np.asarray(vm), dtype=torch.float32, device=dev)
+        if optimize_pose_groups:
+            vm = vm @ _se3_exp_torch(taus_g[group].detach())
+        if optimize_extrinsic:
+            vm = _se3_exp_torch(tau.detach()) @ vm
+        return vm[None]
+
+    def _render_other(vm, group):
+        out = render_view(0, _corrected(vm, group))[0]
+        if optimize_exposure:
+            e = expo[group].detach()
+            out = out * (1.0 + e[:3]) + e[3:]
+        return out.clamp(0.0, 1.0)
+
+    holdout_metrics = None
+    if holdout is not None:
+        held_gts = _host_images(holdout['image_paths'])
+        held_groups = list(holdout.get('groups') or [0] * len(held_gts))
+        held_groups = [g if g < n_groups else 0 for g in held_groups]
+        holdout_metrics = _eval_views(
+            lambda i: _render_other(holdout['viewmats'][i], held_groups[i]),
+            lambda i: held_gts[i].to(dev).float() / 255.0,
+            len(held_gts), ssim_fn)
+        print(f'held-out views {len(held_gts)}: '
+              f'PSNR {holdout_metrics["psnr"]:.2f} dB  '
+              f'SSIM {holdout_metrics["ssim"]:.4f}', flush=True)
+    if snapshots:
+        out_dir = Path(snapshot_dir if snapshot_dir is not None else '.')
+        out_dir.mkdir(parents=True, exist_ok=True)
+        with torch.no_grad():
+            for snap in snapshots:
+                group = snap.get('group', 0)
+                group = group if group < n_groups else 0
+                render = _render_other(snap['viewmat'], group)
+                render = (render.cpu().numpy() * 255.0 + 0.5).astype(np.uint8)
+                photo = _rgb_uint8(iio.imread(snap['image_path']))
+                iio.imwrite(out_dir / f'{snap["name"]}_render.png', render)
+                iio.imwrite(out_dir / f'{snap["name"]}_compare.png',
+                            np.concatenate([render, photo], axis=1))
+        print(f'wrote {len(snapshots)} snapshot views -> {out_dir}', flush=True)
     depth_mae = None
     if depth_gt is not None:
         # Median absolute error (m) between rendered and LiDAR depth at the
@@ -725,6 +832,7 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
                 pix, dgt = depth_gt[i]
                 if pix.numel() == 0:
                     continue
+                pix, dgt = pix.to(dev), dgt.to(dev)
                 vm = None if eval_vm is None else eval_vm[i:i + 1]
                 dr = render_view(i, vm, with_depth=True)[1].reshape(-1)[pix]
                 errs.append(torch.abs(dr - dgt))
@@ -751,6 +859,10 @@ def train_densify(dataset: dict, *, init_points=None, init_colors=None,
         'psnr': metrics['psnr'], 'ssim': metrics['ssim'],
         'depth_mae': depth_mae,
     }
+    if holdout_metrics is not None:
+        out['holdout_psnr'] = holdout_metrics['psnr']
+        out['holdout_ssim'] = holdout_metrics['ssim']
+        out['holdout_views'] = len(holdout['image_paths'])
     if optimize_extrinsic:
         # viewmat_refined = M @ viewmat with M = exp(tau); equivalently the
         # camera<-body correction is delta = inv(M), so body<-cam gains inv(M).
@@ -816,6 +928,15 @@ def build_parser() -> argparse.ArgumentParser:
                    help='co-optimise per-"bag"-group affine colour gain/bias '
                         '(auto-exposure/WB compensation for multi-session '
                         'merges; group 0 is the reference, implies --densify)')
+    p.add_argument('--holdout-every', type=int, default=0,
+                   help='keep every Nth view out of training and report its '
+                        'PSNR/SSIM (implies --densify; 0 trains on all views)')
+    p.add_argument('--render-views', default='',
+                   help='comma-separated transforms frame indices to render '
+                        'beside their photos after training (implies --densify)')
+    p.add_argument('--render-dir', default=None,
+                   help='directory for --render-views PNGs '
+                        '(default: <out> without .ply plus _renders)')
     p.add_argument('--extrinsic', default=None,
                    help='base body<-camera extrinsic YAML to compose the '
                         'recovered correction onto (for --optimize-extrinsic)')
@@ -827,6 +948,25 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     args = build_parser().parse_args(argv)
     dataset = load_transforms(args.transforms)
     print(f'loaded {len(dataset["image_paths"])} views @ {dataset["width"]}x{dataset["height"]}')
+    full = dataset
+    holdout = None
+    if args.holdout_every:
+        if args.optimize_pose_groups:
+            raise SystemExit('--holdout-every cannot be combined with '
+                             '--optimize-pose-groups (it rewrites all frames)')
+        train_ids, held_ids = holdout_split(len(full['image_paths']),
+                                            args.holdout_every)
+        dataset = subset_dataset(full, train_ids)
+        holdout = subset_dataset(full, held_ids)
+        print(f'training on {len(train_ids)} views, holding out {len(held_ids)}')
+    render_ids = [int(x) for x in args.render_views.split(',') if x.strip()]
+    if any(i < 0 or i >= len(full['image_paths']) for i in render_ids):
+        raise SystemExit('--render-views indices must be valid frame indices')
+    groups = list(full.get('groups') or [0] * len(full['image_paths']))
+    snapshots = [{'name': f'view{i:05d}', 'viewmat': full['viewmats'][i],
+                  'image_path': full['image_paths'][i], 'group': groups[i]}
+                 for i in render_ids]
+    render_dir = args.render_dir or str(Path(args.out).with_suffix('')) + '_renders'
     init_points = None
     init_colors = None
     if args.init_ply:
@@ -836,7 +976,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print(f'LiDAR-primed init: {len(init_points)} points from {args.init_ply}')
     if (args.densify or args.optimize_extrinsic or args.optimize_pose_groups
             or args.optimize_exposure or args.sh_degree is not None
-            or args.antialiased or args.mcmc or args.lidar_depth_lambda > 0.0):
+            or args.antialiased or args.mcmc or args.lidar_depth_lambda > 0.0
+            or holdout is not None or snapshots):
         params = train_densify(
             dataset, init_points=init_points, init_colors=init_colors,
             num_init=args.num_init, iters=args.iters, lr=args.lr,
@@ -846,7 +987,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             ssim_lambda=args.ssim_lambda, knn_scale=args.knn_scale_init,
             sh_degree=args.sh_degree, antialiased=args.antialiased,
             mcmc=args.mcmc, mcmc_cap=args.mcmc_cap,
-            lidar_depth_lambda=args.lidar_depth_lambda)
+            lidar_depth_lambda=args.lidar_depth_lambda,
+            holdout=holdout, snapshots=snapshots, snapshot_dir=render_dir)
     else:
         params = train(dataset, init_points=init_points, init_colors=init_colors,
                        num_init=args.num_init, iters=args.iters,
@@ -860,6 +1002,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
           f'SSIM {params.get("ssim", float("nan")):.4f}'
           + (f'  depthMAE {dmae:.4f} m' if dmae is not None else '')
           + f' -> {out}')
+    metrics = {key: params[key] for key in (
+        'psnr', 'ssim', 'depth_mae', 'holdout_psnr', 'holdout_ssim',
+        'holdout_views') if params.get(key) is not None}
+    metrics['train_views'] = len(dataset['image_paths'])
+    Path(str(out) + '.metrics.json').write_text(json.dumps(metrics, indent=2) + '\n')
     if 'extrinsic_delta' in params:
         import yaml
         from lidarslam_benchmark_tools.gaussian_splatting.extract_posed_images import parse_extrinsic_dict
