@@ -330,3 +330,23 @@ Stadtgarten 2（手順 4 の設定 + `--sky-rejection`、R = 2 m）では 241,88
 正解画素が空の点の誤差は増える（median 92 → 137）が、上と同じ理由でこの指標の盲点。
 同一視点グリッドでは生垣と樹冠の白斑が消える。水平線から 2° 以内でしか見えない遠景の
 樹冠には、空らしいと判定されないサンプルが混じるため白が残る。
+
+### 撮影者が通った空間の残像を消す（`carve_swept_corridor.py`）
+
+撮影経路の上に立っていて、カメラが来る前に立ち去った人（同行者など）は、前向きの LiDAR が
+振り返らないので空間が空いたという証拠が残らず、動的除去（fusion）で消えずに残像になる。
+撮影者はその後その空間を体ごと通り抜けているので、そこに静止物は無い。
+`carve_swept_corridor.py` は、カメラ経路から水平 `--radius`（既定 0.5 m）以内、高さがカメラの
+`--below`（既定 0.8 m）下から `--above`（既定 0.4 m）上までの点を地図から除く。上方向は posed
+images のカメラ上向きの平均。地面を残すため `--below` はカメラの地上高より小さくする。
+`--report` の高さヒストグラムで地面の帯（Stadtgarten 2 ではカメラの 1.0–1.5 m 下）を確かめる。
+
+```bash
+python3 tools/colored_map/carve_swept_corridor.py --input geometry.ply \
+  --transforms <out>/posed/transforms_refined.json --out geometry_carved.ply \
+  --report carve.json
+```
+
+Stadtgarten 2 では 11,513 点（0.14 %）を除き、GIF 冒頭の経路上の白い人影が消えた。除いた点は
+人影のあった区間（view 133–145 付近）に集中している。人影の陰で LiDAR が地面を測れなかった
+場所は、小さな穴として残る。
