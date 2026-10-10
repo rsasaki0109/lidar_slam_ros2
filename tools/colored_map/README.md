@@ -258,13 +258,14 @@ python3 tools/colored_map/build_lidar_init.py --bag <bag> --traj <tum> \
   --points-topic /livox/points --start-time 20 --end-time 180 --voxel 0.015 \
   --min-range 1.5 --max-range 60 --max-points 12000000 --min-neighbors 2 \
   --sparse-voxel 0.1 --dynamic-map-cleaner fusion --out geometry.ply
-# 4) 姿勢補正と着色（K4 の着色設定）
+# 4) 姿勢補正と着色（K4 の着色設定 + 空の色の混入除去）
 python3 tools/colored_map/refine_camera_poses.py --transforms <out>/posed/transforms.json \
   --pointcloud geometry.ply --out <out>/posed/transforms_refined.json --workers 4
 python3 tools/colored_map/recolor_pointcloud.py --input geometry.ply \
   --transforms <out>/posed/transforms_refined.json --out colored.ply \
   --exposure-scale-limit 1.5 --max-samples 12 --min-samples 3 --image-margin 120 \
-  --vignette-gain-limit 2.5 --overlap-balance --view-confidence --normal-voxel 0.12
+  --vignette-gain-limit 2.5 --overlap-balance --view-confidence --normal-voxel 0.12 \
+  --sky-rejection
 # 5) 描画（CPU、surface splat）と README アセット
 python3 tools/colored_map/render_map_flythrough.py --pointcloud colored.ply \
   --transforms <out>/posed/transforms_refined.json --color-mode rgb --frames 240 \
@@ -275,7 +276,8 @@ ffmpeg -i master.mp4 -vf "fps=15,scale=600:-2:flags=lanczos" -loop 0 \
   -c:v libwebp -quality 78 map_flythrough_stadtgarten.webp   # + crf26 mp4 / palette gif
 ```
 
-既知の残差: 開始直後に立ち止まっていた人物は動的除去で消えず、白い点として残る。
+既知の残差: 開始直後に立ち止まっていた人物は動的除去で消えず、点として残る
+（`--sky-rejection` で白さは減った）。どの view でも空を背にしか写らない枝は白いまま。
 カメラは前向き 1 台なので、経路から外れた範囲は色が付かない。
 
 ## 空の色の混入除去（`--sky-rejection`、既定オフ）
