@@ -1,0 +1,63 @@
+# LiDAR + IMU preset for tunnels and open ground with an Ouster LiDAR (no radar).
+#
+# Symptom: in a long tunnel the point-to-point ICP slides along the axis, and on
+# open, flat ground (grass, runways) it cannot fix the in-plane pose.
+#
+# What it turns on (all rko_lio options, default off):
+#   - photometric: patch residuals on the LiDAR intensity image (after COIN-LIO);
+#     needs an organized Ouster cloud and its beam model below;
+#   - bump_image_registration: BIEVR-LIO's voxel-wise height images replace the
+#     point-to-point residual, so centimetre relief constrains the pose;
+#   - velocity_window_sec: the velocity comes from the pose 0.3 s back, so one
+#     wrong correction does not run the velocity away;
+#   - skip_registration_after_gap_sec: the scan after a LiDAR gap takes the IMU
+#     prediction.
+#
+# Validated as ENWIDE v8 (configs/enwide/rko_lio_os0_open_ground_v8.yaml):
+#   all ten ENWIDE sequences (tunnels, Katzensee, fields, intersections, runways),
+#   no failure, median ATE 0.29 m against COIN-LIO 0.69, BIEVR-LIO 0.32 (three
+#   divergences), FAST-LIO2 16.0 and Point-LIO 32.0 m;
+#   see docs/research/enwide-photometric-registration-2026-10.md.
+# Limits: on GEODE's Hard sequences every method, this one included, fails almost
+#   everywhere. In circular shield tunnels the bump images slip around the
+#   unobservable roll; see docs/research/geode-hard-evaluation-2026-10.md.
+#
+# TODO-USER: set photometric_model.* from your Ouster metadata (beam_altitude_angles,
+#   pixel_shift_by_row, columns_per_frame, lidar_origin_to_beam_origin_mm, and the
+#   lidar_to_sensor_transform z for a cloud in os_sensor). Complete examples:
+#   configs/enwide/rko_lio_os0_open_ground_v8.yaml (OS0-128) and
+#   configs/geode/rko_lio_beta_v8.yaml (OS1-64).
+# TODO-USER: photometric_image.masks hides parts of your rig in the image
+#   (x, y, width, height per mask); [0, 0, 0, 0] masks nothing.
+#
+# Layer this after the sensor config.
+/**:
+  ros__parameters:
+    photometric: true
+    photometric_scale: 0.003
+    photometric_channel: intensity
+    photometric_features.grad_min: 16.5
+    photometric_features.margin: 10
+    photometric_features.max_lifetime: 25
+    photometric_features.ncc_threshold: 0.7075
+    photometric_features.num_features: 60
+    photometric_features.patch_size: 5
+    photometric_features.range_threshold_m: 0.2
+    photometric_features.suppression_radius: 10
+    photometric_image.blur: true
+    photometric_image.brightness_filter: true
+    photometric_image.brightness_window_cols: 41
+    photometric_image.brightness_window_rows: 7
+    photometric_image.erosion_margin: 2
+    photometric_image.intensity_scale: 0.25
+    photometric_image.line_highpass: [-0.00122687, -0.00152587, 0.0009631, 0.00382838, 0.00071422, -0.00765637, -0.00681285, 0.01015542, 0.01944999, -0.00536835, -0.03792929, -0.01565801, 0.05816374, 0.07138264, -0.07402277, -0.30572514, 0.5802669, -0.30572514, -0.07402277, 0.07138264, 0.05816374, -0.01565801, -0.03792929, -0.00536835, 0.01944999, 0.01015542, -0.00681285, -0.00765637, 0.00071422, 0.00382838, 0.0009631, -0.00152587, -0.00122687]
+    photometric_image.line_lowpass: [-0.0013038, -0.00117813, -0.00102349, -0.00051396, 0.000759, 0.00322145, 0.00724004, 0.01304552, 0.02066957, 0.02990645, 0.04030759, 0.0512121, 0.06181081, 0.07123596, 0.07866427, 0.08341891, 0.08505541, 0.08341891, 0.07866427, 0.07123596, 0.06181081, 0.0512121, 0.04030759, 0.02990645, 0.02066957, 0.01304552, 0.00724004, 0.00322145, 0.000759, -0.00051396, -0.00102349, -0.00117813, -0.0013038]
+    photometric_image.line_removal: true
+    photometric_image.max_range_m: 30.0
+    photometric_image.min_range_m: 0.7
+
+    photometric_image.masks: [0, 0, 0, 0]  # TODO-USER
+
+    bump_image_registration: true
+    velocity_window_sec: 0.3
+    skip_registration_after_gap_sec: 0.15

@@ -225,6 +225,31 @@ The reproducible candidate is fixed Voxel-SLAM revision
 `62f6e1c5d055106b08b4037267f6b6ac7d8b1c06757719b763b7107c47795b25`).
 The frozen run configuration used replay rate `1.2` and CPU set `2-7`.
 
+## Degenerate LiDAR-IMU odometry on ENWIDE
+
+On all ten ENWIDE sequences (handheld Ouster OS0-128: tunnels, lake shore, fields,
+intersections and runways), RKO-LIO with the
+[`photometric_bump_no_radar`](degeneracy-guide.md) configuration (ENWIDE v8) had no
+failure and the lowest median ATE among the five methods reproduced on the same bags:
+
+| System | Median ATE | Sequences over 20 % 10 m RTE |
+| --- | ---: | ---: |
+| **RKO-LIO v8 (this repository)** | **0.29 m** | **0** |
+| BIEVR-LIO | 0.32 m | 3 |
+| COIN-LIO | 0.69 m | 0 |
+| FAST-LIO2 | 16.0 m | 6 |
+| Point-LIO | 32.0 m | 6 |
+
+- The official `degenerate_lio_sota_v3` profile run gave three identical repetitions per
+  sequence and was faster than real time.
+- Three of the ten sequences were used to develop the configuration.
+- On GEODE's Hard sequences every method, this one included, fails almost everywhere.
+  So this is a scoped result, not a general best-system claim.
+
+Per-sequence tables, revisions and reproduction are in the
+[ENWIDE](research/enwide-photometric-registration-2026-10.md) and
+[GEODE](research/geode-hard-evaluation-2026-10.md) research notes.
+
 ## Current Default Position
 
 The current tagged-release position is:

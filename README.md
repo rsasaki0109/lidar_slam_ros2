@@ -96,9 +96,9 @@ artifacts you need downstream:
   ([accuracy](#accuracy)).
 - **Loop closure, GPL-free** — opt-in built-in Scan Context, BEV / SOLiD /
   STD/BTC-style Triangle descriptors, and 3D-BBS verification.
-- **Tunnel / fog degeneracy presets** — opt-in radar fusion and gravity
-  alignment map a ~500 m self-similar tunnel end-to-end
-  ([result](#tunnel-and-fog-mapping-without-degeneracy-collapse), [guide](docs/degeneracy-guide.md)).
+- **Tunnel / fog degeneracy presets** — radar fusion maps a ~500 m tunnel; without radar,
+  an Ouster preset holds all ten ENWIDE tunnel, field and runway sequences
+  ([radar](#tunnel-and-fog-mapping-without-degeneracy-collapse), [ENWIDE](docs/comparison.md#degenerate-lidar-imu-odometry-on-enwide), [guide](docs/degeneracy-guide.md)).
 - **Deterministic offline mapping** — backend and frontend offline runners produce
   byte-identical trajectories, loop edges, and submaps under the release gate.
 - **Globally refined, quality-gated maps** — clean-room plane bundle adjustment
