@@ -265,7 +265,7 @@ python3 tools/colored_map/recolor_pointcloud.py --input geometry.ply \
   --transforms <out>/posed/transforms_refined.json --out colored.ply \
   --exposure-scale-limit 1.5 --max-samples 12 --min-samples 3 --image-margin 120 \
   --vignette-gain-limit 2.5 --overlap-balance --view-confidence --normal-voxel 0.12 \
-  --sky-rejection
+  --sky-rejection --sky-fill-radius-m 2
 # 5) 描画（CPU、surface splat）と README アセット
 python3 tools/colored_map/render_map_flythrough.py --pointcloud colored.ply \
   --transforms <out>/posed/transforms_refined.json --color-mode rgb --frames 240 \
@@ -277,7 +277,7 @@ ffmpeg -i master.mp4 -vf "fps=15,scale=600:-2:flags=lanczos" -loop 0 \
 ```
 
 既知の残差: 開始直後に立ち止まっていた人物は動的除去で消えず、点として残る
-（`--sky-rejection` で白さは減った）。どの view でも空を背にしか写らない枝は白いまま。
+（`--sky-rejection` で白さは減った）。水平線から 2° 以内でしか見えない遠景の樹冠は白が残る。
 カメラは前向き 1 台なので、経路から外れた範囲は色が付かない。
 
 ## 空の色の混入除去（`--sky-rejection`、既定オフ）
