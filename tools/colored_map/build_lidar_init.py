@@ -369,6 +369,10 @@ def add_color_fusion_arguments(parser, *, prefix='color-') -> None:
     add_argument('sky-min-elevation-deg', type=float, default=2.0,
                  help='viewing-ray elevation above the camera horizon from '
                       'which a sample may count as sky')
+    add_argument('sky-fill-radius-m', type=float, default=0.0,
+                 help='with sky rejection, recolour non-planar points seen '
+                      'only against the sky from neighbours within this '
+                      'radius (m; 0 disables)')
 
 
 def color_fusion_options(args, *, robust=None, prefix='color_') -> dict:
@@ -381,7 +385,7 @@ def color_fusion_options(args, *, robust=None, prefix='color_') -> dict:
         'depth_edge_margin_px', 'depth_edge_tolerance',
         'depth_edge_relative_tolerance', 'dynamic_exclusion',
         'dynamic_mask_margin_px', 'calibration_sigma_multiplier',
-        'sky_rejection', 'sky_min_elevation_deg',
+        'sky_rejection', 'sky_min_elevation_deg', 'sky_fill_radius_m',
     )
     options = {name: getattr(args, prefix + name) for name in names}
     options.update(
@@ -416,6 +420,7 @@ def _colorize(world: np.ndarray, transforms_path: str, *, robust: bool = False,
               maximum_uncertainty_margin_px: int = 8,
               sky_rejection: bool = False,
               sky_min_elevation_deg: float = 2.0,
+              sky_fill_radius_m: float = 0.0,
               return_diagnostics: bool = False,
               frame_indices: Optional[Sequence[int]] = None,
               loaded_images: Optional[Sequence[np.ndarray]] = None):
@@ -486,6 +491,7 @@ def _colorize(world: np.ndarray, transforms_path: str, *, robust: bool = False,
         sky_up=(pcio.estimate_world_up(ds['viewmats']) if sky_rejection
                 else None),
         sky_min_elevation_deg=sky_min_elevation_deg,
+        sky_fill_radius_m=sky_fill_radius_m if sky_rejection else 0.0,
         return_counts=True, return_diagnostics=return_diagnostics)
     if return_diagnostics:
         rgb, seen, counts, diagnostics = result

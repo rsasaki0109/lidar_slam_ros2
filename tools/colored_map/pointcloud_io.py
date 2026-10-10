@@ -769,6 +769,8 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
                                   distortion_model: str = 'plumb_bob',
                                   sky_up: Optional[np.ndarray] = None,
                                   sky_min_elevation_deg: float = 2.0,
+                                  sky_fill_radius_m: float = 0.0,
+                                  sky_fill_planar_voxel_m: float = 0.3,
                                   return_counts: bool = False,
                                   return_diagnostics: bool = False):
     """Occlusion-aware, exposure-normalised, median-robust point colorization.
@@ -833,6 +835,13 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
     only its other samples when it has any, so a genuinely white facade seen
     against nothing else stays white. It changes colours only: which points
     are seen, and the returned counts, still include the sky-like samples.
+
+    ``sky_fill_radius_m > 0`` (with ``sky_up``) also recolours points whose
+    samples were all sky-like, such as bare branches that every camera saw
+    only against the sky: unless their ``sky_fill_planar_voxel_m`` voxel is
+    planar (a facade), they take the median colour of their eight nearest
+    points within that radius that were coloured from other samples
+    (:func:`fill_colors_from_neighbours`).
     """
     if distortion is not None and (
             overlap_color_balance or calibration_sigma_multiplier > 0.0
@@ -861,7 +870,7 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
         'projected': 0, 'rejected_zbuffer': 0,
         'rejected_occlusion': 0, 'rejected_occlusion_margin': 0,
         'rejected_depth_edge': 0, 'rejected_dynamic_mask': 0,
-        'accepted_samples': 0, 'rejected_sky': 0,
+        'accepted_samples': 0, 'rejected_sky': 0, 'sky_filled': 0,
     }
     if n == 0 or max_samples <= 0:
         seen = np.zeros(n, dtype=bool)
@@ -897,6 +906,10 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
         raise ValueError('geometry-aware fusion requires a one-pixel z-buffer')
     if calibration_sigma_multiplier > 0.0 and view_timestamps is None:
         raise ValueError('calibration uncertainty requires view timestamps')
+    if sky_fill_radius_m < 0.0 or sky_fill_planar_voxel_m <= 0.0:
+        raise ValueError('sky fill radius must be >= 0 and voxel > 0')
+    if sky_fill_radius_m > 0.0 and sky_up is None:
+        raise ValueError('sky fill requires sky_up')
     if sky_up is not None:
         sky_up = np.asarray(sky_up, dtype=np.float64).reshape(3)
         if not np.linalg.norm(sky_up) > 0.0:
@@ -1117,6 +1130,7 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
                     sky_flags[fb, sb] = sky[~room][better]
 
     fused = counts
+    clear = None
     if sky_flags is not None:
         filled = np.arange(capacity)[None, :] < counts[:, None]
         sky_flags &= filled
@@ -1138,8 +1152,84 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
     for c in np.unique(fused[seen_idx]):
         group = seen_idx[fused[seen_idx] == c]
         rgb[group] = observed_color_medoids(samples[group, :int(c), :])
+    if clear is not None and sky_fill_radius_m > 0.0:
+        sky_only = seen & (clear == 0)
+        if sky_only.any():
+            donors = seen & ~sky_only & ~sky_like_colors(rgb)
+            targets = sky_only & ~voxel_planar_mask(
+                points, sky_fill_planar_voxel_m)
+            rgb, filled = fill_colors_from_neighbours(
+                points, rgb, targets, donors, sky_fill_radius_m)
+            diagnostics['sky_filled'] = int(filled)
     result = (rgb, seen, counts) if return_counts else (rgb, seen)
     return result + (diagnostics,) if return_diagnostics else result
+
+
+def voxel_planar_mask(points: np.ndarray, voxel: float, *,
+                      min_points: int = 10,
+                      max_ratio: float = 0.02) -> np.ndarray:
+    """Flag points whose ``voxel`` cell is a populated, flat PCA patch.
+
+    A cell is planar when its smallest covariance eigenvalue is below
+    ``max_ratio`` of the eigenvalue sum. Sparse cells are never planar.
+    """
+    xyz = np.asarray(points, dtype=np.float64)
+    if voxel <= 0.0:
+        raise ValueError('voxel must be > 0')
+    if len(xyz) == 0:
+        return np.zeros(0, dtype=bool)
+    keys = np.ascontiguousarray(np.floor(xyz / voxel).astype(np.int64))
+    _, inverse, count = np.unique(
+        keys.view([('k', keys.dtype, 3)]).ravel(), return_inverse=True,
+        return_counts=True)
+    inverse = inverse.ravel()
+    centred = xyz - xyz.mean(axis=0)
+    first = np.zeros((len(count), 3))
+    second = np.zeros((len(count), 3, 3))
+    np.add.at(first, inverse, centred)
+    np.add.at(second, inverse, centred[:, :, None] * centred[:, None, :])
+    mean = first / count[:, None]
+    cov = second / count[:, None, None] - mean[:, :, None] * mean[:, None, :]
+    eigenvalues = np.linalg.eigvalsh(cov)
+    flat = ((count >= min_points) &
+            (eigenvalues[:, 0] < max_ratio * np.maximum(
+                eigenvalues.sum(axis=1), 1.0e-12)))
+    return flat[inverse]
+
+
+def fill_colors_from_neighbours(points: np.ndarray, rgb: np.ndarray,
+                                targets: np.ndarray, donors: np.ndarray,
+                                radius: float, *, neighbours: int = 8):
+    """Give ``targets`` the median RGB of their nearest ``donors``.
+
+    Up to ``neighbours`` donors within ``radius`` count; a target without one
+    keeps its colour. Returns ``(rgb, filled_count)`` with ``rgb`` a copy.
+    """
+    from scipy.spatial import cKDTree
+
+    xyz = np.asarray(points, dtype=np.float64)
+    out = np.array(rgb, dtype=np.uint8, copy=True)
+    target_ids = np.flatnonzero(targets)
+    donor_ids = np.flatnonzero(donors)
+    if target_ids.size == 0 or donor_ids.size == 0:
+        return out, 0
+    k = min(int(neighbours), donor_ids.size)
+    distance, index = cKDTree(xyz[donor_ids]).query(
+        xyz[target_ids], k=k, distance_upper_bound=float(radius))
+    distance = distance.reshape(len(target_ids), k)
+    index = index.reshape(len(target_ids), k)
+    found = np.isfinite(distance)
+    has = found[:, 0]
+    if not has.any():
+        return out, 0
+    colours = np.where(
+        found[has][..., None],
+        out[donor_ids[np.minimum(index[has], donor_ids.size - 1)]].astype(
+            np.float32),
+        np.nan)
+    out[target_ids[has]] = np.round(np.nanmedian(colours, axis=1)).astype(
+        np.uint8)
+    return out, int(has.sum())
 
 
 def sky_like_colors(rgb: np.ndarray, *, min_value: float = 0.70,
