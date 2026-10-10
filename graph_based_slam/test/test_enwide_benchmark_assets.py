@@ -431,6 +431,16 @@ def test_geode_v9_configs_add_only_the_rotation_fallback_to_v8():
         assert v9 == v8
 
 
+def test_geode_v10_configs_add_only_the_persistence_to_v9():
+    geode = ROOT / 'configs' / 'geode'
+    for device in ('alpha', 'beta', 'gamma'):
+        v9 = yaml.safe_load((geode / f'rko_lio_{device}_v9.yaml').read_text())
+        v10 = yaml.safe_load((geode / f'rko_lio_{device}_v10.yaml').read_text())
+        assert v10.pop('bump_image_rotation_fallback_window') == 10
+        assert v10.pop('bump_image_rotation_fallback_min_count') == 3
+        assert v10 == v9
+
+
 def test_photometric_bump_preset_matches_enwide_v8():
     preset = yaml.safe_load(
         (ROOT / 'lidarslam' / 'param' / 'presets'
