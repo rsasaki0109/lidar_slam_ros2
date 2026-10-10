@@ -665,6 +665,7 @@ if(BUILD_TESTING)
     test_gaussian_splatting_posed_images
     test_gaussian_splatting_extract
     test_gaussian_splatting_train
+    test_gaussian_splatting_colab_bundle
     test_gaussian_splatting_pointcloud
     test_lidar_camera_alignment
     test_spatiotemporal_calibration
