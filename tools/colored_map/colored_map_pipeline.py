@@ -354,6 +354,8 @@ def build_commands(args, *, _all_stages=False) -> list[tuple[str, list[str]]]:
                 command.extend([
                     '--color-sky-rejection', '--color-sky-min-elevation-deg',
                     str(args.color_sky_min_elevation_deg),
+                    '--color-sky-fill-radius-m',
+                    str(args.color_sky_fill_radius_m),
                 ])
         return command
 

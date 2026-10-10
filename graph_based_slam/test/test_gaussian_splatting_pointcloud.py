@@ -621,6 +621,59 @@ def test_colorize_robust_sky_rejection_keeps_white_and_low_surfaces():
             sky_up=np.zeros(3))
 
 
+def test_voxel_planar_mask_separates_flat_patches_from_scatter():
+    grid = np.array([[0.02 + 0.06 * i, 0.02 + 0.06 * j, 0.1]
+                     for i in range(4) for j in range(4)])
+    blob = np.random.default_rng(0).uniform(1.0, 1.29, size=(16, 3))
+    sparse = np.array([[3.05, 3.05, 3.05], [3.1, 3.1, 3.05]])
+    mask = pcio.voxel_planar_mask(np.vstack([grid, blob, sparse]), 0.3)
+    assert mask[:16].all() and not mask[16:].any()
+
+
+def test_fill_colors_from_neighbours_uses_median_within_radius():
+    pytest.importorskip('scipy.spatial')
+    pts = np.array([[0.0, 0, 0], [0.1, 0, 0], [0.2, 0, 0], [0.3, 0, 0],
+                    [9.0, 0, 0]])
+    rgb = np.array([[255, 255, 255], [10, 10, 10], [20, 20, 20],
+                    [30, 30, 30], [255, 255, 255]], dtype=np.uint8)
+    targets = np.array([True, False, False, False, True])
+    donors = ~targets
+    out, filled = pcio.fill_colors_from_neighbours(pts, rgb, targets, donors, 1.0)
+    assert filled == 1
+    np.testing.assert_array_equal(out[0], [20, 20, 20])
+    np.testing.assert_array_equal(out[4], [255, 255, 255])
+    np.testing.assert_array_equal(rgb[0], [255, 255, 255])
+
+
+def test_colorize_robust_sky_fill_recolours_branches_not_facades():
+    pytest.importorskip('scipy.spatial')
+    vms1, K, W, H = _cam()
+    img = np.zeros((H, W, 3), dtype=np.uint8)
+    img[:50] = (235, 238, 240)   # sky above the horizon row
+    img[50:] = (40, 90, 30)      # foliage below it
+    images = [img] * 3
+    vms = np.concatenate([vms1] * 3, axis=0)
+    up = np.array([0.0, -1.0, 0.0])
+    branch = [[0.0, -1.0, 5.0]]
+    foliage = [[0.0, 0.5, 5.0]]
+    facade = [[1.53 + 0.03 * i, -1.17 + 0.06 * j, 6.05]
+              for i in range(4) for j in range(4)]
+    pts = np.array(branch + foliage + facade)
+    plain, _ = pcio.colorize_by_projection_robust(
+        pts, vms, K, images, W, H, normalize_exposure=False, sky_up=up)
+    np.testing.assert_array_equal(plain[0], [235, 238, 240])
+    rgb, seen, counts, diagnostics = pcio.colorize_by_projection_robust(
+        pts, vms, K, images, W, H, normalize_exposure=False, sky_up=up,
+        sky_fill_radius_m=2.0, return_counts=True, return_diagnostics=True)
+    np.testing.assert_array_equal(rgb[0], [40, 90, 30])
+    np.testing.assert_array_equal(rgb[2:], np.tile([235, 238, 240], (16, 1)))
+    assert diagnostics['sky_filled'] == 1
+    assert seen.all() and counts[0] == 3
+    with pytest.raises(ValueError):
+        pcio.colorize_by_projection_robust(
+            pts, vms, K, images, W, H, sky_fill_radius_m=2.0)
+
+
 def test_colorize_robust_edge_aware_validates_threshold():
     vms, K, W, H = _cam()
     img = np.zeros((H, W, 3), dtype=np.uint8)
