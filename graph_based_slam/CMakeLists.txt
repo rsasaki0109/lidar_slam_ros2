@@ -674,6 +674,7 @@ if(BUILD_TESTING)
     test_attach_dynamic_image_masks
     test_recolor_pointcloud
     test_carve_swept_corridor
+    test_colored_map_reference
     test_color_import_identity
     test_heldout_point_colors
     test_colored_map_quality_gate
