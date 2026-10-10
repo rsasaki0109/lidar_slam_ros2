@@ -135,7 +135,9 @@ def read_pcd_xyz(path: str | Path) -> tuple[np.ndarray, Optional[np.ndarray]]:
 
     This deliberately covers the uncompressed PCD files emitted by the
     offline graph runner. ``binary_compressed`` remains unsupported because
-    decoding PCL's LZF stream would add a non-numpy dependency.
+    decoding PCL's LZF stream would add a non-numpy dependency. Fields with
+    ``COUNT > 1`` (such as CloudCompare's ``_`` padding) are skipped over;
+    ``x y z`` and the colour fields must be scalars.
     """
     path = Path(path)
     metadata: dict[str, list[str]] = {}
@@ -160,10 +162,15 @@ def read_pcd_xyz(path: str | Path) -> tuple[np.ndarray, Optional[np.ndarray]]:
     points = int(metadata.get('POINTS', metadata.get('WIDTH', ['0']))[0])
     if not fields or not (len(fields) == len(sizes) == len(types) == len(counts)):
         raise ValueError(f'{path}: inconsistent PCD field metadata')
-    if any(count != 1 for count in counts):
-        raise ValueError(f'{path}: PCD COUNT > 1 is not supported')
     if not all(axis in fields for axis in ('x', 'y', 'z')):
         raise ValueError(f'{path}: PCD must contain x y z fields')
+    used = {'x', 'y', 'z', 'rgb', 'red', 'green', 'blue'}
+    if any(count != 1 for name, count in zip(fields, counts) if name in used):
+        raise ValueError(f'{path}: PCD COUNT > 1 is only supported for '
+                         'fields other than x y z and colour')
+    # Padding fields may repeat a name; numpy record fields must be unique.
+    unique_fields = [name if name in used else f'_field{index}'
+                     for index, name in enumerate(fields)]
 
     scalar_types = {
         ('F', 4): '<f4', ('F', 8): '<f8',
@@ -172,8 +179,10 @@ def read_pcd_xyz(path: str | Path) -> tuple[np.ndarray, Optional[np.ndarray]]:
     }
     try:
         dtype = np.dtype([
-            (name, scalar_types[(kind.upper(), size)])
-            for name, size, kind in zip(fields, sizes, types)
+            (name, scalar_types[(kind.upper(), size)], (count,))
+            if count != 1 else (name, scalar_types[(kind.upper(), size)])
+            for name, size, kind, count in zip(unique_fields, sizes, types,
+                                               counts)
         ])
     except KeyError as exc:
         raise ValueError(f'{path}: unsupported PCD scalar type {exc.args[0]}') from exc
@@ -211,7 +220,10 @@ def read_pcd_xyz(path: str | Path) -> tuple[np.ndarray, Optional[np.ndarray]]:
     elif data_kind == 'ascii':
         rows = np.loadtxt(payload.splitlines(), dtype=np.float64, ndmin=2,
                           max_rows=points)
-        indices = {name: index for index, name in enumerate(fields)}
+        # A field with COUNT n occupies n ASCII columns.
+        starts = np.concatenate([[0], np.cumsum(counts)[:-1]])
+        indices = {name: int(start) for name, start in zip(fields, starts)
+                   if name in used}
         xyz = rows[:, [indices['x'], indices['y'], indices['z']]]
         if all(channel in fields for channel in ('red', 'green', 'blue')):
             rgb = rows[:, [indices['red'], indices['green'], indices['blue']]]

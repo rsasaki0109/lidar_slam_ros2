@@ -351,3 +351,46 @@ python3 tools/colored_map/carve_swept_corridor.py --input geometry.ply \
 Stadtgarten 2 では 11,513 点（0.14 %）を除き、GIF 冒頭の経路上の白い人影が消えた。除いた点は
 人影のあった区間（view 133–145 付近）に集中している。人影の陰で LiDAR が地面を測れなかった
 場所は、小さな穴として残る。
+
+## 独立した正解での色評価（Oxford Spires の TLS）
+
+held-out 再投影誤差は、地図を塗った写真と同じ写真で採点するので、姿勢のずれで正解画素も一緒に
+ずれる（空の混入を見逃す）。[Oxford Spires](https://dynamic.robots.ox.ac.uk/datasets/oxford-spires/)
+（CC BY-NC-SA 4.0）は、手持ち機材（魚眼 3 台 + Hesai QT64）の系列と、別カメラで着色された
+地上設置型レーザースキャナ（TLS）の地図を持つので、これを正解にする。
+
+- `scripts/prepare_oxford_spires_colour_eval.py`: 正解軌跡と外部パラメータで、3 台の魚眼を共通
+  ピンホール（既定 f = 530 px）に平行化した posed images、歪み補正済み点群からの地図（`map.ply`）、
+  軌跡周辺の TLS（`reference.ply`）を TLS 座標で書く。`undist-clouds-image-synced` は LiDAR
+  フレーム（TLS との最近傍距離の中央値 0.035 m、base と読むと 0.36 m）。
+- `scripts/evaluate_colored_map_reference.py`: 地図の着色点と TLS 点を 5 cm 以内の最近傍で双方向に
+  対応させ、MPEG 式の色 PSNR（BT.709 Y/Cb/Cr、`PSNR_YUV = (6Y + Cb + Cr) / 8`、悪い方向を
+  `symmetric`）と RGB L2 を出す。TLS は別カメラ・別露出なので、チャンネルごとのアフィン補正後の値
+  （`affine`）で手法を比べる。
+
+```bash
+python3 scripts/prepare_oxford_spires_colour_eval.py --images SEQ/raw/images \
+  --clouds SEQ/processed/lidar-undistortion/undist-clouds-image-synced \
+  --trajectory SEQ/processed/trajectory/gt-tum.txt --calibration DATA/calibration \
+  --reference DATA/ground_truth_map/observatory-quarter/merged-clouds-5cm.pcd \
+  --out roq01_60s --duration 60 --image-stride 20
+python3 tools/colored_map/recolor_pointcloud.py --input roq01_60s/map.ply \
+  --transforms roq01_60s/posed/transforms.json --out colored.ply <着色の設定>
+python3 scripts/evaluate_colored_map_reference.py --pointcloud colored.ply \
+  --reference roq01_60s/reference.ply --out ref.json
+```
+
+Radcliffe Observatory Quarter 01 の最初の 60 秒（3 台 × 60 枚、地図 667 万点、TLS 343 万点）:
+
+| 着色 | PSNR_YUV（affine / raw） | 地図→TLS RGB L2 median / p90（affine） | 未着色点 |
+|---|---:|---:|---:|
+| robust 既定 | 24.04 / 21.78 | 23.8 / 61.9 | 20,175 |
+| K4 設定（README 手順 4） | 24.23 / 22.12 | 23.2 / 60.3 | 109,125 |
+| + `--sky-rejection` | 24.26 / 22.30 | 23.1 / 59.6 | 109,130 |
+| + `--sky-fill-radius-m 2` | 24.26 / 22.35 | 23.1 / 59.5 | 109,136 |
+| + `carve_swept_corridor.py` | 24.26 / 22.35 | 23.1 / 59.5 | 109,127 |
+
+K4 設定と空の色除去は独立した正解でも良くなる。補色と残像除去はこの区間（建物中心で木が少なく、
+立ち止まった人もいない。残像除去は 91 点）ではほぼ効かない。誤差の大半は輝度（affine 後の
+PSNR Y 21.3、Cb 33.2、Cr 40.3）で、アフィン補正のゲインは 0.59–0.65 と、手持ちカメラの方が
+TLS よりかなり明るい。
