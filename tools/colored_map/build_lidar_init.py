@@ -362,6 +362,13 @@ def add_color_fusion_arguments(parser, *, prefix='color-') -> None:
     add_argument('calibration-sigma-multiplier', type=float,
                  default=0.0)
     add_argument('max-uncertainty-margin-px', type=int, default=8)
+    add_argument('sky-rejection', action='store_true',
+                 help='drop bright-unsaturated or blue samples seen above the '
+                      'horizon when the point has other samples (stops sky '
+                      'colour on branches and canopy edges)')
+    add_argument('sky-min-elevation-deg', type=float, default=2.0,
+                 help='viewing-ray elevation above the camera horizon from '
+                      'which a sample may count as sky')
 
 
 def color_fusion_options(args, *, robust=None, prefix='color_') -> dict:
@@ -374,6 +381,7 @@ def color_fusion_options(args, *, robust=None, prefix='color_') -> dict:
         'depth_edge_margin_px', 'depth_edge_tolerance',
         'depth_edge_relative_tolerance', 'dynamic_exclusion',
         'dynamic_mask_margin_px', 'calibration_sigma_multiplier',
+        'sky_rejection', 'sky_min_elevation_deg',
     )
     options = {name: getattr(args, prefix + name) for name in names}
     options.update(
@@ -406,6 +414,8 @@ def _colorize(world: np.ndarray, transforms_path: str, *, robust: bool = False,
               dynamic_mask_margin_px: int = 2,
               calibration_sigma_multiplier: float = 0.0,
               maximum_uncertainty_margin_px: int = 8,
+              sky_rejection: bool = False,
+              sky_min_elevation_deg: float = 2.0,
               return_diagnostics: bool = False,
               frame_indices: Optional[Sequence[int]] = None,
               loaded_images: Optional[Sequence[np.ndarray]] = None):
@@ -473,6 +483,9 @@ def _colorize(world: np.ndarray, transforms_path: str, *, robust: bool = False,
         calibration_sigma_multiplier=(
             calibration_sigma_multiplier if geometry_aware else 0.0),
         maximum_uncertainty_margin_px=maximum_uncertainty_margin_px,
+        sky_up=(pcio.estimate_world_up(ds['viewmats']) if sky_rejection
+                else None),
+        sky_min_elevation_deg=sky_min_elevation_deg,
         return_counts=True, return_diagnostics=return_diagnostics)
     if return_diagnostics:
         rgb, seen, counts, diagnostics = result

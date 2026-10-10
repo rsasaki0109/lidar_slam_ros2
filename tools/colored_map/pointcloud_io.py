@@ -767,6 +767,8 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
                                   maximum_uncertainty_margin_px: int = 12,
                                   distortion=None,
                                   distortion_model: str = 'plumb_bob',
+                                  sky_up: Optional[np.ndarray] = None,
+                                  sky_min_elevation_deg: float = 2.0,
                                   return_counts: bool = False,
                                   return_diagnostics: bool = False):
     """Occlusion-aware, exposure-normalised, median-robust point colorization.
@@ -822,6 +824,15 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
     dynamic image regions. Accepted calibration uncertainty can expand all
     three guards per observation after propagation through range, focal length,
     and camera motion. ``return_diagnostics`` appends rejection counters.
+
+    ``sky_up`` (a world up vector) enables sky-sample rejection. Thin branches
+    and canopy edges often project onto the sky between them, and the median
+    then paints them white or blue. A sample is sky-like when its viewing ray
+    rises more than ``sky_min_elevation_deg`` above the horizon and its pixel
+    is bright and unsaturated or blue (:func:`sky_like_colors`). A point keeps
+    only its other samples when it has any, so a genuinely white facade seen
+    against nothing else stays white. It changes colours only: which points
+    are seen, and the returned counts, still include the sky-like samples.
     """
     if distortion is not None and (
             overlap_color_balance or calibration_sigma_multiplier > 0.0
@@ -850,7 +861,7 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
         'projected': 0, 'rejected_zbuffer': 0,
         'rejected_occlusion': 0, 'rejected_occlusion_margin': 0,
         'rejected_depth_edge': 0, 'rejected_dynamic_mask': 0,
-        'accepted_samples': 0,
+        'accepted_samples': 0, 'rejected_sky': 0,
     }
     if n == 0 or max_samples <= 0:
         seen = np.zeros(n, dtype=bool)
@@ -886,6 +897,12 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
         raise ValueError('geometry-aware fusion requires a one-pixel z-buffer')
     if calibration_sigma_multiplier > 0.0 and view_timestamps is None:
         raise ValueError('calibration uncertainty requires view timestamps')
+    if sky_up is not None:
+        sky_up = np.asarray(sky_up, dtype=np.float64).reshape(3)
+        if not np.linalg.norm(sky_up) > 0.0:
+            raise ValueError('sky_up must be a nonzero 3-vector')
+        sky_up = sky_up / np.linalg.norm(sky_up)
+        sky_min_sine = float(np.sin(np.deg2rad(sky_min_elevation_deg)))
 
     linear_speeds = np.zeros(len(images), dtype=np.float64)
     angular_speeds = np.zeros(len(images), dtype=np.float64)
@@ -899,6 +916,8 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
     # Each image contributes at most one observation per point.
     capacity = min(int(max_samples), len(images))
     samples = np.empty((n, capacity, 3), dtype=np.uint8)
+    sky_flags = (np.zeros((n, capacity), dtype=bool)
+                 if sky_up is not None else None)
     # Only one ranking criterion is used for all observations in this call.
     rank_by_quality = point_normals is not None or min_projected_scale > 0.0
     sample_rank = (np.full(
@@ -1053,6 +1072,12 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
         diagnostics['accepted_samples'] += int(cand.size)
         cols = _sample_pixels(
             img, uf[cand], vf[cand], width, height, interp, edge_threshold)
+        if sky_flags is not None:
+            camera_centre = -vm[:3, :3].T @ vm[:3, 3]
+            ray = points[cand] - camera_centre[None, :]
+            elevation = (ray @ sky_up) / np.maximum(
+                np.linalg.norm(ray, axis=1), 1.0e-9)
+            sky = (elevation > sky_min_sine) & sky_like_colors(cols)
         if vignette_gains is not None:
             radius = np.hypot(uf[cand] - cx, vf[cand] - cy) / vignette_radius
             gain = np.interp(
@@ -1068,6 +1093,8 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
             rc = cand[room]
             slot = counts[rc].astype(np.intp)
             samples[rc, slot, :] = cols[room]
+            if sky_flags is not None:
+                sky_flags[rc, slot] = sky[room]
             if sample_rank is not None:
                 sample_rank[rc, slot] = rank[room]
             counts[rc] += 1
@@ -1086,14 +1113,70 @@ def colorize_by_projection_robust(points: np.ndarray, viewmats: np.ndarray,
                 sb = replace_slot[better]
                 samples[fb, sb, :] = fcols[better]
                 sample_rank[fb, sb] = rank[~room][better]
+                if sky_flags is not None:
+                    sky_flags[fb, sb] = sky[~room][better]
+
+    fused = counts
+    if sky_flags is not None:
+        filled = np.arange(capacity)[None, :] < counts[:, None]
+        sky_flags &= filled
+        clear = counts.astype(np.int64) - sky_flags.sum(axis=1)
+        mixed = np.flatnonzero((clear > 0) & (clear < counts))
+        if mixed.size:
+            # Move the clear samples to the front; the medoid below reads the
+            # first ``fused`` slots only.
+            order = np.argsort(sky_flags[mixed], axis=1, kind='stable')
+            samples[mixed] = np.take_along_axis(
+                samples[mixed], order[:, :, None], axis=1)
+            diagnostics['rejected_sky'] = int(
+                (counts[mixed] - clear[mixed]).sum())
+            fused = counts.copy()
+            fused[mixed] = clear[mixed].astype(np.uint16)
 
     seen = counts > 0
     seen_idx = np.flatnonzero(seen)
-    for c in np.unique(counts[seen_idx]):
-        group = seen_idx[counts[seen_idx] == c]
+    for c in np.unique(fused[seen_idx]):
+        group = seen_idx[fused[seen_idx] == c]
         rgb[group] = observed_color_medoids(samples[group, :int(c), :])
     result = (rgb, seen, counts) if return_counts else (rgb, seen)
     return result + (diagnostics,) if return_diagnostics else result
+
+
+def sky_like_colors(rgb: np.ndarray, *, min_value: float = 0.70,
+                    max_saturation: float = 0.25,
+                    blue_margin: float = 12.0,
+                    min_blue_value: float = 0.45) -> np.ndarray:
+    """Flag RGB samples that look like sky: bright and unsaturated, or blue.
+
+    Value and saturation follow HSV. Blue means the blue channel exceeds red
+    by ``blue_margin`` and is at least green, at value ``min_blue_value`` or
+    more. Colour alone also matches white walls; callers add a geometric test.
+    """
+    rgb = np.asarray(rgb, dtype=np.float32)
+    high = rgb.max(axis=-1)
+    low = rgb.min(axis=-1)
+    value = high / 255.0
+    saturation = np.where(high > 0.0, (high - low) / np.maximum(high, 1.0e-6),
+                          0.0)
+    blue = ((rgb[..., 2] > rgb[..., 0] + blue_margin) &
+            (rgb[..., 2] >= rgb[..., 1]) & (value >= min_blue_value))
+    return ((value >= min_value) & (saturation <= max_saturation)) | blue
+
+
+def estimate_world_up(viewmats) -> np.ndarray:
+    """Average camera up direction in the world frame.
+
+    The OpenCV camera y axis points down, so up is minus the second row of
+    each world-to-camera rotation. Hand-held and vehicle cameras stay roughly
+    level, so the mean is a usable gravity direction even when the map frame
+    itself is tilted.
+    """
+    rotations = np.asarray(viewmats, dtype=np.float64)[:, :3, :3]
+    up = -rotations[:, 1, :].mean(axis=0)
+    norm = np.linalg.norm(up)
+    if not norm > 1.0e-6:
+        raise ValueError('camera orientations do not define an up direction')
+    return up / norm
 
 
 def project_depth_maps(points: np.ndarray, viewmats, K: np.ndarray,
