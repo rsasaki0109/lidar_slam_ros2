@@ -4,17 +4,20 @@
 
 GEODE ([thisparticle.github.io/geode](https://thisparticle.github.io/geode)) marks 18 of
 its 64 sequences "Hard": flat surfaces, shield tunnels, urban tunnels and bridges. This
-note runs the ENWIDE v8 candidate and the five profile rivals on the 12 of them that could
-be downloaded. Google Drive's download limit has held back the other six so far:
-Shield_tunnel3–5 on device γ, and Shield_tunnel7, 8 and 10 on device β.
+note runs RKO-LIO (v8, the ENWIDE candidate; v9 and v7) and the five profile rivals on
+the 16 of them that could be downloaded. Google Drive's download limit still holds back
+Shield_tunnel8 and Shield_tunnel10 on device β.
 
-- On these sequences every method fails almost everywhere. Only Shield_tunnel6 is tracked
-  below 20 % 10 m RTE, by v8 (0.56 m), BIEVR-LIO (0.47 m) and v7 (4.12 m).
-- Among the failures, v8 has the lowest median ATE (253 m). RKO-LIO, as v8 or v7, is
-  best on 7 of the 12 sequences.
-- v8's bump image registration is what makes it the best on the vehicle-mounted urban
-  tunnels and bridges. The same registration hurts the handheld shield tunnels, where v7
-  (point-to-point) is better.
+- On these sequences every method fails almost everywhere. Few runs stay under 20 % 10 m
+  RTE: Shield_tunnel6 (v8, v7, BIEVR-LIO), Shield_tunnel5 (BIEVR-LIO) and bridge01
+  (v8, v9).
+- Among the failures, v9 (75 m) and v7 (77 m) have the lowest median ATE, ahead of
+  Point-LIO (88 m), v8 (160 m) and BIEVR-LIO (435 m). RKO-LIO is best on 11 of the 16
+  sequences.
+- v8's bump image registration makes it the best on the vehicle-mounted urban tunnels and
+  bridges. The same registration hurts the handheld shield tunnels.
+- v9 falls back to point-to-point when the bump terms turn the pose too far. On the four
+  sequences that arrived after v9 was frozen, it beats v8 on two and loses on two.
 
 No SOTA claim follows: the profile needs zero catastrophic failures, and no method has
 that on GEODE Hard.
@@ -26,8 +29,8 @@ GEODE has three devices with the same Xsens MTi-30 IMU (`/imu/data`, 100 Hz):
 | device | LiDAR | topic | sequences here |
 |---|---|---|---|
 | α | Velodyne VLP-16 | `/velodyne_points` | Urban_Tunnel01–03, bridge01–03 (vehicle) |
-| β | Ouster OS1-64 | `/ouster/points` | Shield_tunnel9 (handheld) |
-| γ | Livox AVIA | `/livox/lidar` (CustomMsg) | Shield_tunnel1, 2, 6, flat_surfaces_* (handheld) |
+| β | Ouster OS1-64 | `/ouster/points` | Shield_tunnel7, 9 (handheld) |
+| γ | Livox AVIA | `/livox/lidar` (CustomMsg) | Shield_tunnel1–6, flat_surfaces_* (handheld) |
 
 Every method gets the same data:
 
@@ -71,27 +74,34 @@ Development split, declared after the first three pilot runs:
 - Development: flat_surfaces_smooth, Urban_Tunnel01 and Shield_tunnel9.
 - Validation: the other sequences, which no configuration was tuned on.
 
-## Results (12 sequences)
+## Results (16 sequences)
 
-ATE in metres. Development sequences are marked *. A run that diverged until it stopped
-producing poses is marked *incomplete*.
+ATE in metres.
 
-| sequence (device) | v8 | v7 | COIN-LIO | BIEVR-LIO | FAST-LIO2 | Point-LIO |
-|---|---:|---:|---:|---:|---:|---:|
-| Shield_tunnel1 (γ) | 303 | **78** | – | 995,841 | 295 | 94 |
-| Shield_tunnel2 (γ) | 119 | **76** | – | 259,303 | 554 | 83 |
-| Shield_tunnel6 (γ) | 0.56 | 4.12 | – | **0.47** | 39.9 | 32.2 |
-| Shield_tunnel9 (β) * | 441 | **59** | 852 | 83.7 | 254 | 83.1 |
-| Urban_Tunnel01 (α) * | 560 | 888 | – | **169** | 1010 | 983 |
-| Urban_Tunnel02 (α) | **260** | 816 | – | 680 | 1158 | 1173 |
-| Urban_Tunnel03 (α) | **160** | 1202 | – | 69,283 | 1721 | 149,732 |
-| bridge01 (α) | **46** | 167 | – | 109 | 933 | 984 |
-| bridge02 (α) | 246 | 885 | – | **190** | 1830 | 23,649 |
-| bridge03 (α) | 1095 | **697** | – | 879 | 1091 | 1100 |
-| flat_surfaces_aggressive (γ) | incomplete | incomplete | – | 9304 | 1047 | **4.38** |
-| flat_surfaces_smooth (γ) * | 3.66 | 2.47 | – | **1.34** | 2229 | 2.77 |
-| median | **253** | 432 | – | 435 | 1028 | 539 |
-| runs under 20 % RTE | 1 | 1 | 0 | 1 | 0 | 0 |
+- *: development sequences for v8 and v9.
+- †: arrived after v9 was frozen, so they are unseen by every configuration.
+- *incomplete*: a run that diverged until it stopped producing poses.
+
+| sequence (device) | v8 | v9 | v7 | COIN-LIO | BIEVR-LIO | FAST-LIO2 | Point-LIO |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Shield_tunnel1 (γ) | 303 | 97.6 | **78.3** | – | 995,841 | 295 | 93.7 |
+| Shield_tunnel2 (γ) | 119 | 105 | **75.6** | – | 259,303 | 554 | 82.7 |
+| Shield_tunnel3 (γ) † | 59.7 | 63.9 | **53.3** | – | 150,049 | 16,629 | 73.8 |
+| Shield_tunnel4 (γ) † | 159 | **66.5** | 69.6 | – | 117,016 | 77,795 | 69.1 |
+| Shield_tunnel5 (γ) † | 40.4 | 27.2 | 21.7 | – | **1.54** | 46,928 | 37.0 |
+| Shield_tunnel6 (γ) | 0.56 | 25.3 | 4.12 | – | **0.47** | 39.9 | 32.2 |
+| Shield_tunnel7 (β) † | **58.6** | 82.8 | 75.5 | 314 | 132 | 328 | 96.5 |
+| Shield_tunnel9 (β) * | 441 | 67.2 | **59.1** | 852 | 83.7 | 254 | 83.1 |
+| Urban_Tunnel01 (α) * | 560 | 560 | 888 | – | **169** | 1010 | 983 |
+| Urban_Tunnel02 (α) | **260** | **260** | 816 | – | 680 | 1158 | 1173 |
+| Urban_Tunnel03 (α) | 160.2 | **160.1** | 1202 | – | 69,283 | 1721 | 149,732 |
+| bridge01 (α) | **46.2** | **46.2** | 167 | – | 109 | 933 | 984 |
+| bridge02 (α) | 246 | 246 | 885 | – | **190** | 1830 | 23,649 |
+| bridge03 (α) | 1095 | 1035 | **697** | – | 879 | 1091 | 1100 |
+| flat_surfaces_aggressive (γ) | incomplete | **2.62** | incomplete | – | 9304 | 1047 | 4.38 |
+| flat_surfaces_smooth (γ) * | 3.66 | 2.01 | 2.47 | – | **1.34** | 2229 | 2.77 |
+| median | 160 | **75.0** | 76.9 | 583 (β only) | 435 | 1069 | 88.4 |
+| runs under 20 % RTE | 2 | 1 | 1 | 0 | 2 | 0 | 0 |
 
 ## Why v8 fails in the shield tunnels
 
@@ -140,19 +150,15 @@ of v8's registration (degrees, per scan) separates the cases cleanly:
   build.
 - **Configurations.** `configs/geode/rko_lio_{alpha,beta,gamma}_v9.yaml`.
 
-ATE in metres, v8 → v9. Development sequences are marked *.
+The GEODE numbers are in the results table above. The four sequences that arrived after
+v9 was frozen are the only validation that no configuration has seen:
 
-| GEODE sequence | v8 | v9 |
+| unseen GEODE sequence | v8 | v9 |
 |---|---:|---:|
-| Shield_tunnel1 (γ) | 303 | **97.6** |
-| Shield_tunnel2 (γ) | 119 | **104.7** |
-| Shield_tunnel6 (γ) | **0.56** | 25.3 |
-| Shield_tunnel9 (β) * | 441 | **67.2** |
-| Urban_Tunnel01–03, bridge01–02 (α) | same | same |
-| bridge03 (α) | 1095 | **1035** |
-| flat_surfaces_aggressive (γ) | incomplete | **2.62** |
-| flat_surfaces_smooth (γ) * | 3.66 | **2.01** |
-| median of 12 | 253 | **101** |
+| Shield_tunnel3 (γ) | **59.7** | 63.9 |
+| Shield_tunnel4 (γ) | 159 | **66.5** |
+| Shield_tunnel5 (γ) | 40.4 | **27.2** |
+| Shield_tunnel7 (β) | **58.6** | 82.8 |
 
 | ENWIDE sequence | v8 | v9 |
 |---|---:|---:|
@@ -163,9 +169,9 @@ ATE in metres, v8 → v9. Development sequences are marked *.
 | the other six | same | same |
 | median of 10 | **0.29** | 0.35 |
 
-On GEODE, v9 halves the median and is now the best method on flat_surfaces_aggressive,
-where v8 lost track. But it loses Shield_tunnel6, the one sequence v8 tracked, and on
-ENWIDE it costs up to 0.14 m. It still has no ENWIDE failure and stays below COIN-LIO on
+On GEODE, v9 halves v8's median (75 m against 160 m over 16 sequences). It is the best
+method on flat_surfaces_aggressive, where v8 lost track, but it loses Shield_tunnel6. On
+the unseen sequences it is level with v8, two each. On ENWIDE it costs up to 0.14 m. It still has no ENWIDE failure and stays below COIN-LIO on
 every sequence.
 
 The profile allows at most 2 % regression on sequences that are not degenerate. v9
@@ -174,8 +180,8 @@ configuration for strongly degenerate scenes such as GEODE Hard.
 
 The fallback fires per scan, so a single noisy scan switches registration even where
 the bump terms were right. Requiring the slip to persist over several scans is the
-obvious next step. The validation sequences above have now been seen, so that change
-needs fresh validation, such as the six GEODE sequences not downloaded yet.
+obvious next step. Every downloaded sequence has now been seen, so that change needs
+fresh validation, such as the two GEODE sequences not downloaded yet.
 
 ## Reproduction
 
@@ -194,5 +200,5 @@ The ROS 1 rivals run in `docker/enwide_rivals_ros1.Dockerfile`. Each rival's `ou
 
 ## Next
 
-1. The six remaining Hard sequences, once Google Drive allows the downloads again.
+1. Shield_tunnel8 and Shield_tunnel10, once Google Drive allows the downloads again.
 2. A persistence condition for the v9 fallback, validated on sequences not yet seen.
