@@ -350,6 +350,11 @@ def build_commands(args, *, _all_stages=False) -> list[tuple[str, list[str]]]:
                 ])
                 if args.color_dynamic_exclusion:
                     command.append('--color-dynamic-exclusion')
+            if args.color_sky_rejection:
+                command.extend([
+                    '--color-sky-rejection', '--color-sky-min-elevation-deg',
+                    str(args.color_sky_min_elevation_deg),
+                ])
         return command
 
     rebuild_calibration = False

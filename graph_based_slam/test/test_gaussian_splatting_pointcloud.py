@@ -546,6 +546,81 @@ def test_edge_aware_sampling_matches_pairwise_corner_reference():
     np.testing.assert_array_equal(actual, expected)
 
 
+def test_sky_like_colors_flags_bright_grey_and_blue_only():
+    rgb = np.array([
+        [235, 238, 240],  # overcast sky
+        [120, 160, 220],  # blue sky
+        [60, 90, 40],     # foliage
+        [230, 140, 40],   # autumn leaves
+        [120, 120, 120],  # shaded concrete
+    ], dtype=np.uint8)
+    assert pcio.sky_like_colors(rgb).tolist() == [
+        True, True, False, False, False]
+
+
+def test_estimate_world_up_ignores_heading_and_map_tilt():
+    tilt = np.array([[1.0, 0.0, 0.0],
+                     [0.0, np.cos(0.3), -np.sin(0.3)],
+                     [0.0, np.sin(0.3), np.cos(0.3)]])
+    viewmats = []
+    for yaw in (0.0, 1.0, 2.5):
+        c, s = np.cos(yaw), np.sin(yaw)
+        # Level OpenCV camera looking along world +x rotated by yaw (z up).
+        world_from_camera = np.array([[s, 0.0, c], [-c, 0.0, s],
+                                      [0.0, -1.0, 0.0]])
+        vm = np.eye(4)
+        vm[:3, :3] = (tilt @ world_from_camera).T
+        viewmats.append(vm)
+    np.testing.assert_allclose(
+        pcio.estimate_world_up(viewmats), tilt @ [0.0, 0.0, 1.0], atol=1e-9)
+
+
+def _sky_views(colours):
+    vms1, K, W, H = _cam()
+    images = [np.full((H, W, 3), colour, dtype=np.uint8) for colour in colours]
+    return np.concatenate([vms1] * len(colours), axis=0), K, W, H, images
+
+
+def test_colorize_robust_sky_rejection_keeps_branch_colour():
+    # A branch above the horizon lands on bright sky in two of three views.
+    vms, K, W, H, images = _sky_views(
+        [(235, 238, 240), (235, 238, 240), (70, 50, 30)])
+    branch = np.array([[0.0, -1.0, 5.0]])
+    up = np.array([0.0, -1.0, 0.0])
+    plain, _ = pcio.colorize_by_projection_robust(
+        branch, vms, K, images, W, H, normalize_exposure=False)
+    np.testing.assert_array_equal(plain, [[235, 238, 240]])
+    rgb, seen, counts, diagnostics = pcio.colorize_by_projection_robust(
+        branch, vms, K, images, W, H, normalize_exposure=False, sky_up=up,
+        return_counts=True, return_diagnostics=True)
+    # Counts keep every observation so min_samples still sees three.
+    assert seen[0] and counts[0] == 3
+    assert diagnostics['rejected_sky'] == 2
+    np.testing.assert_array_equal(rgb, [[70, 50, 30]])
+
+
+def test_colorize_robust_sky_rejection_keeps_white_and_low_surfaces():
+    vms, K, W, H, images = _sky_views([(235, 238, 240)] * 3)
+    up = np.array([0.0, -1.0, 0.0])
+    # Only sky-like samples: a white facade keeps its colour.
+    rgb, seen, counts = pcio.colorize_by_projection_robust(
+        np.array([[0.0, -1.0, 5.0]]), vms, K, images, W, H,
+        normalize_exposure=False, sky_up=up, return_counts=True)
+    assert seen[0] and counts[0] == 3
+    np.testing.assert_array_equal(rgb, [[235, 238, 240]])
+    # Below the horizon a bright sample is never sky.
+    vms, K, W, H, images = _sky_views(
+        [(235, 238, 240), (235, 238, 240), (70, 50, 30)])
+    rgb, _ = pcio.colorize_by_projection_robust(
+        np.array([[0.0, 1.0, 5.0]]), vms, K, images, W, H,
+        normalize_exposure=False, sky_up=up)
+    np.testing.assert_array_equal(rgb, [[235, 238, 240]])
+    with pytest.raises(ValueError):
+        pcio.colorize_by_projection_robust(
+            np.array([[0.0, 1.0, 5.0]]), vms, K, images, W, H,
+            sky_up=np.zeros(3))
+
+
 def test_colorize_robust_edge_aware_validates_threshold():
     vms, K, W, H = _cam()
     img = np.zeros((H, W, 3), dtype=np.uint8)
