@@ -431,6 +431,22 @@ def test_geode_v9_configs_add_only_the_rotation_fallback_to_v8():
         assert v9 == v8
 
 
+def test_photometric_bump_preset_matches_enwide_v8():
+    preset = yaml.safe_load(
+        (ROOT / 'lidarslam' / 'param' / 'presets'
+         / 'photometric_bump_no_radar.ros.yaml').read_text()
+    )['/**']['ros__parameters']
+    v8 = yaml.safe_load(RKO_OPEN_GROUND_V8.read_text())
+    # Everything but the rig mask is v8's; the beam model is left to the user.
+    assert preset.pop('photometric_image.masks') == [0, 0, 0, 0]
+    assert {key: v8[key] for key in preset} == preset
+    assert not any(key.startswith('photometric_model.') for key in preset)
+    for option in ('photometric', 'bump_image_registration'):
+        assert preset[option] is True
+    assert preset['velocity_window_sec'] == 0.3
+    assert preset['skip_registration_after_gap_sec'] == 0.15
+
+
 def test_enwide_runner_selects_the_frozen_candidate_by_profile():
     text = RUNNER.read_text()
     assert '--profile NAME' in text
