@@ -1232,6 +1232,52 @@ def fill_colors_from_neighbours(points: np.ndarray, rgb: np.ndarray,
     return out, int(has.sum())
 
 
+def swept_corridor_mask(points: np.ndarray, path: np.ndarray, up: np.ndarray,
+                        *, radius: float = 0.5, below: float = 0.8,
+                        above: float = 0.4, step: float = 0.05) -> np.ndarray:
+    """Flag points inside the volume a carried sensor's bearer walked through.
+
+    Nothing static can stand where the person carrying the camera walked, so
+    points within ``radius`` (m, horizontal) of the sensor ``path`` and
+    between ``below`` and ``above`` (m) around its height belong to something
+    that moved away first, such as a companion who stood on the route. A
+    forward-looking LiDAR never looks back at that space, so free-space
+    voting cannot remove them. The ground stays when ``below`` is less than
+    the sensor height above it; check the height histogram first.
+    ``path`` is densified to ``step`` before the nearest-sample search.
+    """
+    from scipy.spatial import cKDTree
+
+    xyz = np.asarray(points, dtype=np.float64)
+    path = np.asarray(path, dtype=np.float64)
+    up = np.asarray(up, dtype=np.float64).reshape(3)
+    if path.ndim != 2 or path.shape[1] != 3 or len(path) == 0:
+        raise ValueError('path must be a nonempty Nx3 array')
+    if min(radius, below, above, step) < 0.0 or step == 0.0:
+        raise ValueError('corridor sizes must be non-negative and step > 0')
+    if not np.linalg.norm(up) > 0.0:
+        raise ValueError('up must be a nonzero vector')
+    up = up / np.linalg.norm(up)
+    samples = [path[:1]]
+    for start, end in zip(path[:-1], path[1:]):
+        count = max(1, int(np.ceil(np.linalg.norm(end - start) / step)))
+        fractions = np.arange(1, count + 1)[:, None] / count
+        samples.append(start + (end - start) * fractions)
+    dense = np.concatenate(samples)
+    reach = float(np.hypot(radius, max(below, above)))
+    distance, nearest = cKDTree(dense).query(xyz, distance_upper_bound=reach)
+    near = np.isfinite(distance)
+    mask = np.zeros(len(xyz), dtype=bool)
+    if not near.any():
+        return mask
+    offset = xyz[near] - dense[nearest[near]]
+    height = offset @ up
+    horizontal = np.linalg.norm(offset - height[:, None] * up, axis=1)
+    mask[near] = ((horizontal <= radius) & (height >= -below) &
+                  (height <= above))
+    return mask
+
+
 def sky_like_colors(rgb: np.ndarray, *, min_value: float = 0.70,
                     max_saturation: float = 0.25,
                     blue_margin: float = 12.0,
