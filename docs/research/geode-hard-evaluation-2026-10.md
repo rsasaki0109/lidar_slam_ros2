@@ -236,6 +236,33 @@ On the sequences already seen during v9:
 v10 is not yet the ENWIDE candidate. Replacing v8 would need the official ten-sequence
 record with TunnelS.
 
+## Why RKO-LIO slips where BIEVR-LIO does not (2026-10-11)
+
+A windowed error profile shows how the shield-tunnel runs fail. Each 30 s window is aligned to the ground truth on its own. For each window it reports the local RMSE and the difference between the estimated and the true path length.
+
+- **Shield_tunnel10.** BIEVR-LIO stays at about 0.2 m per window with the correct path length. v8 and v10 overestimate the path by 20–100 m per window: the trajectory runs ahead along the tunnel axis.
+- **γ shield tunnels 1–5.** v7, v9 and v10 slip back and forth along the axis by 10–170 m per window. Which of them ends with the lowest ATE is chance among failing runs, not a systematic difference. BIEVR-LIO diverges from the start on Shield_tunnel1 and 3 but tracks 5 and 6.
+- **Velocity window.** Lengthening `velocity_window_sec` from 0.3 to 2 s only changes the sign of the slip on Shield_tunnel10 (111 m against 86.6 m; Shield_tunnel9 63.5 against 56.6 m). The registration itself slips, presumably to a neighbouring ring of the periodic lining, rather than the velocity running away.
+
+RKO-LIO uses the IMU for the prediction and for a gravity (roll/pitch) regularisation only; nothing in it constrains translation, velocity or accelerometer bias with the IMU. BIEVR-LIO optimises velocity, biases and gravity over a 10 s IMU window together with its bump-image registration.
+
+An experiment added this to RKO-LIO (rko_lio branch `feat/inertial-velocity-filter`, not merged):
+
+- **Velocity filter.** A Kalman filter on the world velocity and the accelerometer bias. It propagates with IMU preintegration and corrects with the registered displacement, weighted by the registration's Hessian.
+- **Translation prior.** Optionally, the predicted position with its covariance is added to the registration.
+
+It did not help on the development sequences:
+
+| variant | FieldD | RunwayD | TunnelD | flat_surfaces_smooth | Shield_tunnel9 | Shield_tunnel10 |
+|---|---:|---:|---:|---:|---:|---:|
+| v10 | 0.24 | 2.34 | 0.34 | 2.00 | 56.6 | 86.6 |
+| filter | 0.20 | 2.36 | 0.48 | 2.91 | diverges | 181 |
+| filter + translation prior | – | – | – | – | diverges | – |
+
+In a circular tunnel the roll about the axis is as unobservable as the translation along it. Once the registration turns the attitude, gravity leaks into the horizontal acceleration. The filter then estimates 4–7 m/s² of bias and integrates the leak into the velocity. Gating outlier updates and bounding the bias made it worse: Shield_tunnel9 diverged further and TunnelD reached 39 m, because a gated filter integrates the wrong acceleration alone.
+
+Using the IMU to hold the translation therefore needs the attitude and gravity estimated jointly over a window, as BIEVR-LIO does. That is a tightly coupled estimator rather than an addition to RKO-LIO's per-scan registration.
+
 ## Reproduction
 
 ```bash
