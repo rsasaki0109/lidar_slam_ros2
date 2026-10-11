@@ -329,6 +329,42 @@ were not repeated. The v2 record above is still the uncorrected score.
 This meets the profile's execution contract on ENWIDE. A SOTA claim still needs
 FAST-LIO2 and Point-LIO on the same bags, GEODE and the hidden tunnel.
 
+## Profile record (`degenerate_lio_sota_v4`, v10, 2026-10-11)
+
+v10 is v8 plus rko_lio's bump-registration fallback with a persistence condition:
+
+- **The fallback (#28).** A scan whose bump result turns the pose more than 2° from the IMU prediction can be registered again without the bump terms.
+- **The persistence condition (#29).** That happens only when at least 3 of the last 10 scans exceeded 2°.
+
+It was developed on TunnelD, FieldD, RunwayD and three GEODE sequences. The other seven ENWIDE sequences had already been run with v9, the same fallback without the persistence condition, so this record is not a fresh validation of them. `docs/research/geode-hard-evaluation-2026-10.md` has the design and the GEODE results.
+
+`run_enwide_sota_benchmark.sh --profile degenerate_lio_sota_v4` ran v10 at rko_lio
+cce5cf4 on all ten sequences, with the same settings as v3:
+
+- Graph backend, three repetitions each, input hashes checked.
+- One sequence at a time.
+- Another project's jobs were running on the machine, which shows in the RTF but not in the deterministic trajectories.
+
+| sequence | runs complete | ATE median | 10 m RTE median | RTF | peak RSS | v3 (v8) ATE |
+|---|---:|---:|---:|---:|---:|---:|
+| TunnelS (held out) | 3/3 | 0.708 m | 2.02 % | 1.33–1.34 | 487–631 MB | 0.708 m |
+| TunnelD * | 3/3 | 0.341 m | 1.67 % | 1.54–1.58 | 478–548 MB | 0.324 m |
+| KatzenseeD | 3/3 | 0.246 m | 1.57 % | 1.67–2.10 | 590–603 MB | 0.246 m |
+| KatzenseeS | 3/3 | 0.172 m | 0.95 % | 1.37 | 517–533 MB | 0.172 m |
+| FieldD * | 3/3 | 0.238 m | 1.55 % | 1.59–1.60 | 623–642 MB | 0.238 m |
+| FieldS | 3/3 | 0.177 m | 0.95 % | 1.40–1.42 | 613–625 MB | 0.177 m |
+| IntersectionD | 3/3 | 0.382 m | 1.53 % | 1.62–1.64 | 593–603 MB | 0.382 m |
+| IntersectionS | 3/3 | 0.194 m | 0.94 % | 1.31–1.32 | 581–589 MB | 0.194 m |
+| RunwayD * | 3/3 | 2.341 m | 3.08 % | 1.61–1.62 | 620–626 MB | 2.341 m |
+| RunwayS | 3/3 | 0.450 m | 1.73 % | 1.36–1.51 | 607–620 MB | 0.450 m |
+
+- **Completeness.** All 30 runs completed with at least 99.58 % of the ground truth matched. The three repetitions are identical on every sequence.
+- **Against v3.** v10 equals v8 on nine sequences. On TunnelD, a development sequence and a tunnel, it is 0.017 m worse: a few scans there exceed 2° in short runs and fall back.
+- **Medians.** Over the ten sequences, ATE is 0.293 m (v3: 0.285 m) and 10 m RTE is 1.56 % (v3: 1.56 %).
+- **Profile rule.** The profile's 2 % limit applies to non-degenerate sequences, and v10 changes none of them.
+
+On GEODE Hard, v10 has the lowest median ATE of all methods (81 m against v8's 160 m) and keeps every sequence v8 tracks. That makes it the single configuration for both datasets.
+
 ## All profile rivals (2026-10-08)
 
 FAST-LIO2 (7cc4175) and Point-LIO (4b86a46), the profile's two remaining rivals,
