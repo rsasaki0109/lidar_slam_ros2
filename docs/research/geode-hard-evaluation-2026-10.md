@@ -311,6 +311,45 @@ On GEODE it is worse in the shield tunnels. Ten sequences ran: it wins on Shield
 
 BIEVR-LIO succeeds on Shield_tunnel10 because its registration does not slip much, not because of its IMU window. Three ways of adding the IMU to RKO-LIO now agree on this: the velocity filter, the error-state filter and the inertial window. The shield-tunnel failure is in the registration, which locks to a neighbouring ring of the periodic lining, and the IMU cannot undo that after the fact.
 
+
+### What the slip looks like, and the roll jitter (2026-10-12)
+
+**The slip is a speed oscillation, not ring jumps.** Over 1 s windows, v10's estimated speed swings between a quarter and three to four times the true walking speed on Shield_tunnel1, 8 and 10. The median ratio is 1.0. On Shield_tunnel6, which succeeds, it stays within 0.86–1.15. The top 5 % of seconds carry about half of the excess distance. No single scan moves by a lining ring (>1 m), so the registration slides rather than jumps.
+
+**RKO-LIO's attitude jitters; BIEVR-LIO's does not.** Per scan on Shield_tunnel10, the rotation between registered poses differs from the integrated gyro by this much:
+
+| | roll | pitch | yaw |
+|---|---:|---:|---:|
+| BIEVR-LIO | 0.15° | 0.08° | 0.10° |
+| v10 | 3.6° | 0.79° | 0.45° |
+
+**The jitter comes from the gravity regularisation (`min_beta`).** First 80 s of Shield_tunnel10, gyro residual RMS (roll / pitch / yaw):
+
+| v10 with… | roll | pitch | yaw |
+|---|---:|---:|---:|
+| nothing changed | 1.87° | 0.41° | 0.28° |
+| photometric off | 1.83° | 0.39° | 0.29° |
+| bump off | 1.91° | 0.42° | 0.29° |
+| bump fallback off | 2.44° | 0.52° | 0.34° |
+| gravity regularisation off | 0.29° | 0.10° | 0.13° |
+
+In a circular tunnel nothing geometric fixes the roll, so the tilt read from the accelerometer, polluted by the walking motion, sets it. With the regularisation off, the attitude is as clean as BIEVR-LIO's and the node runs about twice as fast.
+
+**A clean attitude alone does not stop the slip.** ATE in m:
+
+| | Shield_tunnel8 | Shield_tunnel9 | Shield_tunnel10 |
+|---|---:|---:|---:|
+| v10 | 78.9 | 56.6 | 86.6 |
+| gravity regularisation off | – | 68.2 | 111 |
+| … plus inertial window | 126 | 216 | 229 |
+| … bump only (no photometric, no fallback) | 75.5 | 37.4 | 108 |
+| … bump only plus inertial window | 129 | 43.2 | 140 |
+| BIEVR-LIO | 73.6 | 83.7 | 7.1 |
+
+The last RKO-LIO rows use the same parts as BIEVR-LIO: bump-image registration with informed sampling, the same map parameters, no gravity term in the registration, and an inertial window. They still slip on Shield_tunnel10, although bump only is the best RKO-LIO result on Shield_tunnel9 (37.4 m, BIEVR-LIO 83.7 m). Turning the regularisation off on ENWIDE costs FieldD (0.24 → 0.43 m) and TunnelD's 10 m RTE (1.7 → 2.2 %).
+
+The remaining difference is inside the registration step: the optimiser, the deskew or the sampling, not the choice of terms. The next step is to give both registrations the same scan, map and initial guess and compare one step.
+
 ## Reproduction
 
 ```bash
