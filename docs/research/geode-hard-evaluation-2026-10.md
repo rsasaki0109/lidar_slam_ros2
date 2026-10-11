@@ -263,6 +263,26 @@ In a circular tunnel the roll about the axis is as unobservable as the translati
 
 Using the IMU to hold the translation therefore needs the attitude and gravity estimated jointly over a window, as BIEVR-LIO does. That is a tightly coupled estimator rather than an addition to RKO-LIO's per-scan registration.
 
+### Attitude in the filter (2026-10-11)
+
+A second experiment (rko_lio branch `feat/inertial-pose-filter`, not merged) adds the attitude. It is an error-state Kalman filter on attitude, position, velocity and accelerometer bias. The filter propagates with every IMU sample and is corrected by each registered pose, with a 6×6 covariance from the registration's Hessian. The fused pose replaces the registered one, and the filter's prediction is the registration's initial guess.
+
+| variant | FieldD | TunnelD | flat_surfaces_smooth | Shield_tunnel9 |
+|---|---:|---:|---:|---:|
+| v10 | 0.24 | 0.34 | 2.00 | 56.6 |
+| filter follows the registration (prediction as initial guess only) | 0.17 | 2.18 | 2.42 | 50.4 |
+| registration rotation floor 0.1°, gyro 0.01 rad/s/√Hz | 0.24 | 0.49 | 2.55 | 73.4 |
+| registration rotation floor 0.5°, gyro 0.005 rad/s/√Hz | 261 | 64.9 | 2.28 | 57.6 |
+
+No setting improves on v10. Shield_tunnel9 differences of this size are within the run-to-run spread noted above. Four findings came out of the experiment:
+
+- **The registration's roll in the shield tunnels is noise.** Per scan, v10's trajectory on Shield_tunnel9 turns about the tunnel axis by 9.7° RMS, and this does not follow the gyro: the residual against the integrated gyro is 9.6° in roll, against 1.7° and 0.8° in pitch and yaw. The bump and photometric terms set the roll, yet the Hessian reports it to about 0.1°.
+- **Holding roll with the gyro does not stop the slip.** The 0.5° floor lets the gyro carry the attitude, and Shield_tunnel9 does not improve. The same setting diverges on FieldD and TunnelD, so the registration's rotation cannot be distrusted globally.
+- **The covariance must be about the sensor.** The registration's left perturbation rotates about the world origin. A floor on that rotation becomes a position uncertainty of |t| times the angle (0.9 m for 0.5° at 100 m), and the filter then dead-reckons and diverges. The Hessian has to be moved to sensor-centred coordinates before the floors and caps.
+- **The filter's velocity must not drive the deskew.** Feeding it to the deskew and the next prediction turned FieldD from 0.17 into 2.5 m, even with the filter following the registration exactly.
+
+A per-block innovation gate, which leaves the position or attitude out of a scan's update when it disagrees, diverged on every sequence once the gated filter drifted. Inflating the block instead lets the filter creep toward whichever wrong value lands closer.
+
 ## Reproduction
 
 ```bash
@@ -284,3 +304,6 @@ The ROS 1 rivals run in `docker/enwide_rivals_ros1.Dockerfile`. Each rival's `ou
    whether one configuration can replace both v8 and v9.
 2. The γ shield tunnels, where v9 and v7 still beat v10, and Shield_tunnel10, where only
    BIEVR-LIO tracks.
+3. Loosely coupled IMU fusion is exhausted (velocity filter, then full error-state filter).
+   What remains is a tightly coupled estimator: the point residuals solved jointly with an
+   IMU window, as in BIEVR-LIO.
