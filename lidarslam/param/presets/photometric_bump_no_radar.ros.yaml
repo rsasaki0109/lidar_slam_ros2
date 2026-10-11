@@ -11,22 +11,28 @@
 #   - velocity_window_sec: the velocity comes from the pose 0.3 s back, so one
 #     wrong correction does not run the velocity away;
 #   - skip_registration_after_gap_sec: the scan after a LiDAR gap takes the IMU
-#     prediction.
+#     prediction;
+#   - bump_image_max_rotation_correction_deg with a fallback window: when at least
+#     3 of the last 10 scans turn the pose more than 2 deg from the IMU prediction,
+#     the scan is registered again without the bump terms. In circular shield
+#     tunnels and on flat floors the bump images slip by degrees per scan; correct
+#     registrations exceed 2 deg only in isolated scans. Needs rko_lio cce5cf4 or
+#     later (the bundled submodule).
 #
-# Validated as ENWIDE v8 (configs/enwide/rko_lio_os0_open_ground_v8.yaml):
-#   all ten ENWIDE sequences (tunnels, Katzensee, fields, intersections, runways),
-#   no failure, median ATE 0.29 m against COIN-LIO 0.69, BIEVR-LIO 0.32 (three
-#   divergences), FAST-LIO2 16.0 and Point-LIO 32.0 m;
-#   see docs/research/enwide-photometric-registration-2026-10.md.
-# Limits: on GEODE's Hard sequences every method, this one included, fails almost
-#   everywhere. In circular shield tunnels the bump images slip around the
-#   unobservable roll; see docs/research/geode-hard-evaluation-2026-10.md.
+# Validated as ENWIDE v10 (configs/enwide/rko_lio_os0_open_ground_v10.yaml,
+#   profile degenerate_lio_sota_v4): all ten ENWIDE sequences (tunnels, Katzensee,
+#   fields, intersections, runways), no failure, median ATE 0.29 m against
+#   COIN-LIO 0.69, BIEVR-LIO 0.32 (three divergences), FAST-LIO2 16.0 and
+#   Point-LIO 32.0 m; see docs/research/enwide-photometric-registration-2026-10.md.
+# Limits: on GEODE's Hard sequences it has the lowest median ATE of the methods
+#   tried (81 m) but, like every method, fails almost everywhere; see
+#   docs/research/geode-hard-evaluation-2026-10.md.
 #
 # TODO-USER: set photometric_model.* from your Ouster metadata (beam_altitude_angles,
 #   pixel_shift_by_row, columns_per_frame, lidar_origin_to_beam_origin_mm, and the
 #   lidar_to_sensor_transform z for a cloud in os_sensor). Complete examples:
-#   configs/enwide/rko_lio_os0_open_ground_v8.yaml (OS0-128) and
-#   configs/geode/rko_lio_beta_v8.yaml (OS1-64).
+#   configs/enwide/rko_lio_os0_open_ground_v10.yaml (OS0-128) and
+#   configs/geode/rko_lio_beta_v10.yaml (OS1-64).
 # TODO-USER: photometric_image.masks hides parts of your rig in the image
 #   (x, y, width, height per mask); [0, 0, 0, 0] masks nothing.
 #
@@ -59,5 +65,8 @@
     photometric_image.masks: [0, 0, 0, 0]  # TODO-USER
 
     bump_image_registration: true
+    bump_image_max_rotation_correction_deg: 2.0
+    bump_image_rotation_fallback_window: 10
+    bump_image_rotation_fallback_min_count: 3
     velocity_window_sec: 0.3
     skip_registration_after_gap_sec: 0.15

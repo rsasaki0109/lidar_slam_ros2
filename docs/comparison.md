@@ -229,22 +229,24 @@ The frozen run configuration used replay rate `1.2` and CPU set `2-7`.
 
 On all ten ENWIDE sequences (handheld Ouster OS0-128: tunnels, lake shore, fields,
 intersections and runways), RKO-LIO with the
-[`photometric_bump_no_radar`](degeneracy-guide.md) configuration (ENWIDE v8) had no
+[`photometric_bump_no_radar`](degeneracy-guide.md) configuration (ENWIDE v10) had no
 failure and the lowest median ATE among the five methods reproduced on the same bags:
 
 | System | Median ATE | Sequences over 20 % 10 m RTE |
 | --- | ---: | ---: |
-| **RKO-LIO v8 (this repository)** | **0.29 m** | **0** |
+| **RKO-LIO v10 (this repository)** | **0.29 m** | **0** |
 | BIEVR-LIO | 0.32 m | 3 |
 | COIN-LIO | 0.69 m | 0 |
 | FAST-LIO2 | 16.0 m | 6 |
 | Point-LIO | 32.0 m | 6 |
 
-- The official `degenerate_lio_sota_v3` profile run gave three identical repetitions per
-  sequence and was faster than real time.
+- The official `degenerate_lio_sota_v4` profile run gave three identical repetitions per
+  sequence and was faster than real time. v10 equals v8 (the `_v3` record) on nine
+  sequences and is 0.017 m worse on TunnelD.
 - Three of the ten sequences were used to develop the configuration.
-- On GEODE's Hard sequences every method, this one included, fails almost everywhere.
-  So this is a scoped result, not a general best-system claim.
+- On GEODE's Hard sequences every method, this one included, fails almost everywhere;
+  v10 has the lowest median ATE there (81 m). So this is a scoped result, not a general
+  best-system claim.
 
 Per-sequence tables, revisions and reproduction are in the
 [ENWIDE](research/enwide-photometric-registration-2026-10.md) and

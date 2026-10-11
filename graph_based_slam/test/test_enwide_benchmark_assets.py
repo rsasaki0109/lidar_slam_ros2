@@ -483,15 +483,16 @@ def test_geode_v10_configs_add_only_the_persistence_to_v9():
         assert v10 == v9
 
 
-def test_photometric_bump_preset_matches_enwide_v8():
+def test_photometric_bump_preset_matches_enwide_v10():
     preset = yaml.safe_load(
         (ROOT / 'lidarslam' / 'param' / 'presets'
          / 'photometric_bump_no_radar.ros.yaml').read_text()
     )['/**']['ros__parameters']
-    v8 = yaml.safe_load(RKO_OPEN_GROUND_V8.read_text())
-    # Everything but the rig mask is v8's; the beam model is left to the user.
+    v10 = yaml.safe_load(RKO_OPEN_GROUND_V10.read_text())
+    # Everything but the rig mask is v10's; the beam model is left to the user.
     assert preset.pop('photometric_image.masks') == [0, 0, 0, 0]
-    assert {key: v8[key] for key in preset} == preset
+    assert {key: v10[key] for key in preset} == preset
+    assert preset['bump_image_rotation_fallback_window'] == 10
     assert not any(key.startswith('photometric_model.') for key in preset)
     for option in ('photometric', 'bump_image_registration'):
         assert preset[option] is True
