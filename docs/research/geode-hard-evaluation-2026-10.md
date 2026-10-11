@@ -292,7 +292,7 @@ BIEVR-LIO's source shows that it is not tightly coupled in the pose:
 - **Window solve.** It then holds the last 10 s of poses fixed and solves only the velocity at every scan, the two IMU biases and the gravity direction from the IMU preintegration between them.
 - **What the IMU feeds.** The IMU feeds only the next scan's prediction and deskew.
 
-The third experiment (rko_lio branch `feat/inertial-window`, not merged) adds that window to RKO-LIO. It is a Gauss-Newton solve over the velocities and both biases with gravity fixed. The newest velocity replaces RKO-LIO's pose-difference velocity, and the biases replace `imu_bias`.
+The third experiment adds that window to RKO-LIO. It was merged default-off as `inertial_window` (rko_lio #30), and `configs/enwide/rko_lio_os0_open_ground_v10_inertial_window.yaml` turns it on for ENWIDE-like data. It is a Gauss-Newton solve over the velocities and both biases with gravity fixed. The newest velocity replaces RKO-LIO's pose-difference velocity, and the biases replace `imu_bias`.
 
 On ENWIDE it helps on several sequences (ATE in m, v10 from the profile record):
 

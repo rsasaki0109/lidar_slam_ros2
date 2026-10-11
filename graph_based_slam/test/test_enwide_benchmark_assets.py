@@ -58,6 +58,10 @@ PROFILE_V4 = (
 RKO_OPEN_GROUND_V10 = (
     ROOT / 'configs' / 'enwide' / 'rko_lio_os0_open_ground_v10.yaml'
 )
+RKO_OPEN_GROUND_V10_INERTIAL_WINDOW = (
+    ROOT / 'configs' / 'enwide'
+    / 'rko_lio_os0_open_ground_v10_inertial_window.yaml'
+)
 DOWNLOADER = ROOT / 'scripts' / 'download_enwide.sh'
 RUNNER = ROOT / 'scripts' / 'run_enwide_sota_benchmark.sh'
 RKO_CONFIG = (
@@ -379,6 +383,13 @@ def test_enwide_v10_adds_only_the_persistent_bump_fallback_to_v8():
     assert v10.pop('bump_image_rotation_fallback_window') == 10
     assert v10.pop('bump_image_rotation_fallback_min_count') == 3
     assert v10 == v8
+
+
+def test_enwide_inertial_window_option_adds_only_the_window_to_v10():
+    v10 = yaml.safe_load(RKO_OPEN_GROUND_V10.read_text())
+    window = yaml.safe_load(RKO_OPEN_GROUND_V10_INERTIAL_WINDOW.read_text())
+    assert window.pop('inertial_window') is True
+    assert window == v10
 
 
 def test_enwide_downloader_knows_every_v3_input():
