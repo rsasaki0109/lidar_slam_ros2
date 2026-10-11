@@ -283,6 +283,34 @@ No setting improves on v10. Shield_tunnel9 differences of this size are within t
 
 A per-block innovation gate, which leaves the position or attitude out of a scan's update when it disagrees, diverged on every sequence once the gated filter drifted. Inflating the block instead lets the filter creep toward whichever wrong value lands closer.
 
+### BIEVR-LIO's inertial window (2026-10-12)
+
+BIEVR-LIO's source shows that it is not tightly coupled in the pose:
+
+- **Registration.** It registers each scan against its map without the IMU.
+- **Fixed poses.** It keeps the registered pose as it is.
+- **Window solve.** It then holds the last 10 s of poses fixed and solves only the velocity at every scan, the two IMU biases and the gravity direction from the IMU preintegration between them.
+- **What the IMU feeds.** The IMU feeds only the next scan's prediction and deskew.
+
+The third experiment (rko_lio branch `feat/inertial-window`, not merged) adds that window to RKO-LIO. It is a Gauss-Newton solve over the velocities and both biases with gravity fixed. The newest velocity replaces RKO-LIO's pose-difference velocity, and the biases replace `imu_bias`.
+
+On ENWIDE it helps on several sequences (ATE in m, v10 from the profile record):
+
+| | TunnelS | TunnelD | KatzenseeD | KatzenseeS | FieldD | FieldS | IntersectionD | IntersectionS | RunwayD | RunwayS |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| v10 | 0.71 | 0.34 | 0.25 | 0.17 | 0.24 | 0.18 | 0.38 | 0.19 | 2.34 | 0.45 |
+| window | 0.69 | 0.44 | 0.25 | 0.16 | 0.18 | 0.18 | 0.34 | 0.19 | 0.86 | 0.55 |
+
+It is better on five sequences and worse on two, and the median does not move (0.295 m against 0.293 m).
+
+On GEODE it is worse in the shield tunnels. Ten sequences ran: it wins on Shield_tunnel3, 4 and 9 and Urban_Tunnel01, and loses on the other six, by up to 108 → 895 m on Shield_tunnel2. Three findings came out of it:
+
+- **The window fits the slip.** With an Xsens IMU, whose bias is a few hundredths of m/s², the window's accelerometer bias runs to the 0.5–1 m/s² limit in the shield tunnels. It explains the registered positions sliding along the axis as acceleration, and the bias then carries the slip into the prediction.
+- **Anchoring the biases does not help.** A strong prior holding the biases at the static initialization keeps them at a few mm/s². Shield_tunnel2 and 8 still diverge (43 and 49 km), because the window's velocity between slipping positions feeds the slip back the same way.
+- **The rotation residual matters.** Dropping it and fixing the gyroscope bias made TunnelD 20 m and Shield_tunnel9 diverge.
+
+BIEVR-LIO succeeds on Shield_tunnel10 because its registration does not slip much, not because of its IMU window. Three ways of adding the IMU to RKO-LIO now agree on this: the velocity filter, the error-state filter and the inertial window. The shield-tunnel failure is in the registration, which locks to a neighbouring ring of the periodic lining, and the IMU cannot undo that after the fact.
+
 ## Reproduction
 
 ```bash
@@ -304,6 +332,6 @@ The ROS 1 rivals run in `docker/enwide_rivals_ros1.Dockerfile`. Each rival's `ou
    whether one configuration can replace both v8 and v9.
 2. The γ shield tunnels, where v9 and v7 still beat v10, and Shield_tunnel10, where only
    BIEVR-LIO tracks.
-3. Loosely coupled IMU fusion is exhausted (velocity filter, then full error-state filter).
-   What remains is a tightly coupled estimator: the point residuals solved jointly with an
-   IMU window, as in BIEVR-LIO.
+3. IMU fusion is exhausted: the velocity filter, the error-state filter and BIEVR-LIO's
+   inertial window all fail in the shield tunnels. What remains is the registration's lock
+   onto the periodic lining itself.
