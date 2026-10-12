@@ -508,6 +508,17 @@ def test_geode_v11_configs_add_only_levenberg_marquardt_to_v10():
         assert v11 == v10
 
 
+def test_geode_v12_configs_add_only_the_gait_to_v11_handheld():
+    geode = ROOT / 'configs' / 'geode'
+    for device in ('alpha', 'beta', 'gamma'):
+        v11 = yaml.safe_load((geode / f'rko_lio_{device}_v11.yaml').read_text())
+        v12 = yaml.safe_load((geode / f'rko_lio_{device}_v12.yaml').read_text())
+        if device != 'alpha':
+            assert v12.pop('gait_speed_prior') is True
+            assert v12.pop('gait_max_correction_m') == 0.02
+        assert v12 == v11
+
+
 def test_photometric_bump_preset_matches_enwide_v10():
     preset = yaml.safe_load(
         (ROOT / 'lidarslam' / 'param' / 'presets'
