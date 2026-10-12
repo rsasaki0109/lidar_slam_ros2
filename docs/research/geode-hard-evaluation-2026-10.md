@@ -350,6 +350,64 @@ The last RKO-LIO rows use the same parts as BIEVR-LIO: bump-image registration w
 
 The remaining difference is inside the registration step: the optimiser, the deskew or the sampling, not the choice of terms. The next step is to give both registrations the same scan, map and initial guess and compare one step.
 
+### The registration step: Gauss-Newton against Levenberg-Marquardt (v11, 2026-10-12)
+
+**A fixed-point test.** The test takes BIEVR-LIO's Shield_tunnel10 trajectory as the true pose:
+
+- **Setup.** RKO-LIO builds its map from the true poses, registers every scan starting from the true pose, and logs how far the registration moves away.
+- **Bump only.** The registration moves 0.8 mm per scan forward on average, with 38 mm RMS along the axis.
+- **With the photometric terms.** It moves 5–8 mm per scan forward (3–5 % of the distance walked), with 93–101 mm RMS: the lining's periodic intensity pattern pulls the tracked patches.
+- **Restoring force.** Started 0.2 m ahead or behind, bump-only registration comes back by 80–90 %, so it is not missing a basin.
+- **Closed loop.** RKO-LIO's along-axis jitter is three times BIEVR-LIO's (second difference 148–172 mm against 56 mm).
+
+**The optimisers differ.** RKO-LIO takes plain Gauss-Newton steps, `H dx = -b`, always applied. BIEVR-LIO takes Levenberg-Marquardt steps: damped, and accepted only when the cost drops. Along an axis the scan barely constrains, Gauss-Newton turns residual noise into large moves. rko_lio #31 adds Levenberg-Marquardt as `icp_levenberg_marquardt`, default off, damped in body coordinates. With it the fixed-point jitter falls from 15 to 11 mm over the first two minutes.
+
+On Shield_tunnel10, each variant with Levenberg-Marquardt (ATE in m):
+
+| variant | ATE |
+|---|---:|
+| v10 | 131 |
+| without photometric | 64.1 |
+| without gravity regularisation | 201 |
+| without photometric and gravity regularisation | **0.76** |
+
+That last row is **v11**, `configs/geode/rko_lio_{alpha,beta,gamma}_v11.yaml`: v10 plus `icp_levenberg_marquardt`, `min_beta: 1e9` and, for the Ouster β, no photometric terms. On Shield_tunnel10 every 30 s window has 0.1–0.2 m local RMSE and the right path length; BIEVR-LIO loses 7 m in one window.
+
+The other development sequences confirmed it: flat_surfaces_smooth 2.20 m (v10 2.00), Urban_Tunnel01 334 m (560), Shield_tunnel9 24.1 m (56.6). v11 was then frozen. The rule set before running the other fifteen was to adopt v11 if the 18-sequence median improves on v10 and v11 wins more sequences than it loses.
+
+| sequence | v10 | v11 | BIEVR-LIO |
+|---|---:|---:|---:|
+| flat_surfaces_smooth * | 2.00 | 2.20 | 1.34 |
+| flat_surfaces_aggressive | 3.02 | 4.25 | 9304 |
+| Urban_Tunnel01 * | 560 | 334 | 169 |
+| Urban_Tunnel02 | 260 | 89.8 | 680 |
+| Urban_Tunnel03 | 159 | 200 | 69,283 |
+| bridge01 | 46.2 | 116 | 109 |
+| bridge02 | 246 | 192 | 190 |
+| bridge03 | 1088 | 681 | 879 |
+| Shield_tunnel1 | 82.9 | 69.7 | 995,841 |
+| Shield_tunnel2 | 108 | 102 | 259,303 |
+| Shield_tunnel3 | 72.4 | 76.4 | 150,049 |
+| Shield_tunnel4 | 70.1 | 546 | 117,016 |
+| Shield_tunnel5 | 40.4 | 1.98 | 1.54 |
+| Shield_tunnel6 | 0.56 | 0.58 | 0.47 |
+| Shield_tunnel7 | 90.2 | 130 | 132 |
+| Shield_tunnel8 | 78.9 | 109 | 73.6 |
+| Shield_tunnel9 * | 56.6 | 24.1 | 83.7 |
+| Shield_tunnel10 † | 86.6 | **0.76** | 7.10 |
+| median | **80.9** | 95.9 | 180 |
+| below 10 m | 3 | **5** | 4 |
+
+\* development, † diagnostic (seen during development).
+
+**Verdict.** v11 wins nine sequences and loses nine, and its median is worse, so it is not adopted; v10 stays the recommended configuration. v11 tracks more sequences than any method so far (five below 10 m, BIEVR-LIO four), and it fails harder elsewhere.
+
+**Where v11 still fails.** On Shield_tunnel7 and 8 it no longer slides ahead; it stalls, with the speed near zero for a minute. BIEVR-LIO stalls in the same windows.
+
+**ENWIDE.** Levenberg-Marquardt does not transfer:
+- **v11's settings:** FieldD 0.93 m, RunwayD 17.3 m and TunnelD 19.1 m. ENWIDE's tunnels need the photometric terms and its open ground needs the gravity term.
+- **Levenberg-Marquardt alone with v10:** FieldD 0.36 m and TunnelD 1.48 m.
+
 ## Reproduction
 
 ```bash

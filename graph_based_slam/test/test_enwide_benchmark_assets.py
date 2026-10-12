@@ -494,6 +494,20 @@ def test_geode_v10_configs_add_only_the_persistence_to_v9():
         assert v10 == v9
 
 
+def test_geode_v11_configs_add_only_levenberg_marquardt_to_v10():
+    for device in ('alpha', 'beta', 'gamma'):
+        geode = ROOT / 'configs' / 'geode'
+        v10 = yaml.safe_load((geode / f'rko_lio_{device}_v10.yaml').read_text())
+        v11 = yaml.safe_load((geode / f'rko_lio_{device}_v11.yaml').read_text())
+        assert v11.pop('icp_levenberg_marquardt') is True
+        assert v11.pop('min_beta') == 1e9
+        if device == 'beta':
+            assert v10['photometric'] is True
+            assert v11.pop('photometric') is False
+            v10.pop('photometric')
+        assert v11 == v10
+
+
 def test_photometric_bump_preset_matches_enwide_v10():
     preset = yaml.safe_load(
         (ROOT / 'lidarslam' / 'param' / 'presets'
