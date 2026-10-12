@@ -21,6 +21,11 @@ on all 18.
   the best RKO-LIO configuration on the two sequences that arrived after it was frozen,
   Shield_tunnel8 and 10.
 
+- v12 (2026-10-13) changes the registration step (Levenberg-Marquardt, rko_lio #31) and
+  keeps the speed of a handheld walker from the gait (rko_lio #32). It brings the median
+  to 10.1 m and tracks eight sequences below 10 m (v10 three, BIEVR-LIO four), winning 13
+  of 18 against v10. It is the GEODE configuration; ENWIDE keeps v10.
+
 No SOTA claim follows: the profile needs zero catastrophic failures, and no method has
 that on GEODE Hard.
 
@@ -408,6 +413,59 @@ The other development sequences confirmed it: flat_surfaces_smooth 2.20 m (v10 2
 - **v11's settings:** FieldD 0.93 m, RunwayD 17.3 m and TunnelD 19.1 m. ENWIDE's tunnels need the photometric terms and its open ground needs the gravity term.
 - **Levenberg-Marquardt alone with v10:** FieldD 0.36 m and TunnelD 1.48 m.
 
+### v12: the walker's gait (2026-10-13)
+
+**Where v11 still fails, the scans say nothing along the axis.**
+- **No restoring force on Shield_tunnel8.** A fixed-point test uses a reference from the ground-truth positions and v11's attitude. Started 0.3 m ahead, the registration keeps 0.28 m of the offset, in the stretches v11 tracks as well as where it stalls.
+- **Stall or runaway.** With Levenberg-Marquardt the registration follows the prediction, so the prediction's speed decides the outcome. On Shield_tunnel7 and 8 a small disturbance drops it to zero and nothing brings it back (stall). On Shield_tunnel4 it grows (runaway).
+- **IMU integration alone is not enough.** BIEVR-LIO stalls in the same windows, and the inertial window on top of v11 made Shield_tunnel4, 7 and 8 worse.
+
+**The gait is an independent speed.** The operator walks, and the step rhythm shows in the specific force:
+- **Step length is stable per sequence.** Speed over cadence is 0.58–0.79 m depending on the sequence, varying by about 10 %.
+- **Speed estimate.** Cadence times the median step length matches the true speed within 0.12–0.28 m/s RMS, with mean errors of a few cm/s.
+
+`gait_speed_prior` (rko_lio #32, default off) uses it:
+- **Cadence.** Dominant 1.2–3 Hz frequency of the specific-force magnitude over 4 s, with a clear peak required.
+- **Step length.** The median of registered speed over cadence while the registration runs free and the ratio is plausible (0.5–1.0 m), frozen after 100 scans. Before that, the default 0.7 m is used only on implausible scans.
+- **Prediction.** While walking, the predicted speed along the direction of travel is cadence times step length.
+- **Correction limit.** The registration may correct along that direction by at most 2 cm per scan. Otherwise a stalled scan enters the map at the stalled pose and holds the next scans back.
+- **Direction of travel.** It is kept in the body frame, so a walker turning with the sensor keeps it. The IMU detects walking back without turning the sensor: the velocity over the last 4 s, detrended over 30 s, is checked only when the sensor has not turned in the last 12 s.
+
+Every shield-tunnel sequence is walked out and back, so the turn handling decided most of the iterations.
+
+**Validation.** Tuning used Shield_tunnel4, 5, 7, 8, 9 and 10. v12 was then frozen: v11 plus `gait_speed_prior` and `gait_max_correction_m: 0.02` for the handheld β and γ, with α unchanged from v11 (`configs/geode/rko_lio_{alpha,beta,gamma}_v12.yaml`). The gait was then run on the six sequences it had not seen, under the same rule as v11.
+
+| sequence | v10 | v11 | v12 | BIEVR-LIO |
+|---|---:|---:|---:|---:|
+| flat_surfaces_smooth ‡ | 2.00 | 2.20 | 2.20 | 1.34 |
+| flat_surfaces_aggressive ‡ | 3.02 | 4.25 | 3.04 | 9304 |
+| Urban_Tunnel01 (α) | 560 | 334 | 334 | 169 |
+| Urban_Tunnel02 (α) | 260 | 89.8 | 89.8 | 680 |
+| Urban_Tunnel03 (α) | 159 | 200 | 200 | 69,283 |
+| bridge01 (α) | 46.2 | 116 | 116 | 109 |
+| bridge02 (α) | 246 | 192 | 192 | 190 |
+| bridge03 (α) | 1088 | 681 | 681 | 879 |
+| Shield_tunnel1 ‡ | 82.9 | 69.7 | **10.2** | 995,841 |
+| Shield_tunnel2 ‡ | 108 | 102 | **57.4** | 259,303 |
+| Shield_tunnel3 ‡ | 72.4 | 76.4 | **1.78** | 150,049 |
+| Shield_tunnel4 * | 70.1 | 546 | 69.4 | 117,016 |
+| Shield_tunnel5 * | 40.4 | 1.98 | 3.30 | 1.54 |
+| Shield_tunnel6 ‡ | **0.56** | 0.58 | 8.61 | 0.47 |
+| Shield_tunnel7 * | 90.2 | 130 | **2.09** | 132 |
+| Shield_tunnel8 * | 78.9 | 109 | **3.85** | 73.6 |
+| Shield_tunnel9 * | 56.6 | 24.1 | **1.51** | 83.7 |
+| Shield_tunnel10 * | 86.6 | 0.76 | 10.0 | 7.10 |
+| median | 80.9 | 95.9 | **10.1** | 180 |
+| below 10 m | 3 | 5 | **8** | 4 |
+
+\* tuning sequences for the gait, ‡ held out from it; α is unchanged from v11.
+
+**Verdict: adopted for GEODE.**
+- **Against v10.** v12 wins 13 sequences and loses five. Of the losses, flat_surfaces_aggressive is a tie, and Urban_Tunnel03 and bridge01 are v11's α results.
+- **Held-out sequences.** Shield_tunnel1 and 3 track, and Shield_tunnel2 halves.
+- **Shield_tunnel6 gets worse** (0.56 → 8.61 m). There the registration was right, but the learned step was 10 % short (0.54 against 0.60 m), and the correction limit kept the registration from fixing it.
+- **ENWIDE keeps v10.** The ENWIDE configurations are not changed: the gait is for handheld walking, and Levenberg-Marquardt did not help there.
+
 ## Reproduction
 
 ```bash
@@ -425,10 +483,8 @@ The ROS 1 rivals run in `docker/enwide_rivals_ros1.Dockerfile`. Each rival's `ou
 
 ## Next
 
-1. The official ENWIDE record for v10 (all ten sequences, including TunnelS), to decide
-   whether one configuration can replace both v8 and v9.
-2. The γ shield tunnels, where v9 and v7 still beat v10, and Shield_tunnel10, where only
-   BIEVR-LIO tracks.
-3. IMU fusion is exhausted: the velocity filter, the error-state filter and BIEVR-LIO's
-   inertial window all fail in the shield tunnels. What remains is the registration's lock
-   onto the periodic lining itself.
+1. v12's step length: learn it more precisely, so that a right registration is not held
+   back (Shield_tunnel6).
+2. The remaining v12 failures: Shield_tunnel2 and 4, and the vehicle-mounted α sequences,
+   where the gait does not apply.
+3. ENWIDE's handheld D sequences, to see whether the gait helps outside tunnels.

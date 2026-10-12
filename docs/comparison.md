@@ -244,9 +244,10 @@ failure and the lowest median ATE among the five methods reproduced on the same 
   sequence and was faster than real time. v10 equals v8 (the `_v3` record) on nine
   sequences and is 0.017 m worse on TunnelD.
 - Three of the ten sequences were used to develop the configuration.
-- On GEODE's Hard sequences every method, this one included, fails almost everywhere;
-  v10 has the lowest median ATE there (81 m). So this is a scoped result, not a general
-  best-system claim.
+- On GEODE's Hard sequences most methods fail almost everywhere. Its own configuration,
+  v12 (Levenberg-Marquardt registration and a gait speed prior for handheld walking), has
+  the lowest median ATE there (10.1 m, against v10's 81 m and BIEVR-LIO's 180 m) and tracks
+  eight of 18 below 10 m. So this is a scoped result, not a general best-system claim.
 
 Per-sequence tables, revisions and reproduction are in the
 [ENWIDE](research/enwide-photometric-registration-2026-10.md) and
