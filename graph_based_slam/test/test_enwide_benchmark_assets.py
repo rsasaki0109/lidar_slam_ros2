@@ -539,6 +539,19 @@ def test_geode_v14_configs_drop_only_the_reversal_check_handheld():
         assert v14 == v13
 
 
+def test_geode_v15_configs_add_the_attitude_options_to_the_vehicle_only():
+    geode = ROOT / 'configs' / 'geode'
+    for device in ('alpha', 'beta', 'gamma'):
+        v14 = yaml.safe_load((geode / f'rko_lio_{device}_v14.yaml').read_text())
+        v15 = yaml.safe_load((geode / f'rko_lio_{device}_v15.yaml').read_text())
+        if device == 'alpha':
+            assert v15.pop('gravity_window_alignment') is True
+            assert v15.pop('gravity_alignment_relevel_map') is True
+            assert v15.pop('max_tilt_correction_deg') == 0.02
+            assert v15.pop('initialization_max_gyro_rad_s') == 0.02
+        assert v15 == v14
+
+
 def test_photometric_bump_preset_matches_enwide_v10():
     preset = yaml.safe_load(
         (ROOT / 'lidarslam' / 'param' / 'presets'

@@ -29,8 +29,11 @@ on all 18.
   A walker stopping and turning with the sensor no longer pumps the speed up. It brings
   the median to 5.6 m with eleven sequences below 10 m.
 - v14 turns off the gait's IMU reversal check, which under v13 fired only on
-  Shield_tunnel2 and always wrongly (165 → 26.9 m). Every other sequence is unchanged. It
-  is the GEODE configuration.
+  Shield_tunnel2 and always wrongly (165 → 26.9 m). Every other sequence is unchanged.
+- v15 holds the vehicle's roll and pitch with the gyro and the gravity window (rko_lio #34).
+  On the vehicle-mounted α sequences the estimated up direction had drifted 40–80° from the
+  true one. The median of the six α sequences drops from 196 to 84 m. It is the GEODE
+  configuration.
 
 No SOTA claim follows: the profile needs zero catastrophic failures, and no method has
 that on GEODE Hard.
@@ -528,6 +531,40 @@ This was decided by looking at Shield_tunnel2 itself, so Shield_tunnel2 is no lo
 - **Sensitivity.** Single runs are sensitive. Shield_tunnel10 goes from 2.88 to 6.53 m with the step changed from 0.772 to 0.771 m, so small differences between configurations are not resolved by one run per sequence.
 - **Other step models.** A step that depends on cadence explains little (RMS speed error 0.105 → 0.099 m/s on Shield_tunnel8). Weinberg's amplitude model helps on eight of ten shield sequences but adds a −0.11 m/s bias on Shield_tunnel1 and 7.
 
+### v15: the vehicle's attitude
+
+**The α trajectories dive into the ground.** On the vehicle-mounted α device (16-beam Velodyne, 9–31 m/s), every method we ran tilts its up direction away from the true one: 40–80° by the end of bridge02 and Urban_Tunnel03, for v10, v14 and BIEVR-LIO alike. The estimated motion climbs or dives at 10–60° on roads whose grade stays under 4°. The speed itself is mostly right.
+
+**Two causes:**
+- **The registration pulls the pitch.** On Urban_Tunnel03 the estimated pitch turns at about 1.5°/s for 15 s, while the car drives straight at 17–20 m/s and the gyro sees about 0.3°/s.
+- **The gyro bias is wrong from the start.** The gyro has an x bias of about 0.3°/s. The static initialization takes it from one scan interval, and so gets 0–0.6°/s depending on how the sequence starts. On bridge03, which starts at 13.5 m/s, it gets 4°/s.
+
+**What did not help:** the gravity regularization alone (`min_beta`, removed in v11), LiDAR time offsets of ±50 ms, and turning deskew off.
+
+**The fix (rko_lio #34, default off).** v15 is v14 plus the following for α only (`configs/geode/rko_lio_{alpha,beta,gamma}_v15.yaml`):
+- **Roll and pitch from the gyro.** `max_tilt_correction_deg: 0.02` limits each scan's change to the gyro-predicted roll and pitch. Yaw stays with the registration.
+- **Absolute tilt from gravity.** The gravity window alignment re-levels the absolute tilt. The window alone already halves the tilt.
+- **Moving start.** `initialization_max_gyro_rad_s: 0.02` leaves the IMU biases at zero when the vehicle is already turning at the start (bridge03).
+
+The estimated tilt stays within about 9°.
+
+| sequence (α) | v10 | v14 | v15 | BIEVR-LIO |
+|---|---:|---:|---:|---:|
+| bridge01 | 46.2 | 116 | **22.7** | 109 |
+| bridge02 | 246 | 192 | **109** | 190 |
+| bridge03 | 1088 | **681** | 1075 | 879 |
+| Urban_Tunnel01 | 560 | 334 | 272 | **169** |
+| Urban_Tunnel02 | 260 | 89.8 | **38.4** | 680 |
+| Urban_Tunnel03 | 159 | 200 | **59.3** | 69,283 |
+| median | 253 | 196 | **84** | 435 |
+
+**Verdict: adopted for GEODE.**
+- **Against v14.** v15 wins five of the six α sequences.
+- **bridge03 still fails.** It starts at 13.5 m/s on a bridge that gives no hold along the road, so the registration starts from zero speed and stays there for 150 s. Without the moving-start guard, the tilt limit locks in the bad bias and the run stops producing poses.
+- **No held-out sequence.** The variants were tried on all six α sequences, so none of them is held out.
+- **Overall median unchanged.** The median of all 18 stays at 5.6 m, because every α sequence is above it.
+- **Online gyro bias rejected.** An online gyro bias estimate from the registration's rotation was tried and rejected: it absorbs the registration's pitch pull into the lateral bias (±0.6°/s) and does not beat v15.
+
 ## Reproduction
 
 ```bash
@@ -545,7 +582,7 @@ The ROS 1 rivals run in `docker/enwide_rivals_ros1.Dockerfile`. Each rival's `ou
 
 ## Next
 
-1. Shield_tunnel2's heading drift of 20–40° under v14.
-2. The step length: the registration's own speed is short while it is learned (−4 % median).
-3. The vehicle-mounted α sequences, where the gait does not apply.
+1. The α sequences still lose 59–272 m: Urban_Tunnel01's stalls and bridge03's moving start need a speed source (the stereo cameras are the only one in the bags).
+2. Shield_tunnel2's heading drift of 20–40° under v14.
+3. The step length: the registration's own speed is short while it is learned (−4 % median).
 4. ENWIDE's handheld D sequences, to see whether the gait helps outside tunnels.

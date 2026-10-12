@@ -1,6 +1,6 @@
 # GEODE device beta (handheld): v14 = rko_lio_beta_v13.yaml with the IMU reversal check of the
 # gait off (gait_reversal_lookback_sec: 0). Under v13 it fired only on Shield_tunnel2, four
-# times and always wrongly. The GEODE configuration: median ATE 5.6 m on the 18 Hard
+# times and always wrongly. Median ATE 5.6 m on the 18 Hard
 # sequences, Shield_tunnel2 165 -> 26.9 m. See
 # docs/research/geode-hard-evaluation-2026-10.md ("v14: no IMU reversal check").
 
