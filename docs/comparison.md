@@ -245,7 +245,7 @@ failure and the lowest median ATE among the five methods reproduced on the same 
   sequences and is 0.017 m worse on TunnelD.
 - Three of the ten sequences were used to develop the configuration.
 - On GEODE's Hard sequences most methods fail almost everywhere. Its own configuration,
-  v13 (Levenberg-Marquardt registration and a gait speed prior for handheld walking), has
+  v14 (Levenberg-Marquardt registration and a gait speed prior for handheld walking), has
   the lowest median ATE there (5.6 m, against v10's 81 m and BIEVR-LIO's 180 m) and tracks
   eleven of 18 below 10 m. So this is a scoped result, not a general best-system claim.
 

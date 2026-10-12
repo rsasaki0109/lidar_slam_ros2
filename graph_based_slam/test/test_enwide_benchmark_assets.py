@@ -529,6 +529,16 @@ def test_geode_v13_configs_set_the_speed_from_the_gait_handheld():
         assert v13 == v12
 
 
+def test_geode_v14_configs_drop_only_the_reversal_check_handheld():
+    geode = ROOT / 'configs' / 'geode'
+    for device in ('alpha', 'beta', 'gamma'):
+        v13 = yaml.safe_load((geode / f'rko_lio_{device}_v13.yaml').read_text())
+        v14 = yaml.safe_load((geode / f'rko_lio_{device}_v14.yaml').read_text())
+        if device != 'alpha':
+            assert v14.pop('gait_reversal_lookback_sec') == 0.0
+        assert v14 == v13
+
+
 def test_photometric_bump_preset_matches_enwide_v10():
     preset = yaml.safe_load(
         (ROOT / 'lidarslam' / 'param' / 'presets'
