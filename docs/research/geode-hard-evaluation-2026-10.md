@@ -24,7 +24,10 @@ on all 18.
 - v12 (2026-10-13) changes the registration step (Levenberg-Marquardt, rko_lio #31) and
   keeps the speed of a handheld walker from the gait (rko_lio #32). It brings the median
   to 10.1 m and tracks eight sequences below 10 m (v10 three, BIEVR-LIO four), winning 13
-  of 18 against v10. It is the GEODE configuration; ENWIDE keeps v10.
+  of 18 against v10. ENWIDE keeps v10.
+- v13 lets the gait set the whole speed and the scans only its direction (rko_lio #33).
+  A walker stopping and turning with the sensor no longer pumps the speed up. It brings
+  the median to 5.6 m with eleven sequences below 10 m and is the GEODE configuration.
 
 No SOTA claim follows: the profile needs zero catastrophic failures, and no method has
 that on GEODE Hard.
@@ -463,8 +466,44 @@ Every shield-tunnel sequence is walked out and back, so the turn handling decide
 **Verdict: adopted for GEODE.**
 - **Against v10.** v12 wins 13 sequences and loses five. Of the losses, flat_surfaces_aggressive is a tie, and Urban_Tunnel03 and bridge01 are v11's α results.
 - **Held-out sequences.** Shield_tunnel1 and 3 track, and Shield_tunnel2 halves.
-- **Shield_tunnel6 gets worse** (0.56 → 8.61 m). There the registration was right, but the learned step was 10 % short (0.54 against 0.60 m), and the correction limit kept the registration from fixing it.
+- **Shield_tunnel6 gets worse** (0.56 → 8.61 m). This was first put down to the learned step, 10 % short (0.54 against 0.60 m). The scan-level trace in the v13 section shows the error comes from the turn at the far end instead.
 - **ENWIDE keeps v10.** The ENWIDE configurations are not changed: the gait is for handheld walking, and Levenberg-Marquardt did not help there.
+
+### v13: speed from the gait, direction from the scans
+
+**Shield_tunnel6 fails at the turn, not on the step.** All of v12's 8.6 m error builds up in one 20 s window, the out-and-back turn at 131 s, while the speed elsewhere matches the ground truth.
+- **What happens.** The walker stops and turns with the sensor at about 60°/s. The cadence window (4 s) still shows walking, so the gait keeps setting 0.9 m/s along the direction of travel. That direction is fixed in the body frame and sweeps round with the sensor.
+- **The pump.** v12 replaced only the velocity component along that direction and kept the rest from the registration. Each scan the old forward speed survives as a sideways component, and the new direction gets 0.9 m/s again. Within half a second the speed reached 2.2 m/s, and then 3.9 m/s while the walker stood still.
+- **No hold to stop it.** At the turn the registration has almost no information along the tunnel (smallest translation eigenvalue 0.2–0.6 % of the largest). It accepts the predicted motion, so the run-away outlives the gait, which switches off at 131.9 s.
+
+`gait_sets_speed` (rko_lio #33, default off) scales the whole velocity to cadence times step length. The registration gives the direction and the gait the speed. v13 is v12 plus this option for β and γ, with α unchanged (`configs/geode/rko_lio_{alpha,beta,gamma}_v13.yaml`). It was decided on Shield_tunnel6's trace alone and then run once on all twelve handheld sequences.
+
+| sequence | v10 | v12 | v13 |
+|---|---:|---:|---:|
+| flat_surfaces_smooth | 2.00 | 2.20 | 2.20 |
+| flat_surfaces_aggressive | 3.02 | 3.04 | 3.13 |
+| Shield_tunnel1 | 82.9 | 10.2 | **6.38** |
+| Shield_tunnel2 | 108 | **57.4** | 165 |
+| Shield_tunnel3 | 72.4 | **1.78** | 2.28 |
+| Shield_tunnel4 | 70.1 | 69.4 | **4.82** |
+| Shield_tunnel5 | 40.4 | 3.30 | **2.71** |
+| Shield_tunnel6 | **0.56** | 8.61 | 0.94 |
+| Shield_tunnel7 | 90.2 | 2.09 | **1.87** |
+| Shield_tunnel8 | 78.9 | **3.85** | 6.28 |
+| Shield_tunnel9 | 56.6 | **1.51** | 1.69 |
+| Shield_tunnel10 | 86.6 | 10.0 | **2.88** |
+| median of all 18 | 80.9 | 10.1 | **5.6** |
+| below 10 m (of 18) | 3 | 8 | **11** |
+
+The six α sequences are v12's (unchanged).
+
+**Verdict: adopted for GEODE.** The rule was set before the run: the median of the 18 is not worse than v12's, v13 wins at least as many sequences as it loses against v12 (differences within 5 % count as ties), and Shield_tunnel6 improves.
+- **Against v12.** v13 wins six sequences and loses four. Shield_tunnel4 tracks for the first time (69.4 → 4.82 m), and Shield_tunnel6 comes back to 0.94 m.
+- **Losses.** Shield_tunnel2 was already lost and drifts further (57 → 165 m). Shield_tunnel8 goes from 3.85 to 6.28 m.
+
+**What did not work.** Both of these were tried before the cause was found:
+- **Information gate.** Leaving a scan to the registration when it constrains the direction of travel (u'Hu above 10 % of the largest eigenvalue) fixes Shield_tunnel6 (0.58 m). It also fires on 2000–3400 scans of the γ sequences where the registration still slips, and the median rises to 49.4 m (2 wins, 8 losses against v12).
+- **Turn gate.** Releasing the gait while the heading changes by more than 1.5 rad in 2 s keeps sensor swings out. It comes about a second into the turn, after the speed has been pumped up (Shield_tunnel6 9.52 m).
 
 ## Reproduction
 
@@ -483,8 +522,6 @@ The ROS 1 rivals run in `docker/enwide_rivals_ros1.Dockerfile`. Each rival's `ou
 
 ## Next
 
-1. v12's step length: learn it more precisely, so that a right registration is not held
-   back (Shield_tunnel6).
-2. The remaining v12 failures: Shield_tunnel2 and 4, and the vehicle-mounted α sequences,
-   where the gait does not apply.
+1. Shield_tunnel2 and 8 lose under v13; find out what the turn handling does there.
+2. The vehicle-mounted α sequences, where the gait does not apply.
 3. ENWIDE's handheld D sequences, to see whether the gait helps outside tunnels.
