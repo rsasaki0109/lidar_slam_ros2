@@ -1,7 +1,7 @@
 # GEODE device gamma (handheld): v13 = rko_lio_gamma_v12.yaml plus gait_sets_speed (rko_lio #33):
 # the gait gives the whole speed and the registration only its direction, so a walker who
-# stops and turns with the sensor no longer pumps the speed up. The GEODE configuration:
-# median ATE 5.6 m on the 18 Hard sequences (v12 10.1 m). See
+# stops and turns with the sensor no longer pumps the speed up. Superseded by v14.
+# Median ATE 5.6 m on the 18 Hard sequences (v12 10.1 m). See
 # docs/research/geode-hard-evaluation-2026-10.md ("v13: speed from the gait, direction from the scans").
 
 extrinsic_imu2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]

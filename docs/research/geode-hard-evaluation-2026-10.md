@@ -27,7 +27,10 @@ on all 18.
   of 18 against v10. ENWIDE keeps v10.
 - v13 lets the gait set the whole speed and the scans only its direction (rko_lio #33).
   A walker stopping and turning with the sensor no longer pumps the speed up. It brings
-  the median to 5.6 m with eleven sequences below 10 m and is the GEODE configuration.
+  the median to 5.6 m with eleven sequences below 10 m.
+- v14 turns off the gait's IMU reversal check, which under v13 fired only on
+  Shield_tunnel2 and always wrongly (165 → 26.9 m). Every other sequence is unchanged. It
+  is the GEODE configuration.
 
 No SOTA claim follows: the profile needs zero catastrophic failures, and no method has
 that on GEODE Hard.
@@ -505,6 +508,26 @@ The six α sequences are v12's (unchanged).
 - **Information gate.** Leaving a scan to the registration when it constrains the direction of travel (u'Hu above 10 % of the largest eigenvalue) fixes Shield_tunnel6 (0.58 m). It also fires on 2000–3400 scans of the γ sequences where the registration still slips, and the median rises to 49.4 m (2 wins, 8 losses against v12).
 - **Turn gate.** Releasing the gait while the heading changes by more than 1.5 rad in 2 s keeps sensor swings out. It comes about a second into the turn, after the speed has been pumped up (Shield_tunnel6 9.52 m).
 
+### v14: no IMU reversal check
+
+**Shield_tunnel2 runs backwards.** Its speed matches the ground truth, but from 32 s on the estimate moves 180° against it, while the walker keeps going at 2.3 m/s.
+- **Four false reversals.** The gait's reversal check flipped the direction of travel at 30, 53, 69 and 166 s. None was a reversal.
+- **Why it fires.** The check integrates the IMU over 4 s, and on this sequence that drifts by about 3 m/s. The IMU velocity over the last 1–2 s still reads +2 m/s at the moment of the flip. Shield_tunnel2 is the fastest walk (about 2.2 m/s).
+- **It never fires correctly under v13.** On the other eleven handheld sequences it does not fire at all. The walkers always turn with the sensor, and the body-fixed direction handles that.
+
+v14 is v13 with `gait_reversal_lookback_sec: 0` for β and γ (`configs/geode/rko_lio_{alpha,beta,gamma}_v14.yaml`), with no code change.
+- **Shield_tunnel2:** 165 → 26.9 m. The remaining error is a heading drift of 20–40°, not the direction of travel.
+- **Every other sequence:** unchanged. The check never fired on them, and Shield_tunnel1, 7 and 8 were rerun and give byte-identical trajectories.
+- **Totals over the 18 sequences:** median 5.6 m, eleven below 10 m.
+
+This was decided by looking at Shield_tunnel2 itself, so Shield_tunnel2 is no longer a held-out result.
+
+**Step length: learning longer does not help.** The learned steps are mostly short of the ground truth (Shield_tunnel6 −9 %, Shield_tunnel5 −8 %, Shield_tunnel8 −4.5 %), and that is Shield_tunnel8's loss under v13: its featureless stretches come out 6 % short.
+- **300 samples instead of 100.** Learning from 300 plausible scans (30 s) instead of 100 does not bring the steps closer to the truth (Shield_tunnel1 0.69 against 0.74 m). The registered speed itself is short while learning, not just at the onset of the walk.
+- **Result.** The median rises to 6.1 m (4 wins, 6 losses against v13), so it was not adopted.
+- **Sensitivity.** Single runs are sensitive. Shield_tunnel10 goes from 2.88 to 6.53 m with the step changed from 0.772 to 0.771 m, so small differences between configurations are not resolved by one run per sequence.
+- **Other step models.** A step that depends on cadence explains little (RMS speed error 0.105 → 0.099 m/s on Shield_tunnel8). Weinberg's amplitude model helps on eight of ten shield sequences but adds a −0.11 m/s bias on Shield_tunnel1 and 7.
+
 ## Reproduction
 
 ```bash
@@ -522,6 +545,7 @@ The ROS 1 rivals run in `docker/enwide_rivals_ros1.Dockerfile`. Each rival's `ou
 
 ## Next
 
-1. Shield_tunnel2 and 8 lose under v13; find out what the turn handling does there.
-2. The vehicle-mounted α sequences, where the gait does not apply.
-3. ENWIDE's handheld D sequences, to see whether the gait helps outside tunnels.
+1. Shield_tunnel2's heading drift of 20–40° under v14.
+2. The step length: the registration's own speed is short while it is learned (−4 % median).
+3. The vehicle-mounted α sequences, where the gait does not apply.
+4. ENWIDE's handheld D sequences, to see whether the gait helps outside tunnels.
