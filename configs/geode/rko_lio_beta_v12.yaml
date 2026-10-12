@@ -1,7 +1,7 @@
 # GEODE device beta (handheld): v12 = rko_lio_beta_v11.yaml plus the gait speed prior
 # (rko_lio #32): cadence times a learned step length keeps the speed of the prediction, and
 # the registration may correct it by at most 2 cm per scan along the direction of travel.
-# The GEODE configuration: median ATE 10.1 m on the 18 Hard sequences (v10 80.9 m). See
+# Superseded by v13: median ATE 10.1 m on the 18 Hard sequences (v10 80.9 m, v13 5.6 m). See
 # docs/research/geode-hard-evaluation-2026-10.md ("v12: the walker's gait").
 
 extrinsic_imu2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]

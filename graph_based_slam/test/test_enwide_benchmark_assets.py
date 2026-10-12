@@ -519,6 +519,16 @@ def test_geode_v12_configs_add_only_the_gait_to_v11_handheld():
         assert v12 == v11
 
 
+def test_geode_v13_configs_set_the_speed_from_the_gait_handheld():
+    geode = ROOT / 'configs' / 'geode'
+    for device in ('alpha', 'beta', 'gamma'):
+        v12 = yaml.safe_load((geode / f'rko_lio_{device}_v12.yaml').read_text())
+        v13 = yaml.safe_load((geode / f'rko_lio_{device}_v13.yaml').read_text())
+        if device != 'alpha':
+            assert v13.pop('gait_sets_speed') is True
+        assert v13 == v12
+
+
 def test_photometric_bump_preset_matches_enwide_v10():
     preset = yaml.safe_load(
         (ROOT / 'lidarslam' / 'param' / 'presets'
