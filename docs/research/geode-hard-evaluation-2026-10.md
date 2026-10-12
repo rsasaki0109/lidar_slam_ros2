@@ -32,8 +32,10 @@ on all 18.
   Shield_tunnel2 and always wrongly (165 → 26.9 m). Every other sequence is unchanged.
 - v15 holds the vehicle's roll and pitch with the gyro and the gravity window (rko_lio #34).
   On the vehicle-mounted α sequences the estimated up direction had drifted 40–80° from the
-  true one. The median of the six α sequences drops from 196 to 84 m. It is the GEODE
-  configuration.
+  true one. The median of the six α sequences drops from 196 to 84 m.
+- v16 holds the vehicle's speed while its registration stalls (rko_lio #35). Urban_Tunnel01
+  drops from 272 to 23.7 m and the α median from 84 to 48.9 m; the other five α sequences
+  are byte-identical. It is the GEODE configuration.
 
 No SOTA claim follows: the profile needs zero catastrophic failures, and no method has
 that on GEODE Hard.
@@ -565,6 +567,44 @@ The estimated tilt stays within about 9°.
 - **Overall median unchanged.** The median of all 18 stays at 5.6 m, because every α sequence is above it.
 - **Online gyro bias rejected.** An online gyro bias estimate from the registration's rotation was tried and rejected: it absorbs the registration's pitch pull into the lateral bias (±0.6°/s) and does not beat v15.
 
+### v16: the vehicle's stalls
+
+**Urban_Tunnel01 stalls twice.** Under v15 the registration locks to the map behind it at 112 s and at 195 s. Each time the speed falls from 9 m/s to zero within about two seconds (about −4.5 m/s²), and the second stall lasts about 60 s while the car drives on at about 10 m/s; BIEVR-LIO keeps that speed through both. When the stall ends, the speed jumps back from zero to 10.8 m/s within a second. Neither change is possible for a car without the accelerometer seeing it.
+
+**Integrating the accelerometer for longer than a few seconds does not work on α.** The tilt error that v15 leaves (up to about 9°) leaks up to 1.5 m/s² of gravity into the forward acceleration. Every variant that integrated it beyond a short window failed, as listed under "What did not work" below.
+
+**The fix (rko_lio #35, default off).** `vehicle_stall_guard` uses the accelerometer over a 2 s window only:
+- **Detect.** A stall is a registered speed that falls more than 3 m/s below what the accelerometer allows over the window and below half of it.
+- **Hold.** While the stall lasts, the guard keeps the pre-drop speed constant.
+- **Release.** The hold ends when the registration agrees with it within 1 m/s for 10 scans.
+
+The parameters were fixed before the runs. v16 is v15 plus `vehicle_stall_guard: true` for α only (`configs/geode/rko_lio_{alpha,beta,gamma}_v16.yaml`).
+
+| sequence (α) | v15 | v16 | BIEVR-LIO |
+|---|---:|---:|---:|
+| bridge01 | **22.7** | **22.7** | 109 |
+| bridge02 | **109** | **109** | 190 |
+| bridge03 | 1075 | 1075 | **879** |
+| Urban_Tunnel01 | 272 | **23.7** | 169 |
+| Urban_Tunnel02 | **38.4** | **38.4** | 680 |
+| Urban_Tunnel03 | **59.3** | **59.3** | 69,283 |
+| median | 84 | **48.9** | 435 |
+
+**Where the guard acts.**
+- **Urban_Tunnel01.** The guard fires twice and holds the speed for 24 scans in all, about 1.2 s. That is enough: the registration leaves both stalls and then follows BIEVR-LIO's speed within about 1 m/s.
+- **The other five sequences.** It never fires, and the trajectories are byte-identical to v15.
+
+**What did not work:**
+- **`kinematic_velocity_gate`.** The hard per-scan clamp fires on scan noise in 58 % of the scans, skips their map insertion, and runs away to 28 m/s (233 m).
+- **`kinematic_velocity_blend`, as built for walking.** It seeds the accelerometer propagation from the registration only once, so over minutes the propagation drifts to the 40 m/s cap (1476 m).
+- **The blend re-seeded on every agreement.** This fixes Urban_Tunnel01 (24.7 m), but the gravity leak drags correct registrations with it: bridge01 69.4 m, Urban_Tunnel02 645 m. With a looser agreement threshold of 2 m/s, the gradual collapse passes as agreement and Urban_Tunnel01 stays at 266 m.
+- **The guard without the speed-ratio condition.** Ordinary slowdowns that the accelerometer misses trip it. The held speed then builds the map, each release looks like a new drop, and the speed ratchets up to 25 m/s (Urban_Tunnel01 637 m, Urban_Tunnel03 349 m).
+
+**Verdict: adopted for GEODE.**
+- **Pre-declared rule.** The α median had to improve and no α sequence could worsen by more than 20 %. v16 meets it: the median goes from 84 to 48.9 m and nothing worsens.
+- **No held-out sequence.** As for v15, no α sequence is held out.
+- **Overall median unchanged.** The 18-sequence median stays at 5.6 m with eleven sequences below 10 m: Urban_Tunnel01 at 23.7 m is still above both.
+
 ## Reproduction
 
 ```bash
@@ -582,7 +622,7 @@ The ROS 1 rivals run in `docker/enwide_rivals_ros1.Dockerfile`. Each rival's `ou
 
 ## Next
 
-1. The α sequences still lose 59–272 m: Urban_Tunnel01's stalls and bridge03's moving start need a speed source (the stereo cameras are the only one in the bags).
+1. bridge03's moving start: the registration starts from zero speed on a bridge that gives no hold along the road. Only a speed source would fix it, and the stereo cameras are the only one in the bags. Every LiDAR-inertial rival also fails there (697–1100 m).
 2. Shield_tunnel2's heading drift of 20–40° under v14.
 3. The step length: the registration's own speed is short while it is learned (−4 % median).
 4. ENWIDE's handheld D sequences, to see whether the gait helps outside tunnels.

@@ -552,6 +552,16 @@ def test_geode_v15_configs_add_the_attitude_options_to_the_vehicle_only():
         assert v15 == v14
 
 
+def test_geode_v16_configs_add_the_stall_guard_to_the_vehicle_only():
+    geode = ROOT / 'configs' / 'geode'
+    for device in ('alpha', 'beta', 'gamma'):
+        v15 = yaml.safe_load((geode / f'rko_lio_{device}_v15.yaml').read_text())
+        v16 = yaml.safe_load((geode / f'rko_lio_{device}_v16.yaml').read_text())
+        if device == 'alpha':
+            assert v16.pop('vehicle_stall_guard') is True
+        assert v16 == v15
+
+
 def test_photometric_bump_preset_matches_enwide_v10():
     preset = yaml.safe_load(
         (ROOT / 'lidarslam' / 'param' / 'presets'

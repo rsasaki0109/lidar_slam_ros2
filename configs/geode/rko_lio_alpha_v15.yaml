@@ -1,7 +1,7 @@
 # GEODE device alpha (vehicle-mounted): v15 = rko_lio_alpha_v14.yaml plus the attitude
 # options of rko_lio #34. The gyro keeps roll and pitch (the registration may change them by
 # at most 0.02 deg per scan), the gravity window re-levels the absolute tilt, and a start
-# while driving leaves the IMU biases at zero. Median ATE on the six alpha sequences
+# while driving leaves the IMU biases at zero. Superseded by v16. Median ATE on the six alpha sequences
 # 196 -> 84 m. See docs/research/geode-hard-evaluation-2026-10.md ("v15: the vehicle's attitude").
 
 extrinsic_imu2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
