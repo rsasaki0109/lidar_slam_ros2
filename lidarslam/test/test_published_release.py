@@ -623,6 +623,10 @@ def test_release_workflow_docs_and_bundle_require_publication_audit():
     assert 'scripts/build_docker_launcher_asset.py' in workflow
     assert '--output lidarslam-map-docker' in workflow
     assert 'lidarslam-map-docker --version' in workflow
+    # The bundle refuses a dirty checkout, and the launcher is written into it.
+    assert workflow.index('- name: Build release bundle') < workflow.index(
+        '- name: Build version-pinned standalone Docker launcher'
+    )
     assert 'check_published_release.py --require-published' in releasing
     assert 'published-release-v1.schema.json' in reliability
     assert 'scripts/check_published_release.py' in release_bundle
