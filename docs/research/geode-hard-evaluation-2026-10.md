@@ -24,6 +24,7 @@
 - **Re-run.** Every method has been re-run on the internal IMU (see "Re-run on the Livox internal IMU").
   - **Over all 18 sequences.** RKO-LIO v16 still has the lowest median ATE (8.5 m, against 78.7 m for BIEVR-LIO) and the most sequences below 10 m (9, against 8). Its lead comes from the β and α sequences.
   - **On the six γ shield tunnels.** BIEVR-LIO is better: median 0.85 m, against 6.6 m.
+- **The γ gap is in the prediction.** In a fixed-point test on Shield_tunnel2, neither registration pulls a 0.3 m offset back along the tunnel, so BIEVR-LIO's lead comes from its inertial window. RKO-LIO's window with a gravity estimate (W1) matches it on the six γ shield tunnels (median 0.84 m against 0.85 m). W1 is not adopted: it diverges on flat_surfaces_aggressive, as BIEVR-LIO does, and loses all four β sequences (see "The γ shield tunnels are decided by the prediction").
 
 GEODE ([thisparticle.github.io/geode](https://thisparticle.github.io/geode)) marks 18 of
 its 64 sequences "Hard": flat surfaces, shield tunnels, urban tunnels and bridges. This
@@ -353,6 +354,8 @@ On GEODE it is worse in the shield tunnels. Ten sequences ran: it wins on Shield
 
 BIEVR-LIO succeeds on Shield_tunnel10 because its registration does not slip much, not because of its IMU window. Three ways of adding the IMU to RKO-LIO now agree on this: the velocity filter, the error-state filter and the inertial window. The shield-tunnel failure is in the registration, which locks to a neighbouring ring of the periodic lining, and the IMU cannot undo that after the fact.
 
+**Revised (2026-10-13).** This conclusion came from the Xsens runs. On γ with the internal IMU it does not hold: neither registration holds the position along the tunnel, and BIEVR-LIO's lead comes from its inertial window (see "The γ shield tunnels are decided by the prediction").
+
 
 ### What the slip looks like, and the roll jitter (2026-10-12)
 
@@ -667,6 +670,59 @@ All eight γ sequences were re-run on the Livox internal IMU (see Inputs). α an
 
 RKO-LIO v16 has the lowest median over the 18 sequences because it holds the handheld Ouster (β) and vehicle (α) sequences. On the Livox shield tunnels, BIEVR-LIO is better.
 
+### The γ shield tunnels are decided by the prediction (2026-10-13)
+
+**Fixed-point test on Shield_tunnel2 (γ).**
+- **Setup.** Each scan is registered from a reference pose built from the ground truth. The reference then replaces the result, so the map and the state stay on it. The log records the registered pose relative to the reference.
+- **Offset.** The start of each registration is moved 0.3 m ahead of or behind the reference along the motion.
+- **Measure.** Median distance between the registered pose and the reference, without the first and last 20 s:
+
+| | offset 0 | +0.3 m | −0.3 m |
+|---|---:|---:|---:|
+| RKO-LIO v11 | 0.019 m | 0.288 m | 0.293 m |
+| BIEVR-LIO | 0.000 m | 0.287 m | 0.283 m |
+
+**No pull back.** Neither registration pulls the pose back along the tunnel. An error the prediction brings along the axis stays, so on the γ shield tunnels the accuracy comes from the prediction, and BIEVR-LIO's prediction uses the velocity from its 10 s inertial window.
+
+**Gravity in RKO-LIO's window (W1).**
+- **Fixed gravity.** RKO-LIO's inertial window (rko_lio #30) holds gravity fixed. On Shield_tunnel4 and 5 its accelerometer bias ran away after the turnarounds.
+- **BIEVR-LIO's window.** It estimates the gravity direction in the same window.
+- **W1.** It adds that estimate to RKO-LIO's window (rko_lio branch `feat/inertial-window-gravity`, not merged): two tangent unknowns on the direction, a prior of weight 5 toward the current estimate, and propagation with the estimated gravity.
+- **Configuration.** On γ, W1 is v11 (no gait) with the window on.
+
+ATE in metres:
+
+| sequence (γ) | W1 | BIEVR-LIO | RKO-LIO v16 | RKO-LIO v11 |
+|---|---:|---:|---:|---:|
+| Shield_tunnel1 | 0.49 | **0.26** | 0.82 | 99.5 |
+| Shield_tunnel2 | **0.42** | 0.53 | 10.8 | 77.7 |
+| Shield_tunnel3 | 1.19 | **1.17** | **1.17** | 59.7 |
+| Shield_tunnel4 | **1.95** | 2.50 | 24.4 | 5.41 |
+| Shield_tunnel5 | **1.77** | 3.19 | 2.47 | 20.0 |
+| Shield_tunnel6 | 0.46 | **0.40** | 12.6 | 0.52 |
+| median of the six | **0.84** | 0.85 | 6.6 | 39.9 |
+| flat_surfaces_smooth | 3.47 | 2.00 | **1.61** | 2.43 |
+| flat_surfaces_aggressive | diverges | 8646 | **3.39** | 5.39 |
+
+On the Xsens devices, W1 is v16 with the window on:
+
+| sequence | W1 | W1 without the gait | RKO-LIO v16 |
+|---|---:|---:|---:|
+| Shield_tunnel7 (β) | 391 | 146 | **1.87** |
+| Shield_tunnel8 (β) | 152 | 547 | **6.28** |
+| Shield_tunnel9 (β) | 52.8 | 154 | **1.69** |
+| Shield_tunnel10 (β) | 112 | 275 | **2.88** |
+| bridge01 (α) | **20.0** | | 22.7 |
+| bridge02 (α) | **94.5** | | 109 |
+| bridge03 (α) | **809** | | 1075 |
+| Urban_Tunnel01 (α) | 27.4 | | **23.7** |
+| Urban_Tunnel02 (α) | 39.8 | | **38.4** |
+| Urban_Tunnel03 (α) | 63.1 | | **59.3** |
+
+- **The γ gap closes.** W1 matches BIEVR-LIO on the γ shield tunnels (median 0.84 m against 0.85 m) without the gait prior, and is the best on Shield_tunnel2, 4 and 5.
+- **Not adopted.** W1 diverges on flat_surfaces_aggressive, as BIEVR-LIO does; there its gravity estimate ends 31° from vertical. It loses all four β sequences with or without the gait, and flat_surfaces_smooth doubles (1.61 → 3.47 m). On α it gains on the bridges and loses up to 16 % on the urban tunnels.
+- **β is open.** β's Xsens runs 7.5 ms off its Ouster internal IMU. Whether β fails because of that offset or because of the window itself is not yet known.
+
 ## Reproduction
 
 ```bash
@@ -684,7 +740,7 @@ The ROS 1 rivals run in `docker/enwide_rivals_ros1.Dockerfile`. Each rival's `ou
 
 ## Next
 
-1. **The γ shield tunnels.** On the same input, BIEVR-LIO tracks all six (median 0.85 m) and RKO-LIO v16 loses three of them. The comparison is now valid on γ, so this is where to find what RKO-LIO's registration lacks. Its bump image registration is already on; candidates are BIEVR-LIO's bump images on a voxel map and its 10 s inertial window.
+1. **A gravity estimate that holds.** W1 matches BIEVR-LIO on the γ shield tunnels, but it diverges on flat_surfaces_aggressive and loses β. Next are β on its Ouster internal IMU and a gravity estimate that cannot run away under fast motion.
 2. **The gait prior.** On the internal IMU it makes Shield_tunnel4 and 6 worse (4.82 → 24.4 m and 0.94 → 12.6 m). Without it, RKO-LIO fails four of the six γ shield tunnels.
 3. **One configuration.** ENWIDE and GEODE need one configuration, and then the unseen GEODE Metro Tunneling sequences (UGV, all three devices) serve as the hidden tunnel holdout.
 4. **bridge03's moving start.** The registration starts from zero speed on a bridge that gives no hold along the road. Every LiDAR-inertial rival also fails there (697–1100 m).
