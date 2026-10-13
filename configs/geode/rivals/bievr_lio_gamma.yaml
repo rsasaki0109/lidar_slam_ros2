@@ -1,13 +1,14 @@
-# GEODE gamma: Xsens /imu/data and the dataset's T_IMU_LiDAR (same inputs as the other methods).
+# GEODE gamma: BIEVR-LIO's own config/sensor_configs/gamma.yaml. The Livox internal IMU runs on
+# the LiDAR's clock; the Xsens (/imu/data) is 7.5-80 ms off it on gamma.
 topics:
   pointcloud: "/livox/lidar"
-  imu: "/imu/data"
+  imu: "/livox/imu"
 
 calibration: # T_IMU_LIDAR (LiDAR -> IMU)
-  translation: [0.049258, -0.012500, 0.026946]
-  rotation: [0.9996200, 0.0274630, 0.0024450,
-             -0.0275170, 0.9992990, 0.0253980,
-             -0.0017460, -0.0254560, 0.9996740]
+  translation: [0.04165, 0.02326, -0.0284]
+  rotation: [1, 0, 0,
+             0, 1, 0,
+             0, 0, 1]
 
 lidar:
   min_range_m: 0.5

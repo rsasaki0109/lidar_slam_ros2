@@ -27,7 +27,12 @@
 # LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-"""Convert a GEODE ROS 1 bag to a ROS 2 bag with only the LiDAR and the Xsens IMU.
+"""Convert a GEODE ROS 1 bag to a ROS 2 bag with only the LiDAR and the IMUs.
+
+The Xsens IMU (/imu/data) is kept, and so is the LiDAR's internal IMU where there is one
+(/livox/imu on gamma, /ouster/imu on beta). The internal IMU runs on the LiDAR's clock.
+On gamma the Xsens stamps are 7.5-80 ms early against it, by a different amount on every
+sequence, so gamma is evaluated on /livox/imu.
 
 Ouster (beta) PointCloud2 clouds are copied. Livox (gamma) livox_ros_driver/CustomMsg
 clouds become PointCloud2 with x, y, z, intensity (the reflectivity) and t, the point's
@@ -52,7 +57,7 @@ from rosbags.rosbag2 import Writer
 from rosbags.typesys import get_types_from_msg, get_typestore, Stores
 
 LIDAR_TOPICS = ('/velodyne_points', '/ouster/points', '/livox/lidar')
-IMU_TOPIC = '/imu/data'
+IMU_TOPICS = ('/imu/data', '/livox/imu', '/ouster/imu')
 LIVOX_POINT = np.dtype([('x', '<f4'), ('y', '<f4'), ('z', '<f4'),
                         ('intensity', '<f4'), ('t', '<u4')])
 
@@ -100,7 +105,7 @@ def main() -> int:
         for connection in reader.connections:
             if connection.msgtype.startswith('livox_ros_driver/'):
                 ros1.register(get_types_from_msg(connection.msgdef.data, connection.msgtype))
-        wanted = [c for c in reader.connections if c.topic in LIDAR_TOPICS + (IMU_TOPIC,)]
+        wanted = [c for c in reader.connections if c.topic in LIDAR_TOPICS + IMU_TOPICS]
         writer1 = Writer1(ros1_out) if ros1_out else None
         if writer1:
             writer1.open()
@@ -109,7 +114,7 @@ def main() -> int:
         with Writer(target, version=8) as writer:
             outputs = {}
             for connection in wanted:
-                msgtype = ('sensor_msgs/msg/Imu' if connection.topic == IMU_TOPIC
+                msgtype = ('sensor_msgs/msg/Imu' if connection.topic in IMU_TOPICS
                            else 'sensor_msgs/msg/PointCloud2')
                 outputs[connection.topic] = (writer.add_connection(
                     connection.topic, msgtype, typestore=ros2), msgtype)
@@ -121,7 +126,7 @@ def main() -> int:
                 if writer1:
                     writer1.write(outputs1[connection.topic], stamp, raw)
                 output, msgtype = outputs[connection.topic]
-                if connection.topic == IMU_TOPIC:
+                if connection.topic in IMU_TOPICS:
                     converted = Imu(
                         header=header(message.header),
                         orientation=ros2.types['geometry_msgs/msg/Quaternion'](

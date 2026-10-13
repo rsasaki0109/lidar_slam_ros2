@@ -562,6 +562,22 @@ def test_geode_v16_configs_add_the_stall_guard_to_the_vehicle_only():
         assert v16 == v15
 
 
+def test_geode_gamma_rivals_use_the_livox_internal_imu():
+    # On gamma the Xsens is 7.5-80 ms off the LiDAR clock; the Livox IMU is on it.
+    rivals = ROOT / 'configs' / 'geode' / 'rivals'
+    bievr = yaml.safe_load((rivals / 'bievr_lio_gamma.yaml').read_text())
+    assert bievr['topics']['imu'] == '/livox/imu'
+    assert bievr['calibration']['translation'] == [0.04165, 0.02326, -0.0284]
+    assert bievr['calibration']['rotation'] == [1, 0, 0, 0, 1, 0, 0, 0, 1]
+    for name in ('fast_lio_gamma.yaml', 'point_lio_gamma.yaml'):
+        config = yaml.safe_load((rivals / name).read_text())
+        assert config['common']['imu_topic'] == '/livox/imu'
+        assert config['mapping']['extrinsic_T'] == [0.04165, 0.02326, -0.0284]
+        assert config['mapping']['extrinsic_R'] == [1, 0, 0, 0, 1, 0, 0, 0, 1]
+    converter = (ROOT / 'scripts' / 'convert_geode_bag.py').read_text()
+    assert "IMU_TOPICS = ('/imu/data', '/livox/imu', '/ouster/imu')" in converter
+
+
 def test_photometric_bump_preset_matches_enwide_v10():
     preset = yaml.safe_load(
         (ROOT / 'lidarslam' / 'param' / 'presets'
