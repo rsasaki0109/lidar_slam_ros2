@@ -2826,17 +2826,18 @@ after review confirms that none of those values is present.
 
 ## Release-gate accuracy snapshot
 
-Current numbers from the release-gate profiles (`scripts/release_profiles.yaml`).
-Every release is blocked in CI by these per-dataset thresholds.
+Numbers from the release-gate profiles (`scripts/release_profiles.yaml`) at the
+v0.10.0 carrier commit `af73e05a`. Every release is blocked by these
+per-dataset thresholds.
 
 | Dataset | Sensor | Reference | APE RMSE | Gate (pass) |
 | --- | --- | --- | --- | --- |
-| NTU VIRAL `tnp_01` (outdoor, ~580 s) | Ouster OS1-16 + VN-100 | Leica prism ground truth | **0.95 m** (best 0.87) | ≤ 1.00 m |
-| RTK-SLAM Construction Hall 2 (indoor, ~600 s) | Livox MID-360 | total-station checkpoints¹ | **0.086 m** (median 0.064, 16/16) | ≤ 0.30 m |
-| RTK-SLAM Construction Hall 1 (indoor, ~741 s) | Livox MID-360 | total-station checkpoints¹ | **0.321 m** (median 0.163, 16/16) | ≤ 0.55 m |
-| RTK-SLAM Stadtgarten 2 (outdoor park, ~876 s) | Livox MID-360 | total-station checkpoints¹ | **0.426 m** (median 0.264, 19/19) | report-only² |
-| RTK-SLAM Stadtgarten 1 (outdoor park, ~1 km loop) | Livox MID-360 | total-station checkpoints¹ | **0.838 m** (median 0.511, 36/36) | report-only² |
-| Newer College `Maths-Hard` (~320 m loop) | Ouster OS0-128 | ICP registration to survey-grade map | candidate evidence required locally | ≤ 0.10 m |
+| NTU VIRAL `tnp_01` (outdoor, ~580 s) | Ouster OS1-16 + VN-100 | Leica prism ground truth | **0.975 m** (v0.9.0: 0.936) | ≤ 1.00 m |
+| RTK-SLAM Construction Hall 2 (indoor, ~600 s) | Livox MID-360 | total-station checkpoints¹ | **0.165 m** (median 0.091, 16/16; v0.9.0: 0.086) | ≤ 0.30 m |
+| RTK-SLAM Construction Hall 1 (indoor, ~741 s) | Livox MID-360 | total-station checkpoints¹ | **0.280 m** (median 0.145, 16/16; v0.9.0: 0.321) | ≤ 0.55 m |
+| RTK-SLAM Stadtgarten 2 (outdoor park, ~876 s) | Livox MID-360 | total-station checkpoints¹ | **0.426 m** (median 0.264, 19/19; earlier run) | report-only² |
+| RTK-SLAM Stadtgarten 1 (outdoor park, ~1 km loop) | Livox MID-360 | total-station checkpoints¹ | **0.838 m** (median 0.511, 36/36; earlier run) | report-only² |
+| Newer College `Maths-Hard` (~320 m loop) | Ouster OS0-128 | ICP registration to survey-grade map | **0.070 m** (v0.9.0: 0.081) | ≤ 0.10 m |
 
 ¹ Surveyed checkpoints from the public RTK-SLAM dataset (CC-BY 4.0), scored like
 its published baselines (dense odometry trajectory).
