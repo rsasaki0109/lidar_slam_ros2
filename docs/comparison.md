@@ -247,8 +247,10 @@ failure and the lowest median ATE among the five methods reproduced on the same 
 - On GEODE's Hard sequences most methods fail almost everywhere. An earlier version of this
   page said that the GEODE configuration v16 has the lowest median ATE there (5.6 m, against
   BIEVR-LIO's 180 m). That claim is withdrawn. On the Livox device every method was given an
-  IMU 7.5–80 ms off the LiDAR clock. On the synchronised internal IMU, BIEVR-LIO tracks
-  Shield_tunnel1 at 0.26 m, against 0.82 m for v16. The comparison is being re-run.
+  IMU 7.5–80 ms off the LiDAR clock. After a re-run on the synchronised internal IMU:
+  - **Over all 18 sequences.** v16 still has the lowest median ATE (8.5 m, against 78.7 m for
+    BIEVR-LIO), from the handheld Ouster and vehicle sequences.
+  - **On the six Livox shield tunnels.** BIEVR-LIO is better (median 0.85 m, against 6.6 m).
 
 Per-sequence tables, revisions and reproduction are in the
 [ENWIDE](research/enwide-photometric-registration-2026-10.md) and
