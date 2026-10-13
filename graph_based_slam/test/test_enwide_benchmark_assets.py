@@ -562,6 +562,21 @@ def test_geode_v16_configs_add_the_stall_guard_to_the_vehicle_only():
         assert v16 == v15
 
 
+def test_geode_v17_configs_add_the_gait_hold_to_the_handheld_devices():
+    geode = ROOT / 'configs' / 'geode'
+    for device in ('alpha', 'beta', 'gamma'):
+        v16 = yaml.safe_load((geode / f'rko_lio_{device}_v16.yaml').read_text())
+        v17 = yaml.safe_load((geode / f'rko_lio_{device}_v17.yaml').read_text())
+        if device != 'alpha':
+            assert v17.pop('gait_hold_without_cadence') is True
+        if device == 'gamma':
+            # gamma runs on the Livox internal IMU with BIEVR-LIO's and FAST-LIO's Avia extrinsic.
+            assert v17.pop('extrinsic_lidar2base_quat_xyzw_xyz') == [
+                0.0, 0.0, 0.0, 1.0, 0.04165, 0.02326, -0.0284]
+            v16.pop('extrinsic_lidar2base_quat_xyzw_xyz')
+        assert v17 == v16
+
+
 def test_geode_gamma_rivals_use_the_livox_internal_imu():
     # On gamma the Xsens is 7.5-80 ms off the LiDAR clock; the Livox IMU is on it.
     rivals = ROOT / 'configs' / 'geode' / 'rivals'
