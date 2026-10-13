@@ -20,7 +20,10 @@
 - **β is not affected.** Its Xsens is 7.5 ms off the Ouster internal IMU on all four sequences.
 - **BIEVR-LIO.** Its own configuration for this device uses the internal IMU. With it, BIEVR-LIO tracks Shield_tunnel1 at 0.26 m (its paper reports 0.256 m), against 995,841 m with the Xsens. It diverged only where the offset is 30 ms or more and the motion is fast.
 - **RKO-LIO.** v16 also improves on the internal IMU: Shield_tunnel1 goes from 6.38 to 0.82 m.
-- **Withdrawn.** The γ results of BIEVR-LIO and RKO-LIO in this note are not valid. The claims that RKO-LIO has the lowest median ATE on GEODE Hard are withdrawn until every method has been re-run on the internal IMU.
+- **Withdrawn.** The γ results of BIEVR-LIO and RKO-LIO in this note were not valid, and the earlier medians that included them are withdrawn.
+- **Re-run.** Every method has been re-run on the internal IMU (see "Re-run on the Livox internal IMU").
+  - **Over all 18 sequences.** RKO-LIO v16 still has the lowest median ATE (8.5 m, against 78.7 m for BIEVR-LIO) and the most sequences below 10 m (9, against 8). Its lead comes from the β and α sequences.
+  - **On the six γ shield tunnels.** BIEVR-LIO is better: median 0.85 m, against 6.6 m.
 
 GEODE ([thisparticle.github.io/geode](https://thisparticle.github.io/geode)) marks 18 of
 its 64 sequences "Hard": flat surfaces, shield tunnels, urban tunnels and bridges. This
@@ -628,6 +631,42 @@ The parameters were fixed before the runs. v16 is v15 plus `vehicle_stall_guard:
 - **No held-out sequence.** As for v15, no α sequence is held out.
 - **Overall median unchanged.** The 18-sequence median stays at 5.6 m with eleven sequences below 10 m: Urban_Tunnel01 at 23.7 m is still above both.
 
+### Re-run on the Livox internal IMU (2026-10-13)
+
+All eight γ sequences were re-run on the Livox internal IMU (see Inputs). α and β keep the Xsens and are unchanged. RKO-LIO v11 here is v16 without the gait options, which for γ is exactly the v11 configuration. ATE in metres:
+
+| sequence (γ) | Xsens offset | RKO-LIO v16 on the Xsens | RKO-LIO v11 | RKO-LIO v16 | BIEVR-LIO | FAST-LIO2 | Point-LIO |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Shield_tunnel1 | 47.5 ms | 6.38 | 99.5 | 0.82 | **0.26** | 269 | 90.5 |
+| Shield_tunnel2 | 42.5 ms | 26.9 | 77.7 | 10.8 | **0.53** | 155 | 98.7 |
+| Shield_tunnel3 | 35 ms | 2.28 | 59.7 | **1.17** | **1.17** | 428 | 65.8 |
+| Shield_tunnel4 | 30 ms | 4.82 | 5.41 | 24.4 | **2.50** | 7016 | 68.9 |
+| Shield_tunnel5 | 12.5 ms | 2.71 | 20.0 | **2.47** | 3.19 | 46,833 | 156 |
+| Shield_tunnel6 | 7.5 ms | 0.94 | 0.52 | 12.6 | **0.40** | 153 | 32.6 |
+| flat_surfaces_smooth | 80 ms | 2.20 | 2.43 | **1.61** | 2.00 | 408 | 2.82 |
+| flat_surfaces_aggressive | 32.5 ms | 3.13 | 5.39 | **3.39** | 8646 | 496 | 6.04 |
+
+**Shield tunnels.**
+- **BIEVR-LIO is the best.** It tracks all six γ shield tunnels, with a median of 0.85 m. RKO-LIO v16's median is 6.6 m, and it loses Shield_tunnel2, 4 and 6 by 10–24 m.
+- **The gait prior does not transfer.** v16 was tuned on the Xsens. On the better input it gets worse on Shield_tunnel4 (4.82 → 24.4 m) and Shield_tunnel6 (0.94 → 12.6 m). Without the gait (v11), RKO-LIO fails Shield_tunnel1, 2, 3 and 5.
+- **Geometric LIOs still fail.** FAST-LIO2 and Point-LIO fail every γ shield tunnel on the internal IMU as well.
+
+**What BIEVR-LIO needs on Shield_tunnel1.** Both of the following make it diverge:
+- **Coarse pixels.** Pixels of 0.5 m, the voxel size, which removes the 5 cm surface relief of its bump images (78,984 m).
+- **A short inertial window.** An inertial window of 0.5 s instead of 10 s (24 million m). This window may simply be too short to be well posed, so the result does not show the long window's role in the tunnel.
+
+**flat_surfaces_aggressive.** BIEVR-LIO diverges there on the internal IMU too.
+
+**Medians over the 18 sequences.** These use the γ results above and the α and β results from the earlier tables:
+
+| | RKO-LIO v16 | BIEVR-LIO | Point-LIO | FAST-LIO2 |
+|---|---:|---:|---:|---:|
+| median ATE | **8.5 m** | 78.7 m | 97.6 m | 462 m |
+| below 10 m (of 18) | **9** | 8 | 2 | 0 |
+| median on the six γ shield tunnels | 6.6 m | **0.85 m** | 79.7 m | 349 m |
+
+RKO-LIO v16 has the lowest median over the 18 sequences because it holds the handheld Ouster (β) and vehicle (α) sequences. On the Livox shield tunnels, BIEVR-LIO is better.
+
 ## Reproduction
 
 ```bash
@@ -645,7 +684,7 @@ The ROS 1 rivals run in `docker/enwide_rivals_ros1.Dockerfile`. Each rival's `ou
 
 ## Next
 
-1. bridge03's moving start: the registration starts from zero speed on a bridge that gives no hold along the road. Only a speed source would fix it, and the stereo cameras are the only one in the bags. Every LiDAR-inertial rival also fails there (697–1100 m).
-2. Shield_tunnel2's heading drift of 20–40° under v14.
-3. The step length: the registration's own speed is short while it is learned (−4 % median).
-4. ENWIDE's handheld D sequences, to see whether the gait helps outside tunnels.
+1. **The γ shield tunnels.** On the same input, BIEVR-LIO tracks all six (median 0.85 m) and RKO-LIO v16 loses three of them. The comparison is now valid on γ, so this is where to find what RKO-LIO's registration lacks. Its bump image registration is already on; candidates are BIEVR-LIO's bump images on a voxel map and its 10 s inertial window.
+2. **The gait prior.** On the internal IMU it makes Shield_tunnel4 and 6 worse (4.82 → 24.4 m and 0.94 → 12.6 m). Without it, RKO-LIO fails four of the six γ shield tunnels.
+3. **One configuration.** ENWIDE and GEODE need one configuration, and then the unseen GEODE Metro Tunneling sequences (UGV, all three devices) serve as the hidden tunnel holdout.
+4. **bridge03's moving start.** The registration starts from zero speed on a bridge that gives no hold along the road. Every LiDAR-inertial rival also fails there (697–1100 m).
