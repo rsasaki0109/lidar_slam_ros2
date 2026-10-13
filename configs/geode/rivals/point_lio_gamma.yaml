@@ -1,7 +1,9 @@
-# GEODE gamma: point_lio avia.yaml with the topics, /imu/data (Xsens), 0.65 m blind and T_IMU_LiDAR.
+# GEODE gamma: point_lio avia.yaml with the topics, 0.65 m blind and the Livox internal IMU
+# (/livox/imu, on the LiDAR's clock; the Xsens is 7.5-80 ms off it on gamma). GEODE's
+# /livox/imu is in m/s^2, so acc_norm stays 9.81.
 common:
     lid_topic:  "/livox/lidar" 
-    imu_topic:  "/imu/data" 
+    imu_topic:  "/livox/imu" 
     con_frame: false # true: if you need to combine several LiDAR frames into one
     con_frame_num: 1 # the number of frames combined
     cut_frame: false # true: if you need to cut one LiDAR frame into several subframes
@@ -36,8 +38,8 @@ mapping:
     ivox_grid_resolution: 2.0
     gravity: [0.0, 0.0, -9.810] # [0.0, 9.810, 0.0] # # [0.0, 0.0, -9.787561] # gvins # 
     gravity_init: [0.0, 0.0, -9.810] # preknown gravity in the initial IMU frame for unstationary start or in the initial LiDAR frame for using without IMU
-    extrinsic_T: [0.049258, -0.012500, 0.026946] # avia # [0.011, 0.02329, -0.04412] # mid360
-    extrinsic_R: [0.9996200, 0.0274630, 0.0024450, -0.0275170, 0.9992990, 0.0253980, -0.0017460, -0.0254560, 0.9996740]
+    extrinsic_T: [0.04165, 0.02326, -0.0284] # avia # [0.011, 0.02329, -0.04412] # mid360
+    extrinsic_R: [1, 0, 0, 0, 1, 0, 0, 0, 1]
 
 odometry: 
     publish_odometry_without_downsample: false

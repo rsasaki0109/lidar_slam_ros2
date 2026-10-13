@@ -1,7 +1,8 @@
-# GEODE gamma: fast_lio avia.yaml with the topics, /imu/data (Xsens), 0.65 m blind and T_IMU_LiDAR.
+# GEODE gamma: fast_lio avia.yaml with the topics, 0.65 m blind and the Livox internal IMU
+# (/livox/imu, on the LiDAR's clock; the Xsens is 7.5-80 ms off it on gamma).
 common:
     lid_topic:  "/livox/lidar"
-    imu_topic:  "/imu/data"
+    imu_topic:  "/livox/imu"
     time_sync_en: false         # ONLY turn on when external time synchronization is really not possible
     time_offset_lidar_to_imu: 0.0 # Time offset between lidar and IMU calibrated by other algorithms, e.g. LI-Init (can be found in README).
                                   # This param will take effect no matter what time_sync_en is. So if the time offset is not known exactly, please set as 0.0
@@ -19,8 +20,8 @@ mapping:
     fov_degree:    90
     det_range:     450.0
     extrinsic_est_en:  false      # true: enable the online estimation of IMU-LiDAR extrinsic
-    extrinsic_T: [0.049258, -0.012500, 0.026946]
-    extrinsic_R: [0.9996200, 0.0274630, 0.0024450, -0.0275170, 0.9992990, 0.0253980, -0.0017460, -0.0254560, 0.9996740]
+    extrinsic_T: [0.04165, 0.02326, -0.0284]
+    extrinsic_R: [1, 0, 0, 0, 1, 0, 0, 0, 1]
 
 publish:
     path_en:  false

@@ -72,11 +72,13 @@ GEODE has three devices with the same Xsens MTi-30 IMU (`/imu/data`, 100 Hz):
 
 Every method gets the same data:
 
-- **Inputs.** Every method uses the Xsens IMU and the dataset's `T_IMU_LiDAR`
-  (`{alpha,beta,gamma}_config.yaml`).
-  On γ the Xsens is 7.5–80 ms off the LiDAR clock; see the correction in the Summary.
-- **Conversion.** `scripts/convert_geode_bag.py` writes the LiDAR and the IMU to a ROS 2
-  bag for RKO-LIO and BIEVR-LIO.
+- **Inputs.** The IMU depends on the device:
+  - **α and β.** Every method uses the Xsens IMU and the dataset's `T_IMU_LiDAR` (`{alpha,beta}_config.yaml`).
+  - **γ.** Every method uses the Livox internal IMU (`/livox/imu`), because there the Xsens is 7.5–80 ms off the LiDAR clock (see the correction in the Summary). The extrinsic is the one in BIEVR-LIO's and FAST-LIO's Avia configurations: no rotation and a translation of (0.04165, 0.02326, −0.0284) m.
+  - **Older results.** γ results measured before 2026-10-13 used the Xsens.
+- **Conversion.** `scripts/convert_geode_bag.py` writes the LiDAR and the IMUs to a ROS 2
+  bag for RKO-LIO and BIEVR-LIO: the Xsens and, where there is one, the LiDAR's internal
+  IMU (`/livox/imu`, `/ouster/imu`).
   - Livox CustomMsg becomes PointCloud2 with a uint32 `t` (ns from the scan start).
   - The VLP-16 `time` field is in seconds relative to a stamp at the scan end, so most
     offsets are negative. FAST-LIO2 and Point-LIO expect offsets from the scan start and
