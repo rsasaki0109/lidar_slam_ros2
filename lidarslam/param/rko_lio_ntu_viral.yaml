@@ -14,6 +14,10 @@ voxel_size: 1.5
 # tilt (5,691/5,691 attempted corrections), regressing APE 0.983 -> 1.070 m.
 gravity_window_alignment: false
 icp_keypoint_voxel_multiplier: 1.5
+# Deskew with the interval's mean angular velocity, as up to v0.9.0. The
+# samplewise gyro deskew (rko_lio #14, the default since) regresses this UAV
+# sequence's raw odometry APE 0.983 -> 1.157 m.
+samplewise_gyro_deskew: false
 max_points_per_voxel: 20
 min_range: 1.0
 max_range: 100.0

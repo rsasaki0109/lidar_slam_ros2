@@ -276,3 +276,26 @@ def test_release_metrics_carry_provenance_and_reference_tolerance():
         'DEFAULT_LIDARSLAM_PARAM="${REPO_ROOT}/lidarslam/param/'
         'lidarslam_ntu_viral.yaml"'
     ) in script
+
+
+def test_ntu_release_profile_keeps_the_mean_rate_deskew():
+    """tnp_01 regressed 0.936 -> 1.14 m APE under the samplewise gyro deskew."""
+    script = BENCHMARK_SCRIPT.read_text(encoding='utf-8')
+    assert (
+        'DEFAULT_RKO_PARAM="${REPO_ROOT}/lidarslam/param/rko_lio_ntu_viral.yaml"'
+        in script
+    )
+    params = yaml.safe_load(
+        (REPO_ROOT / 'lidarslam' / 'param' / 'rko_lio_ntu_viral.yaml').read_text(
+            encoding='utf-8'
+        )
+    )
+    assert params['samplewise_gyro_deskew'] is False
+    rko_node = (
+        REPO_ROOT / 'Thirdparty' / 'rko_lio' / 'rko_lio' / 'ros' / 'base_node.cpp'
+    )
+    if rko_node.is_file():
+        assert (
+            'declare_parameter<bool>("samplewise_gyro_deskew"'
+            in rko_node.read_text(encoding='utf-8')
+        )
