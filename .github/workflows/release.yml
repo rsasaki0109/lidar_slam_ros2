@@ -372,17 +372,8 @@ jobs:
           bash -n scripts/prepare_velodyne_pointcloud_overlay.sh
           bash -n scripts/run_open_data_applanix_velodyne_gnss_smoke.sh
 
-      - name: Build version-pinned standalone Docker launcher
-        shell: bash
-        run: |
-          python3 scripts/build_docker_launcher_asset.py \
-            --tag "${{ needs.metadata.outputs.tag_name }}" \
-            --source-revision "${{ needs.metadata.outputs.git_commit }}" \
-            --output lidarslam-map-docker
-          EXPECTED="lidarslam-map-docker ${{ needs.metadata.outputs.tag_name }} (${{ needs.metadata.outputs.git_commit }})"
-          test "$(./lidarslam-map-docker --version)" = "${EXPECTED}"
-          bash -n lidarslam-map-docker
-
+      # The bundle requires a clean checkout, so build it before the launcher
+      # writes lidarslam-map-docker into the workspace.
       - name: Build release bundle
         shell: bash
         run: |
@@ -393,6 +384,17 @@ jobs:
             scripts/build_release_bundle.py \
             --tag "${{ needs.metadata.outputs.tag_name }}" \
             --output "${{ needs.metadata.outputs.bundle_name }}"
+
+      - name: Build version-pinned standalone Docker launcher
+        shell: bash
+        run: |
+          python3 scripts/build_docker_launcher_asset.py \
+            --tag "${{ needs.metadata.outputs.tag_name }}" \
+            --source-revision "${{ needs.metadata.outputs.git_commit }}" \
+            --output lidarslam-map-docker
+          EXPECTED="lidarslam-map-docker ${{ needs.metadata.outputs.tag_name }} (${{ needs.metadata.outputs.git_commit }})"
+          test "$(./lidarslam-map-docker --version)" = "${EXPECTED}"
+          bash -n lidarslam-map-docker
 
       - name: Upload release bundle artifact
         uses: actions/upload-artifact@v6
