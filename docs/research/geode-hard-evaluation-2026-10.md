@@ -59,7 +59,13 @@ on all 18.
   true one. The median of the six α sequences drops from 196 to 84 m.
 - v16 holds the vehicle's speed while its registration stalls (rko_lio #35). Urban_Tunnel01
   drops from 272 to 23.7 m and the α median from 84 to 48.9 m; the other five α sequences
-  are byte-identical. It is the GEODE configuration.
+  are byte-identical.
+- v17 keeps a walker's bounds when the registration runs away between steps (rko_lio #38).
+  At a stop or a turnaround the gait loses the cadence, and the tunnel registration runs away
+  with its own prediction. v17 holds such scans to the last pace, or to zero while the walker
+  stands. Shield_tunnel4 drops from 24.4 to 4.21 m and Shield_tunnel6 from 12.6 to 0.55 m.
+  The median over the 18 sequences drops from 8.5 to 3.8 m, with eleven below 10 m. It is
+  the GEODE configuration.
 
 No SOTA claim follows: the profile needs zero catastrophic failures, and no method has
 that on GEODE Hard.
@@ -820,16 +826,81 @@ None passes. Each failure:
 
 A window that holds the registered poses fixed cannot tell these apart from motion.
 
+### v17: a walker's bounds between steps (2026-10-14)
+
+**What goes wrong in v16.** v16 loses Shield_tunnel4 and 6 (γ) in a single event each:
+- **Shield_tunnel6, 112–116 s.**
+  - The walker stands (ground truth 0.1–0.5 m/s), and the gait's 4 s window loses the cadence.
+  - The velocity then comes from the registration's displacement over 0.3 s. In the tunnel nothing holds that displacement along the travel.
+  - After one registration jumps 2.7 m, the speed holds at 6.7–9 m/s for 4 s.
+- **Shield_tunnel4, 156–168 s.**
+  - The walker stops and turns around.
+  - The cadence stays lost for up to 3.7 s after walking resumes.
+  - The speed runs to 10 m/s in the old direction.
+
+**v17.** rko_lio #38 adds `gait_hold_without_cadence`. Once the step length is learned, it holds a scan that has no cadence and whose registered speed exceeds the last gait speed:
+- **Standing.** If the specific force's magnitude varies by less than 0.3 m/s² (std over the last second), the velocity is zero.
+- **Otherwise.** The speed along the direction of travel stays between 0 and the last gait speed.
+- **The correction limit stays on.** The registration's correction along the travel stays limited to 2 cm per scan, as while the gait drives the prediction.
+
+**Rule, fixed before the runs.** Two conditions:
+- No sequence may be more than 10 % worse than v16, or 0.1 m below 1 m.
+- The median on the six γ shield tunnels must drop.
+
+ATE in metres, from one binary. "Every gap" is the first version, which held every scan without a cadence.
+
+| sequence | v16 | every gap | v17 |
+|---|---:|---:|---:|
+| Shield_tunnel1 (γ) | 0.82 | 0.66 | 0.79 |
+| Shield_tunnel2 (γ) | 10.79 | 11.77 | 10.32 |
+| Shield_tunnel3 (γ) | 1.17 | 1.18 | 0.95 |
+| Shield_tunnel4 (γ) | 24.36 | 6.12 | **4.21** |
+| Shield_tunnel5 (γ) | 2.47 | 3.62 | 2.63 |
+| Shield_tunnel6 (γ) | 12.60 | **0.47** | 0.55 |
+| flat_surfaces_smooth (γ) | 1.61 | 1.61 | 1.61 |
+| flat_surfaces_aggressive (γ) | 3.39 | 3.39 | 3.39 |
+| Shield_tunnel7 (β) | 1.87 | 1.85 | 1.87 |
+| Shield_tunnel8 (β) | 6.28 | 6.60 | 6.58 |
+| Shield_tunnel9 (β) | 1.69 | **0.98** | 1.69 |
+| Shield_tunnel10 (β) | 2.88 | **1.29** | 2.84 |
+
+- **Every gap fails on Shield_tunnel5** (2.47 → 3.62 m).
+  - **What happens.** In its turn at 127–131 s the walker moves at 0.5–0.8 m/s, but the sensor shakes as little as in Shield_tunnel6's stand: 0.13–0.25 m/s², against 0.13–0.21 m/s². The velocity was set to zero.
+  - **What tells the two apart.** The registration's speed was below the last pace there. In Shield_tunnel6 it ran at 7–9 times the last pace.
+- **v17 holds only a registration faster than the last pace.** It was designed after that failure and passes the rule.
+  - The largest loss is Shield_tunnel5, at +6.5 %.
+  - The γ shield tunnel median drops from 6.6 to 1.8 m. BIEVR-LIO's is 0.85 m.
+  - β stays within 5 %.
+- **The holdout is still needed.** Both versions were developed on these sequences. The unseen Metro Tunneling sequences are the check (Next, item 3).
+
+Medians over the 18 sequences. α is unchanged, because v17 is v16 there.
+
+| | RKO-LIO v17 | RKO-LIO v16 | BIEVR-LIO |
+|---|---:|---:|---:|
+| median ATE | **3.8 m** | 8.5 m | 78.7 m |
+| below 10 m (of 18) | **11** | 9 | 8 |
+| median on the six γ shield tunnels | 1.8 m | 6.6 m | **0.85 m** |
+
+**Configurations.** `configs/geode/rko_lio_{alpha,beta,gamma}_v17.yaml`:
+- **α.** It is v16 unchanged.
+- **β.** It is v16 plus the hold.
+- **γ.** It is v16 plus the hold, with the Livox internal IMU's extrinsic from Inputs. The earlier γ files hold the Xsens extrinsic, and the γ runs since 2026-10-13 used the Livox extrinsic.
+
 ## Reproduction
 
 ```bash
 python3 scripts/prepare_geode_ground_truth.py GEODE/groundtruth/traj GEODE/gt_tum
 python3 scripts/convert_geode_bag.py SEQ/SEQ.bag SEQ/ros2 [--ros1-out SEQ/SEQ_lidar_imu.bag]
-ros2 run rko_lio offline_node --ros-args --params-file configs/geode/rko_lio_DEVICE_v8.yaml \
-  -p bag_path:=SEQ/ros2 -p imu_topic:=/imu/data -p lidar_topic:=LIDAR_TOPIC ...
+python3 -c "import sys, yaml; print(yaml.safe_dump({'/**': {'ros__parameters': yaml.safe_load(open(sys.argv[1]))}}))" \
+  configs/geode/rko_lio_DEVICE_v17.yaml > rko_lio_DEVICE_v17.ros.yaml
+ros2 run rko_lio offline_node --ros-args --params-file rko_lio_DEVICE_v17.ros.yaml \
+  -p bag_path:=SEQ/ros2 -p imu_topic:=IMU_TOPIC -p lidar_topic:=LIDAR_TOPIC -p base_frame:=base_link ...
 python3 scripts/score_position_only_trajectory.py --reference GEODE/gt_tum/SEQ.txt \
   --estimate TRAJECTORY.tum --output score.json --max-time-gap 0.11
 ```
+
+The files in `configs/geode/` are flat parameter maps, so a ROS parameter file wraps them
+first. `IMU_TOPIC` is `/imu/data` on α and β and `/livox/imu` on γ.
 
 The ROS 1 rivals run in `docker/enwide_rivals_ros1.Dockerfile`. Each rival's `ouster64`,
 `velodyne`/`velody16` or `avia` configuration is replaced by the matching file in
@@ -838,6 +909,6 @@ The ROS 1 rivals run in `docker/enwide_rivals_ros1.Dockerfile`. Each rival's `ou
 ## Next
 
 1. **Soft poses in the window.** W1 with the γ IMU rotation matches BIEVR-LIO on the γ shield tunnels, and with the gait keeping the speed it no longer loses β. Six ways to make the fixed-pose window robust failed (above). flat_surfaces_aggressive diverges with all but one of them, and that one, a gate, costs flat_surfaces_smooth. The window has to estimate the poses as well, with each scan's registration information as the prior. A weak or lost registration is then outweighed by the IMU instead of fitted.
-2. **The gait prior.** On the internal IMU it makes Shield_tunnel4 and 6 worse (4.82 → 24.4 m and 0.94 → 12.6 m). Without it, RKO-LIO fails four of the six γ shield tunnels.
+2. **Shield_tunnel2.** v17 removes the gait prior's losses on Shield_tunnel4 and 6 (24.4 → 4.21 m and 12.6 → 0.55 m). Shield_tunnel2 (10.3 m) is the γ shield tunnel left above 5 m; W1 tracks it at 0.42 m.
 3. **One configuration.** ENWIDE and GEODE need one configuration, and then the unseen GEODE Metro Tunneling sequences (UGV, all three devices) serve as the hidden tunnel holdout.
 4. **bridge03's moving start.** The registration starts from zero speed on a bridge that gives no hold along the road. Every LiDAR-inertial rival also fails there (697–1100 m).
