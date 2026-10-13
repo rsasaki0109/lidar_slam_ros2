@@ -231,3 +231,36 @@ def test_missing_explicit_ros_setup_is_rejected(tmp_path: Path):
 
     assert result.returncode == 2
     assert f'ROS setup file does not exist: {missing}' in result.stderr
+
+
+def test_experimental_exclusions_match_the_default_ci_gate(tmp_path: Path):
+    """The product suite skips exactly the pytest modules the CI gate excludes."""
+    ci_script = (REPO_ROOT / 'scripts' / 'run_default_ci_checks.sh').read_text(
+        encoding='utf-8'
+    )
+    ci_block = ci_script.split("DEFAULT_CI_EXCLUDED_TESTS='^('", 1)[1].split(
+        "')$'", 1
+    )[0]
+    ci_names = {
+        name.strip("'|\\\n ")
+        for name in ci_block.split('\n')
+        if name.strip("'|\\\n ").startswith('test_')
+    }
+    ci_modules = {
+        name for name in ci_names
+        if (REPO_ROOT / 'graph_based_slam' / 'test' / f'{name}.py').is_file()
+    }
+    runner = TEST_SCRIPT.read_text(encoding='utf-8')
+    runner_block = runner.split('EXPERIMENTAL_EXCLUDED_MODULES=(\n', 1)[1].split(
+        '\n)\n', 1
+    )[0]
+    runner_modules = {line.strip() for line in runner_block.splitlines()}
+    assert runner_modules == ci_modules
+
+    env, call_log = _fake_python_environment(tmp_path)
+    result = _run('--suite', 'graph_based_slam', env=env)
+    assert result.returncode == 0, result.stderr
+    pytest_calls = [line for line in _calls(call_log) if '-m pytest' in line]
+    assert len(pytest_calls) == 1
+    for module in sorted(ci_modules):
+        assert f'--ignore=graph_based_slam/test/{module}.py' in pytest_calls[0]
