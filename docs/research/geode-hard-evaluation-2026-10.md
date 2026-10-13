@@ -2,6 +2,26 @@
 
 ## Summary
 
+**Correction (2026-10-13): the γ results were measured with an unsynchronised IMU.**
+- **The offset.** Every method was given the Xsens IMU (`/imu/data`). On the γ device (Livox AVIA) its stamps are 7.5–80 ms early against the Livox internal IMU (`/livox/imu`), which runs on the LiDAR's clock. The offset differs on every sequence:
+
+  | sequence | Xsens offset |
+  |---|---:|
+  | Shield_tunnel1 | 47.5 ms |
+  | Shield_tunnel2 | 42.5 ms |
+  | Shield_tunnel3 | 35 ms |
+  | Shield_tunnel4 | 30 ms |
+  | flat_surfaces_aggressive | 32.5 ms |
+  | Shield_tunnel5 | 12.5 ms |
+  | Shield_tunnel6 | 7.5 ms |
+  | flat_surfaces_smooth | 80 ms |
+
+  The offsets come from cross-correlating the two gyros.
+- **β is not affected.** Its Xsens is 7.5 ms off the Ouster internal IMU on all four sequences.
+- **BIEVR-LIO.** Its own configuration for this device uses the internal IMU. With it, BIEVR-LIO tracks Shield_tunnel1 at 0.26 m (its paper reports 0.256 m), against 995,841 m with the Xsens. It diverged only where the offset is 30 ms or more and the motion is fast.
+- **RKO-LIO.** v16 also improves on the internal IMU: Shield_tunnel1 goes from 6.38 to 0.82 m.
+- **Withdrawn.** The γ results of BIEVR-LIO and RKO-LIO in this note are not valid. The claims that RKO-LIO has the lowest median ATE on GEODE Hard are withdrawn until every method has been re-run on the internal IMU.
+
 GEODE ([thisparticle.github.io/geode](https://thisparticle.github.io/geode)) marks 18 of
 its 64 sequences "Hard": flat surfaces, shield tunnels, urban tunnels and bridges. This
 note runs RKO-LIO (v8, the ENWIDE candidate; v9, v10 and v7) and the five profile rivals
@@ -54,6 +74,7 @@ Every method gets the same data:
 
 - **Inputs.** Every method uses the Xsens IMU and the dataset's `T_IMU_LiDAR`
   (`{alpha,beta,gamma}_config.yaml`).
+  On γ the Xsens is 7.5–80 ms off the LiDAR clock; see the correction in the Summary.
 - **Conversion.** `scripts/convert_geode_bag.py` writes the LiDAR and the IMU to a ROS 2
   bag for RKO-LIO and BIEVR-LIO.
   - Livox CustomMsg becomes PointCloud2 with a uint32 `t` (ns from the scan start).
