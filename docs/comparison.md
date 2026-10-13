@@ -244,11 +244,11 @@ failure and the lowest median ATE among the five methods reproduced on the same 
   sequence and was faster than real time. v10 equals v8 (the `_v3` record) on nine
   sequences and is 0.017 m worse on TunnelD.
 - Three of the ten sequences were used to develop the configuration.
-- On GEODE's Hard sequences most methods fail almost everywhere. Its own configuration,
-  v16 (Levenberg-Marquardt registration, a gait speed prior for handheld walking, and a
-  gyro-held attitude and a stall guard for the vehicle), has
-  the lowest median ATE there (5.6 m, against v10's 81 m and BIEVR-LIO's 180 m) and tracks
-  eleven of 18 below 10 m. So this is a scoped result, not a general best-system claim.
+- On GEODE's Hard sequences most methods fail almost everywhere. An earlier version of this
+  page said that the GEODE configuration v16 has the lowest median ATE there (5.6 m, against
+  BIEVR-LIO's 180 m). That claim is withdrawn. On the Livox device every method was given an
+  IMU 7.5–80 ms off the LiDAR clock. On the synchronised internal IMU, BIEVR-LIO tracks
+  Shield_tunnel1 at 0.26 m, against 0.82 m for v16. The comparison is being re-run.
 
 Per-sequence tables, revisions and reproduction are in the
 [ENWIDE](research/enwide-photometric-registration-2026-10.md) and

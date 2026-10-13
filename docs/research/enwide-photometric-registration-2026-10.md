@@ -363,7 +363,7 @@ cce5cf4 on all ten sequences, with the same settings as v3:
 - **Medians.** Over the ten sequences, ATE is 0.293 m (v3: 0.285 m) and 10 m RTE is 1.56 % (v3: 1.56 %).
 - **Profile rule.** The profile's 2 % limit applies to non-degenerate sequences, and v10 changes none of them.
 
-On GEODE Hard, v10 has the lowest median ATE of all methods (81 m against v8's 160 m) and keeps every sequence v8 tracks. That makes it the single configuration for both datasets.
+On GEODE Hard, v10 has a lower median ATE than v8 (81 against 160 m) and keeps every sequence v8 tracks. That makes it the single configuration for both datasets. (An earlier version also called this the lowest median ATE of all methods. That comparison gave the Livox device an IMU 7.5–80 ms off the LiDAR clock; see the correction in the [GEODE note](geode-hard-evaluation-2026-10.md).)
 
 ## All profile rivals (2026-10-08)
 
