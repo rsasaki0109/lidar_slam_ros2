@@ -410,8 +410,8 @@ def test_docs_exist_and_are_linked_from_readme():
     assert 'git clone --recursive https://github.com/rsasaki0109/lidar_slam_ros2.git' in readme
     assert 'bash scripts/source_quickstart.sh' in readme
     assert 'Run `lidarslam-map` with no arguments' in readme
-    assert 'ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble' in readme
-    assert 'v0.10.0` release candidate is not published yet' in readme
+    assert 'ghcr.io/rsasaki0109/lidar_slam_ros2:v0.10.0-humble' in readme
+    assert 'release candidate is not published' not in readme
     # The required-topics table and the dynamic-object-filter figure moved to
     # docs/workflows.md so the README stays narrow; keep the assets on disk
     # (asserted above) and verify the README still routes readers to those docs.
@@ -429,7 +429,7 @@ def test_readme_chooser_routes_each_goal_to_one_safe_first_step():
     assert '| Goal | Start here | Safety and cost boundary |' in chooser
     assert '**Default if unsure:**' in chooser
     assert '[Docker demo](#try-it-with-docker-one-command-no-build)' in chooser
-    assert 'Stable `v0.9.0-humble`' in chooser
+    assert 'Stable `v0.10.0-humble`' in chooser
     assert 'host writes stay in `./lidarslam_output`' in chooser
     assert 'lidarslam-map doctor /path/to/rosbag2' in chooser
     assert 'Read-only diagnosis first' in chooser
@@ -438,7 +438,7 @@ def test_readme_chooser_routes_each_goal_to_one_safe_first_step():
         chooser
     )
     assert 'bash scripts/source_quickstart.sh --dry-run' in chooser
-    assert 'Candidate `v0.10.0`' in chooser
+    assert 'Release `v0.10.0`' in chooser
     assert 'needs ROS 2, 8 GiB, and roughly 30 minutes' in chooser
 
 
@@ -470,11 +470,11 @@ def test_getting_started_chooser_limits_the_first_decision_to_three_goals():
     assert len(chooser_rows) == 5  # header, separator, and exactly 3 goals
     assert '| Goal | First safe action | Safety and cost boundary |' in chooser
     assert '**Default if unsure:**' in chooser
-    assert 'Stable `v0.9.0-humble`' in chooser
+    assert 'Stable `v0.10.0-humble`' in chooser
     assert 'lidarslam-map doctor /path/to/rosbag2' in chooser
     assert 'Diagnosis uses no network and writes no files' in chooser
     assert 'bash scripts/source_quickstart.sh --dry-run' in chooser
-    assert 'Candidate `v0.10.0`' in chooser
+    assert 'Release `v0.10.0`' in chooser
     assert 'needs ROS 2, 8 GiB, and roughly 30 minutes' in chooser
 
     for advanced_action in (
@@ -488,7 +488,7 @@ def test_getting_started_chooser_limits_the_first_decision_to_three_goals():
         assert advanced_action not in chooser
         assert advanced_action in continuing
 
-    assert '[v0.9.0 stable](releases/v0.9.0.md)' in docs_index
+    assert '[v0.9.0](releases/v0.9.0.md)' in docs_index
     assert 'v0.9.0 stable release candidate' not in docs_index
 
 
@@ -499,8 +499,8 @@ def test_getting_started_keeps_legacy_source_anchor_for_cohort_issue():
     assert '## 1. Install And Build From Source' in getting_started
 
 
-def test_first_map_docs_expose_stable_image_receipt_fallback():
-    """The public v0.9.0 image needs a bounded receipt-only escape hatch."""
+def test_first_map_docs_expose_the_image_report_handoff():
+    """The published v0.10.0 images print the receipt-bound report read-only."""
     documents = [
         GETTING_STARTED.read_text(encoding='utf-8'),
         GETTING_STARTED_JA.read_text(encoding='utf-8'),
@@ -508,13 +508,13 @@ def test_first_map_docs_expose_stable_image_receipt_fallback():
     ]
 
     for document in documents:
-        assert 'create_first_map_validation_receipt.py' in document
+        assert "bash -lc 'lidarslam-map report /output/mid360_demo'" in document
         assert 'python3 scripts/create_first_map_validation_receipt.py' in document
         assert '--network none' in document
         assert 'lidarslam_output:/output:ro' in document
-        assert 'ros2 pkg prefix lidarslam' in document
         assert 'docker image inspect' in document
-        assert 'v0.9.0-humble' in document
+        assert 'v0.10.0-humble' in document
+        assert 'v0.9.0' in document
 
     english = ' '.join(documents[0].split())
     assert 'Review the printed PASS summary' in english
@@ -1592,9 +1592,9 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     )
     assert 'LIDARSLAM_HOST_UID' in getting_started_doc
     assert 'LIDARSLAM_HOST_GID' in getting_started_doc
-    assert 'ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble' in getting_started_doc
-    assert 'ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-jazzy' in getting_started_doc
-    assert 'v0.10.0` release candidate is not published or tagged yet' in getting_started_doc
+    assert 'ghcr.io/rsasaki0109/lidar_slam_ros2:v0.10.0-humble' in getting_started_doc
+    assert 'ghcr.io/rsasaki0109/lidar_slam_ros2:v0.10.0-jazzy' in getting_started_doc
+    assert 'not published or tagged yet' not in getting_started_doc
     assert 'periodic' in getting_started_doc
     assert 'Bind-mounted output ownership' in distribution_doc
     assert 'Creative Commons Attribution 4.0' in real_data_e2e_doc
@@ -1662,7 +1662,7 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'lidarslam-map sessions' in autoware_map_doc
     assert 'lidarslam-map support /path/to/session_bundle' in autoware_map_doc
     assert 'Current Publication Boundary' in autoware_map_doc
-    assert 'not published or tagged yet' in autoware_map_doc
+    assert '`v0.10.0` is the latest published stable release' in autoware_map_doc
     assert 'foxglove_bridge' in autoware_foxglove_doc
     assert 'prepare_foxglove_bridge_prefix.sh' in autoware_foxglove_doc
     assert 'run_autoware_pointcloud_map_foxglove.sh' in autoware_foxglove_doc
@@ -1895,8 +1895,8 @@ def test_canonical_map_authoring_page_has_one_beginner_contract():
         assert entrypoint not in map_doc
 
     assert 'assets/images/autoware_map_loader_proof.png' in map_doc
-    assert 'ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble' in map_doc
-    assert 'not published or tagged yet' in map_doc
+    assert 'ghcr.io/rsasaki0109/lidar_slam_ros2:v0.10.0-humble' in map_doc
+    assert 'latest published stable release' in map_doc
     assert 'Lower-level launch files and repository helpers are advanced' in (
         map_doc
     )

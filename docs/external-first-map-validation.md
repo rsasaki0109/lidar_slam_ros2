@@ -46,31 +46,29 @@ complete enough for an external validation attempt.
    validates the receipt-bound manifest, diagnosis, and verification log in
    place and produces the same read-only handoff.
 
-   The published `v0.9.0-{humble,jazzy}` images predate the `report` command.
-   If you use one of those stable images, review
-   `output/mid360_demo/first_map_validation_receipt.json` and complete the
-   issue form manually with its verification summary and the exact image
-   digest; attach only that reviewed receipt. To reprint the summary without
-   writing or networking, the stable image also provides this fallback (use
-   the `jazzy` tag on Ubuntu 24.04):
+   With the published `v0.10.0-{humble,jazzy}` images, run the same command
+   inside the image without writing or networking (use the `jazzy` tag on
+   Ubuntu 24.04):
 
    ```bash
    docker run --rm --network none \
      -v "$PWD/lidarslam_output:/output:ro" \
-     ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble \
-     bash -lc 'helper="$(ros2 pkg prefix lidarslam)/share/lidarslam/product/scripts/create_first_map_validation_receipt.py"; python3 "$helper" /output/mid360_demo'
+     ghcr.io/rsasaki0109/lidar_slam_ros2:v0.10.0-humble \
+     bash -lc 'lidarslam-map report /output/mid360_demo'
    ```
 
-   Review the printed PASS summary and attach only the already-generated JSON receipt.
-   A reviewed `v0.9.1` image (or a later image carrying this CLI contract)
-   provides the copy-ready `lidarslam-map report` command.
+   Review the printed PASS summary and attach only the already-generated JSON
+   receipt. The older `v0.9.0` images predate `report`; with one of those,
+   complete the issue form manually from
+   `output/mid360_demo/first_map_validation_receipt.json` and the exact image
+   digest.
 
    Record the immutable digest of the pulled stable image:
 
    ```bash
    docker image inspect \
      --format='{{index .RepoDigests 0}}' \
-     ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble
+     ghcr.io/rsasaki0109/lidar_slam_ros2:v0.10.0-humble
    ```
 
    If no `ghcr.io/...@sha256:...` value is returned, stop rather than
