@@ -220,7 +220,7 @@ manifest digest, and (when available) GitHub attestation before use. The source
 rows instead use this reviewed public identity:
 
 ~~~bash
-SOURCE_COMMIT='6401da47aa6e7ad44b7df929a2cfd4521f952601'
+SOURCE_COMMIT='c4cf7075ed28585748c6c30a968c49086cee05c4'
 SOURCE_VERSION='0.10.1'
 export SOURCE_COMMIT SOURCE_VERSION
 ~~~
