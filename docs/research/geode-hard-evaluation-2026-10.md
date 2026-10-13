@@ -886,6 +886,29 @@ Medians over the 18 sequences. α is unchanged, because v17 is v16 there.
 - **β.** It is v16 plus the hold.
 - **γ.** It is v16 plus the hold, with the Livox internal IMU's extrinsic from Inputs. The earlier γ files hold the Xsens extrinsic, and the γ runs since 2026-10-13 used the Livox extrinsic.
 
+### What v17 leaves: the walker's stops (2026-10-14)
+
+**The overshoot.**
+- **Measure.** Around each ground-truth stop (below 0.4 m/s), the estimated path over ±3 s is compared with the true one.
+- **Where.** On many stops of Shield_tunnel2 and 4 (γ) and Shield_tunnel8 and 10 (β), v17's path is 1.6–4.2 m longer than the true one.
+- **Cause.** The cadence comes from a 4 s window, so cadence × step is the speed of about 2 s ago. A walker who brakes to turn keeps the gait's speed until the window empties.
+- **Shield_tunnel2.** Its 10.3 m comes from one such turnaround at 184 s. After it, the map's tilt changes, and on the way back the height error grows to 30 m. W1, whose speed comes from the IMU window, keeps the height error below 6 m and ends within 0.5 m of the truth.
+
+**Carrying the gait speed over the lag with the IMU fails.**
+- **Code.** rko_lio branch `exp/gait-imu-lag-compensation`, d977c02, not merged.
+- **Method.** It takes cadence × step as the speed half a window ago, and carries it to now with the IMU's velocity change since then. That change is in the world frame, with the 30 s mean acceleration removed.
+- **Rule.** The same as for v17.
+
+ATE in metres:
+
+| sequence | v17 | lag compensation |
+|---|---:|---:|
+| Shield_tunnel1–6 (γ) | 0.79 / 10.32 / 0.95 / 4.21 / 2.63 / 0.55 | 4.07 / 7.71 / 8.88 / 41.7 / 9.04 / 3.74 |
+| Shield_tunnel7–10 (β) | 1.87 / 6.58 / 1.69 / 2.84 | 0.73 / 11.6 / 2.43 / 6.07 |
+
+- **Result.** It loses eight of the ten shield tunnels. The flats are unchanged, because the step is never learned there.
+- **Why.** On these inputs, two seconds of IMU integration are not reliable enough. v14 learned the same with the gait's IMU reversal check.
+
 ## Reproduction
 
 ```bash
@@ -909,6 +932,6 @@ The ROS 1 rivals run in `docker/enwide_rivals_ros1.Dockerfile`. Each rival's `ou
 ## Next
 
 1. **Soft poses in the window.** W1 with the γ IMU rotation matches BIEVR-LIO on the γ shield tunnels, and with the gait keeping the speed it no longer loses β. Six ways to make the fixed-pose window robust failed (above). flat_surfaces_aggressive diverges with all but one of them, and that one, a gate, costs flat_surfaces_smooth. The window has to estimate the poses as well, with each scan's registration information as the prior. A weak or lost registration is then outweighed by the IMU instead of fitted.
-2. **Shield_tunnel2.** v17 removes the gait prior's losses on Shield_tunnel4 and 6 (24.4 → 4.21 m and 12.6 → 0.55 m). Shield_tunnel2 (10.3 m) is the γ shield tunnel left above 5 m; W1 tracks it at 0.42 m.
+2. **The walker's stops.** v17 removes the gait prior's losses on Shield_tunnel4 and 6 (24.4 → 4.21 m and 12.6 → 0.55 m). It still overshoots each stop by 2–4 m, because the cadence lags by half its 4 s window. Shield_tunnel2 (10.3 m) is the γ shield tunnel left above 5 m; W1 tracks it at 0.42 m. Carrying the gait speed over the lag with the IMU fails (above).
 3. **One configuration.** ENWIDE and GEODE need one configuration, and then the unseen GEODE Metro Tunneling sequences (UGV, all three devices) serve as the hidden tunnel holdout.
 4. **bridge03's moving start.** The registration starts from zero speed on a bridge that gives no hold along the road. Every LiDAR-inertial rival also fails there (697–1100 m).
