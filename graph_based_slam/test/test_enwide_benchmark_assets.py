@@ -423,7 +423,7 @@ def test_enwide_prism_offset_is_given_in_the_runner_base_frame():
     )
     assert '--base-frame os_imu' in RUNNER.read_text()
     harness = (ROOT / 'scripts' / 'run_rko_lio_graph_benchmark.sh').read_text()
-    assert 'meta.get("base_to_prism_translation_m")' in harness
+    assert 'for frame in ("base", "body", "imu", "lidar"):' in harness
 
 
 def test_enwide_rival_image_pins_the_profile_revisions():

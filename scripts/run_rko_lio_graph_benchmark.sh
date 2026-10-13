@@ -87,7 +87,7 @@ DEFAULT_REFERENCE_META="${REPO_ROOT}/output/ntu_viral_tnp01_reference.json"
 DEFAULT_LIDAR_TOPIC="/os1_cloud_node1/points"
 DEFAULT_IMU_TOPIC="/imu/imu"
 DEFAULT_BASE_FRAME="base_link"
-DEFAULT_LIDARSLAM_PARAM="${REPO_ROOT}/lidarslam/param/lidarslam.yaml"
+DEFAULT_LIDARSLAM_PARAM="${REPO_ROOT}/lidarslam/param/lidarslam_ntu_viral.yaml"
 DEFAULT_RKO_PARAM="${REPO_ROOT}/lidarslam/param/rko_lio_ntu_viral.yaml"
 
 BAG_PATH="$DEFAULT_BAG"
@@ -1059,24 +1059,51 @@ PY
   exit 0
 fi
 
-readarray -t PRISM_OFFSET < <(python3 - "$REFERENCE_META" <<'PY'
+readarray -t PRISM_TRANSFORM < <(python3 - "$REFERENCE_META" <<'PY'
 import json
+import math
 import sys
 from pathlib import Path
 
 meta = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-# The trajectories are in --base-frame; lidar_to_prism is the legacy key for
-# runs whose base frame is the LiDAR.
-offset = (
-    meta.get("base_to_prism_translation_m")
-    or meta.get("lidar_to_prism_translation_m")
-    or {}
-)
-print(offset.get("x", 0.0))
-print(offset.get("y", 0.0))
-print(offset.get("z", 0.0))
+# The trajectories are poses of --base-frame. Prefer the offset given from that
+# frame or from the IMU body frame it usually is; lidar_to_prism is the legacy
+# key for runs whose base frame is the LiDAR.
+for frame in ("base", "body", "imu", "lidar"):
+    for suffix in ("reference", "prism"):
+        offset = meta.get(f"{frame}_to_{suffix}_translation_m")
+        if offset is None:
+            continue
+        values = [float(offset.get(axis, 0.0)) for axis in ("x", "y", "z")]
+        if not all(math.isfinite(value) for value in values):
+            raise SystemExit(f"{frame}_to_{suffix} offset must have finite xyz values")
+        print(frame)
+        for value in values:
+            print(value)
+        raise SystemExit(0)
+print("none")
+print(0.0)
+print(0.0)
+print(0.0)
 PY
 )
+if [[ "${#PRISM_TRANSFORM[@]}" -ne 4 ]]; then
+  die "reference frame-offset contract must give a frame and an xyz translation"
+fi
+PRISM_SOURCE_FRAME="${PRISM_TRANSFORM[0]}"
+PRISM_OFFSET=("${PRISM_TRANSFORM[@]:1}")
+REFERENCE_MAX_TIME_DIFF="$(python3 - "$REFERENCE_META" <<'PY'
+import json
+import math
+import sys
+from pathlib import Path
+
+value = float(json.loads(Path(sys.argv[1]).read_text(encoding="utf-8")).get("max_time_diff_sec", 0.05))
+if not math.isfinite(value) or value <= 0.0:
+    raise SystemExit("max_time_diff_sec must be a finite positive number")
+print(value)
+PY
+)" || die "reference max_time_diff_sec is invalid"
 
 python3 "${SCRIPT_DIR}/apply_tum_frame_offset.py" \
   --in "$RAW_TUM" \
@@ -1095,12 +1122,13 @@ python3 "${SCRIPT_DIR}/apply_tum_frame_offset.py" \
 python3 "${SCRIPT_DIR}/ape_from_tum.py" \
   --ref "$REFERENCE_TUM" \
   --est "$RAW_TUM_PRISM" \
+  --max-time-diff "$REFERENCE_MAX_TIME_DIFF" \
   --out "$RAW_APE"
 
 python3 "${SCRIPT_DIR}/ape_from_tum.py" \
   --ref "$REFERENCE_TUM" \
   --est "$CORRECTED_TUM_PRISM" \
-  --sparse-match \
+  --max-time-diff "$REFERENCE_MAX_TIME_DIFF" \
   --out "$CORRECTED_APE"
 
 BENCH_T1="$(python3 - <<'PY'
@@ -1133,9 +1161,19 @@ METRICS_ARGS=(
   --started-at "$STARTED_AT"
   --started-at-unix "$STARTED_AT_UNIX"
   --wall-sec "$BENCH_WALL_SEC"
+  --trajectory-source-frame "$PRISM_SOURCE_FRAME"
+  --completion-end-margin-secs "$COMPLETION_END_MARGIN_SECS"
+  --parameter-file "$LIDARSLAM_PARAM"
+  --parameter-file "$RKO_PARAM"
+  --benchmark-harness "${BASH_SOURCE[0]}"
+  --runtime-artifact "rko_lio_offline_node=$(ros2 pkg prefix rko_lio)/lib/rko_lio/offline_node"
+  --runtime-artifact "graph_based_slam_node=$(ros2 pkg prefix graph_based_slam)/lib/graph_based_slam/graph_based_slam_node"
 )
 if [[ -n "$REFERENCE_SOURCE" ]]; then
   METRICS_ARGS+=(--reference-source "$REFERENCE_SOURCE")
+fi
+if [[ "$SKIP_MAP_SAVE" == "true" ]]; then
+  METRICS_ARGS+=(--skip-map-verify)
 fi
 python3 "${SCRIPT_DIR}/write_rko_lio_benchmark_metrics.py" "${METRICS_ARGS[@]}"
 

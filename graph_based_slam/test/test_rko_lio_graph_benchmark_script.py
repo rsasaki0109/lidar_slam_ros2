@@ -31,6 +31,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import subprocess
 
@@ -208,3 +209,70 @@ def test_rko_lio_benchmark_rejects_output_file_before_ros2(tmp_path: Path):
     assert result.returncode == 2
     assert 'error: output directory path is a file:' in result.stderr
     assert 'ros2 not found' not in result.stderr
+
+
+def _reference_offset(tmp_path: Path, meta: dict) -> list[str]:
+    script = BENCHMARK_SCRIPT.read_text(encoding='utf-8')
+    snippet = script.split(
+        'readarray -t PRISM_TRANSFORM < <(python3 - "$REFERENCE_META" <<\'PY\'\n', 1
+    )[1].split('\nPY\n)', 1)[0]
+    meta_path = tmp_path / 'reference.json'
+    meta_path.write_text(json.dumps(meta), encoding='utf-8')
+    result = subprocess.run(
+        ['python3', '-', str(meta_path)],
+        input=snippet,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.split()
+
+
+def test_reference_offset_is_taken_from_the_trajectory_base_frame(
+    tmp_path: Path,
+):
+    """Release profiles score base-frame poses with the matching lever arm."""
+    body = {'x': -0.293656, 'y': -0.012288, 'z': -0.273095}
+    lidar = {'x': -0.243656, 'y': -0.012288, 'z': -0.328095}
+    # NTU VIRAL: the base frame is the IMU body, not the LiDAR.
+    assert _reference_offset(tmp_path, {
+        'body_to_prism_translation_m': body,
+        'lidar_to_prism_translation_m': lidar,
+    }) == ['body', '-0.293656', '-0.012288', '-0.273095']
+    # RTK-SLAM: the reference point is given from the IMU.
+    assert _reference_offset(tmp_path, {
+        'imu_to_reference_translation_m': {'x': -0.073, 'y': -0.023, 'z': -0.172},
+    }) == ['imu', '-0.073', '-0.023', '-0.172']
+    # ENWIDE: an explicit base-frame offset wins over the IMU one.
+    assert _reference_offset(tmp_path, {
+        'imu_to_prism_translation_m': {'x': 1.0, 'y': 0.0, 'z': 0.0},
+        'base_to_prism_translation_m': {'x': 2.0, 'y': 0.0, 'z': 0.0},
+    })[0] == 'base'
+    # Legacy LiDAR-base runs keep their key, and no offset scores as is.
+    assert _reference_offset(tmp_path, {
+        'lidar_to_prism_translation_m': lidar,
+    })[0] == 'lidar'
+    assert _reference_offset(tmp_path, {}) == ['none', '0.0', '0.0', '0.0']
+
+
+def test_release_metrics_carry_provenance_and_reference_tolerance():
+    """Blocking release profiles need clean provenance for the exact commit."""
+    script = BENCHMARK_SCRIPT.read_text(encoding='utf-8')
+    metrics_args = script.split('METRICS_ARGS=(\n', 1)[1].split('\n)\n', 1)[0]
+
+    for argument in (
+        '--trajectory-source-frame "$PRISM_SOURCE_FRAME"',
+        '--parameter-file "$LIDARSLAM_PARAM"',
+        '--parameter-file "$RKO_PARAM"',
+        '--benchmark-harness "${BASH_SOURCE[0]}"',
+        '--runtime-artifact "rko_lio_offline_node=',
+        '--runtime-artifact "graph_based_slam_node=',
+    ):
+        assert argument in metrics_args
+    assert 'METRICS_ARGS+=(--skip-map-verify)' in script
+    assert script.count('--max-time-diff "$REFERENCE_MAX_TIME_DIFF"') == 2
+    assert '--sparse-match' not in script
+    assert (
+        'DEFAULT_LIDARSLAM_PARAM="${REPO_ROOT}/lidarslam/param/'
+        'lidarslam_ntu_viral.yaml"'
+    ) in script
