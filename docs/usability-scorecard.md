@@ -92,7 +92,7 @@ Create a safe worksheet instead of hand-writing the six-task JSON:
 ```bash
 python3 scripts/prepare_usability_scorecard.py \
   --product lidarslam_ros2 \
-  --version 0.9.1 \
+  --version 0.10.0 \
   --revision-kind git-commit \
   --revision <40-lowercase-hex-commit> \
   --documentation-url https://<public-docs-host>/<product-path> \
@@ -122,7 +122,7 @@ preflights both output names before writing either worksheet:
 
 ```bash
 python3 scripts/prepare_usability_scorecard_pair.py \
-  --lidarslam-version 0.9.1 \
+  --lidarslam-version 0.10.0 \
   --lidarslam-revision-kind git-commit \
   --lidarslam-revision <40-lowercase-hex-commit> \
   --lidarslam-documentation-url https://<public-docs-host>/lidarslam \

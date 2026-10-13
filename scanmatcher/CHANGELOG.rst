@@ -2,6 +2,19 @@
 Changelog for package scanmatcher
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.10.0 (2026-10-13)
+-------------------
+* Stop the TF listener on shutdown without losing the executor cancel, so the
+  component no longer hangs when destroyed on Humble.
+* Colour online maps from validated camera inputs: honour raw camera ROI and
+  binning, skip unsupported distortion models and mismatched calibration
+  dimensions, reject truncated images and non-finite calibration, and keep
+  occluders when limiting colour samples.
+* Reuse projections and cached voxel associations while colouring.
+* Drop unused IMU scratch and write-only state, and merge a duplicate
+  hard-reject condition.
+* Contributors: Ryohei Sasaki
+
 0.9.1 (2026-08-12)
 ------------------
 * Reject unsafe PCL VoxelGrid layouts, absolute voxel-index overflow, invalid

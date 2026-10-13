@@ -9,7 +9,7 @@ to a working map.
 | --- | --- | --- |
 | See a verified map, no build | **Default if unsure:** follow [Docker First Map](#docker-first-map-no-ros-2-workspace) | Stable `v0.9.0-humble`; needs Docker; host writes stay in `./lidarslam_output`. |
 | Map my own rosbag | Run `lidarslam-map doctor /path/to/rosbag2`, then follow [Run Your Own Bag](#3-run-your-own-bag) | Diagnosis uses no network and writes no files; `start` creates a new output only after input and calibration review. |
-| Build the current candidate or contribute | After cloning, preview [Install And Build From Source](#1-install-and-build-from-source) with `bash scripts/source_quickstart.sh --dry-run` | Candidate `v0.9.1`; needs ROS 2, 8 GiB, and roughly 30 minutes. |
+| Build the current candidate or contribute | After cloning, preview [Install And Build From Source](#1-install-and-build-from-source) with `bash scripts/source_quickstart.sh --dry-run` | Candidate `v0.10.0`; needs ROS 2, 8 GiB, and roughly 30 minutes. |
 
 <details markdown="1">
 <summary>Already installed, or continuing after your first map?</summary>
@@ -102,7 +102,7 @@ docker run --rm \
 
 This command is intentionally pinned to the latest published stable image,
 `v0.9.0-humble`, so a clean first run does not silently follow `develop`. The
-`v0.9.1` release candidate is not published or tagged yet; use the source
+`v0.10.0` release candidate is not published or tagged yet; use the source
 quickstart below when you need the candidate revision.
 
 The first run downloads the tracked 517 MB MID-360 bag and prints periodic
@@ -123,7 +123,7 @@ The published `v0.9.0` image predates the `lidarslam-map report` handoff
 command. If you use that stable image, review the generated
 `lidarslam_output/mid360_demo/first_map_validation_receipt.json` and submit
 only that receipt through the independent-validation form. The copy-ready
-`report` command is available once the reviewed `v0.9.1` image is published.
+`report` command is available once the reviewed `v0.10.0` image is published.
 To reprint the receipt's verification summary without writing to the output or
 using the network, run this stable-image fallback after the demo:
 
@@ -219,7 +219,7 @@ repository command above.
 Once a named release contains the asset, the verified route is:
 
 ```bash
-RELEASE=v0.9.1  # replace only with a finalized release that has this asset
+RELEASE=v0.10.0  # replace only with a finalized release that has this asset
 curl --fail --location --proto '=https' --tlsv1.2 \
   "https://github.com/rsasaki0109/lidar_slam_ros2/releases/download/${RELEASE}/lidarslam-map-docker" \
   --output lidarslam-map-docker

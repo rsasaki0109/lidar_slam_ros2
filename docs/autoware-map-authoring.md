@@ -164,7 +164,7 @@ interfaces, not additional beginner routes.
 
 ## Current Publication Boundary
 
-`v0.9.0` is the latest published stable release. The `v0.9.1` release
+`v0.9.0` is the latest published stable release. The `v0.10.0` release
 candidate documented in this source tree is not published or tagged yet.
 Therefore:
 

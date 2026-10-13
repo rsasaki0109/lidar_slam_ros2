@@ -1,11 +1,59 @@
 # Changelog
 
-## Unreleased
+## 0.10.0 - 2026-10-13
 
-CI and repository-hygiene recovery after the sota-v6 recovery merge.
+The first published release since v0.9.0. The 0.9.1 release candidate below
+was never tagged; its changes ship in 0.10.0. This release also restores the
+default workflow after the sota-v6 recovery merge, and adds camera colouring,
+MID-360 presets and the degenerate LiDAR-inertial odometry (tunnel) track.
+
+### Highlights
+
+- **Degenerate LiDAR-inertial odometry on ENWIDE** — radar-less Ouster
+  configurations v7–v10 and the `degenerate_lio_sota_v3`/`_v4` profiles. The
+  recorded `degenerate_lio_sota_v4` run of v10 completed all 30 runs (ten
+  sequences, three identical repetitions) with a median ATE of 0.29 m, the
+  lowest of the five methods reproduced on the same bags. The
+  `photometric_bump_no_radar` preset ships the v10 options. This is not a SOTA
+  claim: the profile also requires a hidden tunnel holdout and one parameter
+  set across all sequences.
+- **GEODE Hard evaluation** — RKO-LIO device configurations (v16) and the
+  profile rivals on all 18 Hard sequences. The Livox device is evaluated on
+  its internal IMU, after its Xsens IMU was found 7.5–80 ms off the LiDAR
+  clock. RKO-LIO v16 has the lowest median ATE (8.5 m, against 78.7 m for
+  BIEVR-LIO); BIEVR-LIO is better on the Livox shield tunnels. See
+  `docs/research/geode-hard-evaluation-2026-10.md`.
+- **Camera colouring** — refine each camera pose against the LiDAR map before
+  colouring; reject sky-coloured samples and refill points seen only against
+  the sky (both opt-in); carve the camera bearer's corridor out of the map;
+  and score map colours against an independent TLS reference (Oxford Spires).
+  Bag images, clouds and CameraInfo now pair by sensor timestamps.
+- **MID-360** — a handheld outdoor RKO-LIO profile (scan gaps up to 3 s,
+  gravity re-levelling, occluded-scan skipping), an online odometry launch
+  with MID-360 defaults (IMU acceleration converted from g), preset maps
+  levelled with RKO-LIO's gravity initialization, and a map tilt check in
+  diagnosis.
+- **Reliability** — the scanmatcher and RKO-LIO TF listeners no longer hang
+  when destroyed on Humble, RKO-LIO waits for its own output subscribers,
+  the barrier no longer treats a discovery miss as zero subscribers, and the
+  source quickstart builds the registration plugin packages it needs.
 
 ### Fixed
 
+- **NTU VIRAL accuracy** — the NTU profile deskews with the interval's mean
+  angular velocity again. The samplewise gyro deskew that RKO-LIO adopted for
+  Go2 had raised the tnp_01 APE from 0.936 to 1.14 m, over its 1.00 m release
+  profile; it is now the `samplewise_gyro_deskew` option and stays on by
+  default.
+- **Release-gate benchmark harness** — `run_rko_lio_graph_benchmark.sh` writes
+  provenance again, so the blocking release profiles can pass, and scores
+  each run with the reference offset of its base frame and the reference's
+  time tolerance. The sota-v6 merge had replaced it with the experimental
+  harness, and NTU VIRAL and RTK-SLAM were scored with the wrong lever arms.
+- **Product Python suite** — `run_product_python_tests.sh` skips the
+  experimental competitive contracts that the default CI gate excludes.
+- **Humble CI** — RKO-LIO creates its TF listener only when the extrinsics
+  come from TF; a listener destroyed right after construction could hang.
 - **Default workflow builds and tests again** — repaired the broken merge in
   `graph_based_slam` (adopt the pimpl component implementation that matches the
   merged header, declare the missing `lidarslam_plugin_interfaces` /
@@ -38,6 +86,9 @@ CI and repository-hygiene recovery after the sota-v6 recovery merge.
 - The experimental competitive/benchmark contracts are excluded from the
   default gate until their preregistration receipts are re-frozen with a
   maintained tool.
+- No method, this one included, tracks every GEODE Hard sequence; the tunnel
+  track makes no SOTA claim.
+- The v1.0 gates listed under 0.9.1 remain open.
 
 ## 0.9.1 - 2026-08-12
 

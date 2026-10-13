@@ -2,6 +2,21 @@
 Changelog for package lidarslam
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.10.0 (2026-10-13)
+-------------------
+* Ship the ENWIDE v10 radar-less Ouster options as the
+  ``photometric_bump_no_radar`` preset.
+* Add the handheld MID-360 outdoor RKO-LIO profile (scan gaps up to 3 s,
+  gravity re-levelling, occluded-scan skipping) and an RKO-LIO online odometry
+  launch with MID-360 defaults that converts IMU acceleration from g.
+* Deskew the NTU VIRAL profile with the interval's mean angular velocity again;
+  RKO-LIO's samplewise gyro deskew had raised the tnp_01 APE from 0.936 to
+  1.14 m.
+* Make RKO-LIO wait for its own output subscribers, level MID-360 preset maps
+  with RKO-LIO's gravity initialization, and report map frames tilted from
+  gravity in diagnosis.
+* Contributors: Ryohei Sasaki
+
 0.9.1 (2026-08-12)
 ------------------
 * Add one interactive product home, bag-optional system doctor, guided sensor
