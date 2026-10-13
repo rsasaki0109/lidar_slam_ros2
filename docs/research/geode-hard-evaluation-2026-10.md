@@ -723,6 +723,49 @@ On the Xsens devices, W1 is v16 with the window on:
 - **Not adopted.** W1 diverges on flat_surfaces_aggressive, as BIEVR-LIO does; there its gravity estimate ends 31° from vertical. It loses all four β sequences with or without the gait, and flat_surfaces_smooth doubles (1.61 → 3.47 m). On α it gains on the bridges and loses up to 16 % on the urban tunnels.
 - **β is open.** β's Xsens runs 7.5 ms off its Ouster internal IMU. Whether β fails because of that offset or because of the window itself is not yet known.
 
+### Why W1 fails, and what it needs (2026-10-14)
+
+The experiments below are on rko_lio branch `exp/inertial-window-gravity-tilt-limit` (not merged).
+
+**β on its Ouster internal IMU.** Shield_tunnel7 and 10 were converted with `/ouster/imu`. The Ouster IMU-to-sensor offset is the standard OS1 one: (6.253, −11.775, 7.645) mm, no rotation. ATE in metres:
+
+| β | v16 on the Xsens | v16 | W1 | W1 without the gait | W1, gait keeps the speed |
+|---|---:|---:|---:|---:|---:|
+| Shield_tunnel7 | 1.87 | 2.85 | 151.6 | 63.6 | 2.84 |
+| Shield_tunnel10 | 2.88 | 2.38 | **0.77** | 133.0 | 2.35 |
+
+- **Not the Xsens offset.** W1 still loses Shield_tunnel7 on the Ouster IMU.
+- **The window overrides the gait.**
+  - Shield_tunnel7's registration stalls between 60 and 140 s on the periodic lining.
+  - The window holds the registered poses fixed, so it fits a velocity of nearly zero to them, and its velocity replaces the gait speed. The prediction stalls with the registration.
+  - After 240 s the window runs at 4–12 m/s; the ground truth is 1.3 m/s.
+- **The gait keeping the speed.** With the gait's speed re-applied after the window solve, both β sequences match v16, so the failure is gone. Shield_tunnel10's 0.77 m with the plain window is gone too.
+
+**The γ IMU-to-LiDAR rotation.**
+- **Estimate.** The Livox gyro rates against the registered trajectory's rotation rates give a rotation of about 0.9° from the LiDAR axes, mostly roll:
+  - Shield_tunnel1: (0.86, 0.36, 0.19)°, from 5014 scan pairs;
+  - Shield_tunnel2: (0.79, 0.37, 0.29)°, from 4270 scan pairs.
+- **Before.** BIEVR-LIO's configuration, and every γ run above, assumed none.
+
+ATE in metres, γ:
+
+| sequence (γ) | v16 | W1 | W1 + rotation | fixed-gravity window + rotation | BIEVR-LIO |
+|---|---:|---:|---:|---:|---:|
+| Shield_tunnel1 | 0.82 | 0.49 | 0.69 | 0.55 | **0.26** |
+| Shield_tunnel2 | 10.8 | **0.42** | 0.46 | 0.46 | 0.53 |
+| Shield_tunnel3 | **1.17** | 1.19 | 1.20 | 1.18 | **1.17** |
+| Shield_tunnel4 | 24.4 | 1.95 | **1.82** | 2.65 | 2.50 |
+| Shield_tunnel5 | 2.47 | 1.77 | **1.73** | 11.8 | 3.19 |
+| Shield_tunnel6 | 12.6 | 0.46 | 0.49 | 11.1 | **0.40** |
+| flat_surfaces_smooth | **1.61** | 3.47 | 2.49 | 5.98 | 2.00 |
+| flat_surfaces_aggressive | **3.39** | diverges | 55.3 | 767 | 8646 |
+
+- **The rotation helps W1 on the flats.** flat_surfaces_aggressive no longer diverges (55 m), flat_surfaces_smooth goes from 3.47 to 2.49 m, and the shield tunnels barely move.
+- **The gravity estimate is still needed.** With the rotation corrected, a window with fixed gravity still loses Shield_tunnel5 and 6. The estimated tilt of 1.6–2.7° is more than the 0.9° rotation explains.
+- **A tilt limit does not work.** Limiting the gravity estimate to 3° or 5° around its seed keeps the other shield tunnels but loses Shield_tunnel5 (1814 / 561 m). flat_surfaces_aggressive then pins the tilt at the limit and runs both biases to their clamps (1 m/s², 0.1 rad/s). On the six good tunnels the window ends at 0.25–0.34 m/s² and below 0.005 rad/s.
+
+**Where this leaves the window.** Its weakness is the one BIEVR-LIO shares: the registered poses are held fixed. A registration that stalls (β) or breaks under fast motion (flat_surfaces_aggressive) is fitted rather than rejected. The gait keeping the speed removes the β failure but also the β gain.
+
 ## Reproduction
 
 ```bash
@@ -740,7 +783,7 @@ The ROS 1 rivals run in `docker/enwide_rivals_ros1.Dockerfile`. Each rival's `ou
 
 ## Next
 
-1. **A gravity estimate that holds.** W1 matches BIEVR-LIO on the γ shield tunnels, but it diverges on flat_surfaces_aggressive and loses β. Next are β on its Ouster internal IMU and a gravity estimate that cannot run away under fast motion.
+1. **A window that rejects bad registrations.** W1 with the γ IMU rotation matches BIEVR-LIO on the γ shield tunnels, and with the gait keeping the speed it no longer loses β. What remains is flat_surfaces_aggressive (55 m against 3.39 m for v16). The fixed registered poses need a consistency gate, or soft poses in the window.
 2. **The gait prior.** On the internal IMU it makes Shield_tunnel4 and 6 worse (4.82 → 24.4 m and 0.94 → 12.6 m). Without it, RKO-LIO fails four of the six γ shield tunnels.
 3. **One configuration.** ENWIDE and GEODE need one configuration, and then the unseen GEODE Metro Tunneling sequences (UGV, all three devices) serve as the hidden tunnel holdout.
 4. **bridge03's moving start.** The registration starts from zero speed on a bridge that gives no hold along the road. Every LiDAR-inertial rival also fails there (697–1100 m).
