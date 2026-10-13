@@ -766,6 +766,60 @@ ATE in metres, γ:
 
 **Where this leaves the window.** Its weakness is the one BIEVR-LIO shares: the registered poses are held fixed. A registration that stalls (β) or breaks under fast motion (flat_surfaces_aggressive) is fitted rather than rejected. The gait keeping the speed removes the β failure but also the β gain.
 
+### Six ways to make the window robust (2026-10-14)
+
+**Setup.**
+- **Code.** rko_lio branch `exp/inertial-window-gravity-tilt-limit`, commit 2c618dd (not merged). Every option is off by default.
+- **Base.** Each variant starts from W1 + rotation (W1R, above).
+- **Rule, fixed before each run.**
+  - Every γ shield tunnel stays within 10 % of W1R.
+  - flat_surfaces_smooth ≤ 3.2 m and flat_surfaces_aggressive ≤ 6.8 m, twice v16.
+- **Thresholds.** They come from the shield tunnels only.
+
+ATE in metres, γ. A dash marks a run that was not made, or was stopped, once the variant had already failed the rule.
+
+| variant | ST1 | ST2 | ST3 | ST4 | ST5 | ST6 | smooth | aggressive |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| W1R | 0.69 | 0.46 | 1.20 | 1.82 | 1.73 | 0.49 | 2.49 | 55.3 |
+| drop a window whose mean cost exceeds 0.004 | 0.69 | 0.46 | 1.20 | 1.82 | 1.73 | 0.49 | 4.40 | 3.61 |
+| Cauchy weight per interval, scale 0.03 | – | – | – | – | – | – | 3.16 | diverges |
+| bump image off | – | – | – | – | – | – | 353 | 338 |
+| attitudes pulled onto the gyro chain | 0.48 | 0.56 | – | – | – | – | 2.21 | 29.3 |
+| the same with slow priors | – | – | – | – | – | – | 2.56 | 191 |
+| window velocity on weak axes only | 0.54 | 0.49 | 1.21 | 2.01 | 3.46 | 0.51 | **1.60** | diverges |
+| v16 | 0.82 | 10.8 | 1.17 | 24.4 | 2.47 | 12.6 | 1.61 | 3.39 |
+| BIEVR-LIO | **0.26** | 0.53 | 1.17 | 2.50 | 3.19 | 0.40 | 2.00 | 8646 |
+
+None passes. Each failure:
+
+- **The cost separates sequences, not fits.**
+  - **Values.** The window's mean weighted residual stays at or below 0.0012 in the shield tunnels. On flat_surfaces_smooth its median is 0.0026, and 45 % of the windows exceed 0.004.
+  - **Effect of the gate.** It drops those windows. Smooth's prediction then has neither the window's velocity nor a hold from the flat registration. The first drop is at 32.6 s, and by 35 s the gated run is 2.75 m from the ungated one.
+  - **Where it helps.** It does stop flat_surfaces_aggressive, where the cost reaches 0.084.
+- **The inconsistency is spread out.** On the flats, the costliest 1 % of intervals carry only 24–34 % of the cost. Down-weighting them does not stop aggressive.
+- **The flats' registered rotations jitter.** In v16's runs, the registered rotation rate differs from the gyro by about a third of the rate: 0.115 rad/s on smooth and 0.287 rad/s on aggressive. Shield_tunnel2 shows 0.027 rad/s, 6 %.
+  - **Not calibration.** There is no scale error (1.01–1.02) and no time offset (+2.5 to +5 ms). The difference is noise of 0.7° and 1.6° per scan.
+  - **The bump image is not the cause.** It turns the flats' scans by 2.1° and 3.8° on average, and falls back to point-to-point 218 and 402 times, against 2–5 in the shield tunnels. Yet without it the window diverges on both flats.
+- **Smoothing the attitudes removes the jitter, not the failure.**
+  - **Method.** The window pulls the registered attitudes onto the gyro chain before it solves: σ 0.005 rad per attitude, 0.001 rad per interval.
+  - **Effect.** It cuts the attitude error fourfold on synthetic data, and smooth goes to 2.21 m.
+  - **What remains.** Smooth's window cost barely moves (median 0.0024). The inconsistency left is in translation.
+- **Gravity follows each window's fit.**
+  - **The cause.** The window's data outweigh the gravity prior (weight 5) about 4 to 1, and the accelerometer-bias prior (weight 1) about 1 to 1. Gravity therefore follows the window's own fit within a solve or two.
+  - **Observed rates.** In Shield_tunnel5 the tilt moves 0.044°/s on average. On aggressive it runs away at 0.2–1°/s.
+  - **Slow priors do not help.** With time constants of about 10 s for gravity and 30 s for the bias (weights 100 and 17), aggressive still fails (191 m).
+- **The registration's weak axis.**
+  - **Shield tunnels.** The smallest normalised eigenvalue of the registration's translation information (world frame) has a median of 0.009–0.011. Its eigenvector lies along the motion (|cos| 0.99).
+  - **Flats.** The median is 0.11–0.14, but a third of the scans fall below 0.05.
+  - **Result.** Taking the window's velocity only along axes below 0.05 gives the best flat_surfaces_smooth of any run, 1.60 m. It doubles Shield_tunnel5, though, and diverges on aggressive at 13 s: after two weak scans the registration loses its correspondences (isotropic, then empty, information), and the window carries the state away.
+
+**Where this leaves the window.** In every failure the window fits poses it should not trust:
+- rotations that jitter from scan to scan;
+- a registration that slides along its weak axes;
+- on aggressive, a registration lost for seconds.
+
+A window that holds the registered poses fixed cannot tell these apart from motion.
+
 ## Reproduction
 
 ```bash
@@ -783,7 +837,7 @@ The ROS 1 rivals run in `docker/enwide_rivals_ros1.Dockerfile`. Each rival's `ou
 
 ## Next
 
-1. **A window that rejects bad registrations.** W1 with the γ IMU rotation matches BIEVR-LIO on the γ shield tunnels, and with the gait keeping the speed it no longer loses β. What remains is flat_surfaces_aggressive (55 m against 3.39 m for v16). The fixed registered poses need a consistency gate, or soft poses in the window.
+1. **Soft poses in the window.** W1 with the γ IMU rotation matches BIEVR-LIO on the γ shield tunnels, and with the gait keeping the speed it no longer loses β. Six ways to make the fixed-pose window robust failed (above). flat_surfaces_aggressive diverges with all but one of them, and that one, a gate, costs flat_surfaces_smooth. The window has to estimate the poses as well, with each scan's registration information as the prior. A weak or lost registration is then outweighed by the IMU instead of fitted.
 2. **The gait prior.** On the internal IMU it makes Shield_tunnel4 and 6 worse (4.82 → 24.4 m and 0.94 → 12.6 m). Without it, RKO-LIO fails four of the six γ shield tunnels.
 3. **One configuration.** ENWIDE and GEODE need one configuration, and then the unseen GEODE Metro Tunneling sequences (UGV, all three devices) serve as the hidden tunnel holdout.
 4. **bridge03's moving start.** The registration starts from zero speed on a bridge that gives no hold along the road. Every LiDAR-inertial rival also fails there (697–1100 m).
