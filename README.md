@@ -7,7 +7,7 @@
 
 ![Live map building on a handheld outdoor run: the map grows along the trajectory, coloured by when each part was mapped](lidarslam/images/slam_koide_outdoor_hard_02a.gif)
 
-*Handheld Livox MID-360, ~550 m outdoor "hard" sequence in 6 minutes ([Koide Hard Point Cloud Localization Dataset](https://zenodo.org/records/10122133) `outdoor_hard_02a`, CC BY 4.0). RKO-LIO + graph SLAM on `develop` with the [handheld MID-360 outdoor profile](lidarslam/param/rko_lio_mid360_handheld_outdoor.yaml): 99.7% of scans tracked, APE 0.55 m RMSE against the dataset ground truth, faster than real time on a shared workstation (RTF 0.44). [How this was made](docs/readme-media.md). Start at the [Quickstart](#quickstart); `develop` is the default branch; current release candidate notes: [v0.9.1](docs/releases/v0.9.1.md). [日本語クイックスタート](docs/getting-started-ja.md).*
+*Handheld Livox MID-360, ~550 m outdoor "hard" sequence in 6 minutes ([Koide Hard Point Cloud Localization Dataset](https://zenodo.org/records/10122133) `outdoor_hard_02a`, CC BY 4.0). RKO-LIO + graph SLAM on `develop` with the [handheld MID-360 outdoor profile](lidarslam/param/rko_lio_mid360_handheld_outdoor.yaml): 99.7% of scans tracked, APE 0.55 m RMSE against the dataset ground truth, faster than real time on a shared workstation (RTF 0.44). [How this was made](docs/readme-media.md). Start at the [Quickstart](#quickstart); `develop` is the default branch; current release candidate notes: [v0.10.0](docs/releases/v0.10.0.md). [日本語クイックスタート](docs/getting-started-ja.md).*
 
 **Turn a rosbag into a map you can actually drive on.**
 
@@ -21,7 +21,7 @@ ROS 2 LiDAR SLAM that outputs an Autoware-compatible map bundle — `pointcloud_
 | --- | --- | --- |
 | See a verified map, no build | **Default if unsure:** [Docker demo](#try-it-with-docker-one-command-no-build) | Stable `v0.9.0-humble`; needs Docker; host writes stay in `./lidarslam_output`. |
 | Map my own rosbag | [Own-bag route](#map-your-own-bag-one-command-after-install): `lidarslam-map doctor /path/to/rosbag2` | Read-only diagnosis first; then `lidarslam-map start /path/to/rosbag2` writes a new output. |
-| Build the current candidate or contribute | [Source quickstart](#build--verified-demo-from-source-one-helper): `bash scripts/source_quickstart.sh --dry-run` | Candidate `v0.9.1`; needs ROS 2, 8 GiB, and roughly 30 minutes. |
+| Build the current candidate or contribute | [Source quickstart](#build--verified-demo-from-source-one-helper): `bash scripts/source_quickstart.sh --dry-run` | Candidate `v0.10.0`; needs ROS 2, 8 GiB, and roughly 30 minutes. |
 
 ### Try it with Docker (one command, no build)
 
@@ -31,7 +31,7 @@ docker run --rm -e LIDARSLAM_HOST_UID="$(id -u)" -e LIDARSLAM_HOST_GID="$(id -g)
   ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble
 ```
 
-Use the latest published stable image (`v0.9.0-humble`) for the 517 MB MID-360 demo; it writes `lidarslam_output/mid360_demo/` and returns ownership via UID/GID. The `v0.9.1` release candidate is not published yet; use the [source quickstart](#build--verified-demo-from-source-one-helper) for that candidate. See [Getting Started](docs/getting-started.md) for other platforms.
+Use the latest published stable image (`v0.9.0-humble`) for the 517 MB MID-360 demo; it writes `lidarslam_output/mid360_demo/` and returns ownership via UID/GID. The `v0.10.0` release candidate is not published yet; use the [source quickstart](#build--verified-demo-from-source-one-helper) for that candidate. See [Getting Started](docs/getting-started.md) for other platforms.
 
 ### Map your own bag (one command after install)
 
@@ -195,7 +195,7 @@ Tunnel and fog mapping: [Degeneracy Resilience Guide](docs/degeneracy-guide.md).
 - **Getting started**: [Getting Started](docs/getting-started.md) · [Distribution](docs/distribution.md) · [Autoware quickstart](docs/autoware-quickstart.md) · [Operator workflows](docs/workflows.md) · [Autoware Foxglove](docs/autoware-foxglove.md)
 - **Pipelines**: [Autoware-compatible map authoring](docs/autoware-map-authoring.md)
 - **Benchmarking**: [Benchmarking and release gate](docs/benchmarking.md) · [Comparison](docs/comparison.md)
-- **Project**: [Product contract](docs/product-contract.md) · [v1.0 readiness](docs/v1-readiness.md) · [Independent first-map validation](docs/external-first-map-validation.md) · [v0.9.1 RC notes](docs/releases/v0.9.1.md) · [v0.9 roadmap](docs/roadmap/v0.9.md) · [Contributing](CONTRIBUTING.md) · [Support](SUPPORT.md) · [Security](SECURITY.md) · [Governance](GOVERNANCE.md) · [Changelog](CHANGELOG.md) · [Releasing](RELEASING.md)
+- **Project**: [Product contract](docs/product-contract.md) · [v1.0 readiness](docs/v1-readiness.md) · [Independent first-map validation](docs/external-first-map-validation.md) · [v0.10.0 RC notes](docs/releases/v0.10.0.md) · [v0.9 roadmap](docs/roadmap/v0.9.md) · [Contributing](CONTRIBUTING.md) · [Support](SUPPORT.md) · [Security](SECURITY.md) · [Governance](GOVERNANCE.md) · [Changelog](CHANGELOG.md) · [Releasing](RELEASING.md)
 
 Preview the doc site locally: `python3 -m mkdocs serve`.
 

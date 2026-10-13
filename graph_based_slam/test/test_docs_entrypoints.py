@@ -259,7 +259,7 @@ RELEASE_PROMOTION_SCHEMA = (
 )
 V09_ROADMAP_DOC = REPO_ROOT / 'docs' / 'roadmap' / 'v0.9.md'
 SOCIAL_POST_DOC = (
-    REPO_ROOT / 'docs' / 'social' / 'autoware_map_authoring_post_v0.9.1.md'
+    REPO_ROOT / 'docs' / 'social' / 'autoware_map_authoring_post_v0.10.0.md'
 )
 ISSUE_TEMPLATE_DIR = REPO_ROOT / '.github' / 'ISSUE_TEMPLATE'
 PUBLIC_AUTOWARE_ENTRYPOINT = REPO_ROOT / 'scripts' / 'run_autoware_quickstart.sh'
@@ -411,7 +411,7 @@ def test_docs_exist_and_are_linked_from_readme():
     assert 'bash scripts/source_quickstart.sh' in readme
     assert 'Run `lidarslam-map` with no arguments' in readme
     assert 'ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble' in readme
-    assert 'v0.9.1` release candidate is not published yet' in readme
+    assert 'v0.10.0` release candidate is not published yet' in readme
     # The required-topics table and the dynamic-object-filter figure moved to
     # docs/workflows.md so the README stays narrow; keep the assets on disk
     # (asserted above) and verify the README still routes readers to those docs.
@@ -438,7 +438,7 @@ def test_readme_chooser_routes_each_goal_to_one_safe_first_step():
         chooser
     )
     assert 'bash scripts/source_quickstart.sh --dry-run' in chooser
-    assert 'Candidate `v0.9.1`' in chooser
+    assert 'Candidate `v0.10.0`' in chooser
     assert 'needs ROS 2, 8 GiB, and roughly 30 minutes' in chooser
 
 
@@ -474,7 +474,7 @@ def test_getting_started_chooser_limits_the_first_decision_to_three_goals():
     assert 'lidarslam-map doctor /path/to/rosbag2' in chooser
     assert 'Diagnosis uses no network and writes no files' in chooser
     assert 'bash scripts/source_quickstart.sh --dry-run' in chooser
-    assert 'Candidate `v0.9.1`' in chooser
+    assert 'Candidate `v0.10.0`' in chooser
     assert 'needs ROS 2, 8 GiB, and roughly 30 minutes' in chooser
 
     for advanced_action in (
@@ -1337,7 +1337,7 @@ def test_release_metadata_and_core_package_versions_match(tmp_path: Path):
         'docs/rosdistro-release.md',
         'docs/roadmap/v0.9.md',
         'docs/autoware-foxglove.md',
-        'docs/social/autoware_map_authoring_post_v0.9.1.md',
+        'docs/social/autoware_map_authoring_post_v0.10.0.md',
         'docs/workflows.md',
         'lidarslam/images/autoware_map_loader_proof.png',
         'lidarslam/images/dynamic_object_filter_bag6_summary.svg',
@@ -1470,8 +1470,8 @@ def test_release_metadata_and_core_package_versions_match(tmp_path: Path):
     assert f'v{version}: releases/v{version}.md' in mkdocs_config
     assert 'v0.2.2: releases/v0.2.2.md' in mkdocs_config
     assert (
-        'v0.9.1 Candidate Media Kit: '
-        'social/autoware_map_authoring_post_v0.9.1.md'
+        'v0.10.0 Media Kit: '
+        'social/autoware_map_authoring_post_v0.10.0.md'
         in mkdocs_config
     )
     assert 'v0.2.2 Post Kit:' not in mkdocs_config
@@ -1594,7 +1594,7 @@ def test_docs_cover_autoware_and_release_gate_keywords():
     assert 'LIDARSLAM_HOST_GID' in getting_started_doc
     assert 'ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble' in getting_started_doc
     assert 'ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-jazzy' in getting_started_doc
-    assert 'v0.9.1` release candidate is not published or tagged yet' in getting_started_doc
+    assert 'v0.10.0` release candidate is not published or tagged yet' in getting_started_doc
     assert 'periodic' in getting_started_doc
     assert 'Bind-mounted output ownership' in distribution_doc
     assert 'Creative Commons Attribution 4.0' in real_data_e2e_doc
@@ -2258,7 +2258,7 @@ def test_source_quickstart_bootstraps_dependencies_and_keeps_dev_tests():
         encoding='utf-8'
     ).strip() + "'" in onboarding
     assert (
-        "SOURCE_COMMIT='549ef03017c776f23fc968881b346aa685356274'"
+        "SOURCE_COMMIT='6401da47aa6e7ad44b7df929a2cfd4521f952601'"
         in onboarding
     )
     assert onboarding.count('--product-version "$SOURCE_VERSION"') == 3

@@ -136,7 +136,7 @@ or read the [Autoware-Compatible Map Authoring](autoware-map-authoring.md) guide
 
 ## Project
 
-- [Releases](releases/v0.9.1.md) · [v0.9.0 stable](releases/v0.9.0.md)
+- [Releases](releases/v0.10.0.md) · [v0.9.0 stable](releases/v0.9.0.md)
 - [Product roadmap](roadmap/v0.9.md)
 - [Operational reliability](operational-reliability.md) · [v1.0 readiness](v1-readiness.md)
 - [Contributing](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/CONTRIBUTING.md) · [Support](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/SUPPORT.md) · [Security](https://github.com/rsasaki0109/lidar_slam_ros2/security/policy) · [Governance](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/GOVERNANCE.md)

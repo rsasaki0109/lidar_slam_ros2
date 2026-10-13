@@ -466,7 +466,7 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
     assert transition == {
         'kind': 'READ_ONLY_PUBLIC_PRODUCT_TRANSITION',
         'status': 'AUDIT_REQUIRED',
-        'target_version': '0.9.1',
+        'target_version': '0.10.0',
         'observed_release_status': 'NOT_CHECKED',
         'audits': [
             'product_draft',
@@ -476,11 +476,11 @@ def test_current_dashboard_preserves_the_tracked_hold_state():
         'audit_command': (
             'python3 scripts/check_g0_readiness.py '
             '--include-public-transition '
-            '--published-release-version 0.9.1 --json'
+            '--published-release-version 0.10.0 --json'
         ),
         'post_publication_packet_command': (
             'python3 scripts/check_published_release.py '
-            '--version 0.9.1 --json --require-published | '
+            '--version 0.10.0 --json --require-published | '
             'python3 scripts/prepare_onboarding_matrix_packet.py '
             '--published-release-report - --render'
         ),

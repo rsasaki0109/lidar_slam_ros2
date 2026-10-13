@@ -46,7 +46,7 @@ bash scripts/source_quickstart.sh --dry-run
 ```
 
 Dockerのidentityは公開済み安定版`v0.9.0-humble`または`v0.9.0-jazzy`です。source helperは
-まだ公開・tag付けされていない`v0.9.1`候補を扱うため、sourceの結果を公開releaseやDocker
+まだ公開・tag付けされていない`v0.10.0`候補を扱うため、sourceの結果を公開releaseやDocker
 identityとして報告しません。GLIMのようなPPA/package-manager経路は未対応なので、経路選択で
 これらを代替手段として追加しません。最初のcontrol experimentが失敗した場合は、表示された
 `Details:`と`Next:`を読み、経路やoutputを手で混ぜずに保存済みの指示へ戻ります。
@@ -67,7 +67,7 @@ Dockerまたはsourceのfirst-mapが途中で終わった後に経路を変え�
 sourceからDockerへ切り替えるcommandではありません。保存済み`retry.command`も元のpinned setupを
 再試行するためのものなので、経路を変えるときは使わず、新しい経路の案内へ戻ります。変更後は
 たとえば`output.docker`と`output.source`のように新しいoutputを選び、`v0.9.0` Dockerまたは
-`v0.9.1` source候補のidentityをそれぞれ`--version`など実際の出力から記録します。
+`v0.10.0` source候補のidentityをそれぞれ`--version`など実際の出力から記録します。
 
 元の証跡は削除・uploadせず、旧runと新runのreceiptやhashを混ぜません。新しいsessionで
 `report`が`READY FOR REVIEW`を返した場合だけ、その新runのreceiptを確認します。
@@ -125,7 +125,7 @@ docker run --rm \
 ```
 
 このコマンドは公開済み安定版`v0.9.0-humble`に固定しています。`develop`の
-移動タグを使わないため、初回導線の内容が不意に変わりません。`v0.9.1`は
+移動タグを使わないため、初回導線の内容が不意に変わりません。`v0.10.0`は
 まだ公開・tag付けされていない候補版なので、候補版を試す場合はsource helperを
 使ってください。Ubuntu 24.04/Jazzyでは
 `ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-jazzy`を使います。初回は517 MBの公開bagを
@@ -227,7 +227,7 @@ lidarslam-map --version
 ```
 
 Dockerの固定デモは公開済み安定版`v0.9.0-humble`または`v0.9.0-jazzy`を使います。
-`v0.9.1`はまだ公開・tag付けされていないsource候補なので、source helperで実行した
+`v0.10.0`はまだ公開・tag付けされていないsource候補なので、source helperで実行した
 場合はcandidateとしてそのversion/revisionを報告します。`develop`の移動tagを使ったり、
 出力にないrelease identityを推測したりせず、`--version`の出力をそのままsupport report
 やvalidation formへ転記してください。
@@ -689,7 +689,7 @@ findingsを記入します。receiptを添付する場合は、formで名前が�
 maintainer reviewとvalidation ledgerのaccepted記録が済むまではaccepted evidenceではありません。
 
 どちらのreportでも、identityはviewerの表示や移動する`develop` tagから推測しません。Dockerは
-公開済み安定版`v0.9.0-humble`または`v0.9.0-jazzy`、sourceは公開releaseではない`v0.9.1`候補と
+公開済み安定版`v0.9.0-humble`または`v0.9.0-jazzy`、sourceは公開releaseではない`v0.10.0`候補と
 そのexact commit/revisionを`lidarslam-map --version`とreceiptから記録します。Dockerのsupport
 report、source候補のvalidation report、別runのreceiptやhashを1つの報告へ混ぜず、足りない値を
 推測せずに共有を止めます。
@@ -790,7 +790,7 @@ mismatch、example-only、viewer-onlyの場合は、reportを公開せず`Detail
 保存されたretry指示へ戻ります。receipt、manifest、session JSONを編集して値を合わせません。
 
 identityが曖昧な場合も停止します。Dockerなら公開済み`v0.9.0-humble`または`v0.9.0-jazzy`、
-sourceなら未公開`v0.9.1`候補とexact commit/revisionを、receiptまたはhandoffで確認できた場合
+sourceなら未公開`v0.10.0`候補とexact commit/revisionを、receiptまたはhandoffで確認できた場合
 だけ記録します。`develop` tag、viewer、架空例からidentityやhashを作りません。handoff JSON、
 local path、recovery JSON、map、bag、raw log、preview、trajectory、parameter、screenshot、
 session bundle全体はreportにも添付にも含めず、公開添付はreview済みreceiptだけにします。
@@ -861,7 +861,7 @@ review status: unresolved / retrying — not accepted validation
 ```
 
 new independent validationへ進む場合も、元のreportとreceiptはそのまま保持します。Dockerは
-公開済み`v0.9.0-humble`または`v0.9.0-jazzy`、sourceは未公開`v0.9.1`候補とexact
+公開済み`v0.9.0-humble`または`v0.9.0-jazzy`、sourceは未公開`v0.10.0`候補とexact
 commit/revisionを、その新しいsessionとreceiptから確認します。identity、session、または
 同じrunへの結び付きを確認できない場合は停止し、viewerの表示、古いreceipt、架空のhashで
 補いません。新しいreportを提出しても、maintainer reviewとledgerのaccepted記録までは
@@ -891,7 +891,7 @@ independent-validation reportを別のものとして記録します。follow-up
 ```text
 follow-up audit:
 original report/receipt pair: <one unchanged pair; no local path>
-original identity: <v0.9.0 Docker identity or v0.9.1 source candidate + exact revision>
+original identity: <v0.9.0 Docker identity or v0.10.0 source candidate + exact revision>
 follow-up route: <support follow-up / new independent validation>
 reason.code: <saved stable code>
 Details: <sanitized saved explanation>
@@ -905,7 +905,7 @@ duplicate check: <no duplicate issue or session artifact>
 facts`だけを新しいoutputから追記します。`Details:`、`Next:`、`retry.command`の値が元の
 sessionやlocal pathを含む場合は、公開にはstable code、command名、影響だけを残します。
 別runのindependent validationでは、Dockerなら公開済み`v0.9.0-humble`または`v0.9.0-jazzy`、
-sourceなら未公開`v0.9.1`候補とexact commit/revisionを新しいsessionとreceiptから確認し、
+sourceなら未公開`v0.10.0`候補とexact commit/revisionを新しいsessionとreceiptから確認し、
 古いreport、receipt、map、hashをコピーしません。
 
 identity、session、output、またはreportとreceiptが同じrunに結び付くことを確認できない場合は
@@ -922,7 +922,7 @@ maintainerがfollow-up要約を受け取ったら、要約だけを見てPASSや
 
 | 順序 | 確認するもの | 一致・不足の判定 |
 | --- | --- | --- |
-| 1. identity | Dockerの公開済み`v0.9.0-humble`/`v0.9.0-jazzy`、またはsourceの未公開`v0.9.1`候補とexact commit/revision | viewer、`develop` tag、example-only値から補わない。missing/mismatchならSTOP |
+| 1. identity | Dockerの公開済み`v0.9.0-humble`/`v0.9.0-jazzy`、またはsourceの未公開`v0.10.0`候補とexact commit/revision | viewer、`develop` tag、example-only値から補わない。missing/mismatchならSTOP |
 | 2. same run | 元のreport、receipt、session/output、`manifest_sha256`が同じrunに結び付く | local pathやsession bundleを公開せず、同じrunを確認できなければSTOP |
 | 3. route | `support follow-up`、または新しい`independent validation`のどちらか | noteを新しいreport/receiptに変換せず、別runなら古い一組と混ぜない |
 | 4. provenance | `reason.code`、sanitized `Details:`/`Next:`、fresh-output factsの出どころ | receipt-derived result、verification、hash、review statusをfollow-up factsで上書きしない |
@@ -969,7 +969,7 @@ accepted validationへ変換したりしません。
 `MATCHED FOLLOW-UP`では、同じrunの原因確認や保存済みretryだけを行います。retryで新しいoutputが
 得られても、元のreceiptのresult、verification、hash、review statusを上書きせず、観察した事実と
 影響だけをサニタイズしてnoteにします。`NEW RUN`では、Dockerなら公開済み`v0.9.0-humble`または
-`v0.9.0-jazzy`、sourceなら未公開`v0.9.1`候補とexact commit/revisionを確認できる場合だけ、
+`v0.9.0-jazzy`、sourceなら未公開`v0.10.0`候補とexact commit/revisionを確認できる場合だけ、
 新しいreport + reviewed receiptを一組にします。identity、session、outputのどれかが不足する
 場合は`STOP`です。
 
@@ -1012,7 +1012,7 @@ identity、session、outputを再確認できない場合は、元の証跡を�
 
 `MATCHED FOLLOW-UP`で`NOTE ONLY`、`SUPPORT REQUESTED`、または`RETRY STARTED`を記録した場合も、
 元のreport、receipt、hash、review statusは変更しません。`NEW RUN`の`NEW PAIR PREPARED`は、
-Dockerなら公開済み`v0.9.0-humble`または`v0.9.0-jazzy`、sourceなら未公開`v0.9.1`候補と
+Dockerなら公開済み`v0.9.0-humble`または`v0.9.0-jazzy`、sourceなら未公開`v0.10.0`候補と
 exact commit/revisionを新しいsessionから確認できる場合だけ許可します。古いpairのコピー、
 receiptの再利用、同じrunの二重pairは認めません。
 
@@ -1062,7 +1062,7 @@ artifactやmaintainerのlive guidanceに頼らず、同じ安全境界で相談�
 maintainer reviewとledgerの明示的なaccepted記録までは受理されません。`STOP`は失敗を隠すstatus
 ではなく、identity、session、output、またはfieldの出どころが確認できないときの再確認経路です。
 どのhandoffでも元のreport、receipt、hash、review statusは変更せず、Dockerの公開済み
-`v0.9.0-humble`/`v0.9.0-jazzy`とsourceの未公開`v0.9.1`候補のidentity境界を保ちます。
+`v0.9.0-humble`/`v0.9.0-jazzy`とsourceの未公開`v0.10.0`候補のidentity境界を保ちます。
 
 次のblockは、担当者へ渡す最小情報を記録するためのものです。roleだけを使い、local path、
 credential、bag、map、raw log、session bundleは書きません。

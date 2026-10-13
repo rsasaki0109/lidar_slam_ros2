@@ -102,7 +102,7 @@ three immutable identities are derived from the same validated report bytes:
 
 ```bash
 python3 scripts/check_published_release.py \
-  --version 0.9.1 --json --require-published | \
+  --version 0.10.0 --json --require-published | \
 python3 scripts/prepare_onboarding_matrix_packet.py \
   --published-release-report - --render \
   --output /tmp/g0-onboarding-observer-packet.md
@@ -220,8 +220,8 @@ manifest digest, and (when available) GitHub attestation before use. The source
 rows instead use this reviewed public identity:
 
 ~~~bash
-SOURCE_COMMIT='549ef03017c776f23fc968881b346aa685356274'
-SOURCE_VERSION='0.9.1'
+SOURCE_COMMIT='6401da47aa6e7ad44b7df929a2cfd4521f952601'
+SOURCE_VERSION='0.10.0'
 export SOURCE_COMMIT SOURCE_VERSION
 ~~~
 

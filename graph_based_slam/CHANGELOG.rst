@@ -2,6 +2,20 @@
 Changelog for package graph_based_slam
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.10.0 (2026-10-13)
+-------------------
+* Refine each camera pose against the LiDAR map before colouring, reject
+  sky-coloured samples and refill points seen only against the sky (both
+  opt-in), and carve the camera bearer's corridor out of the map.
+* Score map colours against an independent TLS reference (Oxford Spires).
+* Skip map message conversion without subscribers and avoid copying the graph
+  snapshot when saving maps.
+* Repair the broken merge after the sota-v6 recovery: the pimpl component, the
+  plugin package dependencies, and the portable PCL ``fromPCLPointCloud2``
+  overload, so Humble and Jazzy build and test.
+* Run the camera-model tests on CI and make them pass on Humble.
+* Contributors: Ryohei Sasaki
+
 0.9.1 (2026-08-12)
 ------------------
 * Reject unsafe or inconsistent point-cloud layouts before conversion and

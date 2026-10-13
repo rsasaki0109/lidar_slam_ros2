@@ -91,7 +91,7 @@ def _generated_files(tmp_path: Path) -> Path:
 def test_contract_binds_current_version_commands_images_and_no_public_claims():
     contract = MEDIA.load_contract()
 
-    assert contract['product_version'] == '0.9.1'
+    assert contract['product_version'] == '0.10.0'
     assert contract['commands'] == {
         'fixed_demo': 'lidarslam-map demo',
         'own_bag': 'lidarslam-map start /path/to/rosbag2',

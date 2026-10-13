@@ -138,7 +138,7 @@ remote writes, opt in explicitly:
 ```bash
 python3 scripts/check_g0_readiness.py \
   --include-published-release \
-  --published-release-version 0.9.1
+  --published-release-version 0.10.0
 ```
 
 To inspect the protected candidate environment through GET requests only,
@@ -164,7 +164,7 @@ To take one complete read-only snapshot of the current external G0 gates, use:
 ```bash
 python3 scripts/check_g0_readiness.py \
   --include-public-transition \
-  --published-release-version 0.9.1
+  --published-release-version 0.10.0
 ```
 
 `--include-public-transition` is the user-facing alias for the exact product
@@ -240,7 +240,7 @@ the selected route with:
 ```bash
 python3 scripts/check_public_docs_deployment.py \
   --expected-revision <exact-40-character-public-commit> \
-  --expected-product-version 0.9.1 \
+  --expected-product-version 0.10.0 \
   --route source-quickstart \
   --json
 ```

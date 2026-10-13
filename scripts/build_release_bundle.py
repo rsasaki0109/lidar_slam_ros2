@@ -66,7 +66,7 @@ PRODUCT_DOCS = (
     'docs/benchmarking.md',
     'docs/comparison.md',
     'docs/roadmap/v0.9.md',
-    'docs/social/autoware_map_authoring_post_v0.9.1.md',
+    'docs/social/autoware_map_authoring_post_v0.10.0.md',
 )
 RELEASE_IMPLEMENTATION_FILES = (
     '.github/workflows/package-manager-install-upgrade.yml',
