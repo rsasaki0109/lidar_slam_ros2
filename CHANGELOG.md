@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.10.1 - 2026-10-14 (candidate)
+
+The next release candidate after v0.10.0. It is not tagged; v0.10.0 is the
+latest published release.
+
+### Fixed
+
+- **Release workflow** — the release bundle is built before the standalone
+  Docker launcher, which writes into the checkout the bundle requires to be
+  clean. The v0.10.0 run failed there and was published by a re-run.
+- **Documentation** — Getting Started (EN/JA), the README, map authoring and
+  external validation pin the published `v0.10.0` images, which carry the
+  `lidarslam-map report` handoff and the own-bag `start` contract.
+
+### Known limitations
+
+- RTK-SLAM Construction Hall 2 scores 0.165 m against 0.086 m in v0.9.0. It
+  comes from RKO-LIO's direction-only gravity residual (rko_lio #14). The
+  vector form restores 0.083 m but raises Construction Hall 1 from 0.280 m to
+  0.383 m and leaves the four Koide MID-360 handheld sequences within 1 %, so
+  it is kept.
+
 ## 0.10.0 - 2026-10-13
 
 The first published release since v0.9.0. The 0.9.1 release candidate below

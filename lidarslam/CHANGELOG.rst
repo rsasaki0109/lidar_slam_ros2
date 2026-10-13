@@ -2,6 +2,13 @@
 Changelog for package lidarslam
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.10.1 (2026-10-14)
+-------------------
+* Version aligned with the 0.10.1 candidate; the first-map handoff contract
+  requires the read-only ``lidarslam-map report`` run inside the published
+  v0.10.0 images.
+* Contributors: Ryohei Sasaki
+
 0.10.0 (2026-10-13)
 -------------------
 * Ship the ENWIDE v10 radar-less Ouster options as the

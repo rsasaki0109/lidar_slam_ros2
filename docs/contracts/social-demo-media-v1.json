@@ -2,7 +2,7 @@
   "schema_version": 1,
   "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/social-demo-media-v1.schema.json",
   "repository": "rsasaki0109/lidar_slam_ros2",
-  "product_version": "0.10.0",
+  "product_version": "0.10.1",
   "docs_source_path": "docs/getting-started.md",
   "docs_url_template": "https://github.com/rsasaki0109/lidar_slam_ros2/blob/{source_revision}/docs/getting-started.md",
   "maximum_duration_seconds": 180,
@@ -35,7 +35,7 @@
     {
       "id": "promise",
       "image": "lidarslam/images/map.png",
-      "eyebrow": "lidarslam_ros2 v0.10.0",
+      "eyebrow": "lidarslam_ros2 v0.10.1",
       "title": "From rosbag2 to a verified Autoware map",
       "body": [
         "One guided workflow keeps mapping, verification, and recovery together.",

@@ -2,6 +2,11 @@
 Changelog for package scanmatcher
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.10.1 (2026-10-14)
+-------------------
+* No source changes; version aligned with the 0.10.1 candidate.
+* Contributors: Ryohei Sasaki
+
 0.10.0 (2026-10-13)
 -------------------
 * Stop the TF listener on shutdown without losing the executor cancel, so the

@@ -2,6 +2,12 @@
 Changelog for package graph_based_slam
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.10.1 (2026-10-14)
+-------------------
+* Version aligned with the 0.10.1 candidate; the documentation tests follow the
+  published v0.10.0 images.
+* Contributors: Ryohei Sasaki
+
 0.10.0 (2026-10-13)
 -------------------
 * Refine each camera pose against the LiDAR map before colouring, reject

@@ -29,7 +29,7 @@
     "status": {"enum": ["LOCAL_PREVIEW", "PUBLICATION_CANDIDATE"]},
     "repository": {"const": "rsasaki0109/lidar_slam_ros2"},
     "source_revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
-    "product_version": {"const": "0.10.0"},
+    "product_version": {"const": "0.10.1"},
     "content_contract": {"$ref": "#/definitions/repository_artifact"},
     "canonical_docs": {
       "type": "object",
@@ -101,7 +101,7 @@
       "additionalProperties": false,
       "required": ["path", "size_bytes", "sha256", "languages"],
       "properties": {
-        "path": {"const": "autoware_map_authoring_post_v0.10.0.md"},
+        "path": {"const": "autoware_map_authoring_post_v0.10.1.md"},
         "size_bytes": {"type": "integer", "minimum": 1},
         "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
         "languages": {"const": ["ja", "en"]}
