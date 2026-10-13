@@ -15,7 +15,7 @@ viewer problem cannot change the map result.
 | Your starting point | First step |
 | --- | --- |
 | Docker only; try the published stable demo | Run [Docker First Map](getting-started.md#docker-first-map-no-ros-2-workspace) below |
-| Current source candidate installed | `lidarslam-map doctor`, then `lidarslam-map demo` |
+| Source build installed | `lidarslam-map doctor`, then `lidarslam-map demo` |
 | Your own compatible rosbag2 | `lidarslam-map doctor /path/to/rosbag2`, then `lidarslam-map start /path/to/rosbag2` |
 | Not installed yet | Follow [Build + verified demo from source](getting-started.md#1-install-and-build-from-source) |
 
@@ -33,12 +33,12 @@ docker run --rm \
   -e LIDARSLAM_HOST_UID="$(id -u)" \
   -e LIDARSLAM_HOST_GID="$(id -g)" \
   -v "$PWD/lidarslam_output:/lidarslam_ws/output" \
-  ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble
+  ghcr.io/rsasaki0109/lidar_slam_ros2:v0.10.0-humble
 ```
 
-This route is pinned to the published `v0.9.0-humble` image and writes the
+This route is pinned to the published `v0.10.0-humble` image and writes the
 verified demo to `lidarslam_output/mid360_demo/`. Jazzy users can select the
-published `v0.9.0-jazzy` image. See [Getting Started](getting-started.md) for
+published `v0.10.0-jazzy` image. See [Getting Started](getting-started.md) for
 platform notes and the source route.
 
 ## Map Your Own Bag
@@ -82,8 +82,8 @@ detected PointCloud2 topic into verified hardware support or an accuracy claim.
 For Docker without a ROS installation, follow
 [Docker Own-Bag Map](getting-started.md#docker-own-bag-map). Its launcher checks
 that the selected image supports this same `start` contract before creating an
-output directory. Published v0.9.0 images predate that own-bag contract and are
-rejected; a stable no-install own-bag image remains pending the next release.
+output directory. The published v0.10.0 images carry that contract; the older
+v0.9.0 images predate it and are rejected.
 
 ## What Success Looks Like
 
@@ -164,14 +164,13 @@ interfaces, not additional beginner routes.
 
 ## Current Publication Boundary
 
-`v0.9.0` is the latest published stable release. The `v0.10.0` release
-candidate documented in this source tree is not published or tagged yet.
-Therefore:
+`v0.10.0` is the latest published stable release. Its `v0.10.0-humble` and
+`v0.10.0-jazzy` images carry the same `lidarslam-map` contract as the
+`v0.10.0` source tag. Therefore:
 
-- use the pinned `v0.9.0-humble` or `v0.9.0-jazzy` image for the published
-  fixed demo;
-- build the reviewed source revision when evaluating the current
-  `lidarslam-map` candidate contract;
+- use the pinned `v0.10.0-humble` or `v0.10.0-jazzy` image for the published
+  fixed demo and the Docker own-bag route;
+- build the `v0.10.0` tag, or a reviewed later revision, from source;
 - do not assume that a moving development image is a stable release.
 
 ## Advanced Paths

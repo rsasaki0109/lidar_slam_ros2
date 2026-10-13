@@ -18,7 +18,7 @@ CONTENT_MARKERS = (
     ),
     (
         'stable-image-report-boundary',
-        'published v0.9.0 image predates the lidarslam-map report handoff command',
+        'lidarslam-map report /output/mid360_demo',
     ),
     (
         'receipt-only-attachment-rule',

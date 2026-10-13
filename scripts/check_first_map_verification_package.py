@@ -101,22 +101,22 @@ DOCKER_SOURCE_TEXT: dict[str, tuple[str, ...]] = {
     'docs/getting-started.md': (
         'docker run --rm --network none',
         '-v "$PWD/lidarslam_output:/output:ro"',
-        'ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble',
-        'share/lidarslam/product/scripts/create_first_map_validation_receipt.py',
+        'ghcr.io/rsasaki0109/lidar_slam_ros2:v0.10.0-humble',
+        "bash -lc 'lidarslam-map report /output/mid360_demo'",
         'docker image inspect',
     ),
     'docs/getting-started-ja.md': (
         'docker run --rm --network none',
         '-v "$PWD/lidarslam_output:/output:ro"',
-        'ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble',
-        'share/lidarslam/product/scripts/create_first_map_validation_receipt.py',
+        'ghcr.io/rsasaki0109/lidar_slam_ros2:v0.10.0-humble',
+        "bash -lc 'lidarslam-map report /output/mid360_demo'",
         'docker image inspect',
     ),
     'docs/external-first-map-validation.md': (
         'docker run --rm --network none',
         '-v "$PWD/lidarslam_output:/output:ro"',
-        'ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble',
-        'share/lidarslam/product/scripts/create_first_map_validation_receipt.py',
+        'ghcr.io/rsasaki0109/lidar_slam_ros2:v0.10.0-humble',
+        "bash -lc 'lidarslam-map report /output/mid360_demo'",
         'docker image inspect',
     ),
 }

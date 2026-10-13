@@ -44,7 +44,7 @@ title: lidarslam_ros2 Docs
   <a class="link-card" href="getting-started.html#1-install-and-build-from-source">
     <span class="link-card__step">03</span>
     <h3>Build from source</h3>
-    <p>Use the current candidate revision, run benchmarks, or contribute.</p>
+    <p>Build the current release from source, run benchmarks, or contribute.</p>
   </a>
 </div>
 
@@ -58,10 +58,10 @@ title: lidarslam_ros2 Docs
       -e LIDARSLAM_HOST_UID="$(id -u)" \
       -e LIDARSLAM_HOST_GID="$(id -g)" \
       -v "$PWD/lidarslam_output:/lidarslam_ws/output" \
-      ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble
+      ghcr.io/rsasaki0109/lidar_slam_ros2:v0.10.0-humble
     ```
 
-    On Ubuntu 24.04 use `v0.9.0-jazzy`. The map lands in
+    On Ubuntu 24.04 use `v0.10.0-jazzy`. The map lands in
     `lidarslam_output/mid360_demo`.
 
 === "My own bag"
@@ -136,7 +136,7 @@ or read the [Autoware-Compatible Map Authoring](autoware-map-authoring.md) guide
 
 ## Project
 
-- [Releases](releases/v0.10.0.md) · [v0.9.0 stable](releases/v0.9.0.md)
+- [Releases](releases/v0.10.0.md) · [v0.9.0](releases/v0.9.0.md)
 - [Product roadmap](roadmap/v0.9.md)
 - [Operational reliability](operational-reliability.md) · [v1.0 readiness](v1-readiness.md)
 - [Contributing](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/CONTRIBUTING.md) · [Support](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/SUPPORT.md) · [Security](https://github.com/rsasaki0109/lidar_slam_ros2/security/policy) · [Governance](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/GOVERNANCE.md)

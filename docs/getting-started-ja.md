@@ -29,14 +29,14 @@ workspaceを準備せずに公開済み固定デモを試すcontrol experiment�
 | source quickstart | Ubuntu 22.04/HumbleまたはUbuntu 24.04/Jazzyで、sourceから構築する | `bash scripts/source_quickstart.sh --dry-run` | `dry_run`のplanと`run.command_shell`をreviewしてから実行へ進む。`--version`のrevisionを記録し、Dockerのreceiptと混ぜない |
 
 Docker routeの最初のcommand（Humble）は次の1つです。Jazzyではimage tagだけを
-`v0.9.0-jazzy`に置き換えます。
+`v0.10.0-jazzy`に置き換えます。
 
 ```bash
 docker run --rm \
   -e LIDARSLAM_HOST_UID="$(id -u)" \
   -e LIDARSLAM_HOST_GID="$(id -g)" \
   -v "$PWD/lidarslam_output:/lidarslam_ws/output" \
-  ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble
+  ghcr.io/rsasaki0109/lidar_slam_ros2:v0.10.0-humble
 ```
 
 source routeの最初のcommandは、書き込み前にplanだけを確認する次の1つです。
@@ -45,9 +45,9 @@ source routeの最初のcommandは、書き込み前にplanだけを確認する
 bash scripts/source_quickstart.sh --dry-run
 ```
 
-Dockerのidentityは公開済み安定版`v0.9.0-humble`または`v0.9.0-jazzy`です。source helperは
-まだ公開・tag付けされていない`v0.10.0`候補を扱うため、sourceの結果を公開releaseやDocker
-identityとして報告しません。GLIMのようなPPA/package-manager経路は未対応なので、経路選択で
+Dockerのidentityは公開済み安定版`v0.10.0-humble`または`v0.10.0-jazzy`です。source helperの
+結果はcheckoutしたexact commit/revisionをidentityとして記録し、Docker identityとして
+報告しません。GLIMのようなPPA/package-manager経路は未対応なので、経路選択で
 これらを代替手段として追加しません。最初のcontrol experimentが失敗した場合は、表示された
 `Details:`と`Next:`を読み、経路やoutputを手で混ぜずに保存済みの指示へ戻ります。
 
@@ -66,8 +66,8 @@ Dockerまたはsourceのfirst-mapが途中で終わった後に経路を変え�
 `--resume`は既存sessionの安全なterminal post-processing用であり、Dockerからsourceへ、または
 sourceからDockerへ切り替えるcommandではありません。保存済み`retry.command`も元のpinned setupを
 再試行するためのものなので、経路を変えるときは使わず、新しい経路の案内へ戻ります。変更後は
-たとえば`output.docker`と`output.source`のように新しいoutputを選び、`v0.9.0` Dockerまたは
-`v0.10.0` source候補のidentityをそれぞれ`--version`など実際の出力から記録します。
+たとえば`output.docker`と`output.source`のように新しいoutputを選び、`v0.10.0` Dockerまたは
+sourceのexact commit/revisionのidentityをそれぞれ`--version`など実際の出力から記録します。
 
 元の証跡は削除・uploadせず、旧runと新runのreceiptやhashを混ぜません。新しいsessionで
 `report`が`READY FOR REVIEW`を返した場合だけ、その新runのreceiptを確認します。
@@ -121,41 +121,37 @@ docker run --rm \
   -e LIDARSLAM_HOST_UID="$(id -u)" \
   -e LIDARSLAM_HOST_GID="$(id -g)" \
   -v "$PWD/lidarslam_output:/lidarslam_ws/output" \
-  ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble
+  ghcr.io/rsasaki0109/lidar_slam_ros2:v0.10.0-humble
 ```
 
-このコマンドは公開済み安定版`v0.9.0-humble`に固定しています。`develop`の
-移動タグを使わないため、初回導線の内容が不意に変わりません。`v0.10.0`は
-まだ公開・tag付けされていない候補版なので、候補版を試す場合はsource helperを
-使ってください。Ubuntu 24.04/Jazzyでは
-`ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-jazzy`を使います。初回は517 MBの公開bagを
+このコマンドは公開済み安定版`v0.10.0-humble`に固定しています。`develop`の
+移動タグを使わないため、初回導線の内容が不意に変わりません。Ubuntu 24.04/Jazzyでは
+`ghcr.io/rsasaki0109/lidar_slam_ros2:v0.10.0-jazzy`を使います。初回は517 MBの公開bagを
 取得し、最低8 GiBの空き容量を使います。目安は約30分ですが、回線とCPUで
 変わります。出力先は`lidarslam_output/mid360_demo/`です。
 
-公開済み`v0.9.0` imageには、現在の`lidarslam-map report` handoff commandがまだ
-ありません。固定Dockerデモが完了したら、同じoutputの
-`first_map_validation_receipt.json`を開いて`status: PASS`と全checkを確認し、receiptだけを
-独立validationのissue formへ添付します。sourceまたは`report`対応済みimageでは、後述の
-`lidarslam-map report`でreceipt-bound handoffを作成します。
-
-summaryだけを再表示したい場合は、公開済みstable imageの次のread-only fallbackも使えます。
-outputはread-only mountし、networkも無効にしています。
+固定Dockerデモが完了したら、同じimageの`lidarslam-map report`でreceipt-bound handoffを
+表示します。outputはread-only mountし、networkも無効にしています。
 
 ```bash
 docker run --rm --network none \
   -v "$PWD/lidarslam_output:/output:ro" \
-  ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble \
-  bash -lc 'helper="$(ros2 pkg prefix lidarslam)/share/lidarslam/product/scripts/create_first_map_validation_receipt.py"; python3 "$helper" /output/mid360_demo'
+  ghcr.io/rsasaki0109/lidar_slam_ros2:v0.10.0-humble \
+  bash -lc 'lidarslam-map report /output/mid360_demo'
 ```
 
-Ubuntu 24.04/Jazzyではimage tagを`v0.9.0-jazzy`へ置き換えます。表示されたPASS summaryを
+旧`v0.9.0` imageには`report`がないため、その場合は同じoutputの
+`first_map_validation_receipt.json`を開いて`status: PASS`と全checkを確認し、receiptだけを
+独立validationのissue formへ添付します。
+
+Ubuntu 24.04/Jazzyではimage tagを`v0.10.0-jazzy`へ置き換えます。表示されたPASS summaryを
 reviewし、すでに生成されたJSON receiptだけを添付します。
 pull後にimmutable image identityも確認します。
 
 ```bash
 docker image inspect \
   --format='{{index .RepoDigests 0}}' \
-  ghcr.io/rsasaki0109/lidar_slam_ros2:v0.9.0-humble
+  ghcr.io/rsasaki0109/lidar_slam_ros2:v0.10.0-humble
 ```
 
 `ghcr.io/...@sha256:...`が表示されない場合はidentity未検証として停止し、mutable tagを
@@ -226,9 +222,8 @@ supportや独立validationへ進む前に、実際に使ったCLIのversionとre
 lidarslam-map --version
 ```
 
-Dockerの固定デモは公開済み安定版`v0.9.0-humble`または`v0.9.0-jazzy`を使います。
-`v0.10.0`はまだ公開・tag付けされていないsource候補なので、source helperで実行した
-場合はcandidateとしてそのversion/revisionを報告します。`develop`の移動tagを使ったり、
+Dockerの固定デモは公開済み安定版`v0.10.0-humble`または`v0.10.0-jazzy`を使います。
+source helperで実行した場合は、そのversionとexact revisionを報告します。`develop`の移動tagを使ったり、
 出力にないrelease identityを推測したりせず、`--version`の出力をそのままsupport report
 やvalidation formへ転記してください。
 
@@ -689,9 +684,9 @@ findingsを記入します。receiptを添付する場合は、formで名前が�
 maintainer reviewとvalidation ledgerのaccepted記録が済むまではaccepted evidenceではありません。
 
 どちらのreportでも、identityはviewerの表示や移動する`develop` tagから推測しません。Dockerは
-公開済み安定版`v0.9.0-humble`または`v0.9.0-jazzy`、sourceは公開releaseではない`v0.10.0`候補と
-そのexact commit/revisionを`lidarslam-map --version`とreceiptから記録します。Dockerのsupport
-report、source候補のvalidation report、別runのreceiptやhashを1つの報告へ混ぜず、足りない値を
+公開済み安定版`v0.10.0-humble`または`v0.10.0-jazzy`、sourceは`v0.10.0`以降の
+exact commit/revisionを`lidarslam-map --version`とreceiptから記録します。Dockerのsupport
+report、sourceのvalidation report、別runのreceiptやhashを1つの報告へ混ぜず、足りない値を
 推測せずに共有を止めます。
 
 検証済みfirst mapを独立validatorへ渡す場合だけ、次のread-only handoffを使います。
@@ -789,8 +784,8 @@ reportを提出しません。
 mismatch、example-only、viewer-onlyの場合は、reportを公開せず`Details:`、`Next:`、または
 保存されたretry指示へ戻ります。receipt、manifest、session JSONを編集して値を合わせません。
 
-identityが曖昧な場合も停止します。Dockerなら公開済み`v0.9.0-humble`または`v0.9.0-jazzy`、
-sourceなら未公開`v0.10.0`候補とexact commit/revisionを、receiptまたはhandoffで確認できた場合
+identityが曖昧な場合も停止します。Dockerなら公開済み`v0.10.0-humble`または`v0.10.0-jazzy`、
+sourceなら`v0.10.0`以降のexact commit/revisionを、receiptまたはhandoffで確認できた場合
 だけ記録します。`develop` tag、viewer、架空例からidentityやhashを作りません。handoff JSON、
 local path、recovery JSON、map、bag、raw log、preview、trajectory、parameter、screenshot、
 session bundle全体はreportにも添付にも含めず、公開添付はreview済みreceiptだけにします。
@@ -861,7 +856,7 @@ review status: unresolved / retrying — not accepted validation
 ```
 
 new independent validationへ進む場合も、元のreportとreceiptはそのまま保持します。Dockerは
-公開済み`v0.9.0-humble`または`v0.9.0-jazzy`、sourceは未公開`v0.10.0`候補とexact
+公開済み`v0.10.0-humble`または`v0.10.0-jazzy`、sourceは`v0.10.0`以降のexact
 commit/revisionを、その新しいsessionとreceiptから確認します。identity、session、または
 同じrunへの結び付きを確認できない場合は停止し、viewerの表示、古いreceipt、架空のhashで
 補いません。新しいreportを提出しても、maintainer reviewとledgerのaccepted記録までは
@@ -891,7 +886,7 @@ independent-validation reportを別のものとして記録します。follow-up
 ```text
 follow-up audit:
 original report/receipt pair: <one unchanged pair; no local path>
-original identity: <v0.9.0 Docker identity or v0.10.0 source candidate + exact revision>
+original identity: <v0.10.0 Docker identity or source + exact revision>
 follow-up route: <support follow-up / new independent validation>
 reason.code: <saved stable code>
 Details: <sanitized saved explanation>
@@ -904,8 +899,8 @@ duplicate check: <no duplicate issue or session artifact>
 同じrunのsupport follow-upでは、`original report/receipt pair`を1組のまま保ち、`fresh-output
 facts`だけを新しいoutputから追記します。`Details:`、`Next:`、`retry.command`の値が元の
 sessionやlocal pathを含む場合は、公開にはstable code、command名、影響だけを残します。
-別runのindependent validationでは、Dockerなら公開済み`v0.9.0-humble`または`v0.9.0-jazzy`、
-sourceなら未公開`v0.10.0`候補とexact commit/revisionを新しいsessionとreceiptから確認し、
+別runのindependent validationでは、Dockerなら公開済み`v0.10.0-humble`または`v0.10.0-jazzy`、
+sourceなら`v0.10.0`以降のexact commit/revisionを新しいsessionとreceiptから確認し、
 古いreport、receipt、map、hashをコピーしません。
 
 identity、session、output、またはreportとreceiptが同じrunに結び付くことを確認できない場合は
@@ -922,7 +917,7 @@ maintainerがfollow-up要約を受け取ったら、要約だけを見てPASSや
 
 | 順序 | 確認するもの | 一致・不足の判定 |
 | --- | --- | --- |
-| 1. identity | Dockerの公開済み`v0.9.0-humble`/`v0.9.0-jazzy`、またはsourceの未公開`v0.10.0`候補とexact commit/revision | viewer、`develop` tag、example-only値から補わない。missing/mismatchならSTOP |
+| 1. identity | Dockerの公開済み`v0.10.0-humble`/`v0.10.0-jazzy`、またはsourceの`v0.10.0`以降のexact commit/revision | viewer、`develop` tag、example-only値から補わない。missing/mismatchならSTOP |
 | 2. same run | 元のreport、receipt、session/output、`manifest_sha256`が同じrunに結び付く | local pathやsession bundleを公開せず、同じrunを確認できなければSTOP |
 | 3. route | `support follow-up`、または新しい`independent validation`のどちらか | noteを新しいreport/receiptに変換せず、別runなら古い一組と混ぜない |
 | 4. provenance | `reason.code`、sanitized `Details:`/`Next:`、fresh-output factsの出どころ | receipt-derived result、verification、hash、review statusをfollow-up factsで上書きしない |
@@ -968,8 +963,8 @@ accepted validationへ変換したりしません。
 
 `MATCHED FOLLOW-UP`では、同じrunの原因確認や保存済みretryだけを行います。retryで新しいoutputが
 得られても、元のreceiptのresult、verification、hash、review statusを上書きせず、観察した事実と
-影響だけをサニタイズしてnoteにします。`NEW RUN`では、Dockerなら公開済み`v0.9.0-humble`または
-`v0.9.0-jazzy`、sourceなら未公開`v0.10.0`候補とexact commit/revisionを確認できる場合だけ、
+影響だけをサニタイズしてnoteにします。`NEW RUN`では、Dockerなら公開済み`v0.10.0-humble`または
+`v0.10.0-jazzy`、sourceなら`v0.10.0`以降のexact commit/revisionを確認できる場合だけ、
 新しいreport + reviewed receiptを一組にします。identity、session、outputのどれかが不足する
 場合は`STOP`です。
 
@@ -1012,7 +1007,7 @@ identity、session、outputを再確認できない場合は、元の証跡を�
 
 `MATCHED FOLLOW-UP`で`NOTE ONLY`、`SUPPORT REQUESTED`、または`RETRY STARTED`を記録した場合も、
 元のreport、receipt、hash、review statusは変更しません。`NEW RUN`の`NEW PAIR PREPARED`は、
-Dockerなら公開済み`v0.9.0-humble`または`v0.9.0-jazzy`、sourceなら未公開`v0.10.0`候補と
+Dockerなら公開済み`v0.10.0-humble`または`v0.10.0-jazzy`、sourceなら`v0.10.0`以降の
 exact commit/revisionを新しいsessionから確認できる場合だけ許可します。古いpairのコピー、
 receiptの再利用、同じrunの二重pairは認めません。
 
@@ -1062,7 +1057,7 @@ artifactやmaintainerのlive guidanceに頼らず、同じ安全境界で相談�
 maintainer reviewとledgerの明示的なaccepted記録までは受理されません。`STOP`は失敗を隠すstatus
 ではなく、identity、session、output、またはfieldの出どころが確認できないときの再確認経路です。
 どのhandoffでも元のreport、receipt、hash、review statusは変更せず、Dockerの公開済み
-`v0.9.0-humble`/`v0.9.0-jazzy`とsourceの未公開`v0.10.0`候補のidentity境界を保ちます。
+`v0.10.0-humble`/`v0.10.0-jazzy`とsourceのexact commit/revisionのidentity境界を保ちます。
 
 次のblockは、担当者へ渡す最小情報を記録するためのものです。roleだけを使い、local path、
 credential、bag、map、raw log、session bundleは書きません。
