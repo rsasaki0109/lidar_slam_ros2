@@ -909,6 +909,43 @@ ATE in metres:
 - **Result.** It loses eight of the ten shield tunnels. The flats are unchanged, because the step is never learned there.
 - **Why.** On these inputs, two seconds of IMU integration are not reliable enough. v14 learned the same with the gait's IMU reversal check.
 
+**Following the steps themselves.**
+- **Code.** rko_lio branch `exp/gait-step-events`, not merged.
+  - 6ac1450 is stop and restart.
+  - 9024b54 is stop only.
+- **The step events.** A causal 0.8–4 Hz band-pass of the specific force magnitude finds the peaks. A peak counts if it is above a quarter of the running median peak, with a floor of 0.3 m/s².
+- **What they show.** A stop shows 1.5–2 s before the cadence window does. On Shield_tunnel2 the last step is at 184.4 s, and the cadence is gone at 187 s. A restart shows as much earlier. While walking, the steps report a stop for 0–1.4 s per sequence, at most 0.5 % of the walk.
+- **A first build skipped peaks.** It decided one IMU sample per call. The Livox internal IMU's stamps come in bursts, so it skipped peaks: 61 s of false stops on Shield_tunnel1, against 0.9 s after the fix. A test now feeds burst stamps.
+
+Two uses, with the rule of v17 fixed before the runs:
+- **Stop and restart.** No step for 1 s sets the velocity to zero. Steps without a cadence keep the last gait speed.
+- **Stop only.** It keeps only the first part.
+
+ATE in metres:
+
+| sequence | v17 | stop and restart | stop only |
+|---|---:|---:|---:|
+| Shield_tunnel1 (γ) | 0.79 | 0.82 | 0.78 |
+| Shield_tunnel2 (γ) | 10.32 | 2.80 | **1.63** |
+| Shield_tunnel3 (γ) | **0.95** | 1.46 | 3.82 |
+| Shield_tunnel4 (γ) | 4.21 | **2.71** | 3.92 |
+| Shield_tunnel5 (γ) | **2.63** | 2.76 | 4.21 |
+| Shield_tunnel6 (γ) | 0.55 | 0.52 | **0.46** |
+| Shield_tunnel7 (β) | 1.87 | 2.51 | **1.84** |
+| Shield_tunnel8 (β) | 6.58 | 5.68 | **5.55** |
+| Shield_tunnel9 (β) | 1.69 | **1.37** | 2.80 |
+| Shield_tunnel10 (β) | 2.84 | **1.29** | 2.25 |
+| median of the ten | 2.25 | **1.99** | 2.53 |
+
+- **Neither passes.**
+  - Stop and restart loses Shield_tunnel3 (+0.51 m) and Shield_tunnel7 (+34 %).
+  - Stop only loses Shield_tunnel3, 5 and 9.
+- **The stop alone undershoots.**
+  - **Why.** After a zeroed stop, the tunnel registration accelerates only as fast as its own prediction, so the walker's restart is lost.
+  - **What the restart rule recovers, and where it fails.** Keeping the last pace on the first steps restores most of the restart. But turning on the spot also steps, so on Shield_tunnel3 and 7 the pace runs while the walker turns.
+- **v17 stays.** Stop and restart would bring the 18-sequence median from 3.8 to 2.8 m, with twelve sequences below 10 m. It would also bring the worst shield tunnel from 10.3 to 5.7 m. It fails the rule, though.
+- **The development set is used up.** The twelve handheld sequences have been the development set for v12 to v18. Choosing a further gait variant by them alone risks fitting them. Handheld sequences it was not developed on are needed.
+
 ## Reproduction
 
 ```bash
@@ -932,6 +969,10 @@ The ROS 1 rivals run in `docker/enwide_rivals_ros1.Dockerfile`. Each rival's `ou
 ## Next
 
 1. **Soft poses in the window.** W1 with the γ IMU rotation matches BIEVR-LIO on the γ shield tunnels, and with the gait keeping the speed it no longer loses β. Six ways to make the fixed-pose window robust failed (above). flat_surfaces_aggressive diverges with all but one of them, and that one, a gate, costs flat_surfaces_smooth. The window has to estimate the poses as well, with each scan's registration information as the prior. A weak or lost registration is then outweighed by the IMU instead of fitted.
-2. **The walker's stops.** v17 removes the gait prior's losses on Shield_tunnel4 and 6 (24.4 → 4.21 m and 12.6 → 0.55 m). It still overshoots each stop by 2–4 m, because the cadence lags by half its 4 s window. Shield_tunnel2 (10.3 m) is the γ shield tunnel left above 5 m; W1 tracks it at 0.42 m. Carrying the gait speed over the lag with the IMU fails (above).
+2. **The walker's stops.**
+   - **v17.** It removes the gait prior's losses on Shield_tunnel4 and 6 (24.4 → 4.21 m and 12.6 → 0.55 m). It still overshoots each stop by 2–4 m, because the cadence lags by half its 4 s window.
+   - **Shield_tunnel2.** At 10.3 m it is the γ shield tunnel left above 5 m; W1 tracks it at 0.42 m.
+   - **Tried and failed.** Carrying the gait speed over the lag with the IMU fails, and so does following the step events (above). The step events do find the stops 1.5–2 s earlier. Stop and restart is the best on the median, but fails the rule on two sequences.
+   - **What a new variant needs.** Handheld sequences outside the development set, such as GEODE's other handheld sequences. These sequences need space on the external drive.
 3. **One configuration.** ENWIDE and GEODE need one configuration, and then the unseen GEODE Metro Tunneling sequences (UGV, all three devices) serve as the hidden tunnel holdout.
 4. **bridge03's moving start.** The registration starts from zero speed on a bridge that gives no hold along the road. Every LiDAR-inertial rival also fails there (697–1100 m).
