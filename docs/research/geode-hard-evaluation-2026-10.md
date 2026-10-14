@@ -70,6 +70,9 @@ on all 18.
   loses 6.3–6.5 m; v18 tracks them at 0.18 and 0.24 m, the best and the second best of the
   rivals. The median over the 18 sequences drops from 3.8 to 2.85 m, with twelve below 10 m.
   It is the GEODE configuration. It was adopted under a rule set after its results (see "v18").
+- The Metro Tunneling holdout, a UGV, is fixed before any run. tunnel1–3 test the GEODE
+  configurations, with β and γ in vehicle configurations; tunnel4–5 stay sealed for one
+  parameter set (see "The Metro Tunneling holdout").
 
 No SOTA claim follows: the profile needs zero catastrophic failures, and no method has
 that on GEODE Hard.
@@ -1025,6 +1028,44 @@ ATE in metres on the fourteen handheld sequences:
 - The median is 2.85 m (v17 3.8 m, BIEVR-LIO 78.7 m), with twelve sequences below 10 m (v17 eleven).
 - The median of the six γ shield tunnels is 1.9 m (v17 1.8 m, BIEVR-LIO 0.85 m).
 
+## The Metro Tunneling holdout, fixed before any run (2026-10-14)
+
+Everything in this section was fixed before any method ran on these sequences. A change after
+the first run is reported as one.
+
+**The data.**
+- **What it is.** GEODE's Metro Tunneling sequences: a UGV carrying all three devices at once through tunnels under construction. tunnel1 has γ only; tunnel2–5 have α, β and γ, for 13 bags.
+- **Ground truth.** One position-only trajectory per tunnel (`Tunneling_tunnelN.txt`) at about 3 Hz, like the shield tunnels, on the bags' clock. It covers the middle of each bag: 153 of tunnel1 γ's 209 s, 210 of tunnel2 α's 282 s.
+- **Lever arm.** The IMU trajectory is scored directly, as on the shield tunnels. Each device has its own unpublished offset from the tracked point, the same for every method on that device.
+
+**Two halves.**
+- **Run now: tunnel1–3 (7 bags).** Tunneling_tunnel1 γ, and α, β and γ of tunnel2 and tunnel3. They test the configurations of this note on a platform and in tunnels none of them was developed on.
+- **Sealed: tunnel4–5 (6 bags).** They stay the profile's hidden tunnel holdout. The profile allows a SOTA claim only with one parameter set across all sequences (`one_parameter_set_across_all_sequences` in `degenerate_lio_sota_v4.yaml`). The configurations here are not one: the gait is for the handheld devices, the vehicle options for the vehicle.
+  - No method runs on the sealed half until such a configuration is frozen, and its ground truth is not used.
+  - Releasing it earlier needs an entry here first.
+
+**The configurations.**
+- **α.** `rko_lio_alpha_v18.yaml`, the vehicle configuration developed on the six α sequences, unchanged.
+- **β and γ.** `rko_lio_{beta,gamma}_ugv_v18.yaml`: v18 without its six gait options, plus α's five vehicle options with α's values. Those are gravity window alignment and relevelling, a 0.02° tilt correction limit, a 0.02 rad/s initialization gyro limit and the stall guard.
+  - **Why no gait.** Its cadence detector also fires on a vehicle's IMU: in 7–26 % of the 4 s windows on the α sequences, at 1.8–1.9 Hz.
+  - **Untested.** The vehicle options were developed on α only. These two configurations have not run on any data.
+- **IMUs.** As on the Hard sequences: the Xsens on α and β, the Livox internal IMU on γ.
+
+**The rivals.** COIN-LIO (β only), BIEVR-LIO, FAST-LIO2 and Point-LIO, with the files in `configs/geode/rivals/` and the inputs of the Hard sequences.
+
+**Runs and scoring.**
+- **One run** per method and bag, as on the Hard sequences. RKO-LIO runs rko_lio 80f3c1c, the submodule at this section's commit.
+- **Scoring** as on the Hard sequences (see Reproduction): SE(3) alignment, ATE and 10 m RTE.
+- **Incomplete.** A run that stops producing poses before the ground truth ends counts as the worst value in the medians.
+- **Failure.** A 10 m RTE of 20 % or more, the profile's failure line.
+- **Faults.** A harness fault, such as a wrong topic or a crash before the first pose, may be fixed and the run repeated. The fix and both outcomes are reported. The method and the configurations do not change after the first run.
+
+**What it can show, fixed now.**
+- **Reported either way.** ATE and RTE per bag and method, the medians over the seven bags and per device, and the failures.
+- **H1.** RKO-LIO v18 has a lower median ATE over the seven bags than BIEVR-LIO, FAST-LIO2 and Point-LIO, and than COIN-LIO on the two β bags.
+- **H2.** RKO-LIO v18 has no failure on the seven bags.
+- **No SOTA claim** follows either way, because the configurations are not one parameter set.
+
 ## Reproduction
 
 ```bash
@@ -1039,7 +1080,8 @@ python3 scripts/score_position_only_trajectory.py --reference GEODE/gt_tum/SEQ.t
 ```
 
 The files in `configs/geode/` are flat parameter maps, so a ROS parameter file wraps them
-first. `IMU_TOPIC` is `/imu/data` on α and β and `/livox/imu` on γ.
+first. `IMU_TOPIC` is `/imu/data` on α and β and `/livox/imu` on γ. On the Metro Tunneling
+holdout β and γ use `rko_lio_DEVICE_ugv_v18.yaml`.
 
 The ROS 1 rivals run in `docker/enwide_rivals_ros1.Dockerfile`. Each rival's `ouster64`,
 `velodyne`/`velody16` or `avia` configuration is replaced by the matching file in
@@ -1056,6 +1098,6 @@ The ROS 1 rivals run in `docker/enwide_rivals_ros1.Dockerfile`. Each rival's `ou
    - **Shield_tunnel2.** At 10.3 m it is the γ shield tunnel left above 5 m; W1 tracks it at 0.42 m.
    - **Tried and failed.** Carrying the gait speed over the lag with the IMU fails, and so does following the step events (above). The step events do find the stops 1.5–2 s earlier. Stop and restart is the best on the median, but fails the rule on two sequences.
    - **Validation.** The stairs now serve as handheld validation (v18). A further gait change keeps the v18 rule fixed before its runs.
-3. **One configuration and the holdout.** ENWIDE and GEODE need one configuration. The unseen GEODE Metro Tunneling sequences then serve as the hidden tunnel holdout: a UGV, all three devices.
-   - **β and γ need vehicle configurations there.** The gait's cadence detector also fires on the vehicle's IMU: in 7–26 % of the 4 s windows on the α sequences, at 1.8–1.9 Hz. Until a step is learned, the default step (0.7 m) would set a slow UGV's speed.
+3. **One configuration and the holdout.** ENWIDE and GEODE need one configuration. The Metro Tunneling sequences are the hidden tunnel holdout: a UGV, all three devices.
+   - **Fixed before any run** (see "The Metro Tunneling holdout"). tunnel1–3 test this note's configurations, with vehicle configurations for β and γ. tunnel4–5 stay sealed for one configuration.
 4. **bridge03's moving start.** The registration starts from zero speed on a bridge that gives no hold along the road. Every LiDAR-inertial rival also fails there (697–1100 m).
