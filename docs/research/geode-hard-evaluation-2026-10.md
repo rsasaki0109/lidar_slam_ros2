@@ -73,6 +73,9 @@ on all 18.
 - The Metro Tunneling holdout, a UGV, is fixed before any run. tunnel1–3 test the GEODE
   configurations, with β and γ in vehicle configurations; tunnel4–5 stay sealed for one
   parameter set (see "The Metro Tunneling holdout").
+- On those seven bags v18 is the only method without a failure. BIEVR-LIO (0.35 m) and
+  FAST-LIO2 (0.36 m) have a lower median ATE than v18 (0.84 m), from the three γ bags (see
+  "The Metro Tunneling holdout: results").
 
 No SOTA claim follows: the profile needs zero catastrophic failures, and no method has
 that on GEODE Hard.
@@ -1066,6 +1069,45 @@ the first run is reported as one.
 - **H2.** RKO-LIO v18 has no failure on the seven bags.
 - **No SOTA claim** follows either way, because the configurations are not one parameter set.
 
+## The Metro Tunneling holdout: results (2026-10-14)
+
+Every method ran once on the seven bags of tunnel1–3, with the configurations and the rules
+above. ATE in metres (10 m RTE):
+
+| bag | RKO-LIO v18 | BIEVR-LIO | FAST-LIO2 | Point-LIO | COIN-LIO |
+|---|---:|---:|---:|---:|---:|
+| tunnel1 γ | 0.84 (4.0 %) | **0.14** (1.6 %) | 0.19 (1.8 %) | **0.14** (1.6 %) | – |
+| tunnel2 α | **2.46** (2.5 %) | 31,453 (94,074 %) | 40,335 (103,991 %) | 73,433 (185,087 %) | – |
+| tunnel2 β | 0.58 (2.4 %) | **0.35** (1.9 %) | **0.35** (1.9 %) | **0.35** (1.9 %) | 7.24 (45.1 %) |
+| tunnel2 γ | 2.27 (9.5 %) | 2.09 (8.8 %) | **1.58** (7.4 %) | 4.81 (17.7 %) | – |
+| tunnel3 α | 0.72 (2.7 %) | **0.18** (1.4 %) | 8.33 (21.7 %) | 27.7 (97.3 %) | – |
+| tunnel3 β | **0.36** (2.0 %) | **0.36** (2.1 %) | **0.36** (2.0 %) | **0.36** (2.1 %) | 9.63 (25.1 %) |
+| tunnel3 γ | 2.94 (7.2 %) | 0.34 (1.8 %) | **0.33** (1.9 %) | 2.76 (5.9 %) | – |
+| median | 0.84 | **0.35** | 0.36 | 2.76 | 8.44 (β only) |
+| median, α | **1.59** | 15,727 | 20,172 | 36,730 | – |
+| median, β | 0.47 | **0.36** | **0.36** | **0.36** | 8.44 |
+| median, γ | 2.27 | 0.34 | **0.33** | 2.76 | – |
+| failures | **0 of 7** | 1 of 7 | 2 of 7 | 2 of 7 | 2 of 2 |
+
+- **H1 fails.** BIEVR-LIO (0.35 m) and FAST-LIO2 (0.36 m) have a lower median ATE than RKO-LIO v18 (0.84 m).
+- **H2 holds.** RKO-LIO v18 is the only method without a failure.
+- **α.** tunnel2 α has four LiDAR gaps of 0.4–2.9 s within 9 s. The three rivals diverge inside them, 63–67 s into the bag; RKO-LIO crosses them. On tunnel3 α BIEVR-LIO is better (0.18 against 0.72 m).
+- **β.** Every method but COIN-LIO tracks both bags at 0.35–0.58 m.
+- **γ.** RKO-LIO's median is 2.27 m, against 0.34 m for BIEVR-LIO and 0.33 m for FAST-LIO2. The γ device is also where BIEVR-LIO leads on the shield tunnels.
+
+**The tabulation was corrected after the run.**
+- **The first table.** It counted a run as incomplete when less than 98 % of the ground truth was matched. That threshold is the profile's, and the pre-registration does not contain it. The pre-registration counts a run as incomplete when it stops producing poses before the ground truth ends.
+- **What the 98 % caught.** On the α bags every method matched 95.3–95.5 % (tunnel2) and 97.1 % (tunnel3) of the ground truth:
+  - tunnel2 α's unmatched ground truth lies in its LiDAR gaps;
+  - tunnel3 α's bag starts 12 s after its ground truth.
+
+  Every method produced poses until 30 s (tunnel2) and 59 s (tunnel3) after the ground truth ends.
+- **Both outcomes.** Under the first table all four methods are incomplete on both α bags: RKO-LIO's median is 2.27 m, and H1 and H2 both fail. The correction favours RKO-LIO, the only method that tracks tunnel2 α.
+
+**What follows.**
+- **On the UGV.** The GEODE configurations carry over without a failure, but not with the best accuracy. On γ BIEVR-LIO and FAST-LIO2 are about seven times more accurate.
+- **No SOTA claim**, as fixed above. tunnel4–5 stay sealed.
+
 ## Reproduction
 
 ```bash
@@ -1100,4 +1142,5 @@ The ROS 1 rivals run in `docker/enwide_rivals_ros1.Dockerfile`. Each rival's `ou
    - **Validation.** The stairs now serve as handheld validation (v18). A further gait change keeps the v18 rule fixed before its runs.
 3. **One configuration and the holdout.** ENWIDE and GEODE need one configuration. The Metro Tunneling sequences are the hidden tunnel holdout: a UGV, all three devices.
    - **Fixed before any run** (see "The Metro Tunneling holdout"). tunnel1–3 test this note's configurations, with vehicle configurations for β and γ. tunnel4–5 stay sealed for one configuration.
+   - **tunnel1–3 ran.** No failure, but BIEVR-LIO and FAST-LIO2 are more accurate. The gap is on γ, as on the shield tunnels (item 1).
 4. **bridge03's moving start.** The registration starts from zero speed on a bridge that gives no hold along the road. Every LiDAR-inertial rival also fails there (697–1100 m).
