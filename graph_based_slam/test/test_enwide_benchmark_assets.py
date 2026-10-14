@@ -603,6 +603,25 @@ def test_geode_handheld_alpha_is_alpha_with_the_handheld_options():
     assert handheld == alpha
 
 
+def test_geode_ugv_configs_trade_the_gait_for_alphas_vehicle_options():
+    # The Metro Tunneling holdout is a UGV: beta and gamma drop the handheld gait and take
+    # alpha v18's vehicle options with alpha's values. alpha runs rko_lio_alpha_v18.yaml.
+    geode = ROOT / 'configs' / 'geode'
+    alpha = yaml.safe_load((geode / 'rko_lio_alpha_v18.yaml').read_text())
+    for device in ('beta', 'gamma'):
+        v18 = yaml.safe_load((geode / f'rko_lio_{device}_v18.yaml').read_text())
+        ugv = yaml.safe_load((geode / f'rko_lio_{device}_ugv_v18.yaml').read_text())
+        for vehicle_option in ('gravity_window_alignment', 'gravity_alignment_relevel_map',
+                               'max_tilt_correction_deg', 'initialization_max_gyro_rad_s',
+                               'vehicle_stall_guard'):
+            assert ugv.pop(vehicle_option) == alpha[vehicle_option]
+        gait = [key for key in v18 if key.startswith('gait_')]
+        assert len(gait) == 6
+        for key in gait:
+            v18.pop(key)
+        assert ugv == v18
+
+
 def test_geode_gamma_rivals_use_the_livox_internal_imu():
     # On gamma the Xsens is 7.5-80 ms off the LiDAR clock; the Livox IMU is on it.
     rivals = ROOT / 'configs' / 'geode' / 'rivals'
