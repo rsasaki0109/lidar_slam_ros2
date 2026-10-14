@@ -256,9 +256,13 @@ failure and the lowest median ATE among the five methods reproduced on the same 
     twelve of 18 sequences below 10 m.
   - **GEODE's stairs.** These are handheld sequences outside the development set. v18
     tracks them at 0.18 and 0.24 m, against 0.22 and 0.23 m for BIEVR-LIO; v17's gait lost
-    6.3–6.5 m there. The Metro Tunneling holdout is not yet run.
+    6.3–6.5 m there.
   - **On the six Livox shield tunnels.** BIEVR-LIO is better: median 0.85 m, against 1.9 m
     for v18.
+  - **The Metro Tunneling holdout.** These are GEODE's UGV tunnels, fixed before any run;
+    seven bags (tunnel1–3) ran once. v18 is the only method without a failure, but BIEVR-LIO
+    (0.35 m) and FAST-LIO2 (0.36 m) have a lower median ATE than v18 (0.84 m), from the
+    three Livox bags. The other six bags stay sealed.
 
 Per-sequence tables, revisions and reproduction are in the
 [ENWIDE](research/enwide-photometric-registration-2026-10.md) and
