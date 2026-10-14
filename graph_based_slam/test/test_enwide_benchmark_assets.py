@@ -577,6 +577,32 @@ def test_geode_v17_configs_add_the_gait_hold_to_the_handheld_devices():
         assert v17 == v16
 
 
+def test_geode_v18_configs_limit_the_correction_only_where_weak():
+    geode = ROOT / 'configs' / 'geode'
+    for device in ('alpha', 'beta', 'gamma'):
+        v17 = yaml.safe_load((geode / f'rko_lio_{device}_v17.yaml').read_text())
+        v18 = yaml.safe_load((geode / f'rko_lio_{device}_v18.yaml').read_text())
+        if device != 'alpha':
+            assert v18.pop('gait_correction_weak_ratio') == 0.05
+        assert v18 == v17
+
+
+def test_geode_handheld_alpha_is_alpha_with_the_handheld_options():
+    geode = ROOT / 'configs' / 'geode'
+    alpha = yaml.safe_load((geode / 'rko_lio_alpha_v16.yaml').read_text())
+    beta11 = yaml.safe_load((geode / 'rko_lio_beta_v11.yaml').read_text())
+    beta18 = yaml.safe_load((geode / 'rko_lio_beta_v18.yaml').read_text())
+    handheld = yaml.safe_load((geode / 'rko_lio_alpha_handheld_v18.yaml').read_text())
+    for vehicle_option in ('gravity_window_alignment', 'gravity_alignment_relevel_map',
+                           'max_tilt_correction_deg', 'initialization_max_gyro_rad_s',
+                           'vehicle_stall_guard'):
+        alpha.pop(vehicle_option)
+    # The gait options v12-v18 added to beta.
+    for handheld_option in sorted(set(beta18) - set(beta11)):
+        assert handheld.pop(handheld_option) == beta18[handheld_option]
+    assert handheld == alpha
+
+
 def test_geode_gamma_rivals_use_the_livox_internal_imu():
     # On gamma the Xsens is 7.5-80 ms off the LiDAR clock; the Livox IMU is on it.
     rivals = ROOT / 'configs' / 'geode' / 'rivals'

@@ -249,11 +249,16 @@ failure and the lowest median ATE among the five methods reproduced on the same 
   IMU 7.5–80 ms off the LiDAR clock. After a re-run on the synchronised internal IMU:
   - **Over all 18 sequences.** v16 still had the lowest median ATE (8.5 m, against 78.7 m for
     BIEVR-LIO), from the handheld Ouster and vehicle sequences.
-  - **v17.** It is the GEODE configuration since 2026-10-14. It keeps a walker's speed bounded
-    when the tunnel registration runs away at a stop or a turnaround. Its median is 3.8 m,
-    with eleven of 18 sequences below 10 m. The Metro Tunneling holdout is not yet run.
-  - **On the six Livox shield tunnels.** BIEVR-LIO is better: median 0.85 m, against 1.8 m
-    for v17 and 6.6 m for v16.
+  - **v17.** It keeps a walker's speed bounded when the tunnel registration runs away at a
+    stop or a turnaround. Its median is 3.8 m, with eleven of 18 sequences below 10 m.
+  - **v18.** It is the GEODE configuration since 2026-10-14. It limits the gait's
+    correction only where the scan cannot see some translation. Its median is 2.85 m, with
+    twelve of 18 sequences below 10 m.
+  - **GEODE's stairs.** These are handheld sequences outside the development set. v18
+    tracks them at 0.18 and 0.24 m, against 0.22 and 0.23 m for BIEVR-LIO; v17's gait lost
+    6.3–6.5 m there. The Metro Tunneling holdout is not yet run.
+  - **On the six Livox shield tunnels.** BIEVR-LIO is better: median 0.85 m, against 1.9 m
+    for v18.
 
 Per-sequence tables, revisions and reproduction are in the
 [ENWIDE](research/enwide-photometric-registration-2026-10.md) and
