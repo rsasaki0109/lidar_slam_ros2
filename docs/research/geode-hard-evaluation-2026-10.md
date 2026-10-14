@@ -76,6 +76,9 @@ on all 18.
 - On those seven bags v18 is the only method without a failure. BIEVR-LIO (0.35 m) and
   FAST-LIO2 (0.36 m) have a lower median ATE than v18 (0.84 m), from the three γ bags (see
   "The Metro Tunneling holdout: results").
+- After the holdout, the UGV's γ gap traces to the tilt limit taken over from α. Without it
+  RKO-LIO tracks the γ bags at BIEVR-LIO's level, but the road α sequences need it, and a
+  speed gate fails (see "After the holdout").
 
 No SOTA claim follows: the profile needs zero catastrophic failures, and no method has
 that on GEODE Hard.
@@ -1108,6 +1111,82 @@ above. ATE in metres (10 m RTE):
 - **On the UGV.** The GEODE configurations carry over without a failure, but not with the best accuracy. On γ BIEVR-LIO and FAST-LIO2 are about seven times more accurate.
 - **No SOTA claim**, as fixed above. tunnel4–5 stay sealed.
 
+## After the holdout: where the γ gap comes from (2026-10-15)
+
+tunnel1–3 are development data from here on: their holdout run is spent. tunnel4–5 stay sealed.
+
+### On the UGV: the tilt limit
+
+**RKO-LIO's γ error is vertical.** Position errors after SE(3) alignment, split along the track, across it and vertically (RMS, m):
+
+| bag | method | along | across | vertical |
+|---|---|---:|---:|---:|
+| tunnel1 γ | RKO-LIO v18 | 0.19 | 0.64 | 0.52 |
+| | BIEVR-LIO | 0.14 | 0.03 | 0.02 |
+| tunnel2 γ | RKO-LIO v18 | 2.06 | 0.58 | 0.76 |
+| | BIEVR-LIO | 2.06 | 0.38 | 0.05 |
+| tunnel3 γ | RKO-LIO v18 | 2.66 | 1.04 | 0.72 |
+| | BIEVR-LIO | 0.15 | 0.31 | 0.02 |
+
+- **The tilt keeps drifting.** The gravity window re-levels the map 23–153 times per bag, by 0.36–0.40° each time.
+- **Which vehicle option.** Every bag below ran once, ATE in metres:
+
+  | γ bag | v18 UGV | no vehicle options | no tilt limit | no gravity window |
+  |---|---:|---:|---:|---:|
+  | tunnel1 | 0.84 | **0.14** | **0.14** | 0.76 |
+  | tunnel2 | 2.27 | **2.09** | **2.09** | 2.91 |
+  | tunnel3 | 2.94 | **0.34** | **0.34** | 2.92 |
+
+- **The tilt limit alone.** Without it RKO-LIO tracks the three γ bags at BIEVR-LIO's level (0.14, 2.09 and 0.34 m). The other devices on the UGV gain too: tunnel2 β 0.58 → 0.35 m, tunnel3 α 0.72 → 0.18 m, tunnel2 α 2.46 → 2.43 m, tunnel3 β unchanged.
+
+**On the road the limit is needed.** Without it every α Hard sequence is worse:
+
+| α sequence | v18 | no tilt limit |
+|---|---:|---:|
+| Urban_Tunnel01 | **23.7** | 266.6 |
+| Urban_Tunnel02 | **38.4** | 98.6 |
+| Urban_Tunnel03 | **59.3** | 94.5 |
+| bridge01 | **22.7** | 105.9 |
+| bridge02 | **109.1** | 220.5 |
+| bridge03 | **1074.9** | 1096.9 |
+
+**A speed gate fails.**
+- **The candidate.** It applies the limit only at 3 m/s or more (rko_lio `exp/tilt-limit-speed-gate`, not merged). The 3 m/s lies between the UGV (under 1 m/s) and the road (9–31 m/s). It was fixed before the runs with v18's rule, over the six α sequences and the seven UGV bags.
+- **What happens.** On the UGV it equals running without the limit. On the road:
+  - Urban_Tunnel01–03 and bridge02 move by under 1.6 m.
+  - bridge01 goes from 22.7 to 107.2 m. The car stands or crawls for 1721 of its 3820 scans and still needs the limit there.
+  - bridge03's estimated speed stays near zero from its moving start, so it loses the limit throughout (1074.9 → 1096.9 m).
+- **Verdict.** It fails the rule and is not adopted. No other threshold was run.
+- **What it shows.** The VLP-16 needs the limit where it cannot hold the pitch, and that depends on the scene, not on the speed.
+
+### On the handheld shield tunnels: the speed along the tunnel
+
+RKO-LIO v18's γ error there is along the tunnel. Its path comes out 0.1–2.1 % too long, against −0.8 to +0.3 % for BIEVR-LIO. The vertical errors are alike:
+
+| γ shield tunnel | v18 along | v18 path | BIEVR-LIO along | BIEVR-LIO path |
+|---|---:|---:|---:|---:|
+| Shield_tunnel1 | 1.10 | +0.6 % | 0.20 | +0.1 % |
+| Shield_tunnel2 | 2.74 | +2.1 % | 0.48 | +0.0 % |
+| Shield_tunnel3 | 0.97 | +1.3 % | 1.16 | −0.2 % |
+| Shield_tunnel4 | 2.88 | +1.8 % | 2.49 | +0.3 % |
+| Shield_tunnel5 | 2.62 | +0.1 % | 3.17 | −0.8 % |
+| Shield_tunnel6 | 0.55 | +1.2 % | 0.40 | +0.1 % |
+
+The gait's lag at the walker's stops (Next, item 2) is the open candidate.
+
+### GEODE's stairs γ, against the map
+
+Stairs_Gamma has no ground-truth trajectory. GEODE publishes a laser-scanned map of the stairs (`stairs.las`, 601 M points).
+
+- **Pseudo ground truth.** Every scan is registered to the map, cropped and thinned to 5 cm. The prediction comes from the gyro and the track's own velocity; no LiDAR odometry is used, so the pseudo ground truth does not depend on the methods it scores.
+- **Checked on α.** It keeps 3438 of 3455 scans. Against the dataset's ground truth it agrees to 4.3 cm RMS once a constant offset is removed: the ground truth's point sits 0.27 m from the IMU, turned 2.9°.
+- **On γ.** It tracks the first 122 s: 50 s standing, then the walk to the stairs and onto them. There RKO-LIO v18 has 0.17 m and BIEVR-LIO 0.14 m.
+- **The stairwell.** From about 125 s the tracker loses the map, and so do both methods.
+  - The share of each scan within 0.2 m of the map falls from over 0.9 to under 0.15 by 130 s.
+  - The Livox's narrow view sees surfaces the map does not hold, and 27–77 % of a scan's points come back without a return.
+  - The two methods end 103 m apart.
+- **Result.** Stairs_Gamma past 122 s cannot be scored.
+
 ## Reproduction
 
 ```bash
@@ -1143,4 +1222,5 @@ The ROS 1 rivals run in `docker/enwide_rivals_ros1.Dockerfile`. Each rival's `ou
 3. **One configuration and the holdout.** ENWIDE and GEODE need one configuration. The Metro Tunneling sequences are the hidden tunnel holdout: a UGV, all three devices.
    - **Fixed before any run** (see "The Metro Tunneling holdout"). tunnel1–3 test this note's configurations, with vehicle configurations for β and γ. tunnel4–5 stay sealed for one configuration.
    - **tunnel1–3 ran.** No failure, but BIEVR-LIO and FAST-LIO2 are more accurate. The gap is on γ, as on the shield tunnels (item 1).
+   - **The UGV's γ gap is the tilt limit** (see "After the holdout"). One configuration needs a criterion for it that tells a VLP-16 losing the pitch from a scan that holds it. Speed does not.
 4. **bridge03's moving start.** The registration starts from zero speed on a bridge that gives no hold along the road. Every LiDAR-inertial rival also fails there (697–1100 m).
