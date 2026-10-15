@@ -847,6 +847,19 @@ A window that holds the registered poses fixed cannot tell these apart from moti
 - **Synthetic stall.** A registration that stalls for 1 s and then stays behind still pulls the window's speed. With σ 0.14 m along the stalled axis, the worst error is 0.68 m/s; fixed positions give 0.71 m/s. Only a much weaker prior along the axis lets the IMU win.
 - **β's long stalls.** These stay out of reach: the IMU cannot tell a constant speed from standing still.
 
+**An eighth way: the window where it agrees with the gait (2026-10-15).**
+- **Method.** v18 plus W1, its consistency gate (0.004) and, on γ, the IMU rotation. The window's velocity stays only while its speed along the gait's direction is within 30 % of the gait's speed; otherwise the gait's speed is applied (rko_lio `exp/inertial-window-hybrid`).
+- **Rule.** The method and v18's rule were fixed before the runs.
+- **Result.** ATE in metres:
+
+  | | ST1 | ST2 | ST3 | ST4 | ST5 | ST6 | smooth | aggr. | ST7 | ST8 | ST9 | ST10 | Stairs α | Stairs β | mean |
+  |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+  | v18 | 1.13 | **2.76** | **0.99** | 2.94 | 2.63 | **0.55** | **1.61** | 4.27 | **2.38** | **4.60** | **0.58** | **2.34** | **0.18** | 0.24 | **1.94** |
+  | window where it agrees | **0.40** | 3.19 | 1.24 | **2.14** | **0.95** | 5.56 | 4.41 | **2.81** | 2.80 | 9.45 | 2.75 | 5.33 | **0.18** | **0.18** | 2.96 |
+
+- **Verdict.** Shield_tunnel1 and 5 reach BIEVR-LIO's level, but Shield_tunnel6, flat_surfaces_smooth and three β tunnels fail the rule. Not adopted.
+- **Not the stalls alone.** The check gave the speed back to the gait on only 1–6 % of the solves in the shield tunnels, so β's losses are not only its stalls.
+
 ### v17: a walker's bounds between steps (2026-10-14)
 
 **What goes wrong in v16.** v16 loses Shield_tunnel4 and 6 (γ) in a single event each:
@@ -1235,6 +1248,7 @@ The ROS 1 rivals run in `docker/enwide_rivals_ros1.Dockerfile`. Each rival's `ou
    - **What works.** W1 with the γ IMU rotation matches BIEVR-LIO on the γ shield tunnels.
    - **What failed.** Seven ways to make it robust failed (above), soft positions included. flat_surfaces_aggressive diverges with all but one of them.
    - **What is left.** A registration that is lost for seconds needs a recovery the window cannot give.
+   - **The gait as that recovery.** Taking the gait's speed whenever the window disagrees with it by more than 30 % fails too (the eighth way).
 2. **The walker's stops.**
    - **v17.** It removes the gait prior's losses on Shield_tunnel4 and 6 (24.4 → 4.21 m and 12.6 → 0.55 m). It still overshoots each stop by 2–4 m, because the cadence lags by half its 4 s window.
    - **Shield_tunnel2.** At 10.3 m it is the γ shield tunnel left above 5 m; W1 tracks it at 0.42 m.
