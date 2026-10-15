@@ -82,6 +82,9 @@ on all 18.
 - Since 2026-10-15 a configuration may depend on the sensor and the platform. β and γ on a
   vehicle drop the tilt limit (v19), and the sealed tunnel4–5 test these configurations (see
   "Per-sensor configurations and the sealed half").
+- On the sealed tunnel4–5 every method ran once. RKO-LIO has no failure and matches BIEVR-LIO
+  on β and γ to 3 mm, but BIEVR-LIO's median ATE is lower (0.34 against 0.36 m), from the two
+  α bags, where α keeps the tilt limit (see "The sealed half: results").
 
 No SOTA claim follows: the profile needs zero catastrophic failures, and no method has
 that on GEODE Hard.
@@ -1254,6 +1257,50 @@ Stairs_Gamma has no ground-truth trajectory. GEODE publishes a laser-scanned map
 - **H2.** RKO-LIO has no failure.
 - **A check outside H1 and H2.** β and γ also run their v18 UGV configurations, with the limit. This shows whether the limit's cost on tunnel1–3 holds on fresh bags.
 
+## The sealed half: results (2026-10-15)
+
+Every method ran once on the six bags of tunnel4–5, with the configurations and rules of the
+section above. RKO-LIO ran `rko_lio_alpha_v18.yaml` on α and `rko_lio_{beta,gamma}_ugv_v19.yaml`
+on β and γ, at rko_lio 80f3c1c. ATE in metres (10 m RTE):
+
+| bag | RKO-LIO | BIEVR-LIO | FAST-LIO2 | Point-LIO | COIN-LIO |
+|---|---:|---:|---:|---:|---:|
+| tunnel4 α | 1.07 (3.1 %) | **0.19** (1.5 %) | 4.24 (10.9 %) | 33.11 (98.3 %) | – |
+| tunnel4 β | **0.38** (2.0 %) | **0.38** (2.1 %) | **0.38** (2.1 %) | **0.38** (2.1 %) | 1.62 (4.5 %) |
+| tunnel4 γ | **0.35** (1.9 %) | **0.35** (1.9 %) | **0.35** (2.0 %) | **0.35** (1.9 %) | – |
+| tunnel5 α | 2.90 (6.4 %) | **0.17** (1.3 %) | 24.26 (91.3 %) | 25.10 (94.3 %) | – |
+| tunnel5 β | **0.35** (2.2 %) | **0.35** (2.1 %) | **0.35** (2.1 %) | **0.35** (2.1 %) | 7.27 (22.6 %) |
+| tunnel5 γ | **0.33** (2.0 %) | **0.33** (2.0 %) | 0.36 (2.4 %) | 0.44 (2.3 %) | – |
+| median | 0.36 | **0.34** | 0.37 | 0.41 | 4.44 (β only) |
+| median, α | 1.98 | **0.18** | 14.25 | 29.11 | – |
+| median, β | **0.36** | **0.36** | **0.36** | 0.37 | 4.44 |
+| median, γ | **0.34** | **0.34** | 0.35 | 0.39 | – |
+| failures | **0 of 6** | **0 of 6** | 1 of 6 | 2 of 6 | 1 of 2 |
+
+- **H1 fails.** BIEVR-LIO's median ATE is lower than RKO-LIO's (0.336 against 0.362 m). RKO-LIO's is lower than FAST-LIO2's (0.368 m) and Point-LIO's (0.408 m), and on the β bags than COIN-LIO's (0.36 against 4.44 m).
+- **H2 holds.** RKO-LIO has no failure; its largest 10 m RTE is 6.4 %, on tunnel5 α. BIEVR-LIO has none either.
+- **No run is incomplete.** Every run produced poses until 13–33 s after the ground truth ends. The matched fractions under one come from the bags: tunnel4 α, tunnel5 α and tunnel5 β start 2.6, 7.3 and 20.3 s after their ground truth.
+- **β and γ.** On these four bags RKO-LIO and BIEVR-LIO differ by at most 3 mm, and FAST-LIO2 and Point-LIO stay within 0.11 m of them. Every method but COIN-LIO lands at 0.33–0.44 m.
+- **α.** BIEVR-LIO is 6 and 17 times more accurate (0.19 and 0.17 against 1.07 and 2.90 m); FAST-LIO2 fails tunnel5 α and Point-LIO both α bags. The six-bag medians differ through these two bags: over β and over γ, RKO-LIO's and BIEVR-LIO's medians agree to 2 mm.
+  - α kept the tilt limit, as fixed. On tunnel3 α, now development data, the same configuration without the limit gave 0.18 instead of 0.72 m (see "On the UGV: the tilt limit"), but every road α sequence needs it.
+  - tunnel4–5 α were not run without the limit.
+
+**The check: the tilt limit on fresh bags.** β and γ also ran their v18 UGV configurations, which keep the limit:
+
+| bag | v18 UGV (with the limit) | v19 |
+|---|---:|---:|
+| tunnel4 β | 1.36 (4.4 %) | **0.38** (2.0 %) |
+| tunnel4 γ | 1.28 (3.9 %) | **0.35** (1.9 %) |
+| tunnel5 β | 13.48 (24.1 %) | **0.35** (2.2 %) |
+| tunnel5 γ | 0.34 (2.1 %) | **0.33** (2.0 %) |
+
+As on tunnel1–3, the limit costs on most bags: 0.9–13.1 m on three of the four, with tunnel5 β a failure. tunnel5 γ is unchanged.
+
+**What follows.**
+- **On the UGV.** With the per-sensor configurations, β and γ reach the best rival's accuracy; α does not. The α configuration has to serve the road and the UGV, and only the road needs the limit.
+- **No hidden tunnel data remains.** Any later change to these configurations is measured on development data only.
+- **No SOTA claim** follows, as fixed before the run.
+
 ## Reproduction
 
 ```bash
@@ -1293,4 +1340,6 @@ The ROS 1 rivals run in `docker/enwide_rivals_ros1.Dockerfile`. Each rival's `ou
    - **tunnel1–3 ran.** No failure, but BIEVR-LIO and FAST-LIO2 are more accurate. The gap is on γ, as on the shield tunnels (item 1).
    - **The UGV's γ gap is the tilt limit** (see "After the holdout"). One configuration needs a criterion for it that tells a VLP-16 losing the pitch from a scan that holds it. Speed, weak tilt information and a longer gyro initialization all fail.
    - **The scope changed instead** (2026-10-15). Configurations may depend on the sensor and the platform. tunnel4–5 test them (see "Per-sensor configurations and the sealed half").
+   - **tunnel4–5 ran** (see "The sealed half: results"). No failure; β and γ at BIEVR-LIO's level, α not. No hidden tunnel data remains.
+   - **What is left** is α on a vehicle: the road needs the tilt limit, and the UGV loses with it.
 4. **bridge03's moving start.** The registration starts from zero speed on a bridge that gives no hold along the road. Every LiDAR-inertial rival also fails there (697–1100 m).
