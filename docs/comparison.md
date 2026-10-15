@@ -262,7 +262,10 @@ failure and the lowest median ATE among the five methods reproduced on the same 
   - **The Metro Tunneling holdout.** These are GEODE's UGV tunnels, fixed before any run;
     seven bags (tunnel1–3) ran once. v18 is the only method without a failure, but BIEVR-LIO
     (0.35 m) and FAST-LIO2 (0.36 m) have a lower median ATE than v18 (0.84 m), from the
-    three Livox bags. The other six bags stay sealed.
+    three Livox bags.
+  - **The sealed half.** The other six bags (tunnel4–5) then tested configurations per sensor
+    and platform, once. RKO-LIO has no failure and matches BIEVR-LIO on the Ouster and Livox
+    bags, but BIEVR-LIO's median ATE is lower (0.34 against 0.36 m), from the two VLP-16 bags.
 
 Per-sequence tables, revisions and reproduction are in the
 [ENWIDE](research/enwide-photometric-registration-2026-10.md) and
