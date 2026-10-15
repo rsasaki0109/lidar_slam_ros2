@@ -1128,7 +1128,7 @@ tunnel1–3 are development data from here on: their holdout run is spent. tunne
 | tunnel3 γ | RKO-LIO v18 | 2.66 | 1.04 | 0.72 |
 | | BIEVR-LIO | 0.15 | 0.31 | 0.02 |
 
-- **The tilt keeps drifting.** The gravity window re-levels the map 23–153 times per bag, by 0.36–0.40° each time.
+- **The re-levels do not explain it** (corrected 2026-10-15). The gravity window re-levels the map 23–153 times per bag, by 0.36–0.40° each time. Without the limit the γ bags re-level even more often (45–205 times), so these counts do not show the limit's harm. An earlier version of this note read them as a drifting tilt.
 - **Which vehicle option.** Every bag below ran once, ATE in metres:
 
   | γ bag | v18 UGV | no vehicle options | no tilt limit | no gravity window |
@@ -1158,6 +1158,22 @@ tunnel1–3 are development data from here on: their holdout run is spent. tunne
   - bridge03's estimated speed stays near zero from its moving start, so it loses the limit throughout (1074.9 → 1096.9 m).
 - **Verdict.** It fails the rule and is not adopted. No other threshold was run.
 - **What it shows.** The VLP-16 needs the limit where it cannot hold the pitch, and that depends on the scene, not on the speed.
+
+**Two more criteria fail.**
+- **Weak tilt information.** For every scan we took the registration's information on the two horizontal rotation axes, with translation marginalized (the Schur complement of the ICP system). The road registrations see the tilt better than the UGV's, not worse:
+
+  | | road α (6 sequences) | UGV (7 bags) |
+  |---|---:|---:|
+  | weakest tilt direction / rotation information | 0.04–0.19 | 0.010–0.018 |
+  | weakest tilt direction / translation information | 3–48 m² | 1.1–1.4 m² |
+
+  (per-run medians)
+
+  The limit on the road guards against a bias in the registration, not against weak information. A gate on weak information would limit the UGV and free the road.
+- **The gyro bias.**
+  - RKO-LIO takes the gyro bias from one scan interval, 10–20 IMU samples. Against the mean over the first second, that estimate is off on the tilt axes by 0.06–0.2°/s on the UGV bags and by 0.26–0.47°/s on Urban_Tunnel01 and bridge01.
+  - A 1 s initialization window (rko_lio `exp/initialization-window`) was fixed before its runs, under the same rule as the speed gate. It helps γ and β on the UGV: tunnel3 γ 2.94 → 0.38 m, tunnel2 β 0.58 → 0.35 m. It also helps bridge01 and bridge02.
+  - But it loses tunnel3 α (0.72 → 4.62 m) and Urban_Tunnel01–03 (23.7 → 124.2, 38.4 → 53.2 and 59.3 → 70.2 m), so it is not adopted.
 
 ### On the handheld shield tunnels: the speed along the tunnel
 
@@ -1222,5 +1238,5 @@ The ROS 1 rivals run in `docker/enwide_rivals_ros1.Dockerfile`. Each rival's `ou
 3. **One configuration and the holdout.** ENWIDE and GEODE need one configuration. The Metro Tunneling sequences are the hidden tunnel holdout: a UGV, all three devices.
    - **Fixed before any run** (see "The Metro Tunneling holdout"). tunnel1–3 test this note's configurations, with vehicle configurations for β and γ. tunnel4–5 stay sealed for one configuration.
    - **tunnel1–3 ran.** No failure, but BIEVR-LIO and FAST-LIO2 are more accurate. The gap is on γ, as on the shield tunnels (item 1).
-   - **The UGV's γ gap is the tilt limit** (see "After the holdout"). One configuration needs a criterion for it that tells a VLP-16 losing the pitch from a scan that holds it. Speed does not.
+   - **The UGV's γ gap is the tilt limit** (see "After the holdout"). One configuration needs a criterion for it that tells a VLP-16 losing the pitch from a scan that holds it. Speed, weak tilt information and a longer gyro initialization all fail.
 4. **bridge03's moving start.** The registration starts from zero speed on a bridge that gives no hold along the road. Every LiDAR-inertial rival also fails there (697–1100 m).
