@@ -1175,20 +1175,25 @@ tunnel1–3 are development data from here on: their holdout run is spent. tunne
   - A 1 s initialization window (rko_lio `exp/initialization-window`) was fixed before its runs, under the same rule as the speed gate. It helps γ and β on the UGV: tunnel3 γ 2.94 → 0.38 m, tunnel2 β 0.58 → 0.35 m. It also helps bridge01 and bridge02.
   - But it loses tunnel3 α (0.72 → 4.62 m) and Urban_Tunnel01–03 (23.7 → 124.2, 38.4 → 53.2 and 59.3 → 70.2 m), so it is not adopted.
 
-### On the handheld shield tunnels: the speed along the tunnel
+### On the handheld shield tunnels: the registration's speed
 
-RKO-LIO v18's γ error there is along the tunnel. Its path comes out 0.1–2.1 % too long, against −0.8 to +0.3 % for BIEVR-LIO. The vertical errors are alike:
+RKO-LIO v18's γ error there is along the tunnel. The vertical errors are alike. Per leg (between turnarounds), the distance from end to end against the ground truth:
 
-| γ shield tunnel | v18 along | v18 path | BIEVR-LIO along | BIEVR-LIO path |
-|---|---:|---:|---:|---:|
-| Shield_tunnel1 | 1.10 | +0.6 % | 0.20 | +0.1 % |
-| Shield_tunnel2 | 2.74 | +2.1 % | 0.48 | +0.0 % |
-| Shield_tunnel3 | 0.97 | +1.3 % | 1.16 | −0.2 % |
-| Shield_tunnel4 | 2.88 | +1.8 % | 2.49 | +0.3 % |
-| Shield_tunnel5 | 2.62 | +0.1 % | 3.17 | −0.8 % |
-| Shield_tunnel6 | 0.55 | +1.2 % | 0.40 | +0.1 % |
+| γ shield tunnel | v18 along (m) | v18 legs | BIEVR-LIO along (m) | BIEVR-LIO legs |
+|---|---:|---|---:|---|
+| Shield_tunnel1 | 1.10 | −0.1, +0.8 % | 0.20 | +0.1, +0.1 % |
+| Shield_tunnel2 | 2.74 | +1.0, +1.9, +1.9 % | 0.48 | +0.2, −0.2, +0.1 % |
+| Shield_tunnel3 | 0.97 | +0.3, +0.5 % | 1.16 | −0.1, −0.2 % |
+| Shield_tunnel4 | 2.88 | −3.8, −0.9 % | 2.49 | +0.2, +0.3 % |
+| Shield_tunnel5 | 2.62 | −1.3, −3.1 % | 3.17 | −1.3, −4.3 % |
+| Shield_tunnel6 | 0.55 | −0.1, −0.3 % | 0.40 | −0.0, −0.2 % |
 
-The gait's lag at the walker's stops (Next, item 2) is the open candidate.
+- **Corrected 2026-10-15.** An earlier version compared path lengths (v18 0.1–2.1 % too long). Those include the trajectory's jitter.
+- **Mostly not the stops.** The legs themselves come out up to 3.8 % long or short, so the error grows while walking. On Shield_tunnel3 and 6 the stops and the 2 s around them add more than the walking does (the overshoot of Next, item 2).
+- **Not the step.** v18 learns the step from the walk's first 100 plausible scans and then freezes it. On the ten shield tunnels it is off by 0–8.5 %, 3.8 % on average.
+  - A refinement from scans that see the travel was fixed before its runs with v18's rule (weakest share ≥ 0.05; rko_lio `exp/gait-step-refinement`). It brings the step within 2.1 % on average.
+  - The trajectories barely change: Shield_tunnel1 and 2 keep 1.13 and 2.76 m, and the mean over the 14 handheld sequences goes from 1.94 to 1.95 m. Not adopted.
+- **The registration's own speed.** Within the correction limit (2 cm per scan, 0.2 m/s at 10 Hz) the registration still sets the speed, and its speed carries the error: on Shield_tunnel2 it runs 2 % fast throughout. BIEVR-LIO holds the speed with its inertial window instead.
 
 ### GEODE's stairs γ, against the map
 
@@ -1235,6 +1240,7 @@ The ROS 1 rivals run in `docker/enwide_rivals_ros1.Dockerfile`. Each rival's `ou
    - **Shield_tunnel2.** At 10.3 m it is the γ shield tunnel left above 5 m; W1 tracks it at 0.42 m.
    - **Tried and failed.** Carrying the gait speed over the lag with the IMU fails, and so does following the step events (above). The step events do find the stops 1.5–2 s earlier. Stop and restart is the best on the median, but fails the rule on two sequences.
    - **Validation.** The stairs now serve as handheld validation (v18). A further gait change keeps the v18 rule fixed before its runs.
+   - **Not the step** (see "On the handheld shield tunnels"). The γ along-track error grows mostly while walking, from the registration's own speed; on Shield_tunnel3 and 6 the stops add more.
 3. **One configuration and the holdout.** ENWIDE and GEODE need one configuration. The Metro Tunneling sequences are the hidden tunnel holdout: a UGV, all three devices.
    - **Fixed before any run** (see "The Metro Tunneling holdout"). tunnel1–3 test this note's configurations, with vehicle configurations for β and γ. tunnel4–5 stay sealed for one configuration.
    - **tunnel1–3 ran.** No failure, but BIEVR-LIO and FAST-LIO2 are more accurate. The gap is on γ, as on the shield tunnels (item 1).
