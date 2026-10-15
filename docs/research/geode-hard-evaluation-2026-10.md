@@ -79,6 +79,9 @@ on all 18.
 - After the holdout, the UGV's γ gap traces to the tilt limit taken over from α. Without it
   RKO-LIO tracks the γ bags at BIEVR-LIO's level, but the road α sequences need it, and a
   speed gate fails (see "After the holdout").
+- Since 2026-10-15 a configuration may depend on the sensor and the platform. β and γ on a
+  vehicle drop the tilt limit (v19), and the sealed tunnel4–5 test these configurations (see
+  "Per-sensor configurations and the sealed half").
 
 No SOTA claim follows: the profile needs zero catastrophic failures, and no method has
 that on GEODE Hard.
@@ -1221,6 +1224,36 @@ Stairs_Gamma has no ground-truth trajectory. GEODE publishes a laser-scanned map
   - The two methods end 103 m apart.
 - **Result.** Stairs_Gamma past 122 s cannot be scored.
 
+## Per-sensor configurations and the sealed half, fixed before any run (2026-10-15)
+
+**The scope changes.**
+- **Why.** Every experiment since the holdout splits by sensor:
+  - The 16-beam VLP-16 needs the tilt limit on the road, and the denser LiDARs lose with it on the UGV.
+  - The window helps the Livox shield tunnels and hurts β and the flats.
+
+  No criterion tried above lets one configuration serve both.
+- **Decision (2026-10-15).** A configuration may now depend on the sensor and on the platform (carried by hand or mounted on a vehicle), as it already depends on the extrinsics. Everything else stays one setting, fixed before the run below.
+- **The profile.** `degenerate_lio_sota_v4.yaml` still requires one parameter set across all sequences. A profile with the new scope is not written yet. Its win policy (zero catastrophic failures, ENWIDE included) is not met either, so no SOTA claim follows from this run.
+- **The sealed half is released for this test.** This is the entry the holdout section asks for. After the run, no hidden tunnel data remains.
+
+**The configurations.**
+- **α on a vehicle.** `rko_lio_alpha_v18.yaml`, unchanged. The 16-beam LiDAR keeps the tilt limit.
+- **β and γ on a vehicle (v19).** `rko_lio_{beta,gamma}_ugv_v19.yaml` is v18 UGV without the tilt limit. On tunnel1–3, now development data, they give γ 0.14, 2.09 and 0.34 m, and β 0.35 and 0.36 m.
+- **Code.** rko_lio 80f3c1c, as for tunnel1–3.
+
+**The test on tunnel4–5.**
+- **Data.** The α, β and γ bags of tunnel4 and tunnel5, 6 in all, with ground truth `Tunneling_tunnel4.txt` and `Tunneling_tunnel5.txt`. Three of the bags are still downloading.
+- **As for tunnel1–3:**
+  - Rivals: COIN-LIO (β only), BIEVR-LIO, FAST-LIO2 and Point-LIO, with `configs/geode/rivals/`.
+  - One run per method and bag; SE(3) ATE and 10 m RTE.
+  - A failure is a 10 m RTE of 20 % or more.
+  - A run that stops producing poses before the ground truth ends is incomplete, and counts as the worst value in the medians.
+  - The tabulation implements exactly these definitions.
+- **Faults.** A harness fault may be fixed and the run repeated, and both outcomes are reported. Nothing in the method or the configurations changes after the first run.
+- **H1.** RKO-LIO's median ATE over the six bags is lower than BIEVR-LIO's, FAST-LIO2's and Point-LIO's. On the two β bags it is also lower than COIN-LIO's.
+- **H2.** RKO-LIO has no failure.
+- **A check outside H1 and H2.** β and γ also run their v18 UGV configurations, with the limit. This shows whether the limit's cost on tunnel1–3 holds on fresh bags.
+
 ## Reproduction
 
 ```bash
@@ -1236,7 +1269,7 @@ python3 scripts/score_position_only_trajectory.py --reference GEODE/gt_tum/SEQ.t
 
 The files in `configs/geode/` are flat parameter maps, so a ROS parameter file wraps them
 first. `IMU_TOPIC` is `/imu/data` on α and β and `/livox/imu` on γ. On the Metro Tunneling
-holdout β and γ use `rko_lio_DEVICE_ugv_v18.yaml`.
+holdout β and γ use `rko_lio_DEVICE_ugv_v18.yaml`, and on tunnel4–5 `rko_lio_DEVICE_ugv_v19.yaml`.
 
 The ROS 1 rivals run in `docker/enwide_rivals_ros1.Dockerfile`. Each rival's `ouster64`,
 `velodyne`/`velody16` or `avia` configuration is replaced by the matching file in
@@ -1259,4 +1292,5 @@ The ROS 1 rivals run in `docker/enwide_rivals_ros1.Dockerfile`. Each rival's `ou
    - **Fixed before any run** (see "The Metro Tunneling holdout"). tunnel1–3 test this note's configurations, with vehicle configurations for β and γ. tunnel4–5 stay sealed for one configuration.
    - **tunnel1–3 ran.** No failure, but BIEVR-LIO and FAST-LIO2 are more accurate. The gap is on γ, as on the shield tunnels (item 1).
    - **The UGV's γ gap is the tilt limit** (see "After the holdout"). One configuration needs a criterion for it that tells a VLP-16 losing the pitch from a scan that holds it. Speed, weak tilt information and a longer gyro initialization all fail.
+   - **The scope changed instead** (2026-10-15). Configurations may depend on the sensor and the platform. tunnel4–5 test them (see "Per-sensor configurations and the sealed half").
 4. **bridge03's moving start.** The registration starts from zero speed on a bridge that gives no hold along the road. Every LiDAR-inertial rival also fails there (697–1100 m).
