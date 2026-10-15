@@ -243,29 +243,31 @@ failure and the lowest median ATE among the five methods reproduced on the same 
   sequence and was faster than real time. v10 equals v8 (the `_v3` record) on nine
   sequences and is 0.017 m worse on TunnelD.
 - Three of the ten sequences were used to develop the configuration.
-- On GEODE's Hard sequences most methods fail almost everywhere. An earlier version of this
-  page said that the GEODE configuration v16 has the lowest median ATE there (5.6 m, against
-  BIEVR-LIO's 180 m). That claim is withdrawn. On the Livox device every method was given an
-  IMU 7.5–80 ms off the LiDAR clock. After a re-run on the synchronised internal IMU:
-  - **Over all 18 sequences.** v16 still had the lowest median ATE (8.5 m, against 78.7 m for
-    BIEVR-LIO), from the handheld Ouster and vehicle sequences.
-  - **v17.** It keeps a walker's speed bounded when the tunnel registration runs away at a
-    stop or a turnaround. Its median is 3.8 m, with eleven of 18 sequences below 10 m.
-  - **v18.** It is the GEODE configuration since 2026-10-14. It limits the gait's
-    correction only where the scan cannot see some translation. Its median is 2.85 m, with
-    twelve of 18 sequences below 10 m.
-  - **GEODE's stairs.** These are handheld sequences outside the development set. v18
-    tracks them at 0.18 and 0.24 m, against 0.22 and 0.23 m for BIEVR-LIO; v17's gait lost
-    6.3–6.5 m there.
-  - **On the six Livox shield tunnels.** BIEVR-LIO is better: median 0.85 m, against 1.9 m
-    for v18.
-  - **The Metro Tunneling holdout.** These are GEODE's UGV tunnels, fixed before any run;
-    seven bags (tunnel1–3) ran once. v18 is the only method without a failure, but BIEVR-LIO
-    (0.35 m) and FAST-LIO2 (0.36 m) have a lower median ATE than v18 (0.84 m), from the
-    three Livox bags.
-  - **The sealed half.** The other six bags (tunnel4–5) then tested configurations per sensor
-    and platform, once. RKO-LIO has no failure and matches BIEVR-LIO on the Ouster and Livox
-    bags, but BIEVR-LIO's median ATE is lower (0.34 against 0.36 m), from the two VLP-16 bags.
+- On GEODE's Hard sequences most methods fail almost everywhere. Only GEODE's Metro
+  Tunneling bags are held out from the GEODE configurations.
+  - **Held out: the Metro Tunneling holdout.** These are GEODE's UGV tunnels, 13 bags, each
+    run once under rules fixed before the run. On them RKO-LIO has the fewest failures (none),
+    but not the best accuracy.
+    - **tunnel1–3 (seven bags).** v18 is the only method without a failure, but BIEVR-LIO
+      (0.35 m) and FAST-LIO2 (0.36 m) have a lower median ATE than v18 (0.84 m), from the
+      three Livox bags.
+    - **tunnel4–5 (six bags).** These tested configurations per sensor and platform.
+      RKO-LIO has no failure and matches BIEVR-LIO on the Ouster and Livox bags, but
+      BIEVR-LIO's median ATE is lower (0.34 against 0.36 m), from the two VLP-16 bags.
+  - **Not held out: the 18 Hard sequences and the stairs.** From v13 on, every GEODE
+    configuration was chosen by its results there, while the rivals run their own
+    configurations with only the sensor settings changed. These numbers favour RKO-LIO and
+    do not compare the methods on unseen data.
+    - **Withdrawn.** An earlier version of this page said that the GEODE configuration v16
+      has the lowest median ATE there (5.6 m, against BIEVR-LIO's 180 m). On the Livox
+      device every method had been given an IMU 7.5–80 ms off the LiDAR clock.
+    - **On the synchronised internal IMU.** The median ATE over the 18 sequences is 8.5 m for
+      v16, 3.8 m for v17 and 2.85 m for v18, against 78.7 m for BIEVR-LIO.
+    - **GEODE's stairs.** v17's gait lost 6.3–6.5 m there. v18 was developed after that,
+      under a rule chosen after its results, and tracks them at 0.18 and 0.24 m, against 0.22
+      and 0.23 m for BIEVR-LIO.
+    - **On the six Livox shield tunnels.** BIEVR-LIO is better even so: median 0.85 m,
+      against 1.9 m for v18.
 
 Per-sequence tables, revisions and reproduction are in the
 [ENWIDE](research/enwide-photometric-registration-2026-10.md) and
