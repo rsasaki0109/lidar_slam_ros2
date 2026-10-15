@@ -622,6 +622,17 @@ def test_geode_ugv_configs_trade_the_gait_for_alphas_vehicle_options():
         assert ugv == v18
 
 
+def test_geode_ugv_v19_configs_drop_only_the_tilt_limit():
+    # The tilt limit is for the 16-beam LiDAR (alpha keeps it in rko_lio_alpha_v18.yaml).
+    geode = ROOT / 'configs' / 'geode'
+    assert yaml.safe_load((geode / 'rko_lio_alpha_v18.yaml').read_text())['max_tilt_correction_deg'] > 0.0
+    for device in ('beta', 'gamma'):
+        v18 = yaml.safe_load((geode / f'rko_lio_{device}_ugv_v18.yaml').read_text())
+        v19 = yaml.safe_load((geode / f'rko_lio_{device}_ugv_v19.yaml').read_text())
+        assert v18.pop('max_tilt_correction_deg') == 0.02
+        assert v19 == v18
+
+
 def test_geode_gamma_rivals_use_the_livox_internal_imu():
     # On gamma the Xsens is 7.5-80 ms off the LiDAR clock; the Livox IMU is on it.
     rivals = ROOT / 'configs' / 'geode' / 'rivals'
