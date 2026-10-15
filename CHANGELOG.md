@@ -13,6 +13,11 @@ latest published release.
 - **Documentation** — Getting Started (EN/JA), the README, map authoring and
   external validation pin the published `v0.10.0` images, which carry the
   `lidarslam-map report` handoff and the own-bag `start` contract.
+- **GEODE comparison** — v0.10.0 reported RKO-LIO v16's GEODE Hard median (8.5 m,
+  against 78.7 m for BIEVR-LIO). The GEODE configurations were developed on those
+  sequences, while the rivals ran their own configurations, so these numbers do not
+  compare the methods on unseen data. On GEODE's held-out Metro Tunneling bags RKO-LIO
+  has no failure, but BIEVR-LIO's median ATE is lower. See `docs/comparison.md`.
 
 ### Known limitations
 

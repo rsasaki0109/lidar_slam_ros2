@@ -2,6 +2,15 @@
 
 ## Summary
 
+**Correction (2026-10-16): the comparisons on the Hard sequences and the stairs are not held out.**
+- **Development data.** From v13 on, every GEODE configuration was chosen by its results on the 18 Hard sequences: the handheld options (v13, v14, v17, v18) on the twelve handheld sequences, the vehicle options (v15, v16) on the six α sequences. v18 was also developed on the stairs, after v17 failed there, and adopted under a rule chosen after its results.
+- **The rivals are not tuned.** They run their own configurations with only the sensor settings changed (see "Inputs"). On these sequences the comparisons therefore favour RKO-LIO.
+- **Held out.** Only GEODE's Metro Tunneling bags, each run once under rules fixed before the run:
+  - **tunnel1–3 (7 bags).** RKO-LIO is the only method without a failure, but BIEVR-LIO's median ATE is lower (0.35 against 0.84 m).
+  - **tunnel4–5 (6 bags, configurations per sensor and platform).** RKO-LIO has no failure, and neither has BIEVR-LIO, whose median ATE is lower (0.34 against 0.36 m).
+- **The vehicle options.** On the six road α sequences they were developed on, RKO-LIO beats BIEVR-LIO on five. On the four UGV α bags BIEVR-LIO is 4–17 times more accurate on three. On the fourth, tunnel2 α, the rivals diverge in its LiDAR gaps and RKO-LIO tracks it.
+- **What the held-out bags support.** RKO-LIO has the fewest failures (none in 13 bags), not the best accuracy.
+
 **Correction (2026-10-13): the γ results were measured with an unsynchronised IMU.**
 - **The offset.** Every method was given the Xsens IMU (`/imu/data`). On the γ device (Livox AVIA) its stamps are 7.5–80 ms early against the Livox internal IMU (`/livox/imu`), which runs on the LiDAR's clock. The offset differs on every sequence:
 
@@ -66,9 +75,9 @@ on all 18.
   stands. Shield_tunnel4 drops from 24.4 to 4.21 m and Shield_tunnel6 from 12.6 to 0.55 m.
   The median over the 18 sequences drops from 8.5 to 3.8 m, with eleven below 10 m.
 - v18 limits the gait's correction only where the scan cannot see some translation (rko_lio
-  #39). On GEODE's stairs, two handheld sequences outside the development set, v17's gait
-  loses 6.3–6.5 m; v18 tracks them at 0.18 and 0.24 m, the best and the second best of the
-  rivals. The median over the 18 sequences drops from 3.8 to 2.85 m, with twelve below 10 m.
+  #39). On GEODE's stairs, two handheld sequences outside the development set until then,
+  v17's gait loses 6.3–6.5 m. v18 was developed on them and tracks them at 0.18 and 0.24 m,
+  the best and the second best of the rivals. The median over the 18 sequences drops from 3.8 to 2.85 m, with twelve below 10 m.
   It is the GEODE configuration. It was adopted under a rule set after its results (see "v18").
 - The Metro Tunneling holdout, a UGV, is fixed before any run. tunnel1–3 test the GEODE
   configurations, with β and γ in vehicle configurations; tunnel4–5 stay sealed for one
@@ -95,8 +104,8 @@ GEODE has three devices with the same Xsens MTi-30 IMU (`/imu/data`, 100 Hz):
 
 | device | LiDAR | topic | sequences here |
 |---|---|---|---|
-| α | Velodyne VLP-16 | `/velodyne_points` | Urban_Tunnel01–03, bridge01–03 (vehicle); Stairs_Alpha (handheld, validation) |
-| β | Ouster OS1-64 | `/ouster/points` | Shield_tunnel7–10 (handheld); Stairs_Beta (handheld, validation) |
+| α | Velodyne VLP-16 | `/velodyne_points` | Urban_Tunnel01–03, bridge01–03 (vehicle); Stairs_Alpha (handheld, used to develop v18) |
+| β | Ouster OS1-64 | `/ouster/points` | Shield_tunnel7–10 (handheld); Stairs_Beta (handheld, used to develop v18) |
 | γ | Livox AVIA | `/livox/lidar` (CustomMsg) | Shield_tunnel1–6, flat_surfaces_* (handheld) |
 
 Every method gets the same data:
@@ -143,6 +152,10 @@ Development split, declared after the first three pilot runs:
 
 - Development: flat_surfaces_smooth, Urban_Tunnel01 and Shield_tunnel9.
 - Validation: the other sequences, which no configuration was tuned on.
+
+The split holds for v8–v11. v12 was tuned on six handheld sequences and checked on the other
+six. From v13 on, every version was chosen by its results on all 18 (see the 2026-10-16
+correction in the Summary).
 
 ## Results (18 sequences)
 
@@ -1049,6 +1062,8 @@ ATE in metres on the fourteen handheld sequences:
 | FAST-LIO2 | diverges | 0.35 |
 | Point-LIO | 11.1 | 0.29 |
 
+These are not held-out results: v18 was developed on these two sequences.
+
 **Over the 18 Hard sequences.** α is unchanged, because α v18 is α v17.
 - The median is 2.85 m (v17 3.8 m, BIEVR-LIO 78.7 m), with twelve sequences below 10 m (v17 eleven).
 - The median of the six γ shield tunnels is 1.9 m (v17 1.8 m, BIEVR-LIO 0.85 m).
@@ -1333,7 +1348,7 @@ The ROS 1 rivals run in `docker/enwide_rivals_ros1.Dockerfile`. Each rival's `ou
    - **v17.** It removes the gait prior's losses on Shield_tunnel4 and 6 (24.4 → 4.21 m and 12.6 → 0.55 m). It still overshoots each stop by 2–4 m, because the cadence lags by half its 4 s window.
    - **Shield_tunnel2.** At 10.3 m it is the γ shield tunnel left above 5 m; W1 tracks it at 0.42 m.
    - **Tried and failed.** Carrying the gait speed over the lag with the IMU fails, and so does following the step events (above). The step events do find the stops 1.5–2 s earlier. Stop and restart is the best on the median, but fails the rule on two sequences.
-   - **Validation.** The stairs now serve as handheld validation (v18). A further gait change keeps the v18 rule fixed before its runs.
+   - **Validation.** The stairs are in v18's rule, but v18 was developed on them, so they no longer show how a gait change does on unseen data. A further gait change keeps the v18 rule fixed before its runs.
    - **Not the step** (see "On the handheld shield tunnels"). The γ along-track error grows mostly while walking, from the registration's own speed; on Shield_tunnel3 and 6 the stops add more.
 3. **One configuration and the holdout.** ENWIDE and GEODE need one configuration. The Metro Tunneling sequences are the hidden tunnel holdout: a UGV, all three devices.
    - **Fixed before any run** (see "The Metro Tunneling holdout"). tunnel1–3 test this note's configurations, with vehicle configurations for β and γ. tunnel4–5 stay sealed for one configuration.
