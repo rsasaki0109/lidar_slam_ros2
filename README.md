@@ -114,6 +114,14 @@ flowchart LR
     gbs --> bundle["Autoware map bundle<br/>pointcloud_map · lanelet2 · projector info"]
 ```
 
+## Stairs and tunnels
+
+| Handheld, down one stairwell and up another | UGV in a metro tunnel |
+| --- | --- |
+| ![RKO-LIO odometry on GEODE stairs_beta: the map grows as a handheld Ouster OS1-64 goes down one stairwell, along the lower level and up a second](lidarslam/images/slam_geode_stairs_beta.gif) | ![RKO-LIO odometry on GEODE Metro Tunneling tunnel4_beta: the map of a metro tunnel grows behind a UGV with an Ouster OS1-64](lidarslam/images/slam_geode_tunnel4_beta.gif) |
+
+RKO-LIO odometry on two [GEODE](https://github.com/PengYu-Team/GEODE_dataset) sequences (Chen et al., IJRR 2025) recorded with an Ouster OS1-64. On `stairs_beta` the ATE is 0.24 m, but the GEODE handheld configuration was developed on this sequence. `tunnel4_beta` is from the held-out Metro Tunneling bags: 0.38 m, the same as BIEVR-LIO and FAST-LIO2. Over all 13 held-out tunnel bags RKO-LIO had no failure but was not the most accurate ([comparison](docs/comparison.md#degenerate-lidar-imu-odometry-on-enwide)). [How these were made](docs/readme-media.md#stairs-and-a-metro-tunnel-geode).
+
 ## Camera-coloured point-cloud maps
 
 The pipeline registers LiDAR scans with the corrected trajectory, refines each

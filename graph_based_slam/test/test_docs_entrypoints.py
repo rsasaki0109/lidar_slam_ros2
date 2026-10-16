@@ -416,7 +416,8 @@ def test_docs_exist_and_are_linked_from_readme():
     # docs/workflows.md so the README stays narrow; keep the assets on disk
     # (asserted above) and verify the README still routes readers to those docs.
     assert f'(docs/releases/v{version}.md)' in readme
-    assert len(readme.splitlines()) <= 220
+    # 228 since the stairs and tunnel GIFs (8 lines).
+    assert len(readme.splitlines()) <= 228
 
 
 def test_readme_chooser_routes_each_goal_to_one_safe_first_step():

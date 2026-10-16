@@ -161,7 +161,17 @@ def main():
     ap.add_argument('--overview', action='store_true', help='orbiting overview camera (slam)')
     ap.add_argument('--zcut', type=float, default=2.5,
                     help='hide points this far above the sensor')
+    ap.add_argument('--lidar-to-base', type=float, nargs=7, metavar='V',
+                    help='LiDAR-to-base extrinsic as qx qy qz qw x y z (the order of RKO-LIO '
+                         '`extrinsic_lidar2base_quat_xyzw_xyz`) for an estimate of the base frame')
+    ap.add_argument('--scan-stride', type=int, default=1,
+                    help='draw every n-th point of the current scan (dense LiDARs hide the map)')
     args = ap.parse_args()
+    if args.lidar_to_base:
+        lb_rot = quat_to_rot(*args.lidar_to_base[:4])
+        lb_t = np.array(args.lidar_to_base[4:])
+    else:
+        lb_rot, lb_t = np.eye(3), np.zeros(3)
 
     est = load_tum(args.estimate)
     ref = load_tum(args.reference) if args.reference else None
@@ -195,7 +205,8 @@ def main():
             continue
         p, R = pose
         if args.mode == 'slam':
-            world = read_xyz(msg) @ R.T + p
+            scan = read_xyz(msg) @ lb_rot.T + lb_t
+            world = scan @ R.T + p
             world = world[np.linalg.norm(world - p, axis=1) < 60]
             keys = np.floor(world / 0.25).astype(np.int64)
             k1d = keys[:, 0] * 73856093 ^ keys[:, 1] * 19349663 ^ keys[:, 2] * 83492791
@@ -209,7 +220,7 @@ def main():
             continue
         while fi < len(frame_times) and frame_times[fi] <= t:
             fi += 1
-        scan_world = read_xyz(msg) @ R.T + p
+        scan_world = (read_xyz(msg)[::args.scan_stride] @ lb_rot.T + lb_t) @ R.T + p
         heading = R[:, 0]
         yaw = math.atan2(heading[1], heading[0])
         if yaw_s is None:
