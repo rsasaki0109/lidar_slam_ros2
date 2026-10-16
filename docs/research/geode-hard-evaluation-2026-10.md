@@ -327,7 +327,7 @@ A windowed error profile shows how the shield-tunnel runs fail. Each 30 s window
 
 RKO-LIO uses the IMU for the prediction and for a gravity (roll/pitch) regularisation only; nothing in it constrains translation, velocity or accelerometer bias with the IMU. BIEVR-LIO optimises velocity, biases and gravity over a 10 s IMU window together with its bump-image registration.
 
-An experiment added this to RKO-LIO (rko_lio branch `feat/inertial-velocity-filter`, not merged):
+An experiment added this to RKO-LIO (rko_lio tag `archive/feat/inertial-velocity-filter`, not merged):
 
 - **Velocity filter.** A Kalman filter on the world velocity and the accelerometer bias. It propagates with IMU preintegration and corrects with the registered displacement, weighted by the registration's Hessian.
 - **Translation prior.** Optionally, the predicted position with its covariance is added to the registration.
@@ -346,7 +346,7 @@ Using the IMU to hold the translation therefore needs the attitude and gravity e
 
 ### Attitude in the filter (2026-10-11)
 
-A second experiment (rko_lio branch `feat/inertial-pose-filter`, not merged) adds the attitude. It is an error-state Kalman filter on attitude, position, velocity and accelerometer bias. The filter propagates with every IMU sample and is corrected by each registered pose, with a 6×6 covariance from the registration's Hessian. The fused pose replaces the registered one, and the filter's prediction is the registration's initial guess.
+A second experiment (rko_lio tag `archive/feat/inertial-pose-filter`, not merged) adds the attitude. It is an error-state Kalman filter on attitude, position, velocity and accelerometer bias. The filter propagates with every IMU sample and is corrected by each registered pose, with a 6×6 covariance from the registration's Hessian. The fused pose replaces the registered one, and the filter's prediction is the registration's initial guess.
 
 | variant | FieldD | TunnelD | flat_surfaces_smooth | Shield_tunnel9 |
 |---|---:|---:|---:|---:|
@@ -725,7 +725,7 @@ RKO-LIO v16 has the lowest median over the 18 sequences because it holds the han
 **Gravity in RKO-LIO's window (W1).**
 - **Fixed gravity.** RKO-LIO's inertial window (rko_lio #30) holds gravity fixed. On Shield_tunnel4 and 5 its accelerometer bias ran away after the turnarounds.
 - **BIEVR-LIO's window.** It estimates the gravity direction in the same window.
-- **W1.** It adds that estimate to RKO-LIO's window (rko_lio branch `feat/inertial-window-gravity`, not merged): two tangent unknowns on the direction, a prior of weight 5 toward the current estimate, and propagation with the estimated gravity.
+- **W1.** It adds that estimate to RKO-LIO's window (rko_lio tag `archive/feat/inertial-window-gravity`, not merged): two tangent unknowns on the direction, a prior of weight 5 toward the current estimate, and propagation with the estimated gravity.
 - **Configuration.** On γ, W1 is v11 (no gait) with the window on.
 
 ATE in metres:
@@ -763,7 +763,7 @@ On the Xsens devices, W1 is v16 with the window on:
 
 ### Why W1 fails, and what it needs (2026-10-14)
 
-The experiments below are on rko_lio branch `exp/inertial-window-gravity-tilt-limit` (not merged).
+The experiments below are on rko_lio tag `archive/exp/inertial-window-gravity-tilt-limit` (not merged).
 
 **β on its Ouster internal IMU.** Shield_tunnel7 and 10 were converted with `/ouster/imu`. The Ouster IMU-to-sensor offset is the standard OS1 one: (6.253, −11.775, 7.645) mm, no rotation. ATE in metres:
 
@@ -807,7 +807,7 @@ ATE in metres, γ:
 ### Six ways to make the window robust (2026-10-14)
 
 **Setup.**
-- **Code.** rko_lio branch `exp/inertial-window-gravity-tilt-limit`, commit 2c618dd (not merged). Every option is off by default.
+- **Code.** rko_lio tag `archive/exp/inertial-window-gravity-tilt-limit`, commit 2c618dd (not merged). Every option is off by default.
 - **Base.** Each variant starts from W1 + rotation (W1R, above).
 - **Rule, fixed before each run.**
   - Every γ shield tunnel stays within 10 % of W1R.
@@ -867,7 +867,7 @@ A window that holds the registered poses fixed cannot tell these apart from moti
 - **β's long stalls.** These stay out of reach: the IMU cannot tell a constant speed from standing still.
 
 **An eighth way: the window where it agrees with the gait (2026-10-15).**
-- **Method.** v18 plus W1, its consistency gate (0.004) and, on γ, the IMU rotation. The window's velocity stays only while its speed along the gait's direction is within 30 % of the gait's speed; otherwise the gait's speed is applied (rko_lio `exp/inertial-window-hybrid`).
+- **Method.** v18 plus W1, its consistency gate (0.004) and, on γ, the IMU rotation. The window's velocity stays only while its speed along the gait's direction is within 30 % of the gait's speed; otherwise the gait's speed is applied (rko_lio tag `archive/exp/inertial-window-hybrid`).
 - **Rule.** The method and v18's rule were fixed before the runs.
 - **Result.** ATE in metres:
 
@@ -948,7 +948,7 @@ Medians over the 18 sequences. α is unchanged, because v17 is v16 there.
 - **Shield_tunnel2.** Its 10.3 m comes from one such turnaround at 184 s. After it, the map's tilt changes, and on the way back the height error grows to 30 m. W1, whose speed comes from the IMU window, keeps the height error below 6 m and ends within 0.5 m of the truth.
 
 **Carrying the gait speed over the lag with the IMU fails.**
-- **Code.** rko_lio branch `exp/gait-imu-lag-compensation`, d977c02, not merged.
+- **Code.** rko_lio tag `archive/exp/gait-imu-lag-compensation`, d977c02, not merged.
 - **Method.** It takes cadence × step as the speed half a window ago, and carries it to now with the IMU's velocity change since then. That change is in the world frame, with the 30 s mean acceleration removed.
 - **Rule.** The same as for v17.
 
@@ -963,7 +963,7 @@ ATE in metres:
 - **Why.** On these inputs, two seconds of IMU integration are not reliable enough. v14 learned the same with the gait's IMU reversal check.
 
 **Following the steps themselves.**
-- **Code.** rko_lio branch `exp/gait-step-events`, not merged.
+- **Code.** rko_lio tag `archive/exp/gait-step-events`, not merged.
   - 6ac1450 is stop and restart.
   - 9024b54 is stop only.
 - **The step events.** A causal 0.8–4 Hz band-pass of the specific force magnitude finds the peaks. A peak counts if it is above a quarter of the running median peak, with a floor of 0.3 m/s².
@@ -1185,7 +1185,7 @@ tunnel1–3 are development data from here on: their holdout run is spent. tunne
 | bridge03 | **1074.9** | 1096.9 |
 
 **A speed gate fails.**
-- **The candidate.** It applies the limit only at 3 m/s or more (rko_lio `exp/tilt-limit-speed-gate`, not merged). The 3 m/s lies between the UGV (under 1 m/s) and the road (9–31 m/s). It was fixed before the runs with v18's rule, over the six α sequences and the seven UGV bags.
+- **The candidate.** It applies the limit only at 3 m/s or more (rko_lio tag `archive/exp/tilt-limit-speed-gate`, not merged). The 3 m/s lies between the UGV (under 1 m/s) and the road (9–31 m/s). It was fixed before the runs with v18's rule, over the six α sequences and the seven UGV bags.
 - **What happens.** On the UGV it equals running without the limit. On the road:
   - Urban_Tunnel01–03 and bridge02 move by under 1.6 m.
   - bridge01 goes from 22.7 to 107.2 m. The car stands or crawls for 1721 of its 3820 scans and still needs the limit there.
@@ -1206,7 +1206,7 @@ tunnel1–3 are development data from here on: their holdout run is spent. tunne
   The limit on the road guards against a bias in the registration, not against weak information. A gate on weak information would limit the UGV and free the road.
 - **The gyro bias.**
   - RKO-LIO takes the gyro bias from one scan interval, 10–20 IMU samples. Against the mean over the first second, that estimate is off on the tilt axes by 0.06–0.2°/s on the UGV bags and by 0.26–0.47°/s on Urban_Tunnel01 and bridge01.
-  - A 1 s initialization window (rko_lio `exp/initialization-window`) was fixed before its runs, under the same rule as the speed gate. It helps γ and β on the UGV: tunnel3 γ 2.94 → 0.38 m, tunnel2 β 0.58 → 0.35 m. It also helps bridge01 and bridge02.
+  - A 1 s initialization window (rko_lio tag `archive/exp/initialization-window`) was fixed before its runs, under the same rule as the speed gate. It helps γ and β on the UGV: tunnel3 γ 2.94 → 0.38 m, tunnel2 β 0.58 → 0.35 m. It also helps bridge01 and bridge02.
   - But it loses tunnel3 α (0.72 → 4.62 m) and Urban_Tunnel01–03 (23.7 → 124.2, 38.4 → 53.2 and 59.3 → 70.2 m), so it is not adopted.
 
 ### On the handheld shield tunnels: the registration's speed
@@ -1225,7 +1225,7 @@ RKO-LIO v18's γ error there is along the tunnel. The vertical errors are alike.
 - **Corrected 2026-10-15.** An earlier version compared path lengths (v18 0.1–2.1 % too long). Those include the trajectory's jitter.
 - **Mostly not the stops.** The legs themselves come out up to 3.8 % long or short, so the error grows while walking. On Shield_tunnel3 and 6 the stops and the 2 s around them add more than the walking does (the overshoot of Next, item 2).
 - **Not the step.** v18 learns the step from the walk's first 100 plausible scans and then freezes it. On the ten shield tunnels it is off by 0–8.5 %, 3.8 % on average.
-  - A refinement from scans that see the travel was fixed before its runs with v18's rule (weakest share ≥ 0.05; rko_lio `exp/gait-step-refinement`). It brings the step within 2.1 % on average.
+  - A refinement from scans that see the travel was fixed before its runs with v18's rule (weakest share ≥ 0.05; rko_lio tag `archive/exp/gait-step-refinement`). It brings the step within 2.1 % on average.
   - The trajectories barely change: Shield_tunnel1 and 2 keep 1.13 and 2.76 m, and the mean over the 14 handheld sequences goes from 1.94 to 1.95 m. Not adopted.
 - **The registration's own speed.** Within the correction limit (2 cm per scan, 0.2 m/s at 10 Hz) the registration still sets the speed, and its speed carries the error: on Shield_tunnel2 it runs 2 % fast throughout. BIEVR-LIO holds the speed with its inertial window instead.
 
