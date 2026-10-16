@@ -261,6 +261,13 @@ if(BUILD_TESTING)
     target_include_directories(test_serialized_work_drain PRIVATE include)
   endif()
   ament_add_gtest(
+    test_background_work_drain
+    test/test_background_work_drain.cpp
+  )
+  if(TARGET test_background_work_drain)
+    target_include_directories(test_background_work_drain PRIVATE include)
+  endif()
+  ament_add_gtest(
     test_graph_state_store
     test/test_graph_state_store.cpp
   )
