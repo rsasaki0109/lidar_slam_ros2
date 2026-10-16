@@ -183,6 +183,21 @@ Reproducibility identifiers:
 - runner and complete research record:
   [`competitive-slam-plan-2026-07.md`](research/competitive-slam-plan-2026-07.md#glim-cpu-exp04-baseline)
 
+One new run of each system (the README used to list these):
+
+```bash
+python3 scripts/run_ours_competitive_benchmark.py \
+  --bag <hilti-exp04-ros2-bag> \
+  --reference-tum <common-six-checkpoints.tum> \
+  --reference-meta <common-six-checkpoints.json> \
+  --rko-param configs/hilti2022/rko_lio_hilti2022_pandar_competitive_v2.yaml \
+  --lidarslam-param configs/hilti2022/lidarslam_competitive_v2.yaml \
+  --output output/hilti_exp04_ours_n1 --runs 1
+python3 scripts/run_glim_benchmark.py \
+  --bag <hilti-exp04-ros2-bag> \
+  --output output/hilti_exp04_glim_n1 --runs 1
+```
+
 ## Voxel-SLAM v17 research candidate vs pinned OSS rivals
 
 This separate experiment evaluates a weak-axis/bounded-map Voxel-SLAM
