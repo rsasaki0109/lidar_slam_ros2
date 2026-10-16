@@ -268,6 +268,14 @@ if(BUILD_TESTING)
     target_include_directories(test_background_work_drain PRIVATE include)
   endif()
   ament_add_gtest(
+    test_cloud_input_extrinsic
+    test/test_cloud_input_extrinsic.cpp
+  )
+  if(TARGET test_cloud_input_extrinsic)
+    target_include_directories(test_cloud_input_extrinsic PRIVATE include ${EIGEN3_INCLUDE_DIR})
+    ament_target_dependencies(test_cloud_input_extrinsic sensor_msgs)
+  endif()
+  ament_add_gtest(
     test_graph_state_store
     test/test_graph_state_store.cpp
   )

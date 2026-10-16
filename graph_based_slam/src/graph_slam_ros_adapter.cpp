@@ -172,6 +172,12 @@ GraphBasedSlamComponent::Impl::Impl(GraphBasedSlamComponent & node)
   RCLCPP_INFO(node_.get_logger(), "initialization start");
 
   adjacent_edge_info_weight_ = config_.adjacent_edge_info_weight_;
+  std::string extrinsic_error;
+  if (!cloud_input::parseLidarExtrinsic(
+      config_.extrinsic_lidar2base_quat_xyzw_xyz_, &cloud_input_extrinsic_, &extrinsic_error))
+  {
+    throw std::invalid_argument(extrinsic_error);
+  }
   adjacent_edge_info_weight_trans_ = config_.adjacent_edge_info_weight_trans_;
   adjacent_edge_info_weight_rot_ = config_.adjacent_edge_info_weight_rot_;
 
@@ -1016,6 +1022,15 @@ void GraphBasedSlamComponent::Impl::tryCreateSubmap(
   submap.distance = accumulated_distance_;
   submap.pose = odom_msg.pose.pose;
   submap.cloud = cloud_msg;
+  // The odometry pose places the base frame, so a LiDAR-frame scan is moved
+  // there first; the default identity extrinsic leaves the cloud unchanged.
+  std::string extrinsic_error;
+  if (!cloud_input::transformCloudToBase(cloud_input_extrinsic_, submap.cloud, &extrinsic_error)) {
+    io_ports_.diagnostics->emit(
+      {ports::DiagnosticLevel::WARNING, "cloud_input_extrinsic_failed",
+        "submap skipped: " + extrinsic_error});
+    return;
+  }
   submap.cloud.header.frame_id = odom_msg.child_frame_id;
 
   const int submap_idx = static_cast<int>(graph_state_.submapCount());

@@ -66,6 +66,7 @@
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <std_srvs/srv/empty.hpp>
 #include "graph_based_slam/background_work_drain.hpp"
+#include "graph_based_slam/cloud_input_extrinsic.hpp"
 #include "graph_based_slam/degeneracy_report_summary.hpp"
 #include "graph_based_slam/external_io_ports.hpp"
 #include "graph_based_slam/gnss_origin_accumulator.hpp"
@@ -176,6 +177,8 @@ private:
     nav_msgs::msg::Odometry, sensor_msgs::msg::PointCloud2>;
   std::shared_ptr<message_filters::Synchronizer<OdomCloudSyncPolicyExact>>
   odom_cloud_sync_exact_;
+    // Applied to every submap cloud before the odometry pose places it.
+  cloud_input::LidarExtrinsic cloud_input_extrinsic_;
   Eigen::Vector3d last_submap_position_ {0, 0, 0};
   bool last_submap_position_valid_ {false};
   double accumulated_distance_ {0.0};
