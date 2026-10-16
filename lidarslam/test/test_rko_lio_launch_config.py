@@ -34,6 +34,8 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+import yaml
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 LAUNCH_PATH = REPO_ROOT / 'lidarslam' / 'launch' / 'rko_lio_slam.launch.py'
@@ -304,3 +306,43 @@ def test_offline_wait_parameter_exists_in_vendored_rko_lio():
     assert 'declare_parameter<double>("output_subscriber_timeout_sec"' in (
         offline_node.read_text(encoding='utf-8')
     )
+
+
+def _launch_function(name: str):
+    """Compile one helper of the launch file on its own, without ROS imports."""
+    function = _find_function(_parse_launch_ast(), name)
+    namespace = {'yaml': yaml}
+    module = ast.Module(body=[function], type_ignores=[])
+    exec(compile(module, str(LAUNCH_PATH), 'exec'), namespace)
+    return namespace[name]
+
+
+def test_graph_backend_receives_the_rko_lidar_extrinsic(tmp_path):
+    """cloud_input is a LiDAR-frame scan: the backend needs the frontend's extrinsic."""
+    load_rko_params = _launch_function('load_rko_params')
+    extrinsic = [0.7071068, -0.7071068, 0.0, 0.0, -0.001, -0.00855, 0.055]
+    ros_layout = tmp_path / 'ros.yaml'
+    ros_layout.write_text(
+        yaml.safe_dump({'/**': {'ros__parameters': {
+            'extrinsic_lidar2base_quat_xyzw_xyz': extrinsic}}}),
+        encoding='utf-8',
+    )
+    flat_layout = tmp_path / 'flat.yaml'
+    flat_layout.write_text(
+        yaml.safe_dump({'extrinsic_lidar2base_quat_xyzw_xyz': extrinsic}),
+        encoding='utf-8',
+    )
+    for path in (ros_layout, flat_layout):
+        loaded = load_rko_params(str(path))
+        assert loaded['extrinsic_lidar2base_quat_xyzw_xyz'] == extrinsic
+
+    source = ast.get_source_segment(
+        LAUNCH_PATH.read_text(encoding='utf-8'),
+        _find_function(_parse_launch_ast(), 'create_graph_based_slam_node'),
+    )
+    assert "LaunchConfiguration('rko_param_file')" in source
+    assert (
+        "load_rko_params(rko_param_file).get('extrinsic_lidar2base_quat_xyzw_xyz')"
+        in source
+    )
+    assert "overrides['extrinsic_lidar2base_quat_xyzw_xyz']" in source

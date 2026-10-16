@@ -38,6 +38,7 @@ from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
+import yaml
 
 
 def _parse_bool_arg(value):
@@ -51,6 +52,16 @@ def _add_optional_param_override(overrides, context, arg_name, parser):
     if value == '':
         return
     overrides[arg_name] = parser(value)
+
+
+def load_rko_params(path):
+    """Read an RKO-LIO parameter file, flat or in the ros__parameters layout."""
+    with open(path, encoding='utf-8') as stream:
+        data = yaml.safe_load(stream) or {}
+    for value in data.values():
+        if isinstance(value, dict) and 'ros__parameters' in value:
+            return dict(value['ros__parameters'])
+    return dict(data)
 
 
 def create_rko_offline_node(context, *args, **kwargs):
@@ -211,6 +222,14 @@ def create_graph_based_slam_node(context, *args, **kwargs):
     _add_optional_param_override(
         overrides, context, 'distance_loop_closure', float,
     )
+    # RKO-LIO publishes its deskewed scan (cloud_input) in the LiDAR frame but
+    # the odometry pose of its base frame, so the backend has to apply the same
+    # LiDAR-to-base extrinsic before that pose can place the scan.
+    rko_param_file = LaunchConfiguration('rko_param_file').perform(context)
+    if rko_param_file:
+        extrinsic = load_rko_params(rko_param_file).get('extrinsic_lidar2base_quat_xyzw_xyz')
+        if extrinsic is not None:
+            overrides['extrinsic_lidar2base_quat_xyzw_xyz'] = [float(v) for v in extrinsic]
     # M6a10's GT-blind trajectory/consumer contract is benchmark-only.  A
     # ``--skip-map-save`` runner must also suppress loop-triggered map writes:
     # the graph component otherwise calls ``doPoseAdjustment(..., true)`` for
