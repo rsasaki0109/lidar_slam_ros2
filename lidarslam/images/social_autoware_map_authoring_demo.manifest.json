@@ -1,7 +1,7 @@
 {
   "canonical_docs": {
     "source_path": "docs/getting-started.md",
-    "url": "https://github.com/rsasaki0109/lidar_slam_ros2/blob/c4cf7075ed28585748c6c30a968c49086cee05c4/docs/getting-started.md"
+    "url": "https://github.com/rsasaki0109/lidar_slam_ros2/blob/570993e9f049b7c4c08ef4089b2d7a30b00f5738/docs/getting-started.md"
   },
   "captions": {
     "cue_count": 4,
@@ -23,8 +23,8 @@
   },
   "content_contract": {
     "path": "docs/contracts/social-demo-media-v1.json",
-    "sha256": "67cf415d4dfa300cc0be010e9a373b36a4ea5ceeebb44d3639cc243b374cb8fb",
-    "size_bytes": 3237
+    "sha256": "ddd9472b0b0c6b2b0bea492996df4a600f2bc0c4173fdccf1bc14538c5ea25d9",
+    "size_bytes": 3033
   },
   "post_copy": {
     "languages": [
@@ -32,7 +32,7 @@
       "en"
     ],
     "path": "autoware_map_authoring_post_v0.10.1.md",
-    "sha256": "6e003d8076256068ad504efb394d401e184a96f23942b2235f49f1a6c2546173",
+    "sha256": "cee351843b9f2d14b803409057db8782ed4b551d878620edecaaf3e1fdafb6c8",
     "size_bytes": 1954
   },
   "product_version": "0.10.1",
@@ -53,14 +53,9 @@
       "path": "lidarslam/images/path.png",
       "sha256": "738433942a6e7b8c2c6d450548266b1178f30d33319454b57a86fbc987657010",
       "size_bytes": 40036
-    },
-    {
-      "path": "lidarslam/images/autoware_map_loader_proof.png",
-      "sha256": "a716229498a86bf4b6c23a9c27f5143620373574bdd14c7044e0928a55bd79d9",
-      "size_bytes": 303246
     }
   ],
-  "source_revision": "c4cf7075ed28585748c6c30a968c49086cee05c4",
+  "source_revision": "570993e9f049b7c4c08ef4089b2d7a30b00f5738",
   "status": "PUBLICATION_CANDIDATE",
   "video": {
     "codec": "h264",
@@ -68,8 +63,8 @@
     "fps": 24,
     "height": 720,
     "path": "social_autoware_map_authoring_demo.mp4",
-    "sha256": "124d29c22d9263ca82ec01e5d98f304b1143d2cc62a2593d5adf21c0345ec3a1",
-    "size_bytes": 443690,
+    "sha256": "69fcdfa95b9a2c348bd8d4caa49f0cd45c9b8d41c205ca887368ce5451b288d5",
+    "size_bytes": 372056,
     "width": 1280
   }
 }

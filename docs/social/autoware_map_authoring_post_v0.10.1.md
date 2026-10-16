@@ -4,7 +4,7 @@
 >
 > External publication authorized: **false**
 >
-> Source revision: `c4cf7075ed28585748c6c30a968c49086cee05c4`
+> Source revision: `570993e9f049b7c4c08ef4089b2d7a30b00f5738`
 
 Suggested attachment: `social_autoware_map_authoring_demo.mp4` with `social_autoware_map_authoring_demo.en.vtt`.
 
@@ -19,7 +19,7 @@ lidarslam-map start /path/to/rosbag2
 
 成功時は `pointcloud_map/`、`map_projector_info.yaml`、Lanelet2、
 `map_verify: PASS`、検証 receipt を同じセッションで確認できます。
-公開前の exact-version guide: <https://github.com/rsasaki0109/lidar_slam_ros2/blob/c4cf7075ed28585748c6c30a968c49086cee05c4/docs/getting-started.md>
+公開前の exact-version guide: <https://github.com/rsasaki0109/lidar_slam_ros2/blob/570993e9f049b7c4c08ef4089b2d7a30b00f5738/docs/getting-started.md>
 
 この下書きはリリース、対応パッケージ、性能優位、センサー互換性を主張しません。
 投稿する場合は、同じ版の公開済み artifact と public docs の監査完了後に文言を再確認してください。
@@ -36,7 +36,7 @@ lidarslam-map start /path/to/rosbag2
 
 A successful session keeps the map bundle, `map_verify: PASS`, and its
 validation receipt together. Exact-version guide before publication:
-<https://github.com/rsasaki0109/lidar_slam_ros2/blob/c4cf7075ed28585748c6c30a968c49086cee05c4/docs/getting-started.md>
+<https://github.com/rsasaki0109/lidar_slam_ros2/blob/570993e9f049b7c4c08ef4089b2d7a30b00f5738/docs/getting-started.md>
 
 This draft makes no release, package-availability, performance-superiority, or
 sensor-compatibility claim. Recheck the wording only after the same-version

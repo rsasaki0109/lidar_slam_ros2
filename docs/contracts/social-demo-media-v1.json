@@ -25,10 +25,6 @@
     {
       "path": "lidarslam/images/path.png",
       "sha256": "738433942a6e7b8c2c6d450548266b1178f30d33319454b57a86fbc987657010"
-    },
-    {
-      "path": "lidarslam/images/autoware_map_loader_proof.png",
-      "sha256": "a716229498a86bf4b6c23a9c27f5143620373574bdd14c7044e0928a55bd79d9"
     }
   ],
   "slides": [
@@ -57,7 +53,7 @@
     },
     {
       "id": "own-bag",
-      "image": "lidarslam/images/autoware_map_loader_proof.png",
+      "image": null,
       "eyebrow": "your rosbag2",
       "title": "Inspect before expensive mapping",
       "body": [

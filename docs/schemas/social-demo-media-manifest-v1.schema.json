@@ -109,8 +109,8 @@
     },
     "source_images": {
       "type": "array",
-      "minItems": 3,
-      "maxItems": 3,
+      "minItems": 2,
+      "maxItems": 2,
       "uniqueItems": true,
       "items": {"$ref": "#/definitions/repository_artifact"}
     },

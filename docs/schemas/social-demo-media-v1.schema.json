@@ -53,8 +53,8 @@
     },
     "source_images": {
       "type": "array",
-      "minItems": 3,
-      "maxItems": 3,
+      "minItems": 2,
+      "maxItems": 2,
       "uniqueItems": true,
       "items": {"$ref": "#/definitions/source_image"}
     },
@@ -84,8 +84,7 @@
         "path": {
           "enum": [
             "lidarslam/images/map.png",
-            "lidarslam/images/path.png",
-            "lidarslam/images/autoware_map_loader_proof.png"
+            "lidarslam/images/path.png"
           ]
         },
         "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
@@ -102,7 +101,6 @@
           "enum": [
             "lidarslam/images/map.png",
             "lidarslam/images/path.png",
-            "lidarslam/images/autoware_map_loader_proof.png",
             null
           ]
         },
