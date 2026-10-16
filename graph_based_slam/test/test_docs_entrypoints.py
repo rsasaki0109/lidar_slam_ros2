@@ -406,7 +406,6 @@ def test_docs_exist_and_are_linked_from_readme():
     assert '(docs/benchmarking.md)' in readme
     assert 'python3 -m mkdocs serve' in readme
     assert 'lidarslam-map run' in readme
-    assert '(lidarslam/images/autoware_map_loader_proof.png)' in readme
     assert 'git clone --recursive https://github.com/rsasaki0109/lidar_slam_ros2.git' in readme
     assert 'bash scripts/source_quickstart.sh' in readme
     assert 'Run `lidarslam-map` with no arguments' in readme

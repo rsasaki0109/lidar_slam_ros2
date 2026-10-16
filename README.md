@@ -65,8 +65,6 @@ For an Ouster, Velodyne, RoboSense or other PointCloud2 bag, do not edit this pa
 - **Report on a fixed output:** `lidarslam-map report /path/to/output/mid360_demo --json` ([first-map validation guide](docs/external-first-map-validation.md)).
 - **Automation:** `lidarslam-map run` ([Operator workflows](docs/workflows.md)). Localization: [Localize On The Map](docs/getting-started.md#5-localize-on-the-map).
 
-![Autoware map loaders rendering a pointcloud_map authored by this stack](lidarslam/images/autoware_map_loader_proof.png)
-
 ## Why lidarslam_ros2
 
 - **Autoware-compatible output:** `verify_autoware_map.py` prints `map_verify: PASS` on every saved bundle.
