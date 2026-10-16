@@ -65,12 +65,12 @@
 #include <sensor_msgs/msg/nav_sat_fix.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <std_srvs/srv/empty.hpp>
+#include "graph_based_slam/background_work_drain.hpp"
 #include "graph_based_slam/degeneracy_report_summary.hpp"
 #include "graph_based_slam/external_io_ports.hpp"
 #include "graph_based_slam/gnss_origin_accumulator.hpp"
 #include "graph_based_slam/graph_state_store.hpp"
 #include "graph_based_slam/loop_edge_set.hpp"
-#include "graph_based_slam/serialized_work_drain.hpp"
 
 namespace graphslam
 {
@@ -97,10 +97,6 @@ private:
     // stay in the component implementation translation unit.
   std::unique_ptr<BackendWorkspace> backend_;
   ports::ExternalIoPorts io_ports_;
-    // BackendWorkspace is single-threaded by contract. Keep that contract
-    // when hosted by a MultiThreadedExecutor, while coalescing arrivals
-    // during a long search.
-  scheduling::SerializedWorkDrain backend_work_drain_;
     // Serializes ordered input staging (cloud conversion / PCD writes) but
     // never blocks GraphStateStore snapshots during that I/O.
   std::mutex submap_ingest_mtx_;
@@ -135,6 +131,17 @@ private:
     // the data, not of how the executor batched arrivals.
   void runEventDrivenLoopSearch();
   void drainEventDrivenLoopSearch();
+  enum class LoopSearchDrain
+  {
+    kNoInput,
+    kInterrupted,
+    kComplete,
+  };
+    // Searches every pending query of the latest graph snapshot, one query
+    // prefix at a time, until a snapshot has no pending query left. On
+    // kComplete map_array_msg holds that fully searched snapshot.
+  LoopSearchDrain searchPendingLoopQueries(lidarslam_msgs::msg::MapArray & map_array_msg);
+  void saveMapAfterLoopSearch();
   bool snapshotGraphState(lidarslam_msgs::msg::MapArray & map_array_msg);
   void doPoseAdjustment(
     const lidarslam_msgs::msg::MapArray & map_array_msg,
@@ -245,6 +252,14 @@ private:
   static constexpr size_t kMaxImuBufferSize = 50000;
   void receiveImu(const sensor_msgs::msg::Imu & msg);
   Eigen::Quaterniond integrateImuRotation(double t0, double t1) const;
+
+    // Loop search, the in-loop pose adjustments and /map_save run on this one
+    // worker thread, which keeps BackendWorkspace single-threaded by contract
+    // under any executor. Input callbacks only stage the submap and request a
+    // drain, so a long registration no longer stalls the executor until the
+    // bounded odom/cloud histories overwrite unread pairs. Declared last so
+    // that it is constructed after, and stopped before, everything it uses.
+  scheduling::BackgroundWorkDrain backend_worker_;
 };
 }  // namespace graphslam
 

@@ -166,7 +166,8 @@ GraphBasedSlamComponent::Impl::Impl(GraphBasedSlamComponent & node)
   listener_(tfbuffer_),
   broadcaster_(&node_),
   backend_(std::make_unique<BackendWorkspace>(makeGraphSlamApplicationConfig(config_))),
-  io_ports_(makeExternalIoPorts(node_, config_))
+  io_ports_(makeExternalIoPorts(node_, config_)),
+  backend_worker_([this]() {drainEventDrivenLoopSearch();})
 {
   RCLCPP_INFO(node_.get_logger(), "initialization start");
 
@@ -200,7 +201,11 @@ GraphBasedSlamComponent::Impl::Impl(GraphBasedSlamComponent & node)
       std::placeholders::_3));
 }  // NOLINT(readability/fn_size)
 
-GraphBasedSlamComponent::Impl::~Impl() = default;
+GraphBasedSlamComponent::Impl::~Impl()
+{
+  // Let a running search finish before the state it uses is destroyed.
+  backend_worker_.stop();
+}
 
 void GraphBasedSlamComponent::Impl::initializePubSub()
 {
@@ -312,10 +317,25 @@ void GraphBasedSlamComponent::Impl::handleMapSaveRequest(
   static_cast<void>(response);
 
   std::cout << "Received an request to save the map" << std::endl;
+  // Save on the backend worker once every submap staged so far has been
+  // searched; the service still responds only after the bundle is written.
+  if (!backend_worker_.runSerialized([this]() {saveMapAfterLoopSearch();})) {
+    std::cout << "map save skipped: the backend is shutting down" << std::endl;
+  }
+}
+
+void GraphBasedSlamComponent::Impl::saveMapAfterLoopSearch()
+{
   lidarslam_msgs::msg::MapArray map_array_msg;
-  if (!snapshotGraphState(map_array_msg)) {
-    std::cout << "initial map is not received" << std::endl;
-    return;
+  switch (searchPendingLoopQueries(map_array_msg)) {
+    case LoopSearchDrain::kNoInput:
+      std::cout << "initial map is not received" << std::endl;
+      return;
+    case LoopSearchDrain::kInterrupted:
+      std::cout << "map save skipped: the backend is shutting down" << std::endl;
+      return;
+    case LoopSearchDrain::kComplete:
+      break;
   }
   doPoseAdjustment(map_array_msg, true);
 }
@@ -328,19 +348,32 @@ bool GraphBasedSlamComponent::Impl::snapshotGraphState(
 
 void GraphBasedSlamComponent::Impl::runEventDrivenLoopSearch()
 {
-  // A component may be hosted by a MultiThreadedExecutor. Elect one callback
-  // to own BackendCore and coalesce notifications that arrive while it drains.
-  backend_work_drain_.request([this]() {drainEventDrivenLoopSearch();});
+  // Never search in the calling callback: the worker drains every staged
+  // submap and coalesces the requests that arrive while it searches.
+  backend_worker_.request();
 }
 
 void GraphBasedSlamComponent::Impl::drainEventDrivenLoopSearch()
 {
-  while (rclcpp::ok()) {
-    lidarslam_msgs::msg::MapArray map_array_msg;
-    if (!snapshotGraphState(map_array_msg)) {return;}
+  lidarslam_msgs::msg::MapArray map_array_msg;
+  try {
+    searchPendingLoopQueries(map_array_msg);
+  } catch (const std::exception & error) {
+    // Rethrown to the next request on the executor, as before the worker.
+    RCLCPP_ERROR(node_.get_logger(), "event-driven loop search failed: %s", error.what());
+    throw;
+  }
+}
+
+GraphBasedSlamComponent::Impl::LoopSearchDrain
+GraphBasedSlamComponent::Impl::searchPendingLoopQueries(
+  lidarslam_msgs::msg::MapArray & map_array_msg)
+{
+  while (rclcpp::ok() && !backend_worker_.stopRequested()) {
+    if (!snapshotGraphState(map_array_msg)) {return LoopSearchDrain::kNoInput;}
     const int num_submaps = static_cast<int>(map_array_msg.submaps.size());
-    if (num_submaps < 2) {return;}
-    if (backend_->application->stateSnapshot().next_query_index >= num_submaps) {return;}
+    int query_index = backend_->application->stateSnapshot().next_query_index;
+    if (num_submaps < 2 || query_index >= num_submaps) {return LoopSearchDrain::kComplete;}
     if (map_array_msg.cloud_coordinate != map_array_msg.LOCAL) {
       RCLCPP_WARN(node_.get_logger(), "cloud_coordinate should be local, but it's not local.");
     }
@@ -356,40 +389,51 @@ void GraphBasedSlamComponent::Impl::drainEventDrivenLoopSearch()
       [this, &map_array_msg](int idx) -> pcl::PointCloud<pcl::PointXYZI>::Ptr {
         return loadSubmapCloud(map_array_msg, idx);
       };
-    const auto events = backend_->application->processSubmaps(
-      ordered_submaps, raw_cloud_provider);
-    for (const auto & event : events) {
-      if (config_.debug_flag_) {
-        RCLCPP_INFO(
-          node_.get_logger(), "event-driven loop search, query submap %d of %d", event.query_index,
-          num_submaps);
+    // One query prefix per call, exactly as when every arrival drained
+    // inline: each in-loop pose adjustment then sees the loop edges of its
+    // own prefix only, and a stop request is honored between queries.
+    for (; query_index < num_submaps; ++query_index) {
+      if (!rclcpp::ok() || backend_worker_.stopRequested()) {
+        return LoopSearchDrain::kInterrupted;
       }
-      for (const auto & line : event.search_output.logs) {
-        if (line.via_logger) {
-          RCLCPP_INFO(node_.get_logger(), "%s", line.text.c_str());
-        } else {
-          std::cout << line.text << std::endl;
+      const std::vector<backend_core::SubmapMeta> query_prefix_submaps(
+        ordered_submaps.begin(), ordered_submaps.begin() + query_index + 1);
+      const auto events = backend_->application->processSubmaps(
+        query_prefix_submaps, raw_cloud_provider);
+      for (const auto & event : events) {
+        if (config_.debug_flag_) {
+          RCLCPP_INFO(
+            node_.get_logger(), "event-driven loop search, query submap %d of %d",
+            event.query_index, num_submaps);
         }
-      }
-      if (!event.registration_searched && config_.debug_flag_) {
-        RCLCPP_INFO(
-          node_.get_logger(), "loop search registration skipped for query submap %d by stride %d",
-          event.query_index, config_.loop_search_query_stride_);
-      }
-      if (event.search_output.proposal.found && !event.graph_changed) {
-        std::cout << "loop edge skipped as redundant or lower quality" << std::endl;
-      }
-      if (event.graph_changed) {
-        lidarslam_msgs::msg::MapArray query_prefix;
-        query_prefix.header = map_array_msg.header;
-        query_prefix.cloud_coordinate = map_array_msg.cloud_coordinate;
-        query_prefix.submaps.assign(
-          map_array_msg.submaps.begin(),
-          map_array_msg.submaps.begin() + event.query_index + 1);
-        doPoseAdjustment(query_prefix, config_.use_save_map_in_loop_);
+        for (const auto & line : event.search_output.logs) {
+          if (line.via_logger) {
+            RCLCPP_INFO(node_.get_logger(), "%s", line.text.c_str());
+          } else {
+            std::cout << line.text << std::endl;
+          }
+        }
+        if (!event.registration_searched && config_.debug_flag_) {
+          RCLCPP_INFO(
+            node_.get_logger(), "loop search registration skipped for query submap %d by stride %d",
+            event.query_index, config_.loop_search_query_stride_);
+        }
+        if (event.search_output.proposal.found && !event.graph_changed) {
+          std::cout << "loop edge skipped as redundant or lower quality" << std::endl;
+        }
+        if (event.graph_changed) {
+          lidarslam_msgs::msg::MapArray query_prefix;
+          query_prefix.header = map_array_msg.header;
+          query_prefix.cloud_coordinate = map_array_msg.cloud_coordinate;
+          query_prefix.submaps.assign(
+            map_array_msg.submaps.begin(),
+            map_array_msg.submaps.begin() + event.query_index + 1);
+          doPoseAdjustment(query_prefix, config_.use_save_map_in_loop_);
+        }
       }
     }
   }
+  return LoopSearchDrain::kInterrupted;
 }
 
 void GraphBasedSlamComponent::Impl::doPoseAdjustment(
