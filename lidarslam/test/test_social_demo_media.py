@@ -96,7 +96,7 @@ def test_contract_binds_current_version_commands_images_and_no_public_claims():
         'fixed_demo': 'lidarslam-map demo',
         'own_bag': 'lidarslam-map start /path/to/rosbag2',
     }
-    assert len(contract['source_images']) == 3
+    assert len(contract['source_images']) == 2
     assert [slide['id'] for slide in contract['slides']] == [
         'promise',
         'beginner-path',

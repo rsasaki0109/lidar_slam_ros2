@@ -59,7 +59,7 @@ GETTING_STARTED_JA = REPO_ROOT / 'docs' / 'getting-started-ja.md'
 USABILITY_SCORECARD_DOC = REPO_ROOT / 'docs' / 'usability-scorecard.md'
 DOCS_ASSETS_DIR = REPO_ROOT / 'docs' / 'assets'
 DOCS_EXTRA_CSS_PATH = DOCS_ASSETS_DIR / 'stylesheets' / 'extra.css'
-DOCS_AUTOWARE_PROOF_SITE_IMAGE_PATH = DOCS_ASSETS_DIR / 'images' / 'autoware_map_loader_proof.png'
+DOCS_SLAM_GIF_SITE_IMAGE_PATH = DOCS_ASSETS_DIR / 'images' / 'slam_outdoor_walk.gif'
 DOCS_DYNAMIC_FILTER_SITE_IMAGE_PATH = (
     DOCS_ASSETS_DIR / 'images' / 'dynamic_object_filter_bag6_summary.svg'
 )
@@ -272,9 +272,6 @@ RELEASE_PROMOTION_SCRIPT = REPO_ROOT / 'scripts' / 'promote_release_images.py'
 DOCKER_WORKFLOW = REPO_ROOT / '.github' / 'workflows' / 'docker.yml'
 DOCS_SITE_WORKFLOW = REPO_ROOT / '.github' / 'workflows' / 'docs-site.yml'
 README_LOOP_IMAGE_PATH = REPO_ROOT / 'lidarslam' / 'images' / 'mid360_loop_closure_zoom.png'
-README_AUTOWARE_PROOF_IMAGE_PATH = (
-    REPO_ROOT / 'lidarslam' / 'images' / 'autoware_map_loader_proof.png'
-)
 README_DYNAMIC_FILTER_IMAGE_PATH = (
     REPO_ROOT / 'lidarslam' / 'images' / 'dynamic_object_filter_bag6_summary.svg'
 )
@@ -319,7 +316,7 @@ def test_docs_exist_and_are_linked_from_readme():
     assert USABILITY_SCORECARD_DOC.is_file()
     assert DOCS_ASSETS_DIR.is_dir()
     assert DOCS_EXTRA_CSS_PATH.is_file()
-    assert DOCS_AUTOWARE_PROOF_SITE_IMAGE_PATH.is_file()
+    assert DOCS_SLAM_GIF_SITE_IMAGE_PATH.is_file()
     assert DOCS_DYNAMIC_FILTER_SITE_IMAGE_PATH.is_file()
     assert AUTOWARE_QUICKSTART.is_file()
     assert AUTOWARE_MAP_AUTHORING.is_file()
@@ -379,7 +376,6 @@ def test_docs_exist_and_are_linked_from_readme():
     assert CANDIDATE_IMAGE_WORKFLOW.is_file()
     assert DOCS_SITE_WORKFLOW.is_file()
     assert README_LOOP_IMAGE_PATH.is_file()
-    assert README_AUTOWARE_PROOF_IMAGE_PATH.is_file()
     assert README_DYNAMIC_FILTER_IMAGE_PATH.is_file()
     assert SOCIAL_CARD_PATH.is_file()
     assert SOCIAL_DEMO_VIDEO_PATH.is_file()
@@ -1335,7 +1331,6 @@ def test_release_metadata_and_core_package_versions_match(tmp_path: Path):
         'docs/autoware-foxglove.md',
         'docs/social/autoware_map_authoring_post_v0.10.1.md',
         'docs/workflows.md',
-        'lidarslam/images/autoware_map_loader_proof.png',
         'lidarslam/images/dynamic_object_filter_bag6_summary.svg',
         'lidarslam/images/social_autoware_map_authoring.png',
         'lidarslam/images/social_autoware_map_authoring_demo.mp4',
@@ -1890,7 +1885,7 @@ def test_canonical_map_authoring_page_has_one_beginner_contract():
     for entrypoint in retired_beginner_entrypoints:
         assert entrypoint not in map_doc
 
-    assert 'assets/images/autoware_map_loader_proof.png' in map_doc
+    assert 'assets/images/slam_outdoor_walk.gif' in map_doc
     assert 'ghcr.io/rsasaki0109/lidar_slam_ros2:v0.10.0-humble' in map_doc
     assert 'latest published stable release' in map_doc
     assert 'Lower-level launch files and repository helpers are advanced' in (

@@ -145,7 +145,6 @@ PRODUCT_CONFIGS = (
     'configs/real_data_e2e/driving_slam_mid360_v1.json',
 )
 PRODUCT_MEDIA = (
-    'lidarslam/images/autoware_map_loader_proof.png',
     'lidarslam/images/dynamic_object_filter_bag6_summary.svg',
     'lidarslam/images/social_autoware_map_authoring.png',
     'lidarslam/images/social_autoware_map_authoring_demo.mp4',

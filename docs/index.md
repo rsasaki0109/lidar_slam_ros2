@@ -24,7 +24,7 @@ title: lidarslam_ros2 Docs
     <p class="hero__hint">New here? The Docker one-liner needs no ROS 2 workspace.</p>
   </div>
   <div class="hero__visual">
-    <img src="assets/images/autoware_map_loader_proof.png" alt="Browser proof of an Autoware-compatible pointcloud map" />
+    <img src="assets/images/slam_outdoor_walk.gif" alt="Live map building on a handheld outdoor walk, coloured by when each part was mapped" />
   </div>
 </section>
 

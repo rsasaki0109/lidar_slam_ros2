@@ -3,7 +3,7 @@
 Turn one compatible rosbag2 into a verified map bundle that can be reviewed
 before it is loaded by Autoware-compatible tooling.
 
-![Autoware map loaders rendering a pointcloud map authored by this stack](assets/images/autoware_map_loader_proof.png)
+![Live map building on a handheld outdoor walk, coloured by when each part was mapped](assets/images/slam_outdoor_walk.gif)
 
 The maintained product path uses the `RKO-LIO` frontend and
 `graph_based_slam` backend. It writes `pointcloud_map/` plus
