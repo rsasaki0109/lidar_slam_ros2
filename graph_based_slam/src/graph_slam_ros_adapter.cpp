@@ -441,7 +441,7 @@ void GraphBasedSlamComponent::Impl::doPoseAdjustment(
 
   /* GNSS anchors (pre-pass: nearest-measurement match over the buffer) */
   std::vector<pose_graph::GnssConstraint> gnss_constraints;
-  if (config_.use_gnss_ && gnss_origin_set_) {
+  if (config_.use_gnss_ && isGnssOriginSet()) {
     std::lock_guard<std::mutex> gnss_lock(gnss_mtx_);
     int gnss_rtk_like_edges_added = 0;
 
@@ -768,6 +768,13 @@ void GraphBasedSlamComponent::Impl::receiveNavSatFix(const sensor_msgs::msg::Nav
   if (gnss_buffer_.size() > 100000) {
     gnss_buffer_.erase(gnss_buffer_.begin(), gnss_buffer_.begin() + 25000);
   }
+}
+
+bool GraphBasedSlamComponent::Impl::isGnssOriginSet()
+{
+  // The origin is written by the GNSS callback; once set it never changes.
+  std::lock_guard<std::mutex> lock(gnss_mtx_);
+  return gnss_origin_set_;
 }
 
 bool GraphBasedSlamComponent::Impl::isUsableGnssFix(const sensor_msgs::msg::NavSatFix & msg) const
@@ -1192,10 +1199,19 @@ void GraphBasedSlamComponent::Impl::saveGridDividedMap(
   std::cout << "Metadata: " << out_dir << "/pointcloud_map_metadata.yaml" << std::endl;
 
   // Always emit map_projector_info.yaml so Autoware can load pointcloud-only maps.
+  bool gnss_origin_set = false;
+  double gnss_origin_lat = 0.0;
+  double gnss_origin_lon = 0.0;
+  {
+    std::lock_guard<std::mutex> gnss_lock(gnss_mtx_);
+    gnss_origin_set = gnss_origin_set_;
+    gnss_origin_lat = gnss_origin_lat_;
+    gnss_origin_lon = gnss_origin_lon_;
+  }
   std::string proj_file = config_.map_save_dir_ + "/map_projector_info.yaml";
   io_ports_.map_output->writeBytes(
     proj_file,
-    map_saver::projectorInfoYaml(gnss_origin_set_, gnss_origin_lat_, gnss_origin_lon_));
-  std::cout << map_saver::projectorInfoLogLine(gnss_origin_set_, proj_file) << std::endl;
+    map_saver::projectorInfoYaml(gnss_origin_set, gnss_origin_lat, gnss_origin_lon));
+  std::cout << map_saver::projectorInfoLogLine(gnss_origin_set, proj_file) << std::endl;
 }
 }  // namespace graphslam

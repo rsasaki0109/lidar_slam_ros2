@@ -219,6 +219,7 @@ private:
   double gnss_origin_lon_ {0.0};
   double gnss_origin_alt_ {0.0};
   void receiveNavSatFix(const sensor_msgs::msg::NavSatFix & msg);
+  bool isGnssOriginSet();
   bool isUsableGnssFix(const sensor_msgs::msg::NavSatFix & msg) const;
   void tryInitializeGnssOrigin(double lat, double lon, double alt);
   Eigen::Vector3d geodeticToEnu(double lat, double lon, double alt) const;
