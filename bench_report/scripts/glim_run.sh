@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Usage: glim_run.sh <out_dir> [bag]
+# Usage: [GLIM_OVERRIDES=<dir with the 4 override json files>] glim_run.sh <out_dir> [bag]
 # Native equivalent of scripts/glim_container_run.sh (v1 path) of lidar_slam_ros2: GLIM's default config
 # with the four configs/glim/hilti2022_cpu overrides, then
 #   /usr/bin/time -v ros2 run glim_ros glim_rosbag <bag> -p config_path:=... -p auto_quit:=true -p dump_path:=<out>/dump
@@ -12,7 +12,7 @@ export ROS_HOME="${out}/ros_home" ROS_LOG_DIR="${out}/ros_log" ROS_DOMAIN_ID=38
 cfg="${out}/glim_config"
 cp -a /home/user/glim_src/glim/config "${cfg}"
 for f in config.json config_sensors.json config_ros.json config_logging.json; do
-  cp /home/user/lidar_slam_ros2/configs/glim/hilti2022_cpu/${f} "${cfg}/${f}"
+  cp ${GLIM_OVERRIDES:-/home/user/lidar_slam_ros2/configs/glim/hilti2022_cpu}/${f} "${cfg}/${f}"
 done
 sed -i "s|\"/out/logs\"|\"${out}/logs\"|" "${cfg}/config_logging.json"
 /usr/bin/time -v -o "${out}/process_time.txt" \

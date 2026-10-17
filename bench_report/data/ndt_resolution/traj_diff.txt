@@ -1,0 +1,4 @@
+== exp04 (reference exp04_res5)
+exp04_res2: rms 0.039 m, max 0.071 m, poses 1258
+== mid360 (reference mid360_res5)
+mid360_res2: rms 0.162 m, max 0.368 m, poses 2772

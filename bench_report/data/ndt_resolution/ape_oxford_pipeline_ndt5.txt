@@ -1,0 +1,13 @@
+APE translation (m)
+pairs: 14739
+alignment: se3_umeyama
+rmse: 0.10541633605734571
+mean: 0.09788051469456316
+median: 0.09762091824599747
+std: 0.03914088336870606
+min: 0.00145781514462758
+max: 0.21113238562269013
+mode: interpolate
+total_ref_points: 14762
+rejected_ref_points: 23
+max_time_gap: 0.1016380786895752
