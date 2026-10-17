@@ -1,0 +1,8 @@
+# Oxford Spires 2024-03-12-keble-college-05 input built here (development data; not committed)
+source: https://huggingface.co/datasets/ori-drs/oxford_spires_dataset (CC BY-NC-SA 4.0)
+raw/lidar-clouds.zip: 4147526534 bytes, 5834 PCD members fetched by HTTP range, CRC-32 checked
+raw/imu.csv sha256: da21af7653f821fa857c17de37da43a0daf5e65d6133a09e798f82efa2412f6b
+ROS 2 bag (sqlite3) sha256: 7b4361b69ab9c205ee4fad1ef781b957ac0c289578a645c381dab33dfabd5220
+scans 5834, points 345360040, imu 232128 (repo manifest configs/sota_v6/development/v44_raw_lidar_imu_sources_20260810.json: 5834 / 345360040 / 232128)
+T_imu_lidar from calibration/cam-lidar-imu.yaml (cam0 C_q_CL/C_r_CL and C_q_CI/C_r_CI): quat_xyzw_xyz [-0.000644947, 0.001879371, 0.712962475, 0.701199373, -0.000651709, -0.015510343, 0.084632658]
+T_base_lidar (dataset README): t [0, 0, 0.124], q xyzw [0, 0, 1, 0]

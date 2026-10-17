@@ -8,12 +8,13 @@
 # (offline node exit - t0), complete_s (map_save response - t0), save_s (map_save call..response),
 # offline_node_took_s, submaps, loop_edges, front_md5, traj_md5, g2o_md5, loops_md5
 # BACKEND_SCHED_IDLE=1 (experiment): run every graph_based_slam thread under SCHED_IDLE.
+# BAG, LIDAR, IMU, RKO_PARAMS override the exp04 defaults (bag, topics, RKO-LIO ROS parameter file).
 csv=$1; label=$2; w=$3; yaml=$4; out=$5
-bag=/home/user/data/hilti2022/exp04_ros2
+bag=${BAG:-/home/user/data/hilti2022/exp04_ros2}
 rm -rf "${out}"; mkdir -p "${out}"
 set +u; source "${w}/install/setup.bash"; set -u
 export ROS_DOMAIN_ID=36 ROS_LOG_DIR="${out}/roslog" M6A10_BENCHMARK_NO_MAP_ARTIFACTS=1
-cp /home/user/bench/params/rko_params.ros.yaml "${out}/rko_params.ros.yaml"
+cp "${RKO_PARAMS:-/home/user/bench/params/rko_params.ros.yaml}" "${out}/rko_params.ros.yaml"
 cd /home/user/rsasaki0109/lidar_slam_ros2
 timeout 3000 python3 /home/user/scripts/save_when_frontend_done.py "${out}/pipeline_times.json" "${out}/saver.ready" \
   > "${out}/saver.log" 2>&1 &
@@ -21,7 +22,7 @@ spid=$!
 for ((k = 0; k < 600; k++)); do [[ -e ${out}/saver.ready ]] && break; sleep 0.05; done
 t0=$(date +%s.%N)
 setsid ros2 launch lidarslam rko_lio_slam.launch.py "main_param_dir:=${yaml}" "rko_param_file:=${out}/rko_params.ros.yaml" \
-  "bag_path:=${bag}" lidar_topic:=/hesai/pandar imu_topic:=/alphasense/imu \
+  "bag_path:=${bag}" "lidar_topic:=${LIDAR:-/hesai/pandar}" "imu_topic:=${IMU:-/alphasense/imu}" \
   base_frame:=base_link publish_static_tf:=true "save_dir:=${out}" "results_dir:=${out}" run_name:=front \
   dump_results:=true use_rviz:=false > "${out}/slam.launch.log" 2>&1 &
 lpid=$!

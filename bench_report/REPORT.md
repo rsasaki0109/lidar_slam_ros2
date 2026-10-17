@@ -3,7 +3,7 @@
 - 対象：rsasaki0109/lidar_slam_ros2。ベースは develop の 9cc828b
 - 作業ブランチ：`claude/great-pasteur-0hdgvp`（develop 9cc828b から開始。PR は作っていない）
 - フロントエンド：rsasaki0109/rko_lio の作業ブランチ `claude/great-pasteur-0hdgvp` の 734d54f（前回の報告 `bench_report/REPORT.md` の最終版）。全ランでフロントエンドの軌跡 `front_0/front_tum_0.txt` の md5 は exp04 `bc23199243971466e1645e4eed7640ca`、MID-360 `2a1c810771773f2ed719735cdf9c11fd` で、前回と同じ
-- 計測日：2026-10-16（UTC）。11 章と 12 章の GLIM との比較は 2026-10-17。マシンは前回と同じクラウド VM（4 vCPU、15 GiB、Ubuntu 24.04、ROS 2 Jazzy）。速度は比で読むこと
+- 計測日：2026-10-16（UTC）。11〜13 章は 2026-10-17。マシンは前回と同じクラウド VM（4 vCPU、15 GiB、Ubuntu 24.04、ROS 2 Jazzy）。速度は比で読むこと
 
 ## まとめ
 
@@ -14,6 +14,7 @@
 | 端から端まで（exp04、ループ有効、ABAB 3 組） | develop **105.0 秒（RTF 0.835）→ 作業ブランチ 49.0 秒（RTF 0.389）、比 0.467**。NDT を 1 スレッドにすると 44.0 秒（RTF 0.350）。ループ無効のフロントエンドだけ（前回 42.0 秒）とほぼ同じになった（この数え方は実時間より 2〜3% 小さい。11.5） |
 | GLIM との比較（同じ VM、11 章） | **精度は勝ち**：APE（README と同じ 6 点）0.048〜0.049 m 対 GLIM 0.089 m（44〜46% 低い）。地図の 3 指標も上回る（面の厚み 0.039〜0.041 対 0.079 m、被覆率 0.67 対 0.43）。**速さは負け**：結果の保存まで GLIM 37.84 秒（RTF 0.301）に対し、ループ無効 41.03 秒（1.08 倍）、ループ有効 45.05 秒（1.19 倍。候補を減らす設定で 1.13 倍）。4 コアはほぼ埋まっていて、差はフロントエンドの処理時間。メモリは約 35% 少ない（458〜461 MB 対 713 MB） |
 | GLIM との比較：フロントエンドを速くした後（12 章） | rko_lio の作業ブランチに、ビット一致の高速化を 2 つ足した（a92dfd4。フロントエンド単体は exp04 で比 0.652）。**速さも勝ち**：結果の保存まで GLIM 37.01 秒に対し、ループ無効 28.51 秒（0.770 倍）、ループ有効 32.71 秒（0.884 倍）。CPU 時間はループ無効で GLIM より 13% 少ない。graph_based_slam の出力は 11 章と md5 まで同じなので、精度と地図の勝ちもそのまま |
+| 開発用データ：Oxford Spires Keble 05（13 章） | SOTA-v6 の記録で RKO-LIO が 6.98 m とされた系列を、入力を作り直して測った。**フロントエンドの APE は 0.196 m**（GLIM 0.113、Point-LIO 0.136、Voxel-SLAM 0.147、FAST-LIO2 0.525 m の水準）。誤差はほぼ上下方向。デスキューなしで 18 m、時刻を 136 ms ずらすと 24 m になり、記録の 6.98 m は入力の時刻の扱いが原因だった可能性が高い。メモリは 1,336〜2,483 MB で、SOTA-v6 の基準（330 MB）を大きく超える |
 | 精度（exp04） | 出発点に戻る区間のループが 1 本採用されるようになった。APE（SE(3) 整列）は全 7 点で 0.0520 → 0.0488 m、README と同じ 6 点で 0.0482 → 0.0495 m（どちらも ±3 mm 程度）。地図は面の厚み 0.049 → 0.041 m、平面の被覆率 0.351 → 0.669 |
 | 出力の再現性 | develop は取りこぼしがランごとに違い、出力も毎回違った（3 回で 3 通り）。作業ブランチは exp04 の 9 回、MID-360 の同じ設定の 2〜3 回で、軌跡・グラフ・ループ辺・地図の md5 がすべて一致 |
 | MID-360 | 外部パラメータが単位変換なので座標系の修正は効かない。取りこぼしがなくなったぶん照合が約 4 倍に増え、端から端までは develop 56 秒 → 作業ブランチ 255〜263 秒に延びた（develop は 14% のサブマップと照合の大半を落として速かった）。候補を減らす設定（`max_loop_candidate_count: 1` と `distance_loop_closure: 40.0`）で 100 秒まで縮み、地図の指標は既定と同等かわずかに良い |
@@ -250,6 +251,7 @@ A の並べ直しはバックエンドの地図の指標と一致しており、
 | `data/prof/` | 3.3、4.3 の計装ビルドの照合ごとの値と集計 |
 | `data/runs/` | 主なランの `loop_edges.csv`、`trajectory_optimized.tum`、ループ候補のログ |
 | `data/tests/` | テスト結果の要約 |
+| `data/oxford/` | 13 章：入力の記録、フロントエンドとパイプラインの各回、APE の出力、フロントエンドの軌跡（データセットと GT は含めない） |
 | `data/glim/frontend_a92dfd4/` | 12 章：全ラウンドの CSV（ラウンド 1 を含む）、集計に使ったラウンド 2〜6 の CSV・APE・地図品質・集計 `summary_rounds2_6.md`、ラウンド 1 のサブマップの記録 |
 | `data/glim/` | 11 章：`common_endpoint/`（終点をそろえた 5 ラウンドの CSV、APE、地図品質、SCHED_IDLE と `distance_loop_closure: 40.0` の A/B、集計 `summary.md`）、`readme_method/`（README の測り方での 5 ラウンド）、`glim_build.txt`（GLIM のビルドの記録）、`logs/`（各 1 ラン分のログ） |
 | `params/` | 使ったパラメータ（`lidarslam_competitive_v2_loop.yaml` は `configs/hilti2022/lidarslam_competitive_v2.yaml` の `range_of_searching_loop_closure` を既定の 20.0 に戻したもの。`rko_params_backend_identity.ros.yaml` は 3.3 の計測専用。`lidarslam_competitive_v2_loop_ndt1_dist40.yaml` は 11.4 の候補を減らす設定） |
@@ -369,3 +371,40 @@ README の「GLIM CPU との比較」（別のマシン、2026-07）を、この
   - メモリ：ピーク RSS は約 36% 少ない。
 - 範囲は 11 章と同じ：exp04 の 1 系列、この VM 1 台。GLIM はピン留めした設定のまま（各モジュール 2 スレッド）。
 - 起動時の競合（12.2）を避けたい本番の使い方では、launch の `wait_for_output_subscribers:=true` を使う。ただし既定の `subscriber_wait_timeout_sec` '30.0' を待ち合わせのスクリプトが拒否する既存の不具合がある（9 章）。整数の値を渡す必要がある。
+
+## 13. 開発用データでの確認：Oxford Spires Keble 05（2026-10-17）
+
+SOTA-v6 の記録（`docs/research/sota-v6-recovery-plan-2026-08.md`）では、RKO-LIO + graph_based_slam の Oxford Spires Keble 05 の APE は 6.98 m とされている。比較相手は GLIM 0.113 m、Point-LIO 0.136 m、Voxel-SLAM 0.147 m、FAST-LIO2 0.525 m で、これが「軽量な RKO-LIO の改良の道は閉じた」という判断の根拠の 1 つになっている。開発用の 3 系列のうち、この VM で取れるのは Oxford だけ（NavINST と UrbanNav は、正規化済みの入力が開発者のディスクにしかなく、UrbanNav は配布元の GitHub にも届かない）なので、入力を作り直して測った。Oxford は SOTA-v6 の方針で「公開済みの開発用データ」になっているので、ここでの値は開発用の結果であり、SOTA の証拠ではない。
+
+### 13.1 入力と設定（`data/oxford/input_provenance.txt`）
+
+- **入力**：Hugging Face の `ori-drs/oxford_spires_dataset` の `raw/lidar-clouds.zip` と `raw/imu.csv` から作った（CC BY-NC-SA 4.0）。
+  - 点群は 1 スキャン 1 つの PCD で、点ごとの `timestamp`（float64）を持つ。zip は保存せず、中のファイルを HTTP の範囲指定で 1 つずつ取り、CRC-32 を確かめてから ROS 2 の bag（sqlite3）に書いた（`scripts/oxford_to_ros2.py`）。
+  - 点群のトピックの中身は x/y/z/intensity と、スキャンの最初の点からの時刻 t（いずれも float32）。bag の時刻は、点群はスキャンの最後の点の時刻、IMU は各サンプルの時刻。
+  - スキャン 5,834、点 345,360,040、IMU 232,128 で、リポジトリの v44 の入力の記録（`configs/sota_v6/development/v44_raw_lidar_imu_sources_20260810.json`）と 3 つとも一致した。
+- **外部パラメータ**：データセットの `calibration/cam-lidar-imu.yaml` から T_imu_lidar = T_cam0_imu⁻¹ · T_cam0_lidar とした。並進は v44 の記録の LiDAR→body の並進 [−0.0006517, −0.0155103, 0.0846327] m と 7 桁まで一致する。
+- **RKO-LIO**：パラメータは exp04 と同じ（README の competitive v2）で、外部パラメータだけ差し替えた（`params/oxford_keble05.yaml`、パイプラインは `params/rko_params_oxford.ros.yaml`）。フロントエンドは rko_lio a92dfd4。
+- **採点**：GT は `processed/trajectory/gt-tum.txt`（データセットの base 座標系。LiDAR の 0.124 m 上、z 軸まわりに 180°）。推定（IMU 座標系）を T_imu_base で base に移し、`scripts/ape_from_tum.py --interpolate`（SE(3) の Umeyama）で比べた（`scripts/ape_oxford.py`）。GT は別の場所に置き、走らせた後にだけ開いた。
+
+### 13.2 結果（各 1 回。フロントエンドの軌跡の md5 は 3 回とも `555e2a94…` で同じ）
+
+| 構成 | APE RMSE | 軸ごと x / y / z | 時間（RTF） | ピーク RSS |
+|---|---:|---:|---:|---:|
+| フロントエンド単体 | **0.196 m** | 0.044 / 0.050 / 0.184 m | 243.8 秒（0.42） | – |
+| パイプライン・ループ無効（サブマップ 431） | 0.196 m | 同上 | 275.0 秒（0.47） | 2,063 MB |
+| パイプライン・ループ有効（サブマップ 444、ループ 21 本） | 0.197 m | 0.049 / 0.071 / 0.177 m | 557.5 秒（0.96） | 2,483 MB |
+| 参考：デスキューなし（フロントエンド単体） | 18.2 m | 11.4 / 14.1 / 0.6 m | 391.9 秒 | 1,336 MB |
+| 参考：LiDAR の時刻を +136 ms | 24.0 m | 14.7 / 18.4 / 4.4 m | 457.5 秒 | – |
+| SOTA-v5 の記録（RKO-LIO） | 6.98 m | – | – | 798 MB |
+| SOTA-v5 の比較相手 | GLIM 0.113 / Point-LIO 0.136 / Voxel-SLAM 0.147 / FAST-LIO2 0.525 m | | | |
+
+- 入力と外部パラメータを正しく作ると、RKO-LIO のフロントエンドは **0.196 m** で、比較相手の水準に入った（記録の 6.98 m の約 36 分の 1）。FAST-LIO2 より良く、GLIM よりは 1.7 倍大きい。
+- 残る誤差はほぼ上下方向（z の RMSE 0.184 m、水平は 0.05 m 前後）。Voxel-SLAM v17 の Oxford の課題（上下方向の誤差）と同じ向き。
+- ループ閉じ込みは 21 本採用されたが、APE は変わらない（0.196 → 0.197 m）。
+- 時刻の扱いには非常に敏感で、デスキューを外すと 18 m、LiDAR の時刻を 136 ms（v44 の記録にある Oxford の受信の遅れ）ずらすと 24 m になる。SOTA-v5 の 6.98 m は、その入力の時刻かデスキューの扱いに原因があった可能性が高い。ただし、その入力と設定はこの環境になく、確かめられていない。
+- 資源は大きく不足している。メモリは、フロントエンドだけで 1,336 MB（デスキューなしの回）、パイプラインで 2,063〜2,483 MB（SOTA-v6 の基準は 330 MB）。ループ有効では、フロントエンドの終了後に照合が 251 秒続き、RTF は 0.96。ループ無効のほうがサブマップが 13 個少なく、速いぶんバックエンドが入力を取りこぼしている疑いがある（未確認）。
+
+### 13.3 読み取れること
+
+- 「RKO-LIO の道は閉じた」という判断は、少なくとも Oxford については前提が崩れる。NavINST（記録 2.82 m）も同じ種類の問題を抱えている可能性があり、正しい入力で測り直す価値がある（データの取得元の確認が要る）。
+- SOTA に向けた次の課題は、Oxford では上下方向の誤差（GLIM の 0.113 m に届くには半分程度にする必要がある）、全体ではメモリ（1 桁大きい）。UrbanNav のトンネル（全手法が数百 m）は別の問題として残る。
