@@ -2,11 +2,13 @@
 # Stops leftover pipeline processes (ros2 launch/bag CLIs, offline_node, graph_based_slam_node,
 # static_transform_publisher, the barrier script). Patterns are anchored to the executable path so the
 # caller's own shell never matches.
-pats=('^/usr/bin/python3 /opt/ros/jazzy/bin/ros2 (bag|launch|service)'
+pats=('^/usr/bin/python3 /opt/ros/jazzy/bin/ros2 (bag|launch|service|run)'
       '^/home/user/ws/[^ ]*/lib/rko_lio/offline_node'
       '^/home/user/ws/[^ ]*/lib/graph_based_slam/graph_based_slam_node'
       '^/opt/ros/jazzy/lib/tf2_ros/static_transform_publisher'
-      '^bash /home/user/ws/[^ ]*/wait_for_offline_output_subscribers.sh')
+      '^bash /home/user/ws/[^ ]*/wait_for_offline_output_subscribers.sh'
+      '^/home/user/glim_ws/install/glim_ros/lib/glim_ros/(glim_rosbag|glim_rosnode)'
+      '^python3 /home/user/scripts/save_when_frontend_done.py')
 list() { for p in "${pats[@]}"; do pgrep -f "$p"; done | sort -u; }
 for sig in INT INT KILL; do
   pids=$(list); [[ -z "${pids}" ]] && break

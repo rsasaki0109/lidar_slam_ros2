@@ -1,0 +1,79 @@
+# GLIM CPU build on this VM (native; the steps of docker/glim_cpu_benchmark.Dockerfile)
+date: 2026-10-17 (UTC)
+
+## source revisions (git rev-parse HEAD) and patches
+gtsam 2f3e56c0ddbd3a1aa54ed043643b553d26a069f6
+gtsam_points 9d32e7dbecf6015560d84b4901d6b0a6f483ec46
+glim faa264a1bce1bda406f73457e35511f56cdc2eaa
+glim_ros2 4a9e7a4cb084967c8525a1be529ad3ba2a118ae7
+f3e7549ee1730df37125f17c4be00b5643a6b9db9eacbc96c9ecb2f682b08867  docker/patches/glim.m6a10-v2b.patch
+ede64c7a00f409a19138f41c19685f08d58b5c8c8d9d9ffa47b6c7dcb774c0f2  docker/patches/glim_ros2.m6a10-v2b.patch
+glim: git apply --check -R --recount docker/patches/glim.m6a10-v2b.patch -> ok (the patch is applied exactly)
+   M include/glim/odometry/async_odometry_estimation.hpp
+   M include/glim/util/concurrent_vector.hpp
+   M src/glim/odometry/async_odometry_estimation.cpp
+glim_ros2: git apply --check -R --recount docker/patches/glim_ros2.m6a10-v2b.patch -> ok (the patch is applied exactly)
+   M include/glim_ros/glim_ros.hpp
+   M src/glim_ros/glim_ros.cpp
+   M src/glim_rosbag.cpp
+
+## CMakeCache.txt (gtsam/build, gtsam_points/build)
+[gtsam]
+  BUILD_SHARED_LIBS:BOOL=ON
+  CMAKE_BUILD_TYPE:STRING=Release
+  CMAKE_INSTALL_PREFIX:PATH=/usr/local
+  GTSAM_BUILD_EXAMPLES_ALWAYS:BOOL=OFF
+  GTSAM_BUILD_TESTS:BOOL=OFF
+  GTSAM_BUILD_WITH_MARCH_NATIVE:BOOL=OFF
+  GTSAM_USE_SYSTEM_EIGEN:BOOL=ON
+  GTSAM_WITH_TBB:BOOL=OFF
+  CMAKE_GENERATOR:INTERNAL=Ninja
+[gtsam_points]
+  BUILD_TESTS:BOOL=OFF
+  BUILD_WITH_CUDA:BOOL=OFF
+  BUILD_WITH_MARCH_NATIVE:BOOL=OFF
+  CMAKE_BUILD_TYPE:STRING=Release
+  CMAKE_INSTALL_PREFIX:PATH=/usr/local
+  CMAKE_GENERATOR:INTERNAL=Ninja
+
+## installed libraries (/usr/local/lib)
+  libgtsam.so.4
+  libgtsam.so.4.3a1
+  libgtsam_points.so.1
+  libgtsam_points.so.1.2.2
+  libgtsam_unstable.so.4
+  libgtsam_unstable.so.4.3a1
+
+## glim / glim_ros (colcon, /home/user/glim_ws)
+  colcon build --base-paths glim glim_ros2 --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_WITH_CUDA=OFF -DBUILD_WITH_CV_BRIDGE=ON -DBUILD_WITH_VIEWER=OFF -DBUILD_WITH_MARCH_NATIVE=OFF
+  Finished <<< glim [1min 53s]
+  Finished <<< glim_ros [1min 34s]
+  Summary: 2 packages finished [3min 27s]
+
+## apt packages (Dockerfile list; versions on this VM)
+  build-essential 12.10ubuntu1
+  cmake 3.28.3-1build7
+  gcc-13 13.3.0-6ubuntu2~24.04.1
+  libboost-all-dev 1.83.0.1ubuntu2
+  libeigen3-dev 3.4.0-4build0.1
+  libfmt-dev 9.1.0+ds1-2
+  libmetis-dev 5.1.0.dfsg-7build3
+  libnanoflann-dev 1.5.4+ds-1
+  libomp-dev 1:18.0-59~exp2
+  libopencv-dev 4.6.0+dfsg-13.1ubuntu1
+  libspdlog-dev 1:1.12.0+ds-2build1
+  ninja-build 1.11.1-2
+  python3-colcon-common-extensions 0.3.0-100
+  ros-jazzy-cv-bridge 4.1.0-1noble.20260911.143610
+  ros-jazzy-image-transport 5.1.8-1noble.20260912.165731
+  ros-jazzy-rosbag2 0.26.11-1noble.20261006.034645
+  ros-jazzy-tf2-ros 0.36.23-1noble.20260915.173839
+  time 1.9-0.2build1
+
+## run configuration
+  GLIM default config (glim/config) + configs/glim/hilti2022_cpu/{config.json,config_sensors.json,config_ros.json,config_logging.json};
+  config_logging.json log_dir /out/logs -> <run>/logs (the only change). config.json selects:
+    "config_odometry": "config_odometry_cpu.json",
+    "config_sub_mapping": "config_sub_mapping_passthrough.json",
+    "config_global_mapping": "config_global_mapping_pose_graph.json"
+  odometry num_threads 2, preprocess num_threads 2, global mapping (pose graph, VGICP loop closure) num_threads 2

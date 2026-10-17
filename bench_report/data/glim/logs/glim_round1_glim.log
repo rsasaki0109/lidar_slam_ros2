@@ -1,0 +1,40 @@
+[2026-10-17 01:42:03.962] [glim] [info] config_path: /home/user/bench/glim_cmp3/glim_1/glim_config
+[2026-10-17 01:42:03.963] [glim] [info] load libodometry_estimation_cpu.so
+[2026-10-17 01:42:03.964] [glim] [info] load libsub_mapping_passthrough.so
+[2026-10-17 01:42:03.964] [glim] [info] load libglobal_mapping_pose_graph.so
+[2026-10-17 01:42:03.972] [glim] [info] topics:
+[2026-10-17 01:42:03.972] [glim] [info] - /alphasense/imu
+[2026-10-17 01:42:03.972] [glim] [info] - /hesai/pandar
+[2026-10-17 01:42:03.972] [glim] [info] - /benchmark/disabled_image
+[2026-10-17 01:42:03.972] [glim] [info] bag_filenames:
+[2026-10-17 01:42:03.972] [glim] [info] - /home/user/data/hilti2022/exp04_ros2
+[2026-10-17 01:42:03.972] [glim] [warning] param glim_ros/playback_speed not found
+[2026-10-17 01:42:03.972] [glim] [warning] use default_value=100
+[2026-10-17 01:42:03.972] [glim] [info] opening /home/user/data/hilti2022/exp04_ros2
+[2026-10-17 01:42:03.973] [glim] [info] detected storage_id=sqlite3 from metadata.yaml
+[INFO] [1792201324.078875996] [rosbag2_storage]: Opened database '/home/user/data/hilti2022/exp04_ros2/exp04_ros2.db3' for READ_ONLY.
+[2026-10-17 01:42:04.092] [glim] [warning] large point timestamp (min=1646304541.527138 max=1646304541.627160 > 1.0) found!!
+[2026-10-17 01:42:04.092] [glim] [warning] assume that point times are absolute and convert them to relative
+[2026-10-17 01:42:04.092] [glim] [warning] frame timestamp will be overwritten by the first point timestamp!!
+[2026-10-17 01:42:04.930] [odom] [info] estimate initial IMU state
+Initial error: 104.002, values: 93
+iter      cost      cost_change    lambda  success iter_time
+   0     0.738751        1e+02      1e-05      1          0
+   1         0.58         0.16      1e-06      1       0.01
+   2         0.58      5.1e-08      1e-07      1          0
+[2026-10-17 01:42:04.941] [odom] [info] initial IMU state estimation result
+[2026-10-17 01:42:04.941] [odom] [info] T_world_imu=se3(-0.000901,-0.000532,0.000085,0.707303,-0.706802,0.007530,0.009851)
+[2026-10-17 01:42:04.941] [odom] [info] v_world_imu=vec(-0.001708,0.001595,-0.085921)
+[2026-10-17 01:42:04.941] [odom] [info] imu_bias=vec(-0.000121,-0.000052,0.003219,0.000168,0.000317,-0.000136)
+[2026-10-17 01:42:14.009] [glim] [info] playback speed: 3.409x
+[2026-10-17 01:42:19.009] [glim] [info] playback speed: 4.138x
+[2026-10-17 01:42:24.014] [glim] [info] playback speed: 3.459x
+[2026-10-17 01:42:29.014] [glim] [info] playback speed: 3.657x
+[2026-10-17 01:42:34.021] [glim] [info] playback speed: 3.638x
+[2026-10-17 01:42:39.043] [glim] [info] playback speed: 3.385x
+[2026-10-17 01:42:39.840] [glim] [info] waiting for odometry estimation
+[2026-10-17 01:42:39.948] [glim] [info] waiting for local mapping
+[2026-10-17 01:42:39.968] [glim] [info] waiting for global mapping
+[2026-10-17 01:42:40.024] [global] [info] saving to /home/user/bench/glim_cmp3/glim_1/dump...
+[2026-10-17 01:42:40.025] [global] [info] serializing factor graph to /home/user/bench/glim_cmp3/glim_1/dump/graph.bin
+[2026-10-17 01:42:40.556] [global] [info] saved

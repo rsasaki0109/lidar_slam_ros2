@@ -1,0 +1,15 @@
+glim,1,0,38.90,38.90,0.3092,0.3092,722.9,111.6,3712,13467212,1228,NA,/home/user/bench/glim_cmp/glim_1/dump/traj_imu.txt,2026-10-17T01:21:08Z
+ours_readme,1,0,45.65,45.65,0.3628,0.3628,446.8,137.8,34672,13430532,1258,bc23199243971466e1645e4eed7640ca,/home/user/bench/glim_cmp/ours_readme_1/front_0/front_tum_0.txt,2026-10-17T01:22:07Z
+ours_loop,1,0,44.0,45.34,0.3497,0.3604,461.8,159.0,7856,13466564,40,bc23199243971466e1645e4eed7640ca,/home/user/bench/glim_cmp/ours_loop_1/trajectory_optimized.tum,2026-10-17T01:23:17Z
+ours_readme,2,0,43.06,43.06,0.3423,0.3423,460.4,139.3,0,13373416,1258,bc23199243971466e1645e4eed7640ca,/home/user/bench/glim_cmp/ours_readme_2/front_0/front_tum_0.txt,2026-10-17T01:24:34Z
+ours_loop,2,0,43.0,44.33,0.3418,0.3523,455.7,157.7,0,13375464,40,bc23199243971466e1645e4eed7640ca,/home/user/bench/glim_cmp/ours_loop_2/trajectory_optimized.tum,2026-10-17T01:25:38Z
+glim,2,0,36.73,36.73,0.2919,0.2919,688.9,106.4,0,13379860,1228,NA,/home/user/bench/glim_cmp/glim_2/dump/traj_imu.txt,2026-10-17T01:26:54Z
+ours_loop,3,0,44.0,45.32,0.3497,0.3602,474.5,161.3,8,13452292,40,bc23199243971466e1645e4eed7640ca,/home/user/bench/glim_cmp/ours_loop_3/trajectory_optimized.tum,2026-10-17T01:27:52Z
+glim,3,0,39.31,39.31,0.3124,0.3124,701.4,112.1,0,13373476,1228,NA,/home/user/bench/glim_cmp/glim_3/dump/traj_imu.txt,2026-10-17T01:29:08Z
+ours_readme,3,0,43.05,43.05,0.3422,0.3422,452.4,139.4,0,13440624,1258,bc23199243971466e1645e4eed7640ca,/home/user/bench/glim_cmp/ours_readme_3/front_0/front_tum_0.txt,2026-10-17T01:30:08Z
+glim,4,0,36.53,36.53,0.2903,0.2903,679.2,105.7,0,13442428,1228,NA,/home/user/bench/glim_cmp/glim_4/dump/traj_imu.txt,2026-10-17T01:31:12Z
+ours_readme,4,0,42.88,42.88,0.3408,0.3408,462.8,141.1,0,13460888,1258,bc23199243971466e1645e4eed7640ca,/home/user/bench/glim_cmp/ours_readme_4/front_0/front_tum_0.txt,2026-10-17T01:32:09Z
+ours_loop,4,0,45.0,46.44,0.3577,0.3691,459.9,163.1,0,13445928,40,bc23199243971466e1645e4eed7640ca,/home/user/bench/glim_cmp/ours_loop_4/trajectory_optimized.tum,2026-10-17T01:33:13Z
+ours_readme,5,0,44.88,44.88,0.3567,0.3567,454.2,142.8,0,13387036,1258,bc23199243971466e1645e4eed7640ca,/home/user/bench/glim_cmp/ours_readme_5/front_0/front_tum_0.txt,2026-10-17T01:34:30Z
+ours_loop,5,0,45.0,46.39,0.3577,0.3687,459.4,163.3,0,13388772,40,bc23199243971466e1645e4eed7640ca,/home/user/bench/glim_cmp/ours_loop_5/trajectory_optimized.tum,2026-10-17T01:35:36Z
+glim,5,0,37.56,37.56,0.2985,0.2985,667.6,108.2,0,13392340,1228,NA,/home/user/bench/glim_cmp/glim_5/dump/traj_imu.txt,2026-10-17T01:36:53Z
