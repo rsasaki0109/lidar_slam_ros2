@@ -1,0 +1,23 @@
+	Command being timed: "bash /home/user/scripts/pipe_pipeline.sh /home/user/bench/mapshd/rows.csv outdoor-urk_trial-1_A /home/user/ws/pipe_dev_40b3a06 /home/user/bench/params/lidarslam_competitive_v2_loop_ndt1.yaml /home/user/bench/mapshd/outdoor-urk_trial-1_A"
+	User time (seconds): 245.56
+	System time (seconds): 18.86
+	Percent of CPU this job got: 194%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 2:15.91
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 406388
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 31
+	Minor (reclaiming a frame) page faults: 322302
+	Voluntary context switches: 93758
+	Involuntary context switches: 7476115
+	Swaps: 0
+	File system inputs: 416
+	File system outputs: 89168
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

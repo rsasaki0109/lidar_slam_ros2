@@ -3,7 +3,7 @@
 - 対象：rsasaki0109/lidar_slam_ros2。ベースは develop の 9cc828b
 - 作業ブランチ：`claude/great-pasteur-0hdgvp`（develop 9cc828b から開始。PR は作っていない）
 - フロントエンド：rsasaki0109/rko_lio の作業ブランチ `claude/great-pasteur-0hdgvp` の 734d54f（前回の報告 `bench_report/REPORT.md` の最終版）。全ランでフロントエンドの軌跡 `front_0/front_tum_0.txt` の md5 は exp04 `bc23199243971466e1645e4eed7640ca`、MID-360 `2a1c810771773f2ed719735cdf9c11fd` で、前回と同じ
-- 計測日：2026-10-16（UTC）。11〜14 章は 2026-10-17。マシンは前回と同じクラウド VM（4 vCPU、15 GiB、Ubuntu 24.04、ROS 2 Jazzy）。速度は比で読むこと
+- 計測日：2026-10-16（UTC）。11〜15 章は 2026-10-17。マシンは前回と同じクラウド VM（4 vCPU、15 GiB、Ubuntu 24.04、ROS 2 Jazzy）。速度は比で読むこと
 
 ## まとめ
 
@@ -16,6 +16,7 @@
 | GLIM との比較：フロントエンドを速くした後（12 章） | rko_lio の作業ブランチに、ビット一致の高速化を 2 つ足した（a92dfd4。フロントエンド単体は exp04 で比 0.652）。**速さも勝ち**：結果の保存まで GLIM 37.01 秒に対し、ループ無効 28.51 秒（0.770 倍）、ループ有効 32.71 秒（0.884 倍）。CPU 時間はループ無効で GLIM より 13% 少ない。graph_based_slam の出力は 11 章と md5 まで同じなので、精度と地図の勝ちもそのまま |
 | 開発用データ：Oxford Spires Keble 05（13 章） | SOTA-v6 の記録で RKO-LIO が 6.98 m とされた系列を、入力を作り直して測った。**フロントエンドの APE は 0.196 m**（GLIM 0.113、Point-LIO 0.136、Voxel-SLAM 0.147、FAST-LIO2 0.525 m の水準）。誤差はほぼ上下方向。デスキューなしで 18 m、時刻を 136 ms ずらすと 24 m になり、記録の 6.98 m は入力の時刻の扱いが原因だった可能性が高い。メモリは 1,336〜2,483 MB で、SOTA-v6 の基準（330 MB）を大きく超える |
 | Oxford の上下方向の誤差（14 章） | 原因は 2 つ。(1) RKO-LIO の初期化が静止を前提にしていて、動きながら始まる Oxford では動きをバイアスとして取り込んでいた。既存の moving-start guard（`initialization_max_gyro_rad_s: 0.02`、GEODE と同じ値）で、フロントエンドの APE は 0.196 → **0.053 m**（z 0.184 → 0.033 m）。exp04 と MID-360 は md5 まで同じ。(2) ループ辺の NDT（セル 5 m）がフロントエンドより不正確なのに重みが大きく、パイプラインは 0.105 m だった。セル 2 m で 0.055 m になり、地図の指標も 3 系列で良くなるが、exp04 の 7 点の APE が +5.9 mm なので、採用は MapsHD で決める。同じ VM・同じ bag の GLIM は 0.112〜0.125 m で、精度は 2 倍前後勝ち。速さ（保存まで GLIM の 1.7〜2.1 倍）とメモリは負け |
+| MapsHD HUMANOID-LIO-DATASET（15 章） | 人型ロボットの MID-360 の 8 trial を、Docker なしで変換して、ベンチマークと同じ `evo_ape -a` で採点した（GT は全ランの後に開いた）。事前に決めた基準で **NDT 2 m を採用**（幾何平均 0.243 → 0.103 m、最悪の trial で +2.4%）。ただしループはフロントエンドを良くせず（フロントエンド単体の幾何平均 0.085 m）、公開表の trial では 0.073 m で 25 手法中 11 番目（上位 0.037 m の約 2 倍）。誤差は室内の上下の揺れ（z 0.07 m、水平 1.4 cm）と地下駐車場の x 方向。途中で、IMU が先に終わる bag でフロントエンドが止まる不具合を直した（rko_lio 40b3a06、既存の md5 は不変） |
 | 精度（exp04） | 出発点に戻る区間のループが 1 本採用されるようになった。APE（SE(3) 整列）は全 7 点で 0.0520 → 0.0488 m、README と同じ 6 点で 0.0482 → 0.0495 m（どちらも ±3 mm 程度）。地図は面の厚み 0.049 → 0.041 m、平面の被覆率 0.351 → 0.669 |
 | 出力の再現性 | develop は取りこぼしがランごとに違い、出力も毎回違った（3 回で 3 通り）。作業ブランチは exp04 の 9 回、MID-360 の同じ設定の 2〜3 回で、軌跡・グラフ・ループ辺・地図の md5 がすべて一致 |
 | MID-360 | 外部パラメータが単位変換なので座標系の修正は効かない。取りこぼしがなくなったぶん照合が約 4 倍に増え、端から端までは develop 56 秒 → 作業ブランチ 255〜263 秒に延びた（develop は 14% のサブマップと照合の大半を落として速かった）。候補を減らす設定（`max_loop_candidate_count: 1` と `distance_loop_closure: 40.0`）で 100 秒まで縮み、地図の指標は既定と同等かわずかに良い |
@@ -258,8 +259,9 @@ A の並べ直しはバックエンドの地図の指標と一致しており、
 | `data/moving_start/` | 14.1〜14.2：フロントエンドの各回、初期化のログ、Oxford の IMU の最初の統計、APE、傾きの誤差、ガードありのフロントエンドの軌跡 |
 | `data/ndt_resolution/` | 14.3〜14.4：パイプラインの各回（CSV と `/usr/bin/time`）、APE、ループ辺とフロントエンドの食い違い、地図品質、軌跡の差、主なランの `loop_edges.csv` と `trajectory_optimized.tum` |
 | `data/glim_oxford/` | 14.5：GLIM の各回の時間、APE（最終出力とオドメトリ）、初期化のログ、r1 の軌跡 |
-| `params/` | 使ったパラメータ（`lidarslam_competitive_v2_loop.yaml` は `configs/hilti2022/lidarslam_competitive_v2.yaml` の `range_of_searching_loop_closure` を既定の 20.0 に戻したもの。`rko_params_backend_identity.ros.yaml` は 3.3 の計測専用。`lidarslam_competitive_v2_loop_ndt1_dist40.yaml` は 11.4 の候補を減らす設定。14 章は `*_gyro002*`（moving-start guard）、`lidarslam_competitive_v2_loop_ndt1_res2.yaml`（NDT 2 m）、`glim_oxford_cpu/`） |
-| `scripts/` | 計測に使ったスクリプト。`prof_patch_not_committed.py` は 3.3 の一時的な計装（コミットしていない）。11 章は `glim_run.sh`（GLIM 1 回）、`pipe_pipeline.sh` + `save_when_frontend_done.py`（こちら 1 回、結果の保存まで）、`glim_vs_ours3.sh`（終点をそろえた 5 ラウンド）、`glim_vs_ours2.sh`（README の測り方）、`sched_idle_ab.sh`、`dist40_ab.sh`、`ape_glim_cmp2.py`、`map_quality_cmp.sh`、`summarize_glim_cmp*.py`。14 章は `gyro_check.sh`、`oxford_rounds.sh`、`ndt_res_check.sh`、`loop_consistency.py`、`tilt_oxford.py`、`imu_start_stats.py` |
+| `data/mapshd/` | 15 章：パイプラインの各回（CSV）、採点（`scores.csv`、`summary.md`、誤差の内訳、時刻のずれ）、GT を開く前の出力のハッシュと GT の sha256、変換の記録、各ランの `loop_edges.csv`・`trajectory_optimized.tum`・時間、採点した軌跡（gzip）、GLIM の記録（データセットと GT は含めない） |
+| `params/` | 使ったパラメータ（`lidarslam_competitive_v2_loop.yaml` は `configs/hilti2022/lidarslam_competitive_v2.yaml` の `range_of_searching_loop_closure` を既定の 20.0 に戻したもの。`rko_params_backend_identity.ros.yaml` は 3.3 の計測専用。`lidarslam_competitive_v2_loop_ndt1_dist40.yaml` は 11.4 の候補を減らす設定。14 章は `*_gyro002*`（moving-start guard）、`lidarslam_competitive_v2_loop_ndt1_res2.yaml`（NDT 2 m）、`glim_oxford_cpu/`。15 章は `*mapshd_gyro002*`、`glim_mapshd_benchmark/`） |
+| `scripts/` | 計測に使ったスクリプト。`prof_patch_not_committed.py` は 3.3 の一時的な計装（コミットしていない）。11 章は `glim_run.sh`（GLIM 1 回）、`pipe_pipeline.sh` + `save_when_frontend_done.py`（こちら 1 回、結果の保存まで）、`glim_vs_ours3.sh`（終点をそろえた 5 ラウンド）、`glim_vs_ours2.sh`（README の測り方）、`sched_idle_ab.sh`、`dist40_ab.sh`、`ape_glim_cmp2.py`、`map_quality_cmp.sh`、`summarize_glim_cmp*.py`。14 章は `gyro_check.sh`、`oxford_rounds.sh`、`ndt_res_check.sh`、`loop_consistency.py`、`tilt_oxford.py`、`imu_start_stats.py`。15 章は `mapshd_*.py`・`mapshd_*.sh`（変換、実行、採点、集計）、`glim_mapshd.sh`、`time_offset_scan.py` |
 
 ## 11. GLIM との比較（同じ VM、2026-10-17）
 
@@ -523,7 +525,7 @@ SOTA-v6 の記録（`docs/research/sota-v6-recovery-plan-2026-08.md`）では、
 - **moving-start guard は採用を推奨する**：`initialization_max_gyro_rad_s: 0.02` をすべての RKO-LIO のプロファイルに足す。
   - exp04 と MID-360 は軌跡の md5 が同じ。Oxford はフロントエンドが 0.196 → 0.053 m、パイプラインが 0.197 → 0.105 m（NDT 5 m のまま）になる。
   - リポジトリの凍結されたプロファイル（`configs/hilti2022/rko_lio_hilti2022_pandar_competitive_v2.yaml` など）は変えていない。exp01 では確かめていない。
-- **NDT 2.0 m は、まだ採用しない**：GT を使わない指標と Oxford の APE は大きく良くなるが、exp04 の 7 点の APE が基準に届かない。
+- **NDT 2.0 m は、まだ採用しない**（→ 15.4 で、MapsHD の 8 trial で採用が決まった）：GT を使わない指標と Oxford の APE は大きく良くなるが、exp04 の 7 点の APE が基準に届かない。
   - 次の MapsHD HUMANOID-LIO-DATASET（5 シナリオ、各 trial に密な GT）で決める。
   - 判定の基準は、走らせる前にここで決めておく。A = ガードあり・NDT 5 m、B = ガードあり・NDT 2 m とし、そのほかの設定は A と B で同じにする。B を採用するのは、次の 2 つをどちらも満たしたときだけ。
     - 全 trial の APE の幾何平均が A より小さい。
@@ -540,3 +542,119 @@ SOTA-v6 の記録（`docs/research/sota-v6-recovery-plan-2026-08.md`）では、
   - ラウンドを止めるための待ち合わせが、自分自身のコマンド行に一致して先に止まり、こちらの r2 は単独で最後まで走った。ほかに何も動いていない状態だったので、値はそのまま使った。
   - 1 回目のラウンドでは、`scripts/oxford_rounds.sh` の採点にサブマップの姿勢だけを使っていた。上の値はすべて載せ直した後のもので、スクリプトも直した。
   - `scripts/ape_oxford.py` の回転行列→四元数の変換を、半回転の近くで符号を誤る方法から Shepperd の方法に直した。位置の APE（13 章の値を含む）は変わらない。傾きの誤差は直した後の変換で計算した。
+
+## 15. MapsHD HUMANOID-LIO-DATASET での評価（2026-10-17）
+
+MapsHD のベンチマーク（`MapsHD/benchmark-HDMapping-Orchestration` の `HUMANOID-LIO-DATASET` ブランチ、582fc0f）のデータで、こちらのパイプラインを評価した。14.6 で事前に決めた、NDT 2 m（B）を採用するかどうかの判定もここで行う。
+
+- **データ**：zenodo の record 21318128（CC BY 4.0、2026-07-12 公開）。人型ロボットに載せた Livox MID-360（内蔵 IMU）を Mandeye で記録したもので、5 シナリオ（calibration-room、flat-room、long-corridor、underground-garage、outdoor-urk）に、それぞれ 1 つ以上の trial と GT（`ground_truth.tum`、約 200 Hz）がある。
+- **ベンチマークの採点**：28 手法を Docker で走らせ、HDMapping のセッション経由で TUM にして、`evo_ape tum ground_truth.tum <推定> -a`（SE(3) の Umeyama 整列、時刻の対応は evo の既定の 0.01 秒以内）で比べている。README の表は 1 つの trial の結果で、README の手順どおり calibration-room の trial-1 と考えられる（表の姿勢数 約 3,900 が、trial-1 のスキャン数 3,911 と合う）。
+
+### 15.1 入力（`scripts/mapshd_to_ros2.py`）
+
+- この VM では Docker が使えないので、ベンチマークが使う公式の変換（`MapsHD/mandeye_to_bag` の hdmapping-to-ros1）を Python で再現した。
+  - 点の時刻は laz の GPS time（秒）、IMU の時刻は csv の `timestamp`（ns）÷ 1e9。IMU の単位は変えない（rad/s と g）。
+  - 点群は、公式と同じく、19,968 点を超えたあとの、5 点ごとの区切りで 1 メッセージにする（約 0.1 秒）。公式の C++ のループを 1 点ずつ再現したものと、最初の 2 ファイル（200 メッセージ、ファイルの境目を含む）で区切りが一致した。
+  - 公式は Livox の CustomMsg（点ごとの `offset_time`）を書く。こちらは PointCloud2 に、メッセージの最初の点からの時刻 `t`（float32）を付けた。最初の点より早い点は、公式と同じく 0 にした。
+- trial-1 の bag は 390.4 秒、点群 3,911、IMU 78,081。変換は 46 秒。
+
+### 15.2 設定（GT を開く前に固定）
+
+- **フロントエンド**：14 章と同じ（rko_lio a92dfd4。15.3 のとおり後半の 4 trial は 40b3a06。Oxford と同じ competitive v2 のパラメータに moving-start guard 0.02 rad/s）。差し替えたのは次の 2 つだけ（`params/rko_params_mapshd_gyro002.ros.yaml`）。
+  - 外部パラメータ：MID-360 の LiDAR と内蔵 IMU の値。FAST-LIO の `mid360.yaml`（ベンチマークの FAST-LIO も同じ）と同じで、回転なし、並進 (−0.011, −0.02329, 0.04412) m。
+  - `imu_acceleration_unit: auto`（加速度が g 単位のため。MID-360 の既存のプロファイルと同じ）。
+- **バックエンド**：A = 14 章のループ有効の設定（NDT 5 m、1 スレッド）、B = その NDT 2 m。
+- **GT の扱い**：展開した直後に別の場所へ移し、sha256 を記録した。全 trial の A と B、15.7 の GLIM が終わり、出力のハッシュを記録するまで開いていない（`data/mapshd/outputs_sealed_before_gt.csv`）。時刻の列だけは、対応づけの確認のために先に見た。
+- **出力**：`trajectory_optimized.tum` をフロントエンドの全レートの軌跡に載せ、IMU 座標系から LiDAR 座標系に移して（T_world_lidar = T_world_imu · T_imu_lidar）採点した。GT は LiDAR の姿勢と考えられる。IMU 座標系のままの値も参考に出す（この差だけで、自分自身と比べて 2.5 cm 変わる）。
+- **trial**：8 つ（calibration-room 2、flat-room 1、long-corridor 1、underground-garage 3、outdoor-urk 1）。長さ 110〜380 秒、GT の経路長 78〜326 m。各 A と B を 1 回ずつ、同じ VM で 1 本ずつ回した。
+
+### 15.3 途中で見つけた不具合：bag の最後で止まる（rko_lio 40b3a06）
+
+- **症状**：underground-garage の trial-1 で、フロントエンドが最後まで行かずに止まった。この trial は、IMU が LiDAR より 9.9 秒早く終わる。
+- **原因と修正**：読み込みのスレッドと登録のスレッドが互いを待っていた。rko_lio の作業ブランチで直した（40b3a06。詳しくは rko_lio の bench_report 13 章）。
+  - exp04、MID-360、Oxford の軌跡の md5 は修正前と同じ。
+  - 修正後は、IMU のない最後の 100 フレームを捨てて最後まで走る。
+- **使ったビルド**：最初の 4 trial（calibration-room、flat-room、long-corridor）は a92dfd4 で、残りの 4 trial は 40b3a06 で回した。IMU が先に終わらない bag では、両者の出力は同じ。
+- **残った行**：止めたときに、修正前のビルドで B が走り出していた。その行が `data/mapshd/pipeline_rows.csv` に残っている（時間が NA の `underground-garage_trial-1_B`）。集計には、同じラベルの後の行を使った。
+
+### 15.4 結果（`evo_ape tum <GT> <推定> -a`、LiDAR 座標系、各 1 回、`data/mapshd/summary.md`）
+
+| trial | フロントエンド | A（NDT 5 m） | B（NDT 2 m） | B / A | ループ A / B | 結果の保存まで A / B |
+|---|---:|---:|---:|---:|---:|---:|
+| calibration-room 1 | 0.0749 m | 0.0759 m | **0.0733 m** | 0.967 | 22 / 17 | 113.1 / 86.4 秒 |
+| calibration-room 2 | **0.0804 m** | 0.1271 m | 0.1002 m | 0.788 | 4 / 5 | 64.1 / 34.2 秒 |
+| flat-room 1 | **0.0766 m** | 0.1244 m | 0.0793 m | 0.637 | 4 / 5 | 18.3 / 19.0 秒 |
+| long-corridor 1 | **0.0772 m** | 0.1415 m | 0.1449 m | 1.024 | 2 / 2 | 32.1 / 28.6 秒 |
+| outdoor-urk 1 | **0.0610 m** | 0.3422 m | 0.0817 m | 0.239 | 1 / 1 | 129.9 / 66.1 秒 |
+| underground-garage 1 | **0.1277 m** | 0.9672 m | 0.1397 m | 0.144 | 4 / 2 | 177.3 / 64.9 秒 |
+| underground-garage 2 | **0.0932 m** | 0.1948 m | 0.1081 m | 0.555 | 10 / 8 | 192.4 / 71.1 秒 |
+| underground-garage 3 | **0.1047 m** | 1.1067 m | 0.1206 m | 0.109 | 3 / 2 | 152.0 / 62.1 秒 |
+| 幾何平均 | 0.0849 m | 0.2429 m | 0.1029 m | 0.424 | | |
+
+- **B の判定**：14.6 の 2 つの条件をどちらも満たしたので、**B（`ndt_resolution: 2.0`）を採用する**。
+  - 幾何平均は A の 0.424 倍。
+  - いちばん悪い trial（long-corridor）でも B / A は 1.024 で、10% に届かない。
+- **ループ閉じ込みの効果**：NDT 5 m では、ループで大きく悪くなる trial がある（underground-garage の 1 と 3 で約 1 m、outdoor-urk で 0.34 m）。
+  - B でも、フロントエンド単体より良くなったのは calibration-room の 1 だけ（0.0749 → 0.0733 m）。ほかの 7 trial は 4〜88% 悪くなった。
+- **時間とメモリ**：結果の保存までの時間は、B で 19〜86 秒（データの長さの 0.07〜0.24 倍）。ピーク RSS（いちばん大きい 1 プロセス）は 130〜404 MB。
+- **手順の確認**：
+  - **座標系**：フロントエンドの APE は、8 trial 中 7 つで、LiDAR 座標系のほうが IMU 座標系より 0.3〜0.6 cm 小さい。GT が LiDAR の姿勢という見立てと合う。
+  - **時刻**：推定の時刻を ±0.2 秒ずらすと、どの trial でも APE はずらさないとき（0 ± 0.02 秒）に最小になる（`data/mapshd/time_offset_scan.txt`）。
+
+### 15.5 誤差の中身（`data/mapshd/error_breakdown.csv`）
+
+- **室内**（calibration-room 2 つ、flat-room）：誤差はほぼ上下方向で、z の RMSE は 0.070〜0.075 m、x と y は 1.1〜1.7 cm。
+  - 推定の高さが、約 1 秒の周期で ±0.1〜0.36 m 揺れる。GT の高さは滑らか（flat-room の 74〜97 秒で、GT は 0.74〜0.87 m の間を動くだけ）。
+  - |dz| > 0.1 m の時間は 13〜22%。人型ロボットの歩行（着地の衝撃）に対して、上下の推定が安定していないと考えられる（未確認）。
+- **underground-garage**：誤差はほぼ x 方向（0.089〜0.124 m）で、y と z は約 2 cm 以下。通路の向きの縮み・伸びの可能性がある（未確認）。
+- **long-corridor と outdoor-urk**：6〜8 cm で、方向の偏りは小さい。
+
+### 15.6 公開表との比較（calibration-room の trial-1）
+
+| 手法（README の表） | APE RMSE |
+|---|---:|
+| super-lio | 0.0365 m |
+| BIEVR-LIO | 0.0370 m |
+| FAST-LIO | 0.0385 m |
+| DALI-SLAM | 0.0412 m |
+| Faster-LIO | 0.0460 m |
+| GenZ-ICP | 0.0559 m |
+| Voxel-SLAM | 0.0575 m |
+| CT-ICP | 0.0595 m |
+| SE3-LIO | 0.0598 m |
+| Point-LIO | 0.0639 m |
+| **こちら（パイプライン B / フロントエンド）** | **0.0733 / 0.0749 m** |
+| DLIO | 0.0877 m |
+| GLIM | 0.150 m |
+
+- **順位**：表で値のある 25 手法に入れると 11 番目で、上位の約 2 倍。SOTA の水準ではない。
+  - 水平だけなら 1.3〜1.5 cm（x、y の RMSE）で、差は上下方向の揺れ（15.5）。
+- **比べ方の違い**：
+  - ベンチマークの各手法の軌跡は、HDMapping のセッションを経由して TUM になっている。
+  - ラッパーによって、記録する座標系が違う（GLIM のラッパーは IMU の姿勢 `/glim_ros/odom_corrected` を記録している）。
+  - こちらの LiDAR 座標系と IMU 座標系の差は 0.3〜0.6 cm なので、順位を変えるほどではない。
+
+### 15.7 同じ VM の GLIM（`data/mapshd/glim/`）
+
+- **ベンチマークの設定**：ベンチマークの GLIM のラッパー（`MapsHD/benchmark-GLIM-to-HDMapping` a83c866、GLIM 333cad4）は、GLIM の既定の設定を `sed` で次のように書き換えている。
+  - トピック名、`acc_scale` 9.80665、オドメトリ・サブマップ・大域地図を CPU 版に。
+  - `T_lidar_imu` を MID-360 の値に、のつもりの置き換え。ただし `sed` の対象の文字列（`0.006, -0.012, 0.008, 0.0, 0.0, 0.0, 1.0`）は、333cad4 の `config_sensors.json` ではコメント行（`// Ouster OS0: [...]`）にしかない。実際の値は複数行で書かれているので、**`T_lidar_imu` は Ouster OS0 の既定値 [0.006, −0.012, 0.008] のまま**走っていたことになる。
+- **同じ VM での再現**：この実際の設定（`params/glim_mapshd_benchmark/`）で、11 章の GLIM（faa264a）をこちらの bag に走らせた。
+  - APE は最終出力 0.663 m、オドメトリ 0.870 m。100.4 秒、338 MB。
+  - 公開値（0.150 m）は再現できなかった。考えられる違いは次の 3 つで、どれも確かめていない。
+    - GLIM の版（333cad4 と faa264a）。
+    - 入力の経路（ベンチマークは livox_bag_aggregate と rosbags-convert を経由）。
+    - 記録した軌跡（走行中の `odom_corrected` と、最後の `traj_imu.txt`）。
+  - このため、GLIM を使った手順全体の確認にはならなかった。こちらの値の手順については、座標系と時刻の確認（15.4）だけが根拠になる。
+
+### 15.8 判断と次の課題
+
+- **NDT 2.0 m を採用する**（ループ有効の設定に `ndt_resolution: 2.0`）。
+  - 事前に決めた基準で、MapsHD の 8 trial で採用が決まった。
+  - Oxford（14.4）でも良くなる。exp04 の 7 点の APE の +5.9 mm は、既知の代償として残る。
+- **ループ閉じ込みは、まだフロントエンドを良くしていない**：MapsHD の 7 / 8 trial と Oxford で、パイプラインはフロントエンド単体より悪い。
+  - 短い記録では、ループ無効を既定にするか、ループ辺の重み（100 / fitness で、平行移動と回転に同じ重み）を見直す必要がある。
+- **精度の次の課題はフロントエンド**：室内の上下の揺れ（人型の歩行）と、地下駐車場の x 方向のずれ。
+  - MapsHD は GT を開いたので、もう未使用のデータではない。ここで直したものは、別のデータで確かめる必要がある。
+- **メモリ**：MapsHD の規模では、ピーク RSS 130〜404 MB で、16 回中 12 回は SOTA-v6 の基準（330 MB）以内。大きい系列（Oxford 2.4 GB）が課題。
+- **ベンチマークの GLIM の設定**：MapsHD のベンチマーク側の不具合の可能性（`T_lidar_imu` が変わっていない）は、報告する価値がある。こちらからは何も送っていない。

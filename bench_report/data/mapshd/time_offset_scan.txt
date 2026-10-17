@@ -1,0 +1,16 @@
+== calibration-room_trial-1 frontend (lidar)
+minimum 0.0731 m at dt = +0.00 s; at 0: 0.0731 m
+== calibration-room_trial-2 frontend (lidar)
+minimum 0.0780 m at dt = -0.01 s; at 0: 0.0781 m
+== flat-room_trial-1 frontend (lidar)
+minimum 0.0723 m at dt = -0.01 s; at 0: 0.0723 m
+== long-corridor_trial-1 frontend (lidar)
+minimum 0.0758 m at dt = +0.01 s; at 0: 0.0760 m
+== outdoor-urk_trial-1 frontend (lidar)
+minimum 0.0591 m at dt = +0.02 s; at 0: 0.0603 m
+== underground-garage_trial-1 frontend (lidar)
+minimum 0.1277 m at dt = +0.00 s; at 0: 0.1277 m
+== underground-garage_trial-2 frontend (lidar)
+minimum 0.0929 m at dt = +0.01 s; at 0: 0.0930 m
+== underground-garage_trial-3 frontend (lidar)
+minimum 0.1044 m at dt = -0.01 s; at 0: 0.1045 m
