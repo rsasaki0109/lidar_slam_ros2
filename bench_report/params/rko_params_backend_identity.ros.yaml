@@ -1,0 +1,36 @@
+# Measurement-only: an empty first section, so rko_lio_slam.launch.py passes no extrinsic to the
+# backend (it reads the first ros__parameters section), while rko_lio still gets /** below.
+measurement_placeholder:
+  ros__parameters: {}
+/**:
+  ros__parameters:
+    extrinsic_imu2base_quat_xyzw_xyz:
+    - 0.0
+    - 0.0
+    - 0.0
+    - 1.0
+    - 0.0
+    - 0.0
+    - 0.0
+    extrinsic_lidar2base_quat_xyzw_xyz:
+    - 0.7071068
+    - -0.7071068
+    - 0.0
+    - 0.0
+    - -0.001
+    - -0.00855
+    - 0.055
+    initialization_phase: true
+    odom_topic: /rko_lio/odometry
+    deskew: true
+    voxel_size: 0.25
+    min_range: 0.7
+    max_range: 100.0
+    double_downsample: true
+    enable_kidnap_relocalization: false
+    reset_on_registration_failure: false
+    relocalize_after_scan_gap: false
+    max_iterations: 50
+    convergence_criterion: 3.0e-05
+    icp_keypoint_voxel_multiplier: 2.25
+    publisher_queue_depth: 128

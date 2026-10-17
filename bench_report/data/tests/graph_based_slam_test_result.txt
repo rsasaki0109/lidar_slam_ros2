@@ -1,0 +1,26 @@
+# graph_based_slam (colcon test --ctest-args -E <default CI exclusions>, final code ab01727)
+Output from these tests are in: /home/user/ws/slam_dev/build/graph_based_slam/Testing/Temporary/LastTest.log
+Use "--rerun-failed --output-on-failure" to re-run the failed cases verbosely.
+---
+Finished <<< graph_based_slam [4min 28s]	[ with test failures ]
+
+Summary: 1 package finished [4min 29s]
+  1 package had stderr output: graph_based_slam
+  1 package had test failures: graph_based_slam
+colcon_test_exit=0
+build/graph_based_slam/Testing/20261017-0001/Test.xml: 256 tests, 0 errors, 14 failures, 0 skipped
+build/graph_based_slam/test_results/graph_based_slam/test_build_mid360_onboarding_fixture.xunit.xml: 1 test, 1 error, 0 failures, 0 skipped
+build/graph_based_slam/test_results/graph_based_slam/test_materialize_m6a10_ros1_equivalent.xunit.xml: 1 test, 1 error, 0 failures, 0 skipped
+build/graph_based_slam/test_results/graph_based_slam/test_materialize_m6a10_synchronized_tail.xunit.xml: 1 test, 1 error, 0 failures, 0 skipped
+build/graph_based_slam/test_results/graph_based_slam/test_mid360_robot_public_bag_clip.xunit.xml: 1 test, 0 errors, 1 failure, 0 skipped
+build/graph_based_slam/test_results/graph_based_slam/test_mid360_robot_public_loop_bag.xunit.xml: 4 tests, 0 errors, 4 failures, 0 skipped
+build/graph_based_slam/test_results/graph_based_slam/test_mid360_robot_readiness_cli.xunit.xml: 6 tests, 0 errors, 5 failures, 0 skipped
+build/graph_based_slam/test_results/graph_based_slam/test_mid360_robot_runbook_smoke.xunit.xml: 1 test, 0 errors, 1 failure, 0 skipped
+build/graph_based_slam/test_results/graph_based_slam/test_normalize_ntu_viral_rosbag.xunit.xml: 1 test, 1 error, 0 failures, 0 skipped
+build/graph_based_slam/test_results/graph_based_slam/test_pcd_sequence_to_rosbag2.xunit.xml: 7 tests, 0 errors, 1 failure, 0 skipped
+build/graph_based_slam/test_results/graph_based_slam/test_select_rosbag_topic.xunit.xml: 1 test, 1 error, 0 failures, 0 skipped
+build/graph_based_slam/test_results/graph_based_slam/test_slice_rosbag2.xunit.xml: 1 test, 1 error, 0 failures, 0 skipped
+build/graph_based_slam/test_results/graph_based_slam/xmllint.xunit.xml: 1 test, 0 errors, 1 failure, 0 skipped
+
+Summary: 3638 tests, 6 errors, 27 failures, 211 skipped
+test_seconds=269

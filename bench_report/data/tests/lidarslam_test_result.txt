@@ -1,0 +1,45 @@
+# lidarslam (colcon test, final code ab01727)
+     - /usr/bin/python3 -u -m pytest /home/user/lidar_slam_ros2/lidarslam/test/test_canonical_ndt_convergence.py -o cache_dir=/home/user/ws/slam_dev/build/lidarslam/ament_cmake_pytest/test_canonical_ndt_convergence/.cache --junit-xml=/home/user/ws/slam_dev/build/lidarslam/test_results/lidarslam/test_canonical_ndt_convergence.xunit.xml --junit-prefix=lidarslam
+    - generated xml file: /home/user/ws/slam_dev/build/lidarslam/test_results/lidarslam/test_canonical_ndt_convergence.xunit.xml -
+    -- run_test.py: verify result file '/home/user/ws/slam_dev/build/lidarslam/test_results/lidarslam/test_canonical_ndt_convergence.xunit.xml'
+     - /usr/bin/python3 -u -m pytest /home/user/lidar_slam_ros2/lidarslam/test/test_check_publication_slice_plan.py -o cache_dir=/home/user/ws/slam_dev/build/lidarslam/ament_cmake_pytest/test_check_publication_slice_plan/.cache --junit-xml=/home/user/ws/slam_dev/build/lidarslam/test_results/lidarslam/test_check_publication_slice_plan.xunit.xml --junit-prefix=lidarslam
+    - generated xml file: /home/user/ws/slam_dev/build/lidarslam/test_results/lidarslam/test_check_publication_slice_plan.xunit.xml -
+    -- run_test.py: verify result file '/home/user/ws/slam_dev/build/lidarslam/test_results/lidarslam/test_check_publication_slice_plan.xunit.xml'
+     - /usr/bin/python3 -u -m pytest /home/user/lidar_slam_ros2/lidarslam/test/test_check_g0_readiness.py -o cache_dir=/home/user/ws/slam_dev/build/lidarslam/ament_cmake_pytest/test_check_g0_readiness/.cache --junit-xml=/home/user/ws/slam_dev/build/lidarslam/test_results/lidarslam/test_check_g0_readiness.xunit.xml --junit-prefix=lidarslam
+    - generated xml file: /home/user/ws/slam_dev/build/lidarslam/test_results/lidarslam/test_check_g0_readiness.xunit.xml -
+    -- run_test.py: verify result file '/home/user/ws/slam_dev/build/lidarslam/test_results/lidarslam/test_check_g0_readiness.xunit.xml'
+     - /usr/bin/python3 -u -m pytest /home/user/lidar_slam_ros2/lidarslam/test/test_ndt_omp_release_readiness.py -o cache_dir=/home/user/ws/slam_dev/build/lidarslam/ament_cmake_pytest/test_ndt_omp_release_readiness/.cache --junit-xml=/home/user/ws/slam_dev/build/lidarslam/test_results/lidarslam/test_ndt_omp_release_readiness.xunit.xml --junit-prefix=lidarslam
+    - generated xml file: /home/user/ws/slam_dev/build/lidarslam/test_results/lidarslam/test_ndt_omp_release_readiness.xunit.xml -
+    -- run_test.py: verify result file '/home/user/ws/slam_dev/build/lidarslam/test_results/lidarslam/test_ndt_omp_release_readiness.xunit.xml'
+     - /usr/bin/python3 -u -m pytest /home/user/lidar_slam_ros2/lidarslam/test/test_prepare_issue_triage_application.py -o cache_dir=/home/user/ws/slam_dev/build/lidarslam/ament_cmake_pytest/test_prepare_issue_triage_application/.cache --junit-xml=/home/user/ws/slam_dev/build/lidarslam/test_results/lidarslam/test_prepare_issue_triage_application.xunit.xml --junit-prefix=lidarslam
+    - generated xml file: /home/user/ws/slam_dev/build/lidarslam/test_results/lidarslam/test_prepare_issue_triage_application.xunit.xml -
+    -- run_test.py: verify result file '/home/user/ws/slam_dev/build/lidarslam/test_results/lidarslam/test_prepare_issue_triage_application.xunit.xml'
+     - /usr/bin/python3 -u -m pytest /home/user/lidar_slam_ros2/lidarslam/test/test_prepare_usability_scorecard_pair.py -o cache_dir=/home/user/ws/slam_dev/build/lidarslam/ament_cmake_pytest/test_prepare_usability_scorecard_pair/.cache --junit-xml=/home/user/ws/slam_dev/build/lidarslam/test_results/lidarslam/test_prepare_usability_scorecard_pair.xunit.xml --junit-prefix=lidarslam
+    - generated xml file: /home/user/ws/slam_dev/build/lidarslam/test_results/lidarslam/test_prepare_usability_scorecard_pair.xunit.xml -
+    -- run_test.py: verify result file '/home/user/ws/slam_dev/build/lidarslam/test_results/lidarslam/test_prepare_usability_scorecard_pair.xunit.xml'
+     - /usr/bin/python3 -u -m pytest /home/user/lidar_slam_ros2/lidarslam/test/test_package_manager_release_readiness.py -o cache_dir=/home/user/ws/slam_dev/build/lidarslam/ament_cmake_pytest/test_package_manager_release_readiness/.cache --junit-xml=/home/user/ws/slam_dev/build/lidarslam/test_results/lidarslam/test_package_manager_release_readiness.xunit.xml --junit-prefix=lidarslam
+    - generated xml file: /home/user/ws/slam_dev/build/lidarslam/test_results/lidarslam/test_package_manager_release_readiness.xunit.xml -
+    -- run_test.py: verify result file '/home/user/ws/slam_dev/build/lidarslam/test_results/lidarslam/test_package_manager_release_readiness.xunit.xml'
+     - /usr/bin/python3 -u -m pytest /home/user/lidar_slam_ros2/lidarslam/test/test_published_release.py -o cache_dir=/home/user/ws/slam_dev/build/lidarslam/ament_cmake_pytest/test_published_release/.cache --junit-xml=/home/user/ws/slam_dev/build/lidarslam/test_results/lidarslam/test_published_release.xunit.xml --junit-prefix=lidarslam
+    - generated xml file: /home/user/ws/slam_dev/build/lidarslam/test_results/lidarslam/test_published_release.xunit.xml -
+    -- run_test.py: verify result file '/home/user/ws/slam_dev/build/lidarslam/test_results/lidarslam/test_published_release.xunit.xml'
+     - /usr/bin/python3 -u -m pytest /home/user/lidar_slam_ros2/lidarslam/test/test_run_source_onboarding_probe.py -o cache_dir=/home/user/ws/slam_dev/build/lidarslam/ament_cmake_pytest/test_run_source_onboarding_probe/.cache --junit-xml=/home/user/ws/slam_dev/build/lidarslam/test_results/lidarslam/test_run_source_onboarding_probe.xunit.xml --junit-prefix=lidarslam
+    - generated xml file: /home/user/ws/slam_dev/build/lidarslam/test_results/lidarslam/test_run_source_onboarding_probe.xunit.xml -
+    -- run_test.py: verify result file '/home/user/ws/slam_dev/build/lidarslam/test_results/lidarslam/test_run_source_onboarding_probe.xunit.xml'
+     - /usr/bin/python3 -u -m pytest /home/user/lidar_slam_ros2/lidarslam/test/test_social_demo_media.py -o cache_dir=/home/user/ws/slam_dev/build/lidarslam/ament_cmake_pytest/test_social_demo_media/.cache --junit-xml=/home/user/ws/slam_dev/build/lidarslam/test_results/lidarslam/test_social_demo_media.xunit.xml --junit-prefix=lidarslam
+    - generated xml file: /home/user/ws/slam_dev/build/lidarslam/test_results/lidarslam/test_social_demo_media.xunit.xml -
+    -- run_test.py: verify result file '/home/user/ws/slam_dev/build/lidarslam/test_results/lidarslam/test_social_demo_media.xunit.xml'
+     - /opt/ros/jazzy/bin/ament_xmllint --xunit-file /home/user/ws/slam_dev/build/lidarslam/test_results/lidarslam/xmllint.xunit.xml
+    -- run_test.py: verify result file '/home/user/ws/slam_dev/build/lidarslam/test_results/lidarslam/xmllint.xunit.xml'
+build/lidarslam/test_results/lidarslam/test_canonical_ndt_convergence.xunit.xml: 1 test, 1 error, 0 failures, 0 skipped
+build/lidarslam/test_results/lidarslam/test_check_g0_readiness.xunit.xml: 1 test, 1 error, 0 failures, 0 skipped
+build/lidarslam/test_results/lidarslam/test_check_publication_slice_plan.xunit.xml: 34 tests, 0 errors, 26 failures, 0 skipped
+build/lidarslam/test_results/lidarslam/test_ndt_omp_release_readiness.xunit.xml: 1 test, 1 error, 0 failures, 0 skipped
+build/lidarslam/test_results/lidarslam/test_package_manager_release_readiness.xunit.xml: 1 test, 1 error, 0 failures, 0 skipped
+build/lidarslam/test_results/lidarslam/test_prepare_issue_triage_application.xunit.xml: 1 test, 1 error, 0 failures, 0 skipped
+build/lidarslam/test_results/lidarslam/test_prepare_usability_scorecard_pair.xunit.xml: 1 test, 1 error, 0 failures, 0 skipped
+build/lidarslam/test_results/lidarslam/test_published_release.xunit.xml: 1 test, 1 error, 0 failures, 0 skipped
+build/lidarslam/test_results/lidarslam/test_run_source_onboarding_probe.xunit.xml: 24 tests, 0 errors, 1 failure, 0 skipped
+build/lidarslam/test_results/lidarslam/test_social_demo_media.xunit.xml: 12 tests, 0 errors, 1 failure, 0 skipped
+build/lidarslam/test_results/lidarslam/xmllint.xunit.xml: 1 test, 0 errors, 1 failure, 0 skipped
+Summary: 1360 tests, 7 errors, 40 failures, 1 skipped

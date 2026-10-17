@@ -1,0 +1,12 @@
+exp04_identity/prof_lines.txt: alignments 78, source pts median 27316, target pts median 59375
+  iterations median 98, mean 80.3, max 102, at the 100 cap 38 (49%)
+  align wall ms median 1931, mean 2132; setInputTarget ms median 4.0; getFitnessScore ms median 57.1
+  total wall in setInputTarget+align+fitness 171.0 s; fitness < 1.0: 0
+exp04_extrinsic/prof_lines.txt: alignments 78, source pts median 21852, target pts median 44231
+  iterations median 4, mean 6.4, max 49, at the 100 cap 0 (0%)
+  align wall ms median 126, mean 141; setInputTarget ms median 2.6; getFitnessScore ms median 38.6
+  total wall in setInputTarget+align+fitness 14.3 s; fitness < 1.0: 7
+mid360_head/prof_lines.txt: alignments 171, source pts median 22491, target pts median 41665
+  iterations median 59, mean 58.6, max 102, at the 100 cap 48 (28%)
+  align wall ms median 1325, mean 1290; setInputTarget ms median 2.4; getFitnessScore ms median 42.1
+  total wall in setInputTarget+align+fitness 228.4 s; fitness < 1.0: 27
