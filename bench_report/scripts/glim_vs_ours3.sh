@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Usage: glim_vs_ours3.sh <csv> <rounds>
+# Usage: [WS=<pipeline overlay>] [BASE=<out dir>] [START=<first round>] glim_vs_ours3.sh <csv> <rounds>
 # Same-VM GLIM vs ours with one end point for all: process start -> results saved. One run at a time,
 # 20 s apart, order rotated every round.
 #   glim      : glim_run.sh; /usr/bin/time wall of glim_rosbag (start .. global mapping done .. dump saved .. exit)
@@ -10,11 +10,12 @@
 #          result_traj,front_md5,traj_md5,start_utc
 csv=$1; rounds=$2
 DUR=125.814128037
-BASE=/home/user/bench/glim_cmp3
+BASE=${BASE:-/home/user/bench/glim_cmp3}
+WS=${WS:-/home/user/ws/pipe_dev_734d54f}
 mkdir -p "${BASE}"
 order=(glim ours_off ours_loop)
 field() { awk -F': ' -v k="$2" '$1 ~ k {print $2}' "$1"; }
-for ((i = 1; i <= rounds; i++)); do
+for ((i = ${START:-1}; i <= rounds; i++)); do
   shift_by=$(( (i - 1) % 3 ))
   for ((j = 0; j < 3; j++)); do
     sys=${order[$(( (j + shift_by) % 3 ))]}
@@ -40,7 +41,7 @@ PY
       [[ ${sys} == ours_loop ]] && yaml=/home/user/bench/params/lidarslam_competitive_v2_loop_ndt1.yaml
       tf=${out}.time
       /usr/bin/time -v -o "${tf}" /home/user/scripts/pipe_pipeline.sh "${BASE}/pipe_rows.csv" "${sys}_${i}" \
-        /home/user/ws/pipe_dev_734d54f "${yaml}" "${out}" > "${out}.log" 2>&1
+        "${WS}" "${yaml}" "${out}" > "${out}.log" 2>&1
       rc=$?
       IFS=, read -r -a r <<< "$(grep "^${sys}_${i}," "${BASE}/pipe_rows.csv" | tail -1)"
       front=${r[1]:-NA}; complete=${r[2]:-NA}; front_md5=${r[7]:-NA}; traj_md5=${r[8]:-NA}
