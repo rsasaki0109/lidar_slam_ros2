@@ -1,0 +1,187 @@
+calibration-room_trial-1_X,as_run,0.032808
+calibration-room_trial-1_X,travel_min=30,0.032808
+calibration-room_trial-1_X,travel_min=50,0.032808
+calibration-room_trial-1_X,travel_min=100,0.035588
+calibration-room_trial-1_X,travel_min=150,0.036034
+calibration-room_trial-1_X,travel_l0=30,0.032846
+calibration-room_trial-1_X,travel_l0=50,0.032896
+calibration-room_trial-1_X,travel_l0=100,0.033044
+calibration-room_trial-1_X,travel_l0=200,0.033189
+calibration-room_trial-2_X,as_run,0.026669
+calibration-room_trial-2_X,travel_min=30,0.026200
+calibration-room_trial-2_X,travel_min=50,0.026591
+calibration-room_trial-2_X,travel_min=100,0.026104
+calibration-room_trial-2_X,travel_min=150,0.026104
+calibration-room_trial-2_X,travel_l0=30,0.026540
+calibration-room_trial-2_X,travel_l0=50,0.026451
+calibration-room_trial-2_X,travel_l0=100,0.026251
+calibration-room_trial-2_X,travel_l0=200,0.026144
+flat-room_trial-1_X,as_run,0.018963
+flat-room_trial-1_X,travel_min=30,0.018389
+flat-room_trial-1_X,travel_min=50,0.017072
+flat-room_trial-1_X,travel_min=100,0.015664
+flat-room_trial-1_X,travel_min=150,0.015664
+flat-room_trial-1_X,travel_l0=30,0.018264
+flat-room_trial-1_X,travel_l0=50,0.017706
+flat-room_trial-1_X,travel_l0=100,0.016672
+flat-room_trial-1_X,travel_l0=200,0.015889
+long-corridor_trial-1_X,as_run,0.071915
+long-corridor_trial-1_X,travel_min=30,0.071849
+long-corridor_trial-1_X,travel_min=50,0.071849
+long-corridor_trial-1_X,travel_min=100,0.071849
+long-corridor_trial-1_X,travel_min=150,0.071849
+long-corridor_trial-1_X,travel_l0=30,0.071892
+long-corridor_trial-1_X,travel_l0=50,0.071869
+long-corridor_trial-1_X,travel_l0=100,0.071867
+long-corridor_trial-1_X,travel_l0=200,0.071856
+outdoor-urk_trial-1_X,as_run,0.057581
+outdoor-urk_trial-1_X,travel_min=30,0.057581
+outdoor-urk_trial-1_X,travel_min=50,0.057581
+outdoor-urk_trial-1_X,travel_min=100,0.057581
+outdoor-urk_trial-1_X,travel_min=150,0.057581
+outdoor-urk_trial-1_X,travel_l0=30,0.057608
+outdoor-urk_trial-1_X,travel_l0=50,0.057657
+outdoor-urk_trial-1_X,travel_l0=100,0.057850
+outdoor-urk_trial-1_X,travel_l0=200,0.058327
+underground-garage_trial-1_X,as_run,0.101385
+underground-garage_trial-1_X,travel_min=30,0.101376
+underground-garage_trial-1_X,travel_min=50,0.101376
+underground-garage_trial-1_X,travel_min=100,0.101376
+underground-garage_trial-1_X,travel_min=150,0.101376
+underground-garage_trial-1_X,travel_l0=30,0.101378
+underground-garage_trial-1_X,travel_l0=50,0.101375
+underground-garage_trial-1_X,travel_l0=100,0.101366
+underground-garage_trial-1_X,travel_l0=200,0.101314
+underground-garage_trial-2_X,as_run,0.069937
+underground-garage_trial-2_X,travel_min=30,0.070010
+underground-garage_trial-2_X,travel_min=50,0.070010
+underground-garage_trial-2_X,travel_min=100,0.070258
+underground-garage_trial-2_X,travel_min=150,0.069949
+underground-garage_trial-2_X,travel_l0=30,0.069967
+underground-garage_trial-2_X,travel_l0=50,0.069976
+underground-garage_trial-2_X,travel_l0=100,0.069926
+underground-garage_trial-2_X,travel_l0=200,0.069613
+underground-garage_trial-3_X,as_run,0.080532
+underground-garage_trial-3_X,travel_min=30,0.080459
+underground-garage_trial-3_X,travel_min=50,0.080459
+underground-garage_trial-3_X,travel_min=100,0.080459
+underground-garage_trial-3_X,travel_min=150,0.080459
+underground-garage_trial-3_X,travel_l0=30,0.080435
+underground-garage_trial-3_X,travel_l0=50,0.080342
+underground-garage_trial-3_X,travel_l0=100,0.079995
+underground-garage_trial-3_X,travel_l0=200,0.078972
+oxford_X,as_run,0.046953
+oxford_X,travel_min=30,0.046764
+oxford_X,travel_min=50,0.046966
+oxford_X,travel_min=100,0.050788
+oxford_X,travel_min=150,0.050788
+oxford_X,travel_l0=30,0.046923
+oxford_X,travel_l0=50,0.047033
+oxford_X,travel_l0=100,0.047521
+oxford_X,travel_l0=200,0.048437
+exp04_X,as_run,0.052101
+exp04_X,travel_min=30,0.052101
+exp04_X,travel_min=50,0.052101
+exp04_X,travel_min=100,0.052025
+exp04_X,travel_min=150,0.052025
+exp04_X,travel_l0=30,0.052078
+exp04_X,travel_l0=50,0.052057
+exp04_X,travel_l0=100,0.052039
+exp04_X,travel_l0=200,0.052029
+mid360_X,as_run,0.044
+mid360_X,travel_min=30,0.044
+mid360_X,travel_min=50,0.044
+mid360_X,travel_min=100,0.044
+mid360_X,travel_min=150,0.044
+mid360_X,travel_l0=30,0.044
+mid360_X,travel_l0=50,0.044
+mid360_X,travel_l0=100,0.045
+mid360_X,travel_l0=200,0.047
+calibration-room_trial-1_X,travel_min=40,0.032808
+calibration-room_trial-1_X,travel_min=60,0.032808
+calibration-room_trial-1_X,travel_min=70,0.032808
+calibration-room_trial-1_X,travel_min=90,0.035588
+calibration-room_trial-1_X,travel_l0=300,0.033121
+calibration-room_trial-1_X,travel_l0=500,0.032990
+calibration-room_trial-1_X,travel_min=50 travel_l0=100,0.033044
+calibration-room_trial-1_X,travel_min=50 travel_l0=200,0.033189
+calibration-room_trial-2_X,travel_min=40,0.026591
+calibration-room_trial-2_X,travel_min=60,0.026591
+calibration-room_trial-2_X,travel_min=70,0.026591
+calibration-room_trial-2_X,travel_min=90,0.026591
+calibration-room_trial-2_X,travel_l0=300,0.026123
+calibration-room_trial-2_X,travel_l0=500,0.026111
+calibration-room_trial-2_X,travel_min=50 travel_l0=100,0.026311
+calibration-room_trial-2_X,travel_min=50 travel_l0=200,0.026174
+flat-room_trial-1_X,travel_min=40,0.017072
+flat-room_trial-1_X,travel_min=60,0.015664
+flat-room_trial-1_X,travel_min=70,0.015664
+flat-room_trial-1_X,travel_min=90,0.015664
+flat-room_trial-1_X,travel_l0=300,0.015737
+flat-room_trial-1_X,travel_l0=500,0.015681
+flat-room_trial-1_X,travel_min=50 travel_l0=100,0.016157
+flat-room_trial-1_X,travel_min=50 travel_l0=200,0.015762
+long-corridor_trial-1_X,travel_min=40,0.071849
+long-corridor_trial-1_X,travel_min=60,0.071849
+long-corridor_trial-1_X,travel_min=70,0.071849
+long-corridor_trial-1_X,travel_min=90,0.071849
+long-corridor_trial-1_X,travel_l0=300,0.071861
+long-corridor_trial-1_X,travel_l0=500,0.071856
+long-corridor_trial-1_X,travel_min=50 travel_l0=100,0.071849
+long-corridor_trial-1_X,travel_min=50 travel_l0=200,0.071849
+outdoor-urk_trial-1_X,travel_min=40,0.057581
+outdoor-urk_trial-1_X,travel_min=60,0.057581
+outdoor-urk_trial-1_X,travel_min=70,0.057581
+outdoor-urk_trial-1_X,travel_min=90,0.057581
+outdoor-urk_trial-1_X,travel_l0=300,0.058696
+outdoor-urk_trial-1_X,travel_l0=500,0.059057
+outdoor-urk_trial-1_X,travel_min=50 travel_l0=100,0.057850
+outdoor-urk_trial-1_X,travel_min=50 travel_l0=200,0.058327
+underground-garage_trial-1_X,travel_min=40,0.101376
+underground-garage_trial-1_X,travel_min=60,0.101376
+underground-garage_trial-1_X,travel_min=70,0.101376
+underground-garage_trial-1_X,travel_min=90,0.101376
+underground-garage_trial-1_X,travel_l0=300,0.101197
+underground-garage_trial-1_X,travel_l0=500,0.100912
+underground-garage_trial-1_X,travel_min=50 travel_l0=100,0.101365
+underground-garage_trial-1_X,travel_min=50 travel_l0=200,0.101316
+underground-garage_trial-2_X,travel_min=40,0.070010
+underground-garage_trial-2_X,travel_min=60,0.070010
+underground-garage_trial-2_X,travel_min=70,0.070010
+underground-garage_trial-2_X,travel_min=90,0.070010
+underground-garage_trial-2_X,travel_l0=300,0.069154
+underground-garage_trial-2_X,travel_l0=500,0.068248
+underground-garage_trial-2_X,travel_min=50 travel_l0=100,0.069938
+underground-garage_trial-2_X,travel_min=50 travel_l0=200,0.069615
+underground-garage_trial-3_X,travel_min=40,0.080459
+underground-garage_trial-3_X,travel_min=60,0.080459
+underground-garage_trial-3_X,travel_min=70,0.080459
+underground-garage_trial-3_X,travel_min=90,0.080459
+underground-garage_trial-3_X,travel_l0=300,0.077917
+underground-garage_trial-3_X,travel_l0=500,0.076349
+underground-garage_trial-3_X,travel_min=50 travel_l0=100,0.079991
+underground-garage_trial-3_X,travel_min=50 travel_l0=200,0.078972
+oxford_X,travel_min=40,0.046764
+oxford_X,travel_min=60,0.046966
+oxford_X,travel_min=70,0.046956
+oxford_X,travel_min=90,0.046956
+oxford_X,travel_l0=300,0.048848
+oxford_X,travel_l0=500,0.048837
+oxford_X,travel_min=50 travel_l0=100,0.047629
+oxford_X,travel_min=50 travel_l0=200,0.048479
+exp04_X,travel_min=40,0.052101
+exp04_X,travel_min=60,0.052101
+exp04_X,travel_min=70,0.052025
+exp04_X,travel_min=90,0.052025
+exp04_X,travel_l0=300,0.052026
+exp04_X,travel_l0=500,0.052025
+exp04_X,travel_min=50 travel_l0=100,0.052039
+exp04_X,travel_min=50 travel_l0=200,0.052029
+mid360_X,travel_min=40,0.044
+mid360_X,travel_min=60,0.044
+mid360_X,travel_min=70,0.044
+mid360_X,travel_min=90,0.044
+mid360_X,travel_l0=300,0.051
+mid360_X,travel_l0=500,0.063
+mid360_X,travel_min=50 travel_l0=100,0.045
+mid360_X,travel_min=50 travel_l0=200,0.047
