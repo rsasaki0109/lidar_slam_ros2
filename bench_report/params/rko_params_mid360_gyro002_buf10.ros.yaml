@@ -1,0 +1,36 @@
+/**:
+  ros__parameters:
+    base_frame: base_link
+    odom_frame: odom
+    lidar_frame: ''
+    imu_frame: ''
+    deskew: true
+    voxel_size: 1.0
+    max_range: 100.0
+    min_range: 1.0
+    initialization_phase: true
+    skip_to_time: 0.0
+    publish_deskewed_scan: true
+    odom_topic: /rko_lio/odometry
+    dump_results: true
+    run_name: front
+    extrinsic_imu2base_quat_xyzw_xyz:
+    - 0.0
+    - 0.0
+    - 0.0
+    - 1.0
+    - 0.0
+    - 0.0
+    - 0.0
+    extrinsic_lidar2base_quat_xyzw_xyz:
+    - 0.0
+    - 0.0
+    - 0.0
+    - 1.0
+    - 0.0
+    - 0.0
+    - 0.0
+    imu_acceleration_unit: auto
+    initialization_max_gyro_rad_s: 0.02
+    async:
+      max_lidar_buffer_size: 10
