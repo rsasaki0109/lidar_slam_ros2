@@ -1,0 +1,8 @@
+oxford_base,as_run,0.055181
+oxford_base,loop=0.1,0.054817
+oxford_base,loop=0.01,0.052277
+oxford_base,loop=0.001,0.050432
+oxford_base,loop=1 adj_r=10,0.052286
+oxford_base,loop=1 adj_r=100,0.050371
+oxford_base,loop=0.1 adj_r=100,0.049804
+oxford_base,loop=1 adj_r=1000,0.048990
