@@ -1,0 +1,27 @@
+APE translation (m)
+pairs: 14739
+alignment: se3_umeyama
+rmse: 0.048988855901951935
+mean: 0.045539200203028235
+median: 0.04313851730775988
+std: 0.01805794139570519
+min: 0.002366077189579379
+max: 0.177704070317805
+mode: interpolate
+total_ref_points: 14762
+rejected_ref_points: 23
+max_time_gap: 0.1016380786895752
+
+aligned per-axis RMSE x/y/z (m): [0.0298 0.0242 0.0305]
+aligned 3D RMSE (m): 0.049
+  t=   58.7 s  |err|=0.046 m  dz=-0.015 m
+  t=  115.0 s  |err|=0.042 m  dz=-0.030 m
+  t=  174.2 s  |err|=0.029 m  dz=-0.021 m
+  t=  233.4 s  |err|=0.049 m  dz=+0.029 m
+  t=  289.9 s  |err|=0.046 m  dz=-0.028 m
+  t=  348.5 s  |err|=0.072 m  dz=+0.050 m
+  t=  406.3 s  |err|=0.047 m  dz=+0.005 m
+  t=  464.0 s  |err|=0.030 m  dz=+0.022 m
+  t=  521.9 s  |err|=0.037 m  dz=-0.027 m
+  t=  580.8 s  |err|=0.046 m  dz=-0.044 m
+reference path length 705.7 m over 580.8 s; estimate poses 5834
