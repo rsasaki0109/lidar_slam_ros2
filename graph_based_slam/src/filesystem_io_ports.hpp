@@ -30,7 +30,10 @@
 #ifndef FILESYSTEM_IO_PORTS_HPP_
 #define FILESYSTEM_IO_PORTS_HPP_
 
+#include <cstddef>
+#include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -50,10 +53,12 @@ public:
   bool store(int index, const ports::PointCloud & cloud) override;
   std::vector<bool> storeBatch(const std::vector<ports::SubmapWrite> & writes) override;
   ports::PointCloudPtr load(int index) const override;
+  std::size_t pointCount(int index) const override;
 
 private:
   std::string directory_;
   mutable std::mutex mutex_;
+  std::map<int, std::size_t> point_counts_;
 };
 
 class FilesystemMapOutput final : public ports::MapOutputPort
@@ -68,6 +73,7 @@ public:
     const std::string & artifact, const ports::PointCloud & cloud) override;
   bool writePointCloudXyz(
     const std::string & artifact, const ports::PointCloudXyz & cloud) override;
+  bool writeMapCloud(const std::string & artifact, const ports::MapCloud & cloud) override;
 };
 
 }  // namespace adapters

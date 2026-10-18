@@ -33,9 +33,9 @@
 #include <cstdint>
 #include <limits>
 
-#include <Eigen/Core>
-#include <pcl/common/common.h>
-#include <pcl/point_cloud.h>
+#include <Eigen/Core>  // NOLINT(build/include_order)
+#include <pcl/common/common.h>  // NOLINT(build/include_order)
+#include <pcl/point_cloud.h>  // NOLINT(build/include_order)
 
 namespace graphslam
 {

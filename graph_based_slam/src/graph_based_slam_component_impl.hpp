@@ -41,6 +41,7 @@
 #include <tf2_ros/transform_broadcaster.h>  // NOLINT(build/include_order)
 #include <tf2_ros/transform_listener.h>  // NOLINT(build/include_order)
 
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -71,6 +72,7 @@
 #include "graph_based_slam/external_io_ports.hpp"
 #include "graph_based_slam/gnss_origin_accumulator.hpp"
 #include "graph_based_slam/graph_state_store.hpp"
+#include "graph_based_slam/map_point.hpp"
 #include "graph_based_slam/loop_edge_set.hpp"
 
 namespace graphslam
@@ -156,11 +158,13 @@ private:
     const sensor_msgs::msg::PointCloud2 & cloud_msg);
   pcl::PointCloud<pcl::PointXYZI>::Ptr loadSubmapCloud(
     const std::vector<GraphStateStore::CloudPtr> & clouds, int idx);
+  // Points of the cloud loadSubmapCloud(clouds, idx) returns, without loading it.
+  std::size_t submapPointCount(
+    const std::vector<GraphStateStore::CloudPtr> & clouds, int idx) const;
 
     // Autoware-compatible grid-divided PCD map output
   // Takes the map by value and frees it once downsampled (callers pass it by std::move).
-  void saveGridDividedMap(
-    pcl::PointCloud<pcl::PointXYZI>::Ptr map);
+  void saveGridDividedMap(MapCloud::Ptr map);
   void writeMapBundleArtifacts(
     const lidarslam_msgs::msg::MapArray & map_array_msg,
     const DeterministicArtifacts & artifacts,
