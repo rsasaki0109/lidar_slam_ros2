@@ -12,7 +12,10 @@ Weights (key=value, all optional):
   loop           factor on the loop edges' information as stored (100 / fitness), default 1
   loop_t, loop_r if given, a fixed loop information for translation / rotation instead of 100 / fitness * loop
   drop           comma-separated 'i-j' loop edges to leave out
-Usage: graph_replay.py <run_dir> <out_dir> <scorer: mapshd:<gt_tum> | oxford:<gt_tum>,<T_imu_base.npy> | none>
+  meas           CSV (from,to,tx,ty,tz,qx,qy,qz,qw) of loop measurements to use instead of the run's, e.g. the
+                 ground truth from loop_gt_measurements.py (an upper bound on what better loops could give)
+Usage: graph_replay.py <run_dir> <out_dir> <scorer: mapshd:<gt_tum> | oxford:<gt_tum>,<T_imu_base.npy> |
+       exp04:<gt_tum> | none>
        [key=value ...]
 """
 import os
@@ -79,6 +82,11 @@ def main():
     loop_f = float(opts.get('loop', 1))
     loop_t, loop_r = opts.get('loop_t'), opts.get('loop_r')
     drop = {tuple(map(int, d.split('-'))) for d in opts.get('drop', '').split(',') if d}
+    meas_override = {}
+    if 'meas' in opts:
+        for l in open(opts['meas']):
+            f = l.strip().split(',')
+            meas_override[(int(f[0]), int(f[1]))] = [float(v) for v in f[2:9]]
     os.makedirs(out, exist_ok=True)
 
     stamps = read_tum(f'{run}/trajectory_optimized.tum')[:, 0]
@@ -103,6 +111,13 @@ def main():
             if (i, j) in loops or (j, i) in loops:
                 if (i, j) in drop:
                     continue
+                if (i, j) in meas_override:
+                    meas = ['%.12g' % v for v in meas_override[(i, j)]]
+                elif (j, i) in meas_override:
+                    m = meas_override[(j, i)]
+                    Rm = quat_to_R(np.asarray(m[3:7]))
+                    tinv = -Rm.T @ np.asarray(m[0:3])
+                    meas = ['%.12g' % v for v in [*tinv, -m[3], -m[4], -m[5], m[6]]]
                 if loop_t is not None:
                     info = np.diag([float(loop_t)] * 3 + [float(loop_r)] * 3)
                 else:
@@ -143,6 +158,13 @@ def main():
         res = subprocess.run([EVO_APE, 'tum', gt, lidar, '-a'], capture_output=True, text=True,
                              env=dict(os.environ, MPLBACKEND='Agg'))
         rmse = float(re.search(r'^\s*rmse\s+([0-9.eE+-]+)', res.stdout, re.M).group(1))
+        print(f'{os.path.basename(run.rstrip("/"))},{" ".join(sys.argv[4:]) or "as_run"},{rmse:.6f}')
+    elif scorer.startswith('exp04:'):
+        gt = scorer.split(':', 1)[1]
+        ape = os.path.join(out, 'ape_exp04.txt')
+        subprocess.run(['python3', f'{REPO}/scripts/ape_from_tum.py', '--ref', gt, '--est', dense, '--out', ape,
+                        '--interpolate'], check=True, capture_output=True)
+        rmse = float(re.search(r'^rmse:\s+([0-9.eE+-]+)', open(ape).read(), re.M).group(1))
         print(f'{os.path.basename(run.rstrip("/"))},{" ".join(sys.argv[4:]) or "as_run"},{rmse:.6f}')
     elif scorer.startswith('oxford:'):
         gt, extrinsic = scorer.split(':', 1)[1].split(',')
