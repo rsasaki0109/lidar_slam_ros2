@@ -29,6 +29,7 @@
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+import math
 import os
 import shlex
 
@@ -163,7 +164,8 @@ def create_rko_offline_node(context, *args, **kwargs):
             '--min-deskewed',
             str(min_deskewed_subscribers),
             '--timeout-secs',
-            LaunchConfiguration('subscriber_wait_timeout_sec').perform(context),
+            # The barrier takes whole seconds; the launch default is '30.0'.
+            str(max(1, math.ceil(subscriber_wait_timeout_sec))),
             '--settle-polls',
             str(subscriber_settle_polls),
             '--',

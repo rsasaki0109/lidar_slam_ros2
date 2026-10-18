@@ -292,6 +292,9 @@ def test_offline_start_barrier_is_opt_in_and_fail_closed():
     assert "'/rko_lio/frame'" in launch_source
     assert 'prefix = shlex.join([' in launch_source
     assert "'output_subscriber_timeout_sec': subscriber_wait_timeout_sec" in launch_source
+    # The barrier script accepts only whole seconds, so the '30.0' default is
+    # rounded up before it reaches --timeout-secs.
+    assert 'str(max(1, math.ceil(subscriber_wait_timeout_sec)))' in launch_source
     # rko_lio never declared these; passing them left the node's own wait off.
     assert "'offline." not in launch_source
     assert 'prefix=prefix' in launch_source
