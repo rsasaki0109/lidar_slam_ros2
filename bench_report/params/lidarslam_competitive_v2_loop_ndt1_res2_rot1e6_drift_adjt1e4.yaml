@@ -1,0 +1,26 @@
+# lidarslam_competitive_v2_loop_ndt1_res2_rot1e6_drift.yaml (chapter 18, G) with the adjacent edges' translation
+# information raised from 1000 to 10000 / separation (chapter 22), about 1 cm per submap step for the chapter 21 frontend.
+# Chapter 18 header follows.
+# lidarslam_competitive_v2_loop_ndt1_res2_rot1e6.yaml (chapter 17, R) with the drift gate of chapter 18: a loop
+# whose correction at the query submap exceeds 0.5 m + 0.02 x the frontend travel between its two submaps is
+# rejected. Chapter 17 header follows.
+# lidarslam_competitive_v2_loop_ndt1_res2.yaml (chapter 14, NDT 2 m) with the adjacent edges' rotation
+# information split from their translation information: 1e6 / separation for rotation (about 0.1 deg per
+# submap step), 1000 / separation for translation as before (bench_report chapter 17). Every other key is unchanged.
+graph_based_slam:
+  ros__parameters:
+    registration_method: "NDT"
+    range_of_searching_loop_closure: 20.0
+    loop_search_query_stride: 1
+    cloud_subscriber_qos_reliable: true
+    odom_cloud_sync_use_exact_time: true
+    odom_cloud_sync_queue_size: 256
+    map_leaf_size: 0.1
+    ndt_num_threads: 1
+    debug_flag: false
+    ndt_resolution: 2.0
+    adjacent_edge_info_auto_scale_split_trans_rot: true
+    adjacent_edge_info_weight_trans: 10000.0
+    adjacent_edge_info_weight_rot: 1000000.0
+    loop_max_drift_ratio: 0.02
+    loop_max_drift_offset_m: 0.5

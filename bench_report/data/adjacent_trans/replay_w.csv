@@ -1,0 +1,166 @@
+run,config,value
+calibration-room_trial-1_W,as_run,0.034337
+calibration-room_trial-1_W,loop=0.3,0.033779
+calibration-room_trial-1_W,loop=0.1,0.033292
+calibration-room_trial-1_W,loop=0.03,0.032572
+calibration-room_trial-1_W,loop=0.01,0.031602
+calibration-room_trial-1_W,loop_t=100 loop_r=10000,0.031142
+calibration-room_trial-1_W,loop_t=25 loop_r=10000,0.029966
+calibration-room_trial-1_W,loop_t=400 loop_r=10000,0.032033
+calibration-room_trial-1_W,adj_t=3,0.033551
+calibration-room_trial-1_W,adj_t=10,0.032808
+calibration-room_trial-2_W,as_run,0.030637
+calibration-room_trial-2_W,loop=0.3,0.028141
+calibration-room_trial-2_W,loop=0.1,0.026620
+calibration-room_trial-2_W,loop=0.03,0.025888
+calibration-room_trial-2_W,loop=0.01,0.025868
+calibration-room_trial-2_W,loop_t=100 loop_r=10000,0.027138
+calibration-room_trial-2_W,loop_t=25 loop_r=10000,0.026161
+calibration-room_trial-2_W,loop_t=400 loop_r=10000,0.029784
+calibration-room_trial-2_W,adj_t=3,0.027606
+calibration-room_trial-2_W,adj_t=10,0.026669
+flat-room_trial-1_W,as_run,0.024987
+flat-room_trial-1_W,loop=0.3,0.023227
+flat-room_trial-1_W,loop=0.1,0.020963
+flat-room_trial-1_W,loop=0.03,0.018301
+flat-room_trial-1_W,loop=0.01,0.016486
+flat-room_trial-1_W,loop_t=100 loop_r=10000,0.016579
+flat-room_trial-1_W,loop_t=25 loop_r=10000,0.015830
+flat-room_trial-1_W,loop_t=400 loop_r=10000,0.018753
+flat-room_trial-1_W,adj_t=3,0.021994
+flat-room_trial-1_W,adj_t=10,0.018963
+long-corridor_trial-1_W,as_run,0.071803
+long-corridor_trial-1_W,loop=0.3,0.071791
+long-corridor_trial-1_W,loop=0.1,0.071809
+long-corridor_trial-1_W,loop=0.03,0.071821
+long-corridor_trial-1_W,loop=0.01,0.071832
+long-corridor_trial-1_W,loop_t=100 loop_r=10000,0.071814
+long-corridor_trial-1_W,loop_t=25 loop_r=10000,0.071868
+long-corridor_trial-1_W,loop_t=400 loop_r=10000,0.071870
+long-corridor_trial-1_W,adj_t=3,0.071869
+long-corridor_trial-1_W,adj_t=10,0.071915
+outdoor-urk_trial-1_W,as_run,0.054892
+outdoor-urk_trial-1_W,loop=0.3,0.056077
+outdoor-urk_trial-1_W,loop=0.1,0.057569
+outdoor-urk_trial-1_W,loop=0.03,0.058693
+outdoor-urk_trial-1_W,loop=0.01,0.059133
+outdoor-urk_trial-1_W,loop_t=100 loop_r=10000,0.056313
+outdoor-urk_trial-1_W,loop_t=25 loop_r=10000,0.058120
+outdoor-urk_trial-1_W,loop_t=400 loop_r=10000,0.054961
+outdoor-urk_trial-1_W,adj_t=3,0.056006
+outdoor-urk_trial-1_W,adj_t=10,0.057581
+underground-garage_trial-1_W,as_run,0.099814
+underground-garage_trial-1_W,loop=0.3,0.099978
+underground-garage_trial-1_W,loop=0.1,0.100334
+underground-garage_trial-1_W,loop=0.03,0.100496
+underground-garage_trial-1_W,loop=0.01,0.100558
+underground-garage_trial-1_W,loop_t=100 loop_r=10000,0.099434
+underground-garage_trial-1_W,loop_t=25 loop_r=10000,0.099442
+underground-garage_trial-1_W,loop_t=400 loop_r=10000,0.100271
+underground-garage_trial-1_W,adj_t=3,0.100532
+underground-garage_trial-1_W,adj_t=10,0.101385
+underground-garage_trial-2_W,as_run,0.071976
+underground-garage_trial-2_W,loop=0.3,0.071914
+underground-garage_trial-2_W,loop=0.1,0.070614
+underground-garage_trial-2_W,loop=0.03,0.068604
+underground-garage_trial-2_W,loop=0.01,0.067116
+underground-garage_trial-2_W,loop_t=100 loop_r=10000,0.076980
+underground-garage_trial-2_W,loop_t=25 loop_r=10000,0.072490
+underground-garage_trial-2_W,loop_t=400 loop_r=10000,0.076704
+underground-garage_trial-2_W,adj_t=3,0.070645
+underground-garage_trial-2_W,adj_t=10,0.069937
+underground-garage_trial-3_W,as_run,0.081703
+underground-garage_trial-3_W,loop=0.3,0.079136
+underground-garage_trial-3_W,loop=0.1,0.076997
+underground-garage_trial-3_W,loop=0.03,0.075697
+underground-garage_trial-3_W,loop=0.01,0.075457
+underground-garage_trial-3_W,loop_t=100 loop_r=10000,0.079800
+underground-garage_trial-3_W,loop_t=25 loop_r=10000,0.076549
+underground-garage_trial-3_W,loop_t=400 loop_r=10000,0.082930
+underground-garage_trial-3_W,adj_t=3,0.080837
+underground-garage_trial-3_W,adj_t=10,0.080532
+oxford_V,as_run,0.046020
+oxford_V,loop=0.3,0.046196
+oxford_V,loop=0.1,0.046426
+oxford_V,loop=0.03,0.046589
+oxford_V,loop=0.01,0.046714
+oxford_V,loop_t=100 loop_r=10000,0.046060
+oxford_V,loop_t=25 loop_r=10000,0.046518
+oxford_V,loop_t=400 loop_r=10000,0.045744
+oxford_V,adj_t=3,0.046427
+oxford_V,adj_t=10,0.046953
+exp04_V,as_run,0.052093
+exp04_V,loop=0.3,0.052011
+exp04_V,loop=0.1,0.052003
+exp04_V,loop=0.03,0.052019
+exp04_V,loop=0.01,0.052021
+exp04_V,loop_t=100 loop_r=10000,0.051966
+exp04_V,loop_t=25 loop_r=10000,0.051950
+exp04_V,loop_t=400 loop_r=10000,0.052111
+exp04_V,adj_t=3,0.052091
+exp04_V,adj_t=10,0.052101
+mid360_V,as_run,0.018
+mid360_V,loop=0.3,0.120
+mid360_V,loop=0.1,0.439
+mid360_V,loop=0.03,3.223
+mid360_V,loop=0.01,4.465
+mid360_V,loop_t=100 loop_r=10000,0.028
+mid360_V,loop_t=25 loop_r=10000,0.206
+mid360_V,loop_t=400 loop_r=10000,0.003
+mid360_V,adj_t=3,0.022
+mid360_V,adj_t=10,0.044
+calibration-room_trial-1_W,adj_t=30,0.032441
+calibration-room_trial-1_W,adj_t=100,0.032255
+calibration-room_trial-1_W,adj_t=10 loop_t=100 loop_r=10000,0.030136
+calibration-room_trial-1_W,adj_t=3 loop_t=100 loop_r=10000,0.030536
+calibration-room_trial-1_W,adj_t=10 loop=0.3,0.032261
+calibration-room_trial-2_W,adj_t=30,0.026471
+calibration-room_trial-2_W,adj_t=100,0.026367
+calibration-room_trial-2_W,adj_t=10 loop_t=100 loop_r=10000,0.026258
+calibration-room_trial-2_W,adj_t=3 loop_t=100 loop_r=10000,0.026382
+calibration-room_trial-2_W,adj_t=10 loop=0.3,0.026216
+flat-room_trial-1_W,adj_t=30,0.017223
+flat-room_trial-1_W,adj_t=100,0.016318
+flat-room_trial-1_W,adj_t=10 loop_t=100 loop_r=10000,0.015735
+flat-room_trial-1_W,adj_t=3 loop_t=100 loop_r=10000,0.015904
+flat-room_trial-1_W,adj_t=10 loop=0.3,0.017538
+long-corridor_trial-1_W,adj_t=30,0.071932
+long-corridor_trial-1_W,adj_t=100,0.071916
+long-corridor_trial-1_W,adj_t=10 loop_t=100 loop_r=10000,0.071925
+long-corridor_trial-1_W,adj_t=3 loop_t=100 loop_r=10000,0.071887
+long-corridor_trial-1_W,adj_t=10 loop=0.3,0.071888
+outdoor-urk_trial-1_W,adj_t=30,0.058538
+outdoor-urk_trial-1_W,adj_t=100,0.059016
+outdoor-urk_trial-1_W,adj_t=10 loop_t=100 loop_r=10000,0.058807
+outdoor-urk_trial-1_W,adj_t=3 loop_t=100 loop_r=10000,0.057784
+outdoor-urk_trial-1_W,adj_t=10 loop=0.3,0.058644
+underground-garage_trial-1_W,adj_t=30,0.101691
+underground-garage_trial-1_W,adj_t=100,0.101728
+underground-garage_trial-1_W,adj_t=10 loop_t=100 loop_r=10000,0.100934
+underground-garage_trial-1_W,adj_t=3 loop_t=100 loop_r=10000,0.100234
+underground-garage_trial-1_W,adj_t=10 loop=0.3,0.101283
+underground-garage_trial-2_W,adj_t=30,0.069654
+underground-garage_trial-2_W,adj_t=100,0.069330
+underground-garage_trial-2_W,adj_t=10 loop_t=100 loop_r=10000,0.069813
+underground-garage_trial-2_W,adj_t=3 loop_t=100 loop_r=10000,0.073060
+underground-garage_trial-2_W,adj_t=10 loop=0.3,0.069243
+underground-garage_trial-3_W,adj_t=30,0.080404
+underground-garage_trial-3_W,adj_t=100,0.080132
+underground-garage_trial-3_W,adj_t=10 loop_t=100 loop_r=10000,0.078872
+underground-garage_trial-3_W,adj_t=3 loop_t=100 loop_r=10000,0.079110
+underground-garage_trial-3_W,adj_t=10 loop=0.3,0.078649
+oxford_V,adj_t=30,0.047003
+oxford_V,adj_t=100,0.047189
+oxford_V,adj_t=10 loop_t=100 loop_r=10000,0.046783
+oxford_V,adj_t=3 loop_t=100 loop_r=10000,0.046512
+oxford_V,adj_t=10 loop=0.3,0.047385
+exp04_V,adj_t=30,0.052096
+exp04_V,adj_t=100,0.052073
+exp04_V,adj_t=10 loop_t=100 loop_r=10000,0.051989
+exp04_V,adj_t=3 loop_t=100 loop_r=10000,0.051978
+exp04_V,adj_t=10 loop=0.3,0.052041
+mid360_V,adj_t=30,0.152
+mid360_V,adj_t=100,0.737
+mid360_V,adj_t=10 loop_t=100 loop_r=10000,0.063
+mid360_V,adj_t=3 loop_t=100 loop_r=10000,0.034
+mid360_V,adj_t=10 loop=0.3,0.241
