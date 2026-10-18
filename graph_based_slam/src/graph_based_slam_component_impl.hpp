@@ -140,12 +140,14 @@ private:
   };
     // Searches every pending query of the latest graph snapshot, one query
     // prefix at a time, until a snapshot has no pending query left. On
-    // kComplete map_array_msg holds that fully searched snapshot.
-  LoopSearchDrain searchPendingLoopQueries(lidarslam_msgs::msg::MapArray & map_array_msg);
+    // kComplete snapshot holds that fully searched snapshot.
+  LoopSearchDrain searchPendingLoopQueries(GraphStateStore::Snapshot & snapshot);
   void saveMapAfterLoopSearch();
-  bool snapshotGraphState(lidarslam_msgs::msg::MapArray & map_array_msg);
+  bool snapshotGraphState(GraphStateStore::Snapshot & snapshot);
+  // map_array_msg holds the submaps without their clouds; clouds[i] is the cloud of submap i.
   void doPoseAdjustment(
     const lidarslam_msgs::msg::MapArray & map_array_msg,
+    const std::vector<GraphStateStore::CloudPtr> & clouds,
     bool do_save_map);
 
   // PCD disk cache for memory-efficient submap storage.
@@ -153,11 +155,12 @@ private:
   PointCloudPtr convertSubmapCloud(
     const sensor_msgs::msg::PointCloud2 & cloud_msg);
   pcl::PointCloud<pcl::PointXYZI>::Ptr loadSubmapCloud(
-    const lidarslam_msgs::msg::MapArray & map_array_msg, int idx);
+    const std::vector<GraphStateStore::CloudPtr> & clouds, int idx);
 
     // Autoware-compatible grid-divided PCD map output
+  // Takes the map by value and frees it once downsampled (callers pass it by std::move).
   void saveGridDividedMap(
-    const pcl::PointCloud<pcl::PointXYZI>::Ptr & map);
+    pcl::PointCloud<pcl::PointXYZI>::Ptr map);
   void writeMapBundleArtifacts(
     const lidarslam_msgs::msg::MapArray & map_array_msg,
     const DeterministicArtifacts & artifacts,

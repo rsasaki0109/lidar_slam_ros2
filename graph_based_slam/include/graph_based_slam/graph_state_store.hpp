@@ -31,27 +31,43 @@
 #define GRAPH_BASED_SLAM__GRAPH_STATE_STORE_HPP_
 
 #include <cstddef>
+#include <memory>
 #include <mutex>
 #include <utility>
+#include <vector>
 
 #include <lidarslam_msgs/msg/map_array.hpp>
 #include <lidarslam_msgs/msg/sub_map.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
 #include <std_msgs/msg/header.hpp>
 
 namespace graphslam
 {
 
-// The ROS shell's authoritative ROS-message input snapshot. Expensive cloud
-// conversion and cache I/O must finish before replace()/append() so readers
-// observe either the previous complete state or the next complete state.
-// Mapping workflow state and accepted loop edges belong to GraphSlamApplication.
 class GraphStateStore
 {
 public:
+  // A submap's cloud never changes once it is stored, so the store keeps one copy of it and
+  // hands out shared pointers: a Snapshot copies the graph's metadata and the pointers only.
+  using CloudPtr = std::shared_ptr<const sensor_msgs::msg::PointCloud2>;
+
+  struct Snapshot
+  {
+    // The graph with every submap's cloud left empty; clouds[i] is the cloud of submap i.
+    lidarslam_msgs::msg::MapArray map_array;
+    std::vector<CloudPtr> clouds;
+  };
+
   void replace(lidarslam_msgs::msg::MapArray map_array)
   {
+    std::vector<CloudPtr> clouds;
+    clouds.reserve(map_array.submaps.size());
+    for (auto & submap : map_array.submaps) {
+      clouds.push_back(takeCloud(submap));
+    }
     std::lock_guard<std::mutex> lock(mutex_);
     map_array_ = std::move(map_array);
+    clouds_ = std::move(clouds);
     initialized_ = true;
   }
 
@@ -59,9 +75,11 @@ public:
     lidarslam_msgs::msg::SubMap submap,
     const std_msgs::msg::Header & map_header)
   {
+    CloudPtr cloud = takeCloud(submap);
     std::lock_guard<std::mutex> lock(mutex_);
     map_array_.header = map_header;
     map_array_.submaps.push_back(std::move(submap));
+    clouds_.push_back(std::move(cloud));
     initialized_ = true;
     return map_array_.submaps.size();
   }
@@ -72,6 +90,7 @@ public:
     return map_array_.submaps.size();
   }
 
+  // The whole graph, clouds included (a deep copy).
   bool snapshot(lidarslam_msgs::msg::MapArray & map_array) const
   {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -79,13 +98,36 @@ public:
       return false;
     }
     map_array = map_array_;
+    for (std::size_t i = 0; i < map_array.submaps.size(); ++i) {
+      map_array.submaps[i].cloud = *clouds_[i];
+    }
+    return true;
+  }
+
+  // The graph's metadata and shared pointers to its clouds (no point data is copied).
+  bool snapshot(Snapshot & snapshot) const
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!initialized_) {
+      return false;
+    }
+    snapshot.map_array = map_array_;
+    snapshot.clouds = clouds_;
     return true;
   }
 
 private:
+  static CloudPtr takeCloud(lidarslam_msgs::msg::SubMap & submap)
+  {
+    auto cloud = std::make_shared<const sensor_msgs::msg::PointCloud2>(std::move(submap.cloud));
+    submap.cloud = sensor_msgs::msg::PointCloud2();
+    return cloud;
+  }
+
   mutable std::mutex mutex_;
   bool initialized_{false};
   lidarslam_msgs::msg::MapArray map_array_;
+  std::vector<CloudPtr> clouds_;
 };
 
 }  // namespace graphslam

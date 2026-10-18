@@ -58,6 +58,7 @@
 #include "graph_based_slam/graph_slam_application.hpp"
 #include "graph_based_slam/loop_verifier.hpp"
 #include "graph_based_slam/map_saver.hpp"
+#include "graph_based_slam/voxel_grid_overflow.hpp"
 #include "graph_based_slam/planar_map_filter.hpp"
 #include "graph_based_slam/pointcloud_conversion.hpp"
 #include "graph_based_slam/pose_graph_optimization.hpp"
@@ -332,8 +333,8 @@ void GraphBasedSlamComponent::Impl::handleMapSaveRequest(
 
 void GraphBasedSlamComponent::Impl::saveMapAfterLoopSearch()
 {
-  lidarslam_msgs::msg::MapArray map_array_msg;
-  switch (searchPendingLoopQueries(map_array_msg)) {
+  GraphStateStore::Snapshot snapshot;
+  switch (searchPendingLoopQueries(snapshot)) {
     case LoopSearchDrain::kNoInput:
       std::cout << "initial map is not received" << std::endl;
       return;
@@ -343,13 +344,12 @@ void GraphBasedSlamComponent::Impl::saveMapAfterLoopSearch()
     case LoopSearchDrain::kComplete:
       break;
   }
-  doPoseAdjustment(map_array_msg, true);
+  doPoseAdjustment(snapshot.map_array, snapshot.clouds, true);
 }
 
-bool GraphBasedSlamComponent::Impl::snapshotGraphState(
-  lidarslam_msgs::msg::MapArray & map_array_msg)
+bool GraphBasedSlamComponent::Impl::snapshotGraphState(GraphStateStore::Snapshot & snapshot)
 {
-  return graph_state_.snapshot(map_array_msg);
+  return graph_state_.snapshot(snapshot);
 }
 
 void GraphBasedSlamComponent::Impl::runEventDrivenLoopSearch()
@@ -361,9 +361,9 @@ void GraphBasedSlamComponent::Impl::runEventDrivenLoopSearch()
 
 void GraphBasedSlamComponent::Impl::drainEventDrivenLoopSearch()
 {
-  lidarslam_msgs::msg::MapArray map_array_msg;
+  GraphStateStore::Snapshot snapshot;
   try {
-    searchPendingLoopQueries(map_array_msg);
+    searchPendingLoopQueries(snapshot);
   } catch (const std::exception & error) {
     // Rethrown to the next request on the executor, as before the worker.
     RCLCPP_ERROR(node_.get_logger(), "event-driven loop search failed: %s", error.what());
@@ -372,11 +372,11 @@ void GraphBasedSlamComponent::Impl::drainEventDrivenLoopSearch()
 }
 
 GraphBasedSlamComponent::Impl::LoopSearchDrain
-GraphBasedSlamComponent::Impl::searchPendingLoopQueries(
-  lidarslam_msgs::msg::MapArray & map_array_msg)
+GraphBasedSlamComponent::Impl::searchPendingLoopQueries(GraphStateStore::Snapshot & snapshot)
 {
+  const lidarslam_msgs::msg::MapArray & map_array_msg = snapshot.map_array;
   while (rclcpp::ok() && !backend_worker_.stopRequested()) {
-    if (!snapshotGraphState(map_array_msg)) {return LoopSearchDrain::kNoInput;}
+    if (!snapshotGraphState(snapshot)) {return LoopSearchDrain::kNoInput;}
     const int num_submaps = static_cast<int>(map_array_msg.submaps.size());
     int query_index = backend_->application->stateSnapshot().next_query_index;
     if (num_submaps < 2 || query_index >= num_submaps) {return LoopSearchDrain::kComplete;}
@@ -392,8 +392,8 @@ GraphBasedSlamComponent::Impl::searchPendingLoopQueries(
       ordered_submaps.push_back(meta);
     }
     const auto raw_cloud_provider =
-      [this, &map_array_msg](int idx) -> pcl::PointCloud<pcl::PointXYZI>::Ptr {
-        return loadSubmapCloud(map_array_msg, idx);
+      [this, &snapshot](int idx) -> pcl::PointCloud<pcl::PointXYZI>::Ptr {
+        return loadSubmapCloud(snapshot.clouds, idx);
       };
     // One query prefix per call, exactly as when every arrival drained
     // inline: each in-loop pose adjustment then sees the loop edges of its
@@ -434,7 +434,7 @@ GraphBasedSlamComponent::Impl::searchPendingLoopQueries(
           query_prefix.submaps.assign(
             map_array_msg.submaps.begin(),
             map_array_msg.submaps.begin() + event.query_index + 1);
-          doPoseAdjustment(query_prefix, config_.use_save_map_in_loop_);
+          doPoseAdjustment(query_prefix, snapshot.clouds, config_.use_save_map_in_loop_);
         }
       }
     }
@@ -444,6 +444,7 @@ GraphBasedSlamComponent::Impl::searchPendingLoopQueries(
 
 void GraphBasedSlamComponent::Impl::doPoseAdjustment(
   const lidarslam_msgs::msg::MapArray & map_array_msg,
+  const std::vector<GraphStateStore::CloudPtr> & clouds,
   bool do_save_map)
 {
   /* Plain-data inputs for the extracted pose-graph optimization
@@ -668,11 +669,28 @@ void GraphBasedSlamComponent::Impl::doPoseAdjustment(
   std::cout << "modified_map publish" << std::endl;
   const bool publish_map_array = modified_map_array_pub_->get_subscription_count() > 0 ||
     modified_map_array_pub_->get_intra_process_subscription_count() > 0;
+  const bool publish_map = modified_map_pub_->get_subscription_count() > 0 ||
+    modified_map_pub_->get_intra_process_subscription_count() > 0;
+  // The global map is assembled only to publish or save it, and the submap clouds are
+  // transformed only for that and for the map array: an in-loop adjustment that does
+  // neither touches no point.
+  const bool build_map = do_save_map || publish_map;
   lidarslam_msgs::msg::MapArray modified_map_array_msg;
   modified_map_array_msg.header = map_array_msg.header;
   nav_msgs::msg::Path path;
   path.header.frame_id = "map";
   pcl::PointCloud<pcl::PointXYZI>::Ptr map_ptr(new pcl::PointCloud<pcl::PointXYZI>());
+  if (build_map) {
+    // Every submap cloud is appended whole, so the map's final size is known: reserve it
+    // instead of growing (a growing vector briefly holds its old and new storage).
+    std::size_t map_points = 0;
+    for (int i = 0; i < submaps_size; i++) {
+      if (i < static_cast<int>(clouds.size()) && clouds[i]) {
+        map_points += static_cast<std::size_t>(clouds[i]->width) * clouds[i]->height;
+      }
+    }
+    map_ptr->reserve(map_points);
+  }
   std::vector<TimedSubmapCloud> dynamic_filter_submaps;
   if (do_save_map && config_.use_dynamic_object_filter_) {
     dynamic_filter_submaps.reserve(submaps_size);
@@ -682,18 +700,21 @@ void GraphBasedSlamComponent::Impl::doPoseAdjustment(
     geometry_msgs::msg::Pose pose = tf2::toMsg(se3);
 
     /* map */
-    pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_ptr = loadSubmapCloud(map_array_msg, i);
-    pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_cloud_ptr(
-      new pcl::PointCloud<pcl::PointXYZI>());
-
-    pcl::transformPointCloud(*cloud_ptr, *transformed_cloud_ptr, se3.matrix().cast<float>());
-    *map_ptr += *transformed_cloud_ptr;
-    if (do_save_map && config_.use_dynamic_object_filter_) {
-      dynamic_filter_submaps.push_back(
-        TimedSubmapCloud{
-          i,
-          Eigen::Vector3d(se3.translation().x(), se3.translation().y(), se3.translation().z()),
-          transformed_cloud_ptr});
+    pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_cloud_ptr;
+    if (build_map || publish_map_array) {
+      pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_ptr = loadSubmapCloud(clouds, i);
+      transformed_cloud_ptr.reset(new pcl::PointCloud<pcl::PointXYZI>());
+      pcl::transformPointCloud(*cloud_ptr, *transformed_cloud_ptr, se3.matrix().cast<float>());
+      if (build_map) {
+        *map_ptr += *transformed_cloud_ptr;
+      }
+      if (do_save_map && config_.use_dynamic_object_filter_) {
+        dynamic_filter_submaps.push_back(
+          TimedSubmapCloud{
+            i,
+            Eigen::Vector3d(se3.translation().x(), se3.translation().y(), se3.translation().z()),
+            transformed_cloud_ptr});
+      }
     }
 
     /* submap */
@@ -719,9 +740,7 @@ void GraphBasedSlamComponent::Impl::doPoseAdjustment(
   }
   modified_path_pub_->publish(path);
 
-  if (modified_map_pub_->get_subscription_count() > 0 ||
-    modified_map_pub_->get_intra_process_subscription_count() > 0)
-  {
+  if (publish_map) {
     sensor_msgs::msg::PointCloud2::SharedPtr map_msg_ptr(new sensor_msgs::msg::PointCloud2);
     pcl::toROSMsg(*map_ptr, *map_msg_ptr);
     map_msg_ptr->header.frame_id = "map";
@@ -747,7 +766,10 @@ void GraphBasedSlamComponent::Impl::doPoseAdjustment(
         filter_result.stats.always_keep_voxels,
         filter_result.stats.output_points);
     }
-    saveGridDividedMap(map_to_save);
+    // saveGridDividedMap() frees the full map once it is downsampled; hold no other reference.
+    map_ptr.reset();
+    dynamic_filter_submaps.clear();
+    saveGridDividedMap(std::move(map_to_save));
     writeMapBundleArtifacts(
       map_array_msg, application_result.artifacts, opt_result.poses);
     writeDegeneracyReport();
@@ -1103,7 +1125,7 @@ void GraphBasedSlamComponent::Impl::stageMapArrayCloudCache(
 }
 
 pcl::PointCloud<pcl::PointXYZI>::Ptr GraphBasedSlamComponent::Impl::loadSubmapCloud(
-  const lidarslam_msgs::msg::MapArray & map_array_msg,
+  const std::vector<GraphStateStore::CloudPtr> & clouds,
   int idx)
 {
   pcl::PointCloud<pcl::PointXYZI>::Ptr cloud;
@@ -1114,8 +1136,8 @@ pcl::PointCloud<pcl::PointXYZI>::Ptr GraphBasedSlamComponent::Impl::loadSubmapCl
     }
   }
   cloud.reset(new pcl::PointCloud<pcl::PointXYZI>);
-  if (idx >= 0 && idx < static_cast<int>(map_array_msg.submaps.size())) {
-    cloud = convertSubmapCloud(map_array_msg.submaps[idx].cloud);
+  if (idx >= 0 && idx < static_cast<int>(clouds.size()) && clouds[idx]) {
+    cloud = convertSubmapCloud(*clouds[idx]);
   }
   return cloud;
 }
@@ -1171,7 +1193,7 @@ void GraphBasedSlamComponent::Impl::writeMapBundleArtifacts(
 }
 
 void GraphBasedSlamComponent::Impl::saveGridDividedMap(
-  const pcl::PointCloud<pcl::PointXYZI>::Ptr & map)
+  pcl::PointCloud<pcl::PointXYZI>::Ptr map)
 {
   if (map->empty()) {
     std::cout << "Map is empty, skipping save." << std::endl;
@@ -1183,14 +1205,24 @@ void GraphBasedSlamComponent::Impl::saveGridDividedMap(
   io_ports_.map_output->prepareDirectory(out_dir);
   io_ports_.map_output->removeByExtension(out_dir, {".pcd", ".yaml"});
 
-  // Downsample the map
+  // Downsample the map, then free the full map: everything below uses the downsampled one.
   pcl::PointCloud<pcl::PointXYZI>::Ptr downsampled(new pcl::PointCloud<pcl::PointXYZI>);
-  pcl::VoxelGrid<pcl::PointXYZI> vg;
-  vg.setInputCloud(map);
-  vg.setLeafSize(config_.map_leaf_size_, config_.map_leaf_size_, config_.map_leaf_size_);
-  vg.filter(*downsampled);
+  const std::size_t map_points = map->size();
+  const float leaf_size = static_cast<float>(config_.map_leaf_size_);
+  if (map_saver::voxelGridWouldCopyInput(*map, leaf_size)) {
+    // VoxelGrid would only copy the map (32-bit voxel index overflow): use the map itself.
+    std::cout << "[map save] map too large for VoxelGrid's 32-bit voxel indices at leaf " <<
+      leaf_size << " m; saving it undownsampled, as VoxelGrid does" << std::endl;
+    downsampled = map;
+  } else {
+    pcl::VoxelGrid<pcl::PointXYZI> vg;
+    vg.setInputCloud(map);
+    vg.setLeafSize(leaf_size, leaf_size, leaf_size);
+    vg.filter(*downsampled);
+  }
+  map.reset();
 
-  std::cout << map_saver::downsampleLogLine(map->size(), downsampled->size(),
+  std::cout << map_saver::downsampleLogLine(map_points, downsampled->size(),
       config_.map_leaf_size_)
             << std::endl;
 
@@ -1224,15 +1256,12 @@ void GraphBasedSlamComponent::Impl::saveGridDividedMap(
   const map_saver::GridBounds grid_bounds =
     map_saver::computeGridBounds(min_pt.x, min_pt.y, max_pt.x, max_pt.y, grid_config);
 
-  // Assign points to grid cells
-  std::map<std::pair<int, int>, pcl::PointCloud<pcl::PointXYZI>::Ptr> grid_cells;
-  for (const auto & pt : downsampled->points) {
-    auto key = map_saver::cellIndexFor(pt.x, pt.y, grid_bounds, grid_config);
-    if (grid_cells.find(key) == grid_cells.end()) {
-      grid_cells[key] = pcl::PointCloud<pcl::PointXYZI>::Ptr(
-        new pcl::PointCloud<pcl::PointXYZI>);
-    }
-    grid_cells[key]->push_back(pt);
+  // Assign points to grid cells. Only the point indices are grouped; each cell's cloud
+  // is built (points in map order, as before) and written one cell at a time.
+  std::map<std::pair<int, int>, std::vector<std::size_t>> grid_cells;
+  for (std::size_t j = 0; j < downsampled->points.size(); ++j) {
+    const auto & pt = downsampled->points[j];
+    grid_cells[map_saver::cellIndexFor(pt.x, pt.y, grid_bounds, grid_config)].push_back(j);
   }
 
   // Save each grid cell as PCD and build the Autoware pointcloud_map_loader
@@ -1241,10 +1270,16 @@ void GraphBasedSlamComponent::Impl::saveGridDividedMap(
   meta << map_saver::metadataHeader(grid_config);
 
   int saved = 0;
-  for (auto & [key, cloud] : grid_cells) {
-    if (cloud->empty()) {continue;}
+  for (auto & [key, indices] : grid_cells) {
+    if (indices.empty()) {continue;}
+    pcl::PointCloud<pcl::PointXYZI> cloud;
+    cloud.reserve(indices.size());
+    for (const std::size_t j : indices) {
+      cloud.push_back(downsampled->points[j]);
+    }
+    std::vector<std::size_t>().swap(indices);
     const map_saver::CellFile cell = map_saver::makeCellFile(key, grid_bounds, grid_config);
-    io_ports_.map_output->writePointCloud(out_dir + "/" + cell.filename, *cloud);
+    io_ports_.map_output->writePointCloud(out_dir + "/" + cell.filename, cloud);
     meta << map_saver::metadataEntry(cell);
     saved++;
   }

@@ -338,6 +338,14 @@ if(BUILD_TESTING)
     target_include_directories(test_map_saver PRIVATE include)
   endif()
   ament_add_gtest(
+    test_voxel_grid_overflow
+    test/test_voxel_grid_overflow.cpp
+  )
+  if(TARGET test_voxel_grid_overflow)
+    target_include_directories(test_voxel_grid_overflow PRIVATE include ${EIGEN3_INCLUDE_DIR})
+    target_link_libraries(test_voxel_grid_overflow ${PCL_LIBRARIES})
+  endif()
+  ament_add_gtest(
     test_backend_core
     test/test_backend_core.cpp
     src/three_d_bbs_loop_verifier.cpp
