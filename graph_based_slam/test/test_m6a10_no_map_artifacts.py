@@ -99,9 +99,9 @@ def test_skip_map_is_an_explicit_benchmark_only_launch_override():
 def test_v1_failure_origin_is_loop_pose_adjustment_map_save_branch():
     component = GRAPH_COMPONENT_IMPL.read_text(encoding='utf-8')
 
-    assert 'doPoseAdjustment(map_array_msg, true);' in component
+    assert 'doPoseAdjustment(snapshot.map_array, snapshot.clouds, true);' in component
     assert 'if (do_save_map) {' in component
-    assert 'saveGridDividedMap(map_to_save);' in component
+    assert 'saveGridDividedMap(std::move(map_to_save));' in component
     assert 'writeMapBundleArtifacts(' in component
     assert 'map_array_msg, application_result.artifacts, opt_result.poses);' in component
     assert 'writeDegeneracyReport();' in component

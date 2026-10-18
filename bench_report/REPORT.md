@@ -759,13 +759,16 @@ MapsHD のベンチマーク（`MapsHD/benchmark-HDMapping-Orchestration` の `H
 
 ### 16.7 テスト
 
-- 変更に関わる gtest 4 本を、g++ で単体にビルドして走らせた。すべて成功。
+- **パッケージ全体（2f78af7、`scripts/test_slam_mem.sh`、`data/tests/graph_based_slam_test_result_2f78af7.txt`）**：8 章と同じく、既定の CI と同じ除外で colcon test を回した。
+  - gtest は 54 本 451 件がすべて成功（8 章の 443 件に、この章の 8 件を足した数）。
+  - 失敗とエラーのあるテストのファイルは 13。8 章の 12 と同じ環境要因（`rosbags` モジュールなし、xmllint のスキーマ取得など）に、1 つが増えた。
+  - 増えた 1 つは `test_m6a10_no_map_artifacts.py`（6 件中 1 件）。ソースの文字列として、保存の呼び出し `doPoseAdjustment(map_array_msg, true);` と `saveGridDividedMap(map_to_save);` を確かめるテストで、8cd140b で呼び出しの形を変えたときに直し忘れていた。今の形に直して、6 件とも成功（この章のコミットで直した）。
+- **変更に関わる gtest**（上の 451 件に含まれる）：
   - `test_map_point`（新規 3 件）：`MapPoint` が 16 バイトで、フィールドが `PointXYZI` と同じ。変換で点が変わらない。VoxelGrid の結果が `PointXYZI` とビット単位で同じ。VoxelGrid は 30 万点で、voxel あたりの点が多い場合と少ない場合の両方を見る。
   - `test_external_io_ports`（7 件、新規 1 件）：`writeMapCloud` のファイルが、同じ点の `PointXYZI` を `writePointCloud` で書いたものとバイト単位で同じ。`pointCount` の確認も足した。
   - `test_voxel_grid_overflow`（新規 2 件）：あふれの判定が、PCL の VoxelGrid の挙動と境目の両側で一致する。
   - `test_graph_state_store`（6 件、新規 2 件）：スナップショットが点群を複製せずに共有する。`replace` で全サブマップの点群が残る。
 - 変更したファイルは、`ament_cpplint` と `ament_uncrustify` で指摘なし。
-- パッケージ全体の colcon でのテストのビルドは、ディスクの残りが足りないので回していない。
 - 単体の確認で、300 万点の雲（voxel あたり最大 457 点）でも、VoxelGrid の結果と PCD ファイルのバイト列が `PointXYZI` と同じだった。
 
 ### 16.8 ファイル
