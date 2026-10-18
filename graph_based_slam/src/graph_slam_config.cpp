@@ -71,6 +71,8 @@ GraphSlamConfig loadGraphSlamConfig(rclcpp::Node & node)
     loop_overlap_large_correction_translation_m_,
     "loop_overlap_large_correction_translation_m");
   LOAD(loop_overlap_max_distance_m_, "loop_overlap_max_distance_m");
+  LOAD(loop_max_drift_ratio_, "loop_max_drift_ratio");
+  LOAD(loop_max_drift_offset_m_, "loop_max_drift_offset_m");
   LOAD(loop_max_translation_delta_descriptor_, "loop_max_translation_delta_descriptor");
   LOAD(loop_max_rotation_delta_deg_descriptor_, "loop_max_rotation_delta_deg_descriptor");
   LOAD(num_adjacent_pose_cnstraints_, "num_adjacent_pose_cnstraints");
@@ -312,6 +314,14 @@ ConfigNormalization normalizeGraphSlamConfig(GraphSlamConfig & config)
     config.loop_overlap_large_correction_translation_m_ = 0.0;
   }
   positiveOr(config.loop_overlap_max_distance_m_, 0.5, "loop_overlap_max_distance_m");
+  if (config.loop_max_drift_ratio_ < 0.0) {
+    warn("loop_max_drift_ratio", "must be non-negative; reset to disabled");
+    config.loop_max_drift_ratio_ = 0.0;
+  }
+  if (config.loop_max_drift_offset_m_ < 0.0) {
+    warn("loop_max_drift_offset_m", "must be non-negative; reset to its safe default");
+    config.loop_max_drift_offset_m_ = 0.5;
+  }
   if (config.loop_max_translation_delta_descriptor_ <= 0.0 &&
     config.loop_max_translation_delta_descriptor_ != -1.0)
   {

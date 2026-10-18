@@ -62,6 +62,8 @@ struct GraphSlamConfig
   double loop_min_overlap_ratio_large_correction_ {0.0};
   double loop_overlap_large_correction_translation_m_ {0.0};
   double loop_overlap_max_distance_m_ {0.5};
+  double loop_max_drift_ratio_ {0.0};
+  double loop_max_drift_offset_m_ {0.5};
   double loop_max_translation_delta_descriptor_ {-1.0};
   double loop_max_rotation_delta_deg_descriptor_ {-1.0};
 

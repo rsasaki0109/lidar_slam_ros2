@@ -23,6 +23,11 @@ graph_based_slam:
       loop_min_overlap_ratio_large_correction: 0.0
       loop_overlap_large_correction_translation_m: 0.0
       loop_overlap_max_distance_m: 0.5
+      # Drift gate: reject a loop whose correction, measured at the query
+      # submap, exceeds loop_max_drift_offset_m + loop_max_drift_ratio x the
+      # frontend travel between the two submaps. 0 disables it.
+      loop_max_drift_ratio: 0.0
+      loop_max_drift_offset_m: 0.5
       # Descriptor-only override (opt-in). Indoor structured scenes can
       # accumulate >15 m drift over long traversals; when triangle / scan
       # context propose a revisit with confident inliers, NDT often

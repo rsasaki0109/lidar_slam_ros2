@@ -115,16 +115,32 @@ struct RegistrationDelta
 {
   double translation_m {0.0};
   double rotation_deg {0.0};
+  // How far the correction moves the query submap's origin. Unlike
+  // translation_m (the world origin's displacement) it does not grow with
+  // the submap's distance from the world origin.
+  double query_displacement_m {0.0};
+  // Frontend travel between the candidate and the query submap.
+  double travel_distance_m {0.0};
 };
 
 // Magnitude of the correction a converged registration applied on top of
 // the stored poses. The rotation angle comes from the trace identity with
 // the cosine clamped so float round-off near identity cannot produce NaN.
-inline RegistrationDelta computeRegistrationDelta(const Eigen::Matrix4f & final_transformation)
+// With the default zero query origin, query_displacement_m equals
+// translation_m.
+inline RegistrationDelta computeRegistrationDelta(
+  const Eigen::Matrix4f & final_transformation,
+  const Eigen::Vector3d & query_origin = Eigen::Vector3d::Zero(),
+  double travel_distance_m = 0.0)
 {
   RegistrationDelta delta;
   const Eigen::Vector3f translation = final_transformation.block<3, 1>(0, 3);
   delta.translation_m = translation.cast<double>().norm();
+  const Eigen::Matrix4d correction = final_transformation.cast<double>();
+  delta.query_displacement_m =
+    (correction.block<3, 3>(0, 0) * query_origin + correction.block<3, 1>(0, 3) -
+    query_origin).norm();
+  delta.travel_distance_m = travel_distance_m;
   const Eigen::Matrix3f rotation = final_transformation.block<3, 3>(0, 0);
   const double trace = static_cast<double>(rotation.trace());
   const double cos_theta = std::max(-1.0, std::min(1.0, 0.5 * (trace - 1.0)));
@@ -189,6 +205,12 @@ struct GateConfig
   double min_overlap_ratio_large_correction {0.0};
   double overlap_large_correction_translation_m {0.0};
   double overlap_max_distance_m {0.5};
+  // Drift gate: the correction at the query submap may not exceed
+  // max_drift_offset_m + max_drift_ratio * travel distance, the most the
+  // frontend can plausibly have drifted between the two submaps. A
+  // non-positive ratio disables the gate.
+  double max_drift_ratio {0.0};
+  double max_drift_offset_m {0.5};
 };
 
 enum class GateRejection
@@ -197,6 +219,7 @@ enum class GateRejection
   FITNESS,
   TRANSLATION,
   ROTATION,
+  DRIFT,
   OVERLAP
 };
 
@@ -207,13 +230,15 @@ struct GateResult
   double score_threshold {0.0};
   double translation_cap_m {0.0};
   double rotation_cap_deg {0.0};
+  double drift_cap_m {0.0};
   double min_overlap_ratio {0.0};
   double overlap_ratio {0.0};
 };
 
 // Acceptance gates in their historical order: fitness (>= rejects, so a
 // score exactly at the threshold is rejected), then the translation and
-// rotation caps (> rejects, so a correction exactly at the cap passes).
+// rotation caps (> rejects, so a correction exactly at the cap passes), then
+// the drift gate (> rejects) and the overlap gate.
 inline GateResult evaluateGates(
   LoopCandidate::Source source,
   double fitness_score,
@@ -254,6 +279,14 @@ inline GateResult evaluateGates(
   if (delta.rotation_deg > result.rotation_cap_deg) {
     result.rejection = GateRejection::ROTATION;
     return result;
+  }
+  if (config.max_drift_ratio > 0.0) {
+    result.drift_cap_m =
+      config.max_drift_offset_m + config.max_drift_ratio * delta.travel_distance_m;
+    if (delta.query_displacement_m > result.drift_cap_m) {
+      result.rejection = GateRejection::DRIFT;
+      return result;
+    }
   }
   if (result.min_overlap_ratio > 0.0 && overlap_ratio < result.min_overlap_ratio) {
     result.rejection = GateRejection::OVERLAP;

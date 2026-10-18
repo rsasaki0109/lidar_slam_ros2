@@ -883,6 +883,8 @@ int main(int argc, char ** argv)
     gates.overlap_large_correction_translation_m, 0.0);
   node->get_parameter_or(
     "loop_overlap_max_distance_m", gates.overlap_max_distance_m, 0.5);
+  node->get_parameter_or("loop_max_drift_ratio", gates.max_drift_ratio, 0.0);
+  node->get_parameter_or("loop_max_drift_offset_m", gates.max_drift_offset_m, 0.5);
   node->get_parameter_or(
     "loop_max_translation_delta_descriptor", gates.max_translation_descriptor_m, -1.0);
   node->get_parameter_or(
