@@ -1,0 +1,24 @@
+calibration-room_trial-1,default,0.047951,0.012325,0.012244,0.044693,0.016091,0.99999,0.0480,05cd18f0
+calibration-room_trial-1,max_correspondence_distance:=0.25,0.027733,0.011239,0.010758,0.022959,0.012007,0.99975,0.0276,72d8508c
+calibration-room_trial-1,double_downsample:=false max_correspondence_distance:=0.25,0.024150,0.010622,0.010062,0.019213,0.011079,0.99978,0.0240,68e8fe68
+calibration-room_trial-2,default,0.062459,0.015622,0.012017,0.059267,0.015207,0.99981,0.0624,90c27a45
+calibration-room_trial-2,max_correspondence_distance:=0.25,0.026103,0.013890,0.011178,0.019066,0.011970,0.99979,0.0260,4a77fd88
+calibration-room_trial-2,double_downsample:=false max_correspondence_distance:=0.25,0.025505,0.011830,0.009973,0.020275,0.009311,0.99982,0.0255,97618f03
+flat-room_trial-1,default,0.027897,0.008817,0.009446,0.024724,0.018097,0.99921,0.0278,674e7769
+flat-room_trial-1,max_correspondence_distance:=0.25,0.015664,0.007620,0.008689,0.010573,0.009805,0.99956,0.0156,fcf1979b
+flat-room_trial-1,double_downsample:=false max_correspondence_distance:=0.25,0.013400,0.006618,0.006986,0.009325,0.007386,0.99990,0.0134,d189503f
+long-corridor_trial-1,default,0.070906,0.035301,0.058382,0.019316,0.013769,1.00058,0.0707,da280314
+long-corridor_trial-1,max_correspondence_distance:=0.25,0.071853,0.036581,0.059162,0.018015,0.012940,1.00039,0.0717,1612a424
+long-corridor_trial-1,double_downsample:=false max_correspondence_distance:=0.25,0.067727,0.034244,0.056511,0.014860,0.011565,1.00026,0.0677,6bc15c4c
+underground-garage_trial-1,default,0.128467,0.125406,0.021636,0.017578,0.006774,0.99548,0.0358,d904cae7
+underground-garage_trial-1,max_correspondence_distance:=0.25,0.100592,0.095415,0.024785,0.020013,0.006384,0.99658,0.0377,1301d60e
+underground-garage_trial-1,double_downsample:=false max_correspondence_distance:=0.25,0.076219,0.070910,0.022401,0.016711,0.006336,0.99745,0.0312,0dd28412
+underground-garage_trial-2,default,0.091605,0.088340,0.021010,0.012092,0.007943,0.99670,0.0262,45aec14e
+underground-garage_trial-2,max_correspondence_distance:=0.25,0.066127,0.063503,0.014142,0.011837,0.007681,0.99765,0.0220,905d3770
+underground-garage_trial-2,double_downsample:=false max_correspondence_distance:=0.25,0.054327,0.051035,0.010946,0.015067,0.007743,0.99810,0.0205,c18344e7
+underground-garage_trial-3,default,0.098527,0.096938,0.015320,0.008712,0.006611,0.99634,0.0257,c417caf0
+underground-garage_trial-3,max_correspondence_distance:=0.25,0.075394,0.074174,0.011072,0.007736,0.006548,0.99720,0.0206,93e5015a
+underground-garage_trial-3,double_downsample:=false max_correspondence_distance:=0.25,0.061877,0.060853,0.008545,0.007257,0.006380,0.99771,0.0174,64b0db33
+outdoor-urk_trial-1,default,0.059433,0.048359,0.033093,0.009926,0.008126,0.99794,0.0314,fd441406
+outdoor-urk_trial-1,max_correspondence_distance:=0.25,0.059384,0.048232,0.031534,0.014341,0.007746,0.99794,0.0313,7e73075a
+outdoor-urk_trial-1,double_downsample:=false max_correspondence_distance:=0.25,0.064831,0.050349,0.033278,0.023677,0.007621,0.99775,0.0344,257d8718
