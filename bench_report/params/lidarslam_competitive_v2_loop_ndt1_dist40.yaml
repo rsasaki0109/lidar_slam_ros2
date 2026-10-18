@@ -1,0 +1,14 @@
+# lidarslam_competitive_v2_loop_ndt1.yaml with distance_loop_closure: 40.0 (the 5.1 option whose exp04
+# output was byte-identical to the default loop-closure output).
+graph_based_slam:
+  ros__parameters:
+    registration_method: "NDT"
+    range_of_searching_loop_closure: 20.0
+    loop_search_query_stride: 1
+    cloud_subscriber_qos_reliable: true
+    odom_cloud_sync_use_exact_time: true
+    odom_cloud_sync_queue_size: 256
+    map_leaf_size: 0.1
+    ndt_num_threads: 1
+    distance_loop_closure: 40.0
+    debug_flag: false

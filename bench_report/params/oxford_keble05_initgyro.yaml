@@ -1,0 +1,28 @@
+/**:
+  ros__parameters:
+    base_frame: base_link
+    odom_frame: odom
+    lidar_frame: ''
+    imu_frame: ''
+    deskew: true
+    voxel_size: 0.25
+    max_range: 100.0
+    min_range: 0.7
+    initialization_phase: true
+    skip_to_time: 0.0
+    publish_deskewed_scan: true
+    odom_topic: /rko_lio/odometry
+    dump_results: true
+    run_name: front
+    extrinsic_imu2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+    extrinsic_lidar2base_quat_xyzw_xyz: [-0.000644947, 0.001879371, 0.712962475, 0.701199373,
+      -0.000651709, -0.015510343, 0.084632658]
+    double_downsample: true
+    enable_kidnap_relocalization: false
+    reset_on_registration_failure: false
+    relocalize_after_scan_gap: false
+    max_iterations: 50
+    convergence_criterion: 3.0e-05
+    icp_keypoint_voxel_multiplier: 2.25
+    publisher_queue_depth: 128
+    initialization_max_gyro_rad_s: 0.05

@@ -31,6 +31,7 @@
 #define GRAPH_BASED_SLAM__EXTERNAL_IO_PORTS_HPP_
 
 #include <algorithm>
+#include <cstddef>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -42,6 +43,8 @@
 #include <pcl/point_cloud.h>  // NOLINT(build/include_order)
 #include <pcl/point_types.h>  // NOLINT(build/include_order)
 
+#include "graph_based_slam/map_point.hpp"
+
 namespace graphslam
 {
 namespace ports
@@ -50,6 +53,7 @@ namespace ports
 using PointCloud = pcl::PointCloud<pcl::PointXYZI>;
 using PointCloudPtr = PointCloud::Ptr;
 using PointCloudXyz = pcl::PointCloud<pcl::PointXYZ>;
+using MapCloud = graphslam::MapCloud;
 
 struct SubmapWrite
 {
@@ -89,6 +93,8 @@ public:
   // A batch is one visibility transaction: load() cannot observe a prefix.
   virtual std::vector<bool> storeBatch(const std::vector<SubmapWrite> & writes) = 0;
   virtual PointCloudPtr load(int index) const = 0;
+  // Points of the cloud stored for `index` (0 if none): a size hint, e.g. to reserve memory.
+  virtual std::size_t pointCount(int index) const = 0;
 };
 
 class DiagnosticsPort
@@ -112,6 +118,8 @@ public:
   virtual bool writePointCloud(const std::string & artifact, const PointCloud & cloud) = 0;
   virtual bool writePointCloudXyz(
     const std::string & artifact, const PointCloudXyz & cloud) = 0;
+  // Written exactly as writePointCloud() writes the PointXYZI cloud with the same points.
+  virtual bool writeMapCloud(const std::string & artifact, const MapCloud & cloud) = 0;
 };
 
 struct ExternalIoPorts
@@ -188,6 +196,13 @@ public:
     return PointCloudPtr(new PointCloud(found->second));
   }
 
+  std::size_t pointCount(int index) const override
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    const auto found = clouds_.find(index);
+    return found == clouds_.end() ? 0 : found->second.size();
+  }
+
 private:
   mutable std::mutex mutex_;
   std::map<int, PointCloud> clouds_;
@@ -253,6 +268,14 @@ public:
   {
     std::lock_guard<std::mutex> lock(mutex_);
     xyz_clouds_[artifact] = cloud;
+    return true;
+  }
+
+  bool writeMapCloud(const std::string & artifact, const MapCloud & cloud) override
+  {
+    PointCloudPtr converted = toPointXYZICloud(cloud);
+    std::lock_guard<std::mutex> lock(mutex_);
+    clouds_[artifact] = std::move(*converted);
     return true;
   }
 

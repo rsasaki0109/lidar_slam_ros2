@@ -1,0 +1,3 @@
+[offline_node-1] [INFO] Odometry map frame initialized using 20 IMU measurements. Estimated initial rotation [se(3)] is -0.266498  -2.79556         0
+[offline_node-1] [INFO] Estimated accel bias:  -0.0054148 0.000516188   0.0157078, gyro bias: -0.00372795 -0.00416751  0.00174257
+[offline_node-1] RKO LIO Offline Node took 38.8619 seconds.

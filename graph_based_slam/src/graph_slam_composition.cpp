@@ -144,6 +144,8 @@ backend_core::LoopSearchConfig makeLoopSearchConfig(const GraphSlamConfig & conf
   gates.overlap_large_correction_translation_m =
     config.loop_overlap_large_correction_translation_m_;
   gates.overlap_max_distance_m = config.loop_overlap_max_distance_m_;
+  gates.max_drift_ratio = config.loop_max_drift_ratio_;
+  gates.max_drift_offset_m = config.loop_max_drift_offset_m_;
   gates.max_translation_descriptor_m = config.loop_max_translation_delta_descriptor_;
   gates.max_rotation_descriptor_deg = config.loop_max_rotation_delta_deg_descriptor_;
   return result;

@@ -62,6 +62,8 @@ struct GraphSlamConfig
   double loop_min_overlap_ratio_large_correction_ {0.0};
   double loop_overlap_large_correction_translation_m_ {0.0};
   double loop_overlap_max_distance_m_ {0.5};
+  double loop_max_drift_ratio_ {0.0};
+  double loop_max_drift_offset_m_ {0.5};
   double loop_max_translation_delta_descriptor_ {-1.0};
   double loop_max_rotation_delta_deg_descriptor_ {-1.0};
 
@@ -197,6 +199,10 @@ struct GraphSlamConfig
   int odom_cloud_sync_queue_size_ {100};
   bool odom_cloud_sync_use_exact_time_ {false};
   bool cloud_subscriber_qos_reliable_ {true};
+  // LiDAR-to-base extrinsic of cloud_input, [qx, qy, qz, qw, x, y, z] as in
+  // RKO-LIO: its deskewed scan is in the LiDAR frame while the odometry pose
+  // is the base frame's. The identity keeps the cloud unchanged.
+  std::vector<double> extrinsic_lidar2base_quat_xyzw_xyz_ {0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0};
   std::string degeneracy_diagnostics_csv_path_;
   bool save_degeneracy_report_ {false};
 };

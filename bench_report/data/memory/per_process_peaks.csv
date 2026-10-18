@@ -1,0 +1,126 @@
+run,pid,process,peak_rss_kib,cmd
+exp04_basew,7711,offline_node,459620,"/home/user/ws/cand_40b3a06/install/rko_lio/lib/rko_lio/offline_node --ros-args -r __node:=rko_lio_offline_node --params-file /tmp/launch_params_kdv2ebuy --param"
+exp04_basew,7713,graph_based_sla,304356,"/home/user/ws/slam_dev/install/graph_based_slam/lib/graph_based_slam/graph_based_slam_node --ros-args --params-file /home/user/bench/params/lidarslam_competitiv"
+exp04_basew,7708,ros2,38828,"/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch lidarslam rko_lio_slam.launch.py main_param_dir:=/home/user/bench/params/lidarslam_competitive_v2_loop_ndt1_res2"
+exp04_basew,7714,static_transfor,30320,"/opt/ros/jazzy/lib/tf2_ros/static_transform_publisher 0.006253 -0.011775 0.007645 0 0 0 1 os_sensor os_imu --ros-args "
+exp04_basew,6042,bash,2180,"/bin/bash -c source /root/.claude/shell-snapshots/snapshot-bash-1792287104362-aw8qy2.sh 2>/dev/null || true && export BUN_OPTIONS="--smol${BUN_OPTIONS:+ $BUN_OP"
+exp04_basew,sum_of_process_peaks,,835304,
+exp04_basew,peak_of_sum,,827448,at 24.1 s
+exp04_mem2,7877,offline_node,376984,"/home/user/ws/cand_77072e4/install/rko_lio/lib/rko_lio/offline_node --ros-args -r __node:=rko_lio_offline_node --params-file /tmp/launch_params_o23pms2b --param"
+exp04_mem2,7878,graph_based_sla,242084,"/home/user/ws/slam_mem/install/graph_based_slam/lib/graph_based_slam/graph_based_slam_node --ros-args --params-file /home/user/bench/params/lidarslam_competitiv"
+exp04_mem2,7874,ros2,38732,"/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch lidarslam rko_lio_slam.launch.py main_param_dir:=/home/user/bench/params/lidarslam_competitive_v2_loop_ndt1_res2"
+exp04_mem2,7879,static_transfor,30192,"/opt/ros/jazzy/lib/tf2_ros/static_transform_publisher 0.006253 -0.011775 0.007645 0 0 0 1 os_sensor os_imu --ros-args "
+exp04_mem2,6042,bash,2180,"/bin/bash -c source /root/.claude/shell-snapshots/snapshot-bash-1792287104362-aw8qy2.sh 2>/dev/null || true && export BUN_OPTIONS="--smol${BUN_OPTIONS:+ $BUN_OP"
+exp04_mem2,sum_of_process_peaks,,690172,
+exp04_mem2,peak_of_sum,,641592,at 15.8 s
+exp04_mem3,8041,offline_node,282216,"/home/user/ws/cand_77072e4/install/rko_lio/lib/rko_lio/offline_node --ros-args -r __node:=rko_lio_offline_node --params-file /tmp/launch_params_1rnec5d0 --param"
+exp04_mem3,8042,graph_based_sla,248720,"/home/user/ws/slam_mem/install/graph_based_slam/lib/graph_based_slam/graph_based_slam_node --ros-args --params-file /home/user/bench/params/lidarslam_competitiv"
+exp04_mem3,8038,ros2,38924,"/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch lidarslam rko_lio_slam.launch.py main_param_dir:=/home/user/bench/params/lidarslam_competitive_v2_loop_ndt1_res2"
+exp04_mem3,8043,static_transfor,30176,"/opt/ros/jazzy/lib/tf2_ros/static_transform_publisher 0.006253 -0.011775 0.007645 0 0 0 1 os_sensor os_imu --ros-args "
+exp04_mem3,6042,bash,2180,"/bin/bash -c source /root/.claude/shell-snapshots/snapshot-bash-1792287104362-aw8qy2.sh 2>/dev/null || true && export BUN_OPTIONS="--smol${BUN_OPTIONS:+ $BUN_OP"
+exp04_mem3,sum_of_process_peaks,,602216,
+exp04_mem3,peak_of_sum,,534440,at 17.2 s
+exp04_mem4,10498,offline_node,366228,"/home/user/ws/cand_77072e4/install/rko_lio/lib/rko_lio/offline_node --ros-args -r __node:=rko_lio_offline_node --params-file /tmp/launch_params_s5tz8oav --param"
+exp04_mem4,10499,graph_based_sla,201068,"/home/user/ws/slam_mem/install/graph_based_slam/lib/graph_based_slam/graph_based_slam_node --ros-args --params-file /home/user/bench/params/lidarslam_competitiv"
+exp04_mem4,10495,ros2,38708,"/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch lidarslam rko_lio_slam.launch.py main_param_dir:=/home/user/bench/params/lidarslam_competitive_v2_loop_ndt1_res2"
+exp04_mem4,10500,static_transfor,30232,"/opt/ros/jazzy/lib/tf2_ros/static_transform_publisher 0.006253 -0.011775 0.007645 0 0 0 1 os_sensor os_imu --ros-args "
+exp04_mem4,sum_of_process_peaks,,636236,
+exp04_mem4,peak_of_sum,,626216,at 16.1 s
+exp04_mem5,10663,offline_node,289896,"/home/user/ws/cand_77072e4/install/rko_lio/lib/rko_lio/offline_node --ros-args -r __node:=rko_lio_offline_node --params-file /tmp/launch_params_jg4ujank --param"
+exp04_mem5,10664,graph_based_sla,188620,"/home/user/ws/slam_mem/install/graph_based_slam/lib/graph_based_slam/graph_based_slam_node --ros-args --params-file /home/user/bench/params/lidarslam_competitiv"
+exp04_mem5,10657,ros2,38780,"/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch lidarslam rko_lio_slam.launch.py main_param_dir:=/home/user/bench/params/lidarslam_competitive_v2_loop_ndt1_res2"
+exp04_mem5,10665,static_transfor,30416,"/opt/ros/jazzy/lib/tf2_ros/static_transform_publisher 0.006253 -0.011775 0.007645 0 0 0 1 os_sensor os_imu --ros-args "
+exp04_mem5,sum_of_process_peaks,,547712,
+exp04_mem5,peak_of_sum,,525724,at 14.7 s
+mid360_base,1110,graph_based_sla,1179356,"/home/user/ws/slam_dev/install/graph_based_slam/lib/graph_based_slam/graph_based_slam_node --ros-args --params-file /home/user/bench/params/lidarslam_competitiv"
+mid360_base,1109,offline_node,113908,"/home/user/ws/cand_40b3a06/install/rko_lio/lib/rko_lio/offline_node --ros-args -r __node:=rko_lio_offline_node --params-file /tmp/launch_params__ekp2k1h --param"
+mid360_base,1106,ros2,38664,"/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch lidarslam rko_lio_slam.launch.py main_param_dir:=/home/user/bench/params/lidarslam_competitive_v2_loop_ndt1_res2"
+mid360_base,1111,static_transfor,30348,"/opt/ros/jazzy/lib/tf2_ros/static_transform_publisher 0.006253 -0.011775 0.007645 0 0 0 1 os_sensor os_imu --ros-args "
+mid360_base,1029,bash,3428,"/bin/bash -c source /root/.claude/shell-snapshots/snapshot-bash-1792284341042-wvqy7t.sh 2>/dev/null || true && export BUN_OPTIONS="--smol${BUN_OPTIONS:+ $BUN_OP"
+mid360_base,sum_of_process_peaks,,1365704,
+mid360_base,peak_of_sum,,1229308,at 152.8 s
+mid360_mem2,6133,graph_based_sla,640020,"/home/user/ws/slam_mem/install/graph_based_slam/lib/graph_based_slam/graph_based_slam_node --ros-args --params-file /home/user/bench/params/lidarslam_competitiv"
+mid360_mem2,6132,offline_node,106272,"/home/user/ws/cand_77072e4/install/rko_lio/lib/rko_lio/offline_node --ros-args -r __node:=rko_lio_offline_node --params-file /tmp/launch_params_c144tz5i --param"
+mid360_mem2,6129,ros2,38944,"/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch lidarslam rko_lio_slam.launch.py main_param_dir:=/home/user/bench/params/lidarslam_competitive_v2_loop_ndt1_res2"
+mid360_mem2,6134,static_transfor,30304,"/opt/ros/jazzy/lib/tf2_ros/static_transform_publisher 0.006253 -0.011775 0.007645 0 0 0 1 os_sensor os_imu --ros-args "
+mid360_mem2,6039,bash,3440,"/bin/bash -c source /root/.claude/shell-snapshots/snapshot-bash-1792287104362-aw8qy2.sh 2>/dev/null || true && export BUN_OPTIONS="--smol${BUN_OPTIONS:+ $BUN_OP"
+mid360_mem2,6042,bash,2180,"/bin/bash -c source /root/.claude/shell-snapshots/snapshot-bash-1792287104362-aw8qy2.sh 2>/dev/null || true && export BUN_OPTIONS="--smol${BUN_OPTIONS:+ $BUN_OP"
+mid360_mem2,sum_of_process_peaks,,821160,
+mid360_mem2,peak_of_sum,,637988,at 162.4 s
+mid360_mem3,6465,graph_based_sla,563884,"/home/user/ws/slam_mem/install/graph_based_slam/lib/graph_based_slam/graph_based_slam_node --ros-args --params-file /home/user/bench/params/lidarslam_competitiv"
+mid360_mem3,6464,offline_node,80764,"/home/user/ws/cand_77072e4/install/rko_lio/lib/rko_lio/offline_node --ros-args -r __node:=rko_lio_offline_node --params-file /tmp/launch_params_okduduf_ --param"
+mid360_mem3,6461,ros2,38808,"/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch lidarslam rko_lio_slam.launch.py main_param_dir:=/home/user/bench/params/lidarslam_competitive_v2_loop_ndt1_res2"
+mid360_mem3,6466,static_transfor,30444,"/opt/ros/jazzy/lib/tf2_ros/static_transform_publisher 0.006253 -0.011775 0.007645 0 0 0 1 os_sensor os_imu --ros-args "
+mid360_mem3,6042,bash,2180,"/bin/bash -c source /root/.claude/shell-snapshots/snapshot-bash-1792287104362-aw8qy2.sh 2>/dev/null || true && export BUN_OPTIONS="--smol${BUN_OPTIONS:+ $BUN_OP"
+mid360_mem3,sum_of_process_peaks,,716080,
+mid360_mem3,peak_of_sum,,554408,at 164.3 s
+mid360_mem4,9365,graph_based_sla,568772,"/home/user/ws/slam_mem/install/graph_based_slam/lib/graph_based_slam/graph_based_slam_node --ros-args --params-file /home/user/bench/params/lidarslam_competitiv"
+mid360_mem4,9364,offline_node,104804,"/home/user/ws/cand_77072e4/install/rko_lio/lib/rko_lio/offline_node --ros-args -r __node:=rko_lio_offline_node --params-file /tmp/launch_params_r5uitg__ --param"
+mid360_mem4,9361,ros2,38784,"/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch lidarslam rko_lio_slam.launch.py main_param_dir:=/home/user/bench/params/lidarslam_competitive_v2_loop_ndt1_res2"
+mid360_mem4,9366,static_transfor,29284,"/opt/ros/jazzy/lib/tf2_ros/static_transform_publisher 0.006253 -0.011775 0.007645 0 0 0 1 os_sensor os_imu --ros-args "
+mid360_mem4,sum_of_process_peaks,,741644,
+mid360_mem4,peak_of_sum,,563856,at 156.7 s
+mid360_mem5,9740,graph_based_sla,467656,"/home/user/ws/slam_mem/install/graph_based_slam/lib/graph_based_slam/graph_based_slam_node --ros-args --params-file /home/user/bench/params/lidarslam_competitiv"
+mid360_mem5,9739,offline_node,80332,"/home/user/ws/cand_77072e4/install/rko_lio/lib/rko_lio/offline_node --ros-args -r __node:=rko_lio_offline_node --params-file /tmp/launch_params_bp3l5cw8 --param"
+mid360_mem5,9736,ros2,38840,"/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch lidarslam rko_lio_slam.launch.py main_param_dir:=/home/user/bench/params/lidarslam_competitive_v2_loop_ndt1_res2"
+mid360_mem5,9741,static_transfor,29980,"/opt/ros/jazzy/lib/tf2_ros/static_transform_publisher 0.006253 -0.011775 0.007645 0 0 0 1 os_sensor os_imu --ros-args "
+mid360_mem5,sum_of_process_peaks,,616808,
+mid360_mem5,peak_of_sum,,454048,at 161.8 s
+oxford_base,1437,graph_based_sla,2483624,"/home/user/ws/slam_dev/install/graph_based_slam/lib/graph_based_slam/graph_based_slam_node --ros-args --params-file /home/user/bench/params/lidarslam_competitiv"
+oxford_base,1436,offline_node,541300,"/home/user/ws/cand_40b3a06/install/rko_lio/lib/rko_lio/offline_node --ros-args -r __node:=rko_lio_offline_node --params-file /tmp/launch_params_lgr4zrgg --param"
+oxford_base,1433,ros2,38908,"/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch lidarslam rko_lio_slam.launch.py main_param_dir:=/home/user/bench/params/lidarslam_competitive_v2_loop_ndt1_res2"
+oxford_base,1438,static_transfor,30236,"/opt/ros/jazzy/lib/tf2_ros/static_transform_publisher 0.006253 -0.011775 0.007645 0 0 0 1 os_sensor os_imu --ros-args "
+oxford_base,1677,bash,3432,"/bin/bash -c source /root/.claude/shell-snapshots/snapshot-bash-1792284341042-wvqy7t.sh 2>/dev/null || true && export BUN_OPTIONS="--smol${BUN_OPTIONS:+ $BUN_OP"
+oxford_base,1267,bash,3384,"/bin/bash -c source /root/.claude/shell-snapshots/snapshot-bash-1792284341042-wvqy7t.sh 2>/dev/null || true && export BUN_OPTIONS="--smol${BUN_OPTIONS:+ $BUN_OP"
+oxford_base,sum_of_process_peaks,,3100884,
+oxford_base,peak_of_sum,,2644956,at 239.3 s
+oxford_mem2,6849,graph_based_sla,1827860,"/home/user/ws/slam_mem/install/graph_based_slam/lib/graph_based_slam/graph_based_slam_node --ros-args --params-file /home/user/bench/params/lidarslam_competitiv"
+oxford_mem2,6848,offline_node,454760,"/home/user/ws/cand_77072e4/install/rko_lio/lib/rko_lio/offline_node --ros-args -r __node:=rko_lio_offline_node --params-file /tmp/launch_params_g7oyu699 --param"
+oxford_mem2,6845,ros2,39120,"/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch lidarslam rko_lio_slam.launch.py main_param_dir:=/home/user/bench/params/lidarslam_competitive_v2_loop_ndt1_res2"
+oxford_mem2,6850,static_transfor,30296,"/opt/ros/jazzy/lib/tf2_ros/static_transform_publisher 0.006253 -0.011775 0.007645 0 0 0 1 os_sensor os_imu --ros-args "
+oxford_mem2,6042,bash,2180,"/bin/bash -c source /root/.claude/shell-snapshots/snapshot-bash-1792287104362-aw8qy2.sh 2>/dev/null || true && export BUN_OPTIONS="--smol${BUN_OPTIONS:+ $BUN_OP"
+oxford_mem2,sum_of_process_peaks,,2354216,
+oxford_mem2,peak_of_sum,,1899288,at 301.5 s
+oxford_mem3,7155,graph_based_sla,1433528,"/home/user/ws/slam_mem/install/graph_based_slam/lib/graph_based_slam/graph_based_slam_node --ros-args --params-file /home/user/bench/params/lidarslam_competitiv"
+oxford_mem3,7154,offline_node,373876,"/home/user/ws/cand_77072e4/install/rko_lio/lib/rko_lio/offline_node --ros-args -r __node:=rko_lio_offline_node --params-file /tmp/launch_params_ied0u3t8 --param"
+oxford_mem3,7151,ros2,39024,"/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch lidarslam rko_lio_slam.launch.py main_param_dir:=/home/user/bench/params/lidarslam_competitive_v2_loop_ndt1_res2"
+oxford_mem3,7156,static_transfor,30248,"/opt/ros/jazzy/lib/tf2_ros/static_transform_publisher 0.006253 -0.011775 0.007645 0 0 0 1 os_sensor os_imu --ros-args "
+oxford_mem3,6042,bash,2180,"/bin/bash -c source /root/.claude/shell-snapshots/snapshot-bash-1792287104362-aw8qy2.sh 2>/dev/null || true && export BUN_OPTIONS="--smol${BUN_OPTIONS:+ $BUN_OP"
+oxford_mem3,sum_of_process_peaks,,1878856,
+oxford_mem3,peak_of_sum,,1504812,at 320.3 s
+oxford_mem4,9953,graph_based_sla,1369776,"/home/user/ws/slam_mem/install/graph_based_slam/lib/graph_based_slam/graph_based_slam_node --ros-args --params-file /home/user/bench/params/lidarslam_competitiv"
+oxford_mem4,9952,offline_node,454424,"/home/user/ws/cand_77072e4/install/rko_lio/lib/rko_lio/offline_node --ros-args -r __node:=rko_lio_offline_node --params-file /tmp/launch_params_4z0amweb --param"
+oxford_mem4,9949,ros2,39008,"/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch lidarslam rko_lio_slam.launch.py main_param_dir:=/home/user/bench/params/lidarslam_competitive_v2_loop_ndt1_res2"
+oxford_mem4,9954,static_transfor,29964,"/opt/ros/jazzy/lib/tf2_ros/static_transform_publisher 0.006253 -0.011775 0.007645 0 0 0 1 os_sensor os_imu --ros-args "
+oxford_mem4,sum_of_process_peaks,,1893172,
+oxford_mem4,peak_of_sum,,1438576,at 297.8 s
+oxford_mem5,10210,graph_based_sla,1013440,"/home/user/ws/slam_mem/install/graph_based_slam/lib/graph_based_slam/graph_based_slam_node --ros-args --params-file /home/user/bench/params/lidarslam_competitiv"
+oxford_mem5,10209,offline_node,360252,"/home/user/ws/cand_77072e4/install/rko_lio/lib/rko_lio/offline_node --ros-args -r __node:=rko_lio_offline_node --params-file /tmp/launch_params_kiqq1evr --param"
+oxford_mem5,10206,ros2,39000,"/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch lidarslam rko_lio_slam.launch.py main_param_dir:=/home/user/bench/params/lidarslam_competitive_v2_loop_ndt1_res2"
+oxford_mem5,10211,static_transfor,29924,"/opt/ros/jazzy/lib/tf2_ros/static_transform_publisher 0.006253 -0.011775 0.007645 0 0 0 1 os_sensor os_imu --ros-args "
+oxford_mem5,sum_of_process_peaks,,1442616,
+oxford_mem5,peak_of_sum,,1082196,at 314.6 s
+exp04_base,917,offline_node,460576,"/home/user/ws/cand_40b3a06/install/rko_lio/lib/rko_lio/offline_node --ros-args -r __node:=rko_lio_offline_node --params-file /tmp/launch_params_b3scq52q --param"
+exp04_base,918,graph_based_sla,301560,"/home/user/ws/slam_dev/install/graph_based_slam/lib/graph_based_slam/graph_based_slam_node --ros-args --params-file /home/user/bench/params/lidarslam_competitiv"
+exp04_base,914,ros2,38688,"/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch lidarslam rko_lio_slam.launch.py main_param_dir:=/home/user/bench/params/lidarslam_competitive_v2_loop_ndt1_res2"
+exp04_base,919,static_transfor,30200,"/opt/ros/jazzy/lib/tf2_ros/static_transform_publisher 0.006253 -0.011775 0.007645 0 0 0 1 os_sensor os_imu --ros-args "
+exp04_base,sum_of_process_peaks,,831024,
+exp04_base,peak_of_sum,,782160,at 39.0 s
+mid360_mem1,4563,graph_based_sla,660828,"/home/user/ws/slam_mem/install/graph_based_slam/lib/graph_based_slam/graph_based_slam_node --ros-args --params-file /home/user/bench/params/lidarslam_competitiv"
+mid360_mem1,4562,offline_node,105736,"/home/user/ws/cand_77072e4/install/rko_lio/lib/rko_lio/offline_node --ros-args -r __node:=rko_lio_offline_node --params-file /tmp/launch_params_b_owvc_c --param"
+mid360_mem1,4559,ros2,38672,"/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch lidarslam rko_lio_slam.launch.py main_param_dir:=/home/user/bench/params/lidarslam_competitive_v2_loop_ndt1_res2"
+mid360_mem1,4564,static_transfor,30164,"/opt/ros/jazzy/lib/tf2_ros/static_transform_publisher 0.006253 -0.011775 0.007645 0 0 0 1 os_sensor os_imu --ros-args "
+mid360_mem1,sum_of_process_peaks,,835400,
+mid360_mem1,peak_of_sum,,709652,at 152.5 s
+mid360_mem1b,4815,graph_based_sla,661792,"/home/user/ws/slam_mem/install/graph_based_slam/lib/graph_based_slam/graph_based_slam_node --ros-args --params-file /home/user/bench/params/lidarslam_competitiv"
+mid360_mem1b,4814,offline_node,105640,"/home/user/ws/cand_77072e4/install/rko_lio/lib/rko_lio/offline_node --ros-args -r __node:=rko_lio_offline_node --params-file /tmp/launch_params_x5dmndpx --param"
+mid360_mem1b,4811,ros2,38836,"/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch lidarslam rko_lio_slam.launch.py main_param_dir:=/home/user/bench/params/lidarslam_competitive_v2_loop_ndt1_res2"
+mid360_mem1b,4816,static_transfor,30284,"/opt/ros/jazzy/lib/tf2_ros/static_transform_publisher 0.006253 -0.011775 0.007645 0 0 0 1 os_sensor os_imu --ros-args "
+mid360_mem1b,sum_of_process_peaks,,836552,
+mid360_mem1b,peak_of_sum,,692236,at 156.7 s
+oxford_mem1,5125,graph_based_sla,1842472,"/home/user/ws/slam_mem/install/graph_based_slam/lib/graph_based_slam/graph_based_slam_node --ros-args --params-file /home/user/bench/params/lidarslam_competitiv"
+oxford_mem1,5124,offline_node,446568,"/home/user/ws/cand_77072e4/install/rko_lio/lib/rko_lio/offline_node --ros-args -r __node:=rko_lio_offline_node --params-file /tmp/launch_params_2bys6imv --param"
+oxford_mem1,5121,ros2,38928,"/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch lidarslam rko_lio_slam.launch.py main_param_dir:=/home/user/bench/params/lidarslam_competitive_v2_loop_ndt1_res2"
+oxford_mem1,5126,static_transfor,30300,"/opt/ros/jazzy/lib/tf2_ros/static_transform_publisher 0.006253 -0.011775 0.007645 0 0 0 1 os_sensor os_imu --ros-args "
+oxford_mem1,sum_of_process_peaks,,2358268,
+oxford_mem1,peak_of_sum,,1911532,at 299.0 s

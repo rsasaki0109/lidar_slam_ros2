@@ -1,0 +1,20 @@
+map_quality_report:
+  input_points: 6111305
+  evaluated_points: 4195774
+  downsample_voxel_size_m: 0.100000000
+  mean_map_entropy:
+    value_nats: -1.621130450
+    radius_m: 0.500000000
+    valid_points: 4001103
+    valid_fraction: 0.953603078
+  plane_metrics:
+    meaningful: true
+    patch_count: 75653
+    thickness_rms_mean_m: 0.044790589
+    thickness_rms_p95_m: 0.102237429
+    planar_coverage: 0.555329958
+    min_meaningful_planar_coverage: 0.050000000
+  density:
+    occupied_root_voxels: 176623
+    mean_points_per_voxel: 23.755535802
+    stddev_points_per_voxel: 34.372231376

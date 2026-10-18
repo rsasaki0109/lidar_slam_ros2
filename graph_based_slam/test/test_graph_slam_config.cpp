@@ -62,6 +62,19 @@ TEST_F(GraphSlamConfigTest, DefaultsAreValid)
 {
   const graphslam::GraphSlamConfig config;
   EXPECT_TRUE(graphslam::validateGraphSlamConfig(config).empty());
+  // The cloud input is taken as already in the base frame unless configured.
+  EXPECT_EQ(
+    config.extrinsic_lidar2base_quat_xyzw_xyz_,
+    (std::vector<double>{0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0}));
+}
+
+TEST_F(GraphSlamConfigTest, ValidationRejectsAMalformedLidarExtrinsic)
+{
+  graphslam::GraphSlamConfig config;
+  config.extrinsic_lidar2base_quat_xyzw_xyz_ = {0.0, 0.0, 0.0, 1.0, 0.0, 0.0};
+  EXPECT_EQ(graphslam::validateGraphSlamConfig(config).size(), 1U);
+  config.extrinsic_lidar2base_quat_xyzw_xyz_ = {0.0, 0.0, 0.0, 0.0, 1.0, 2.0, 3.0};
+  EXPECT_EQ(graphslam::validateGraphSlamConfig(config).size(), 1U);
 }
 
 TEST_F(GraphSlamConfigTest, LoaderAppliesRosOverridesAndDeclaresCompleteSurface)
@@ -74,6 +87,9 @@ TEST_F(GraphSlamConfigTest, LoaderAppliesRosOverridesAndDeclaresCompleteSurface)
       rclcpp::Parameter("gnss_topic", "/fix/filtered"),
       rclcpp::Parameter("odom_cloud_sync_use_exact_time", true),
       rclcpp::Parameter("cloud_subscriber_qos_reliable", false),
+      rclcpp::Parameter(
+        "extrinsic_lidar2base_quat_xyzw_xyz",
+        std::vector<double>{0.7071068, -0.7071068, 0.0, 0.0, -0.001, -0.00855, 0.055}),
   });
   auto node = std::make_shared<rclcpp::Node>("graph_slam_config_test", options);
   const auto parameters_before_load = node->list_parameters({}, 0).names.size();
@@ -86,9 +102,12 @@ TEST_F(GraphSlamConfigTest, LoaderAppliesRosOverridesAndDeclaresCompleteSurface)
   EXPECT_EQ(config.gnss_topic_, "/fix/filtered");
   EXPECT_TRUE(config.odom_cloud_sync_use_exact_time_);
   EXPECT_FALSE(config.cloud_subscriber_qos_reliable_);
+  EXPECT_EQ(
+    config.extrinsic_lidar2base_quat_xyzw_xyz_,
+    (std::vector<double>{0.7071068, -0.7071068, 0.0, 0.0, -0.001, -0.00855, 0.055}));
   EXPECT_TRUE(node->has_parameter("triangle_descriptor_keypoint_mode"));
   EXPECT_TRUE(node->has_parameter("degeneracy_diagnostics_csv_path"));
-  EXPECT_EQ(node->list_parameters({}, 0).names.size() - parameters_before_load, 145U);
+  EXPECT_EQ(node->list_parameters({}, 0).names.size() - parameters_before_load, 148U);
 }
 
 TEST_F(GraphSlamConfigTest, ValidationReportsIndependentConfigurationErrors)
@@ -121,6 +140,8 @@ TEST_F(GraphSlamConfigTest, NormalizationRepairsDependentAndBoundedValues)
   config.gnss_covariance_min_variance_m2_ = 2.0;
   config.gnss_covariance_max_variance_m2_ = 1.0;
   config.loop_min_overlap_ratio_ = 2.0;
+  config.loop_max_drift_ratio_ = -0.1;
+  config.loop_max_drift_offset_m_ = -1.0;
   config.triangle_descriptor_keypoint_mode_ = "unknown";
   config.planar_map_filter_min_retained_ratio_ = 1.5;
 
@@ -132,6 +153,8 @@ TEST_F(GraphSlamConfigTest, NormalizationRepairsDependentAndBoundedValues)
   EXPECT_DOUBLE_EQ(config.adjacent_edge_info_weight_rot_, 1000.0);
   EXPECT_DOUBLE_EQ(config.gnss_covariance_max_variance_m2_, 2.0);
   EXPECT_DOUBLE_EQ(config.loop_min_overlap_ratio_, 0.0);
+  EXPECT_DOUBLE_EQ(config.loop_max_drift_ratio_, 0.0);
+  EXPECT_DOUBLE_EQ(config.loop_max_drift_offset_m_, 0.5);
   EXPECT_EQ(config.triangle_descriptor_keypoint_mode_, "bev_max_height");
   EXPECT_DOUBLE_EQ(config.planar_map_filter_min_retained_ratio_, 1.0);
 }

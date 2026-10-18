@@ -1,0 +1,21 @@
+| sequence | frontend alone | R | G | G / R | R loops over the cap | G md5 = R md5 |
+|---|---:|---:|---:|---:|---|---|
+| calibration-room_trial-1 | 0.0749 | 0.0731 | 0.0731 | 1.000 | none | yes |
+| calibration-room_trial-2 | 0.0804 | 0.0804 | 0.0804 | 1.000 | none | yes |
+| flat-room_trial-1 | 0.0766 | 0.0775 | 0.0775 | 1.000 | none | yes |
+| long-corridor_trial-1 | 0.0772 | 0.0794 | 0.0777 | 0.978 | 5-31 (7.514 m over 40.2 m) | no |
+| outdoor-urk_trial-1 | 0.0610 | 0.0554 | 0.0554 | 1.000 | none | yes |
+| underground-garage_trial-1 | 0.1277 | 0.1261 | 0.1261 | 1.000 | none | yes |
+| underground-garage_trial-2 | 0.0932 | 0.0963 | 0.0937 | 0.973 | 1-148 (9.138 m over 226.3 m) | no |
+| underground-garage_trial-3 | 0.1047 | 0.1130 | 0.1130 | 1.000 | none | yes |
+| oxford | 0.0530 | 0.0490 | 0.0490 | 1.000 | none | yes |
+| exp04 | 0.0520 | 0.0521 | 0.0521 | 1.000 | none | yes |
+| mid360 | – | – | – | – | none | yes |
+| geometric mean | 0.0771 | 0.0767 | 0.0763 | 0.995 | | |
+
+1. GM lower: True (0.0767 -> 0.0763)
+2. no sequence >= 2% worse: True (worst G/R 1.000)
+3. md5 equal wherever no R loop is over the cap: True
+4. MID-360 start loop: 9  602  residual   0.011 m   1.05 deg; thickness R 0.044438 G 0.044438 (+0.00%)
+exp04 6 points R: 0.048186
+exp04 6 points G: 0.048186

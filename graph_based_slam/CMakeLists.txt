@@ -139,6 +139,16 @@ target_link_libraries(
   g2o::stuff
 )
 
+add_library(graph_slam_map_point STATIC
+  src/map_point.cpp
+)
+set_target_properties(graph_slam_map_point PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_compile_features(graph_slam_map_point PRIVATE cxx_std_17)
+target_include_directories(
+  graph_slam_map_point PUBLIC include ${EIGEN3_INCLUDE_DIR} ${PCL_INCLUDE_DIRS}
+)
+target_link_libraries(graph_slam_map_point ${PCL_LIBRARIES})
+
 add_library(graph_slam_io_adapters STATIC
   src/filesystem_io_ports.cpp
 )
@@ -261,6 +271,21 @@ if(BUILD_TESTING)
     target_include_directories(test_serialized_work_drain PRIVATE include)
   endif()
   ament_add_gtest(
+    test_background_work_drain
+    test/test_background_work_drain.cpp
+  )
+  if(TARGET test_background_work_drain)
+    target_include_directories(test_background_work_drain PRIVATE include)
+  endif()
+  ament_add_gtest(
+    test_cloud_input_extrinsic
+    test/test_cloud_input_extrinsic.cpp
+  )
+  if(TARGET test_cloud_input_extrinsic)
+    target_include_directories(test_cloud_input_extrinsic PRIVATE include ${EIGEN3_INCLUDE_DIR})
+    ament_target_dependencies(test_cloud_input_extrinsic sensor_msgs)
+  endif()
+  ament_add_gtest(
     test_graph_state_store
     test/test_graph_state_store.cpp
   )
@@ -323,6 +348,21 @@ if(BUILD_TESTING)
     target_include_directories(test_map_saver PRIVATE include)
   endif()
   ament_add_gtest(
+    test_voxel_grid_overflow
+    test/test_voxel_grid_overflow.cpp
+  )
+  if(TARGET test_voxel_grid_overflow)
+    target_include_directories(test_voxel_grid_overflow PRIVATE include ${EIGEN3_INCLUDE_DIR})
+    target_link_libraries(test_voxel_grid_overflow ${PCL_LIBRARIES})
+  endif()
+  ament_add_gtest(
+    test_map_point
+    test/test_map_point.cpp
+  )
+  if(TARGET test_map_point)
+    target_link_libraries(test_map_point graph_slam_map_point)
+  endif()
+  ament_add_gtest(
     test_backend_core
     test/test_backend_core.cpp
     src/three_d_bbs_loop_verifier.cpp
@@ -363,7 +403,7 @@ if(BUILD_TESTING)
     )
     target_compile_features(test_external_io_ports PRIVATE cxx_std_17)
     target_link_libraries(
-      test_external_io_ports graph_slam_io_adapters ${PCL_LIBRARIES}
+      test_external_io_ports graph_slam_io_adapters graph_slam_map_point ${PCL_LIBRARIES}
     )
   endif()
   ament_add_gtest(
@@ -959,6 +999,7 @@ target_link_libraries(graph_based_slam_component
   graph_slam_config
   graph_slam_application
   graph_slam_io_adapters
+  graph_slam_map_point
   g2o::core
   g2o::types_slam3d
   g2o::solver_eigen

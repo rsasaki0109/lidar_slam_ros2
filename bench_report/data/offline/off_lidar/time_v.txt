@@ -1,0 +1,23 @@
+	Command being timed: "env ROS_DOMAIN_ID=37 ROS_LOCALHOST_ONLY=1 /home/user/ws/slam_dev/install/graph_based_slam/lib/graph_based_slam/graph_slam_offline_runner --ros-args --disable-rosout-logs --params-file /home/user/bench/params/lidarslam_competitive_v2_loop.yaml -p bag_path:=/home/user/bench/framecheck/rec/bag -p output_dir:=off_lidar -p refine:=false"
+	User time (seconds): 620.15
+	System time (seconds): 1.36
+	Percent of CPU this job got: 378%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 2:44.24
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 212592
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 36
+	Minor (reclaiming a frame) page faults: 110902
+	Voluntary context switches: 1925
+	Involuntary context switches: 8512
+	Swaps: 0
+	File system inputs: 6224
+	File system outputs: 264
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

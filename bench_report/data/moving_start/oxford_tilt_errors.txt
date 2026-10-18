@@ -1,0 +1,8 @@
+frontend_noguard: tilt error (deg): median 0.555  p95 0.951  max 2.434  rms 0.607  (n=14738)
+frontend_gyro002: tilt error (deg): median 0.175  p95 0.484  max 2.009  rms 0.266  (n=14738)
+pipeline_ndt5_gyro002: tilt error (deg): median 0.214  p95 0.542  max 2.107  rms 0.300  (n=14738)
+pipeline_ndt2_gyro002: tilt error (deg): median 0.172  p95 0.477  max 2.029  rms 0.260  (n=14738)
+glim_r1_traj_imu: tilt error (deg): median 1.027  p95 1.732  max 2.263  rms 1.096  (n=14677)
+glim_r2_traj_imu: tilt error (deg): median 0.946  p95 1.597  max 2.095  rms 1.021  (n=14677)
+glim_r1_odom_imu: tilt error (deg): median 1.005  p95 1.542  max 2.047  rms 1.053  (n=14677)
+glim_r2_odom_imu: tilt error (deg): median 0.921  p95 1.448  max 1.940  rms 0.988  (n=14677)

@@ -1,0 +1,23 @@
+	Command being timed: "/home/user/scripts/pipe_pipeline.sh /home/user/bench/oxford/pipe_rows.csv oxford_loop /home/user/ws/pipe_dev_a92dfd4 /home/user/bench/params/lidarslam_competitive_v2_loop_ndt1.yaml /home/user/bench/oxford/pipe_loop"
+	User time (seconds): 1166.41
+	System time (seconds): 195.73
+	Percent of CPU this job got: 241%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 9:23.37
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 2542440
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 55
+	Minor (reclaiming a frame) page faults: 32758723
+	Voluntary context switches: 329129
+	Involuntary context switches: 31016144
+	Swaps: 0
+	File system inputs: 760
+	File system outputs: 219296
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

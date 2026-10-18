@@ -1,0 +1,23 @@
+	Command being timed: "/home/user/scripts/pipe_pipeline.sh /home/user/bench/oxford/pipe_rows.csv oxford_off /home/user/ws/pipe_dev_a92dfd4 /home/user/rsasaki0109/lidar_slam_ros2/configs/hilti2022/lidarslam_competitive_v2.yaml /home/user/bench/oxford/pipe_off"
+	User time (seconds): 857.41
+	System time (seconds): 70.40
+	Percent of CPU this job got: 328%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 4:42.42
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 2112852
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 420
+	Minor (reclaiming a frame) page faults: 2797399
+	Voluntary context switches: 283651
+	Involuntary context switches: 8296835
+	Swaps: 0
+	File system inputs: 102024
+	File system outputs: 212656
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

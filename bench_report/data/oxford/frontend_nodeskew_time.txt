@@ -1,0 +1,23 @@
+	Command being timed: "bash /home/user/scripts/run_front.sh oxford_nodeskew /home/user/ws/cand_a92dfd4 /home/user/bench/params/oxford_keble05_nodeskew.yaml /home/user/data/oxford_keble05/ros2 /hesai/pandar /alphasense_driver_ros/imu /home/user/bench/oxford/run_nodeskew /home/user/bench/oxford/runs.csv"
+	User time (seconds): 1307.56
+	System time (seconds): 59.74
+	Percent of CPU this job got: 348%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 6:32.43
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 1367744
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 1
+	Minor (reclaiming a frame) page faults: 548819
+	Voluntary context switches: 61140
+	Involuntary context switches: 730463
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 67832
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

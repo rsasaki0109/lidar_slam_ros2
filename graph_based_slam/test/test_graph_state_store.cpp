@@ -33,6 +33,7 @@
 #include <cstdint>
 #include <thread>
 #include <utility>
+#include <vector>
 
 #include "graph_based_slam/graph_state_store.hpp"
 
@@ -123,4 +124,52 @@ TEST(GraphStateStore, ConcurrentAppendAndSnapshotRemainConsistent)
 
   EXPECT_FALSE(inconsistent_snapshot.load());
   EXPECT_EQ(store.submapCount(), 100U);
+}
+
+TEST(GraphStateStore, SnapshotsShareEachStoredCloudInsteadOfCopyingIt)
+{
+  graphslam::GraphStateStore store;
+  std_msgs::msg::Header header;
+  header.frame_id = "map";
+  lidarslam_msgs::msg::SubMap submap;
+  submap.distance = 1.0;
+  submap.cloud.width = 3;
+  submap.cloud.height = 1;
+  submap.cloud.data = {1, 2, 3, 4, 5, 6};
+  store.append(std::move(submap), header);
+
+  graphslam::GraphStateStore::Snapshot first;
+  graphslam::GraphStateStore::Snapshot second;
+  ASSERT_TRUE(store.snapshot(first));
+  ASSERT_TRUE(store.snapshot(second));
+  ASSERT_EQ(first.map_array.submaps.size(), 1U);
+  ASSERT_EQ(first.clouds.size(), 1U);
+  EXPECT_TRUE(first.map_array.submaps[0].cloud.data.empty());
+  EXPECT_DOUBLE_EQ(first.map_array.submaps[0].distance, 1.0);
+  EXPECT_EQ(first.clouds[0].get(), second.clouds[0].get());
+  EXPECT_EQ(first.clouds[0]->data, (std::vector<uint8_t>{1, 2, 3, 4, 5, 6}));
+  EXPECT_EQ(first.clouds[0]->width, 3U);
+
+  // The deep snapshot still hands out the whole graph, clouds included.
+  lidarslam_msgs::msg::MapArray deep;
+  ASSERT_TRUE(store.snapshot(deep));
+  ASSERT_EQ(deep.submaps.size(), 1U);
+  EXPECT_EQ(deep.submaps[0].cloud.data, (std::vector<uint8_t>{1, 2, 3, 4, 5, 6}));
+}
+
+TEST(GraphStateStore, ReplaceKeepsTheCloudOfEverySubmap)
+{
+  graphslam::GraphStateStore store;
+  lidarslam_msgs::msg::MapArray input;
+  input.submaps.resize(2);
+  input.submaps[0].cloud.data = {7};
+  input.submaps[1].cloud.data = {8, 9};
+  store.replace(std::move(input));
+
+  graphslam::GraphStateStore::Snapshot snapshot;
+  ASSERT_TRUE(store.snapshot(snapshot));
+  ASSERT_EQ(snapshot.clouds.size(), 2U);
+  EXPECT_EQ(snapshot.clouds[0]->data, (std::vector<uint8_t>{7}));
+  EXPECT_EQ(snapshot.clouds[1]->data, (std::vector<uint8_t>{8, 9}));
+  EXPECT_TRUE(snapshot.map_array.submaps[1].cloud.data.empty());
 }

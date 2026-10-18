@@ -82,6 +82,8 @@ TEST(ExternalIoPorts, InMemoryStorageReturnsValueSnapshots)
   ASSERT_EQ(second->size(), 1U);
   EXPECT_FLOAT_EQ(second->front().x, 1.0F);
   EXPECT_TRUE(storage.load(4)->empty());
+  EXPECT_EQ(storage.pointCount(3), 1U);
+  EXPECT_EQ(storage.pointCount(4), 0U);
 
   PointCloudPtr second_cloud(new PointCloud(cloud));
   second_cloud->front().x = 2.0F;
@@ -159,12 +161,55 @@ TEST(ExternalIoPorts, FilesystemAdaptersRoundTripWithoutLeakingIntoEngine)
   ASSERT_EQ(batch_result.size(), 1U);
   EXPECT_TRUE(batch_result.front());
   EXPECT_EQ(storage.load(8)->size(), 1U);
+  EXPECT_EQ(storage.pointCount(7), 1U);
+  EXPECT_EQ(storage.pointCount(8), 1U);
+  EXPECT_EQ(storage.pointCount(9), 0U);
 
   ASSERT_TRUE(output.writeBytes((directory / "stale.yaml").string(), "stale"));
   ASSERT_TRUE(output.writeBytes((directory / "keep.txt").string(), "keep"));
   ASSERT_TRUE(output.removeByExtension(directory.string(), {".yaml"}));
   EXPECT_FALSE(std::filesystem::exists(directory / "stale.yaml"));
   EXPECT_TRUE(std::filesystem::exists(directory / "keep.txt"));
+  std::filesystem::remove_all(directory);
+}
+
+TEST(ExternalIoPorts, MapCloudIsWrittenAsThePointXYZICloudWithTheSamePoints)
+{
+  const std::filesystem::path directory =
+    std::filesystem::temp_directory_path() / "graph_slam_external_io_ports_map_cloud_test";
+  std::filesystem::remove_all(directory);
+  PointCloud cloud;
+  for (int i = 0; i < 1000; ++i) {
+    pcl::PointXYZI point;
+    point.x = 0.37F * static_cast<float>(i);
+    point.y = -1.5F + 0.01F * static_cast<float>(i % 17);
+    point.z = 2.0F / static_cast<float>(i + 1);
+    point.intensity = static_cast<float>(i % 256);
+    cloud.push_back(point);
+  }
+  const MapCloud::Ptr map_cloud = toMapCloud(cloud);
+
+  adapters::FilesystemMapOutput output;
+  const std::string xyzi_path = (directory / "xyzi.pcd").string();
+  const std::string map_path = (directory / "map.pcd").string();
+  ASSERT_TRUE(output.writePointCloud(xyzi_path, cloud));
+  ASSERT_TRUE(output.writeMapCloud(map_path, *map_cloud));
+  const auto bytes = [](const std::string & path) {
+      std::ifstream input(path, std::ios::binary);
+      return std::string(
+        (std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
+    };
+  EXPECT_FALSE(bytes(xyzi_path).empty());
+  EXPECT_EQ(bytes(xyzi_path), bytes(map_path));
+
+  InMemoryMapOutput memory;
+  ASSERT_TRUE(memory.writeMapCloud("map.pcd", *map_cloud));
+  const PointCloudPtr stored = memory.pointCloud("map.pcd");
+  ASSERT_EQ(stored->size(), cloud.size());
+  for (std::size_t i = 0; i < cloud.size(); ++i) {
+    EXPECT_EQ(0, std::memcmp(&stored->points[i].x, &cloud.points[i].x, 3 * sizeof(float)));
+    EXPECT_EQ(stored->points[i].intensity, cloud.points[i].intensity);
+  }
   std::filesystem::remove_all(directory);
 }
 

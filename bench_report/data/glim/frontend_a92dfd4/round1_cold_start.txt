@@ -1,0 +1,3 @@
+# Round 1 ran right after a VM reboot: GLIM, GTSAM and graph_based_slam libraries were read from disk.
+ours_off_1 submaps 37, first submap stamp 1646304567.323961; ours_off_2 submaps 40, first 1646304541.727188
+bag start 1646304541.527137 (graph_based_slam subscribed late; the frontend does not wait for subscribers)

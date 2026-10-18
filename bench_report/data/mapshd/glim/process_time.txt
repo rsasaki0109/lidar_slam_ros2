@@ -1,0 +1,23 @@
+	Command being timed: "ros2 run glim_ros glim_rosbag /home/user/data/mapshd/bags/calibration-room_trial-1 --ros-args -p config_path:=/home/user/bench/mapshd/glim_calibration-room_trial-1/glim_config -p auto_quit:=true -p dump_path:=/home/user/bench/mapshd/glim_calibration-room_trial-1/dump"
+	User time (seconds): 256.61
+	System time (seconds): 5.19
+	Percent of CPU this job got: 260%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 1:40.36
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 345684
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 493
+	Minor (reclaiming a frame) page faults: 126839
+	Voluntary context switches: 124488
+	Involuntary context switches: 24282
+	Swaps: 0
+	File system inputs: 114016
+	File system outputs: 38888
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

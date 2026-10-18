@@ -114,6 +114,31 @@ TEST(LoopVerifierDelta, IdentityIsZeroAndTraceIsClamped)
   EXPECT_NEAR(loop_verifier::computeRegistrationDelta(half_turn).rotation_deg, 180.0, 1e-3);
 }
 
+TEST(LoopVerifierDelta, QueryDisplacementIsMeasuredAtTheQueryOrigin)
+{
+  // A 1 degree yaw about the world origin leaves the origin in place but
+  // moves a submap 100 m away by 2 * 100 * sin(0.5 deg).
+  Eigen::Matrix4f yaw = Eigen::Matrix4f::Identity();
+  yaw.block<3, 3>(0, 0) = Eigen::AngleAxisf(
+    static_cast<float>(M_PI / 180.0), Eigen::Vector3f::UnitZ()).toRotationMatrix();
+  const auto far = loop_verifier::computeRegistrationDelta(
+    yaw, Eigen::Vector3d(100.0, 0.0, 0.0), 40.0);
+  EXPECT_NEAR(far.translation_m, 0.0, 1e-9);
+  EXPECT_NEAR(far.query_displacement_m, 200.0 * std::sin(0.5 * M_PI / 180.0), 1e-4);
+  EXPECT_DOUBLE_EQ(far.travel_distance_m, 40.0);
+
+  // A pure translation moves every origin alike; the default zero origin
+  // reproduces translation_m.
+  Eigen::Matrix4f shift = Eigen::Matrix4f::Identity();
+  shift.block<3, 1>(0, 3) = Eigen::Vector3f(1.0F, 2.0F, 2.0F);
+  EXPECT_NEAR(
+    loop_verifier::computeRegistrationDelta(shift, Eigen::Vector3d(-50.0, 20.0, 3.0))
+    .query_displacement_m, 3.0, 1e-6);
+  const auto at_origin = loop_verifier::computeRegistrationDelta(yaw * shift);
+  EXPECT_DOUBLE_EQ(at_origin.query_displacement_m, at_origin.translation_m);
+  EXPECT_DOUBLE_EQ(at_origin.travel_distance_m, 0.0);
+}
+
 TEST(LoopVerifierGuess, DefaultIsCandidateTimesLatestInverse)
 {
   const auto candidate_pose = makePose(10.0, -4.0, 1.0, 0.8);
@@ -327,6 +352,63 @@ TEST(LoopVerifierGates, LargeCorrectionCanUseAnExplicitRelaxedOverlapThreshold)
     Source::DISTANCE, 0.1, delta, config, 0.74);
   EXPECT_EQ(large.rejection, GateRejection::NONE);
   EXPECT_DOUBLE_EQ(large.min_overlap_ratio, 0.70);
+}
+
+TEST(LoopVerifierGates, DriftGateIsDisabledByDefault)
+{
+  const auto config = makeGateConfig();
+  RegistrationDelta delta;
+  delta.query_displacement_m = 100.0;
+  delta.travel_distance_m = 1.0;
+  const auto result = loop_verifier::evaluateGates(Source::DISTANCE, 0.1, delta, config);
+  EXPECT_EQ(result.rejection, GateRejection::NONE);
+  EXPECT_DOUBLE_EQ(result.drift_cap_m, 0.0);
+}
+
+TEST(LoopVerifierGates, DriftCapGrowsWithTravelAndACorrectionAtTheCapPasses)
+{
+  auto config = makeGateConfig();
+  config.max_drift_ratio = 0.25;
+  config.max_drift_offset_m = 0.5;
+  RegistrationDelta delta;
+  delta.travel_distance_m = 4.0;
+  delta.query_displacement_m = 1.5;
+  const auto at_cap = loop_verifier::evaluateGates(Source::DISTANCE, 0.1, delta, config);
+  EXPECT_EQ(at_cap.rejection, GateRejection::NONE);
+  EXPECT_DOUBLE_EQ(at_cap.drift_cap_m, 1.5);
+
+  delta.query_displacement_m = 1.501;
+  EXPECT_EQ(
+    loop_verifier::evaluateGates(Source::DISTANCE, 0.1, delta, config).rejection,
+    GateRejection::DRIFT);
+
+  delta.travel_distance_m = 8.0;
+  const auto longer = loop_verifier::evaluateGates(Source::DISTANCE, 0.1, delta, config);
+  EXPECT_EQ(longer.rejection, GateRejection::NONE);
+  EXPECT_DOUBLE_EQ(longer.drift_cap_m, 2.5);
+}
+
+TEST(LoopVerifierGates, DriftGateComesAfterRotationAndBeforeOverlap)
+{
+  auto config = makeGateConfig();
+  config.max_drift_ratio = 0.25;
+  config.min_overlap_ratio = 0.6;
+  RegistrationDelta delta;
+  delta.query_displacement_m = 10.0;
+  delta.rotation_deg = 100.0;
+  EXPECT_EQ(
+    loop_verifier::evaluateGates(Source::DISTANCE, 0.1, delta, config, 0.0).rejection,
+    GateRejection::ROTATION);
+
+  delta.rotation_deg = 1.0;
+  EXPECT_EQ(
+    loop_verifier::evaluateGates(Source::DISTANCE, 0.1, delta, config, 0.0).rejection,
+    GateRejection::DRIFT);
+
+  delta.query_displacement_m = 0.1;
+  EXPECT_EQ(
+    loop_verifier::evaluateGates(Source::DISTANCE, 0.1, delta, config, 0.0).rejection,
+    GateRejection::OVERLAP);
 }
 
 TEST(LoopVerifierSelection, FirstArrivalWinsOnEqualFitness)

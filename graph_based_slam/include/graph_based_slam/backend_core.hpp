@@ -765,8 +765,11 @@ public:
       output_cloud_ptr = alignment_result.aligned_source;
       const double fitness_score = alignment_result.fitness_score;
       const Eigen::Matrix4f final_transformation = alignment_result.final_transformation;
+      const double travel_distance =
+        latest_moving_distance - submaps[candidate.index].travel_distance;
       const loop_verifier::RegistrationDelta registration_delta =
-        loop_verifier::computeRegistrationDelta(final_transformation);
+        loop_verifier::computeRegistrationDelta(
+        final_transformation, latest_submap_pos, travel_distance);
       // Avoid building a target KD-tree for candidates that an earlier,
       // cheaper gate already rejects. Passing overlap=1 cannot trigger the
       // overlap gate and preserves the historical gate order.
@@ -786,8 +789,7 @@ public:
       candidate_result.index = candidate.index;
       candidate_result.selection_metric = candidate.selection_metric;
       candidate_result.fitness_score = fitness_score;
-      candidate_result.travel_distance =
-        latest_moving_distance - submaps[candidate.index].travel_distance;
+      candidate_result.travel_distance = travel_distance;
       const Eigen::Vector3d candidate_submap_pos = candidate_affine.translation();
       candidate_result.euclidean_distance = (latest_submap_pos - candidate_submap_pos).norm();
       candidate_result.translation_delta_m = registration_delta.translation_m;
@@ -841,6 +843,18 @@ public:
                 latest_idx,
                 registration_delta.rotation_deg,
                 gate.rotation_cap_deg);
+              output.logs.push_back({true, std::string(log_buffer)});
+              break;
+            case loop_verifier::GateRejection::DRIFT:
+              std::snprintf(
+                log_buffer, sizeof(log_buffer),
+                "Rejected loop candidate %d -> %d because correction %.3f m at the query "
+                "submap exceeds %.3f m for %.1f m of travel",
+                candidate.index,
+                latest_idx,
+                registration_delta.query_displacement_m,
+                gate.drift_cap_m,
+                registration_delta.travel_distance_m);
               output.logs.push_back({true, std::string(log_buffer)});
               break;
             case loop_verifier::GateRejection::OVERLAP:

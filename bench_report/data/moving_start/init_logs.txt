@@ -1,0 +1,17 @@
+== run_a92dfd4
+[INFO] Odometry map frame initialized using 40 IMU measurements. Estimated initial rotation [se(3)] is 0.00261014 -0.0700391          0
+[INFO] Estimated accel bias:    -0.014064 -0.000524124    -0.200474, gyro bias: -0.0201847  0.0476108  -0.036846
+== run_initgyro
+[INFO] Moving start (gyro 0.0634967 rad/s): IMU biases left at zero.
+[INFO] Odometry map frame initialized using 40 IMU measurements. Estimated initial rotation [se(3)] is 0.00261014 -0.0700391          0
+[INFO] Estimated accel bias: 0 0 0, gyro bias: 0 0 0
+== run_oxford_gyro002
+[INFO] Moving start (gyro 0.0634967 rad/s): IMU biases left at zero.
+[INFO] Odometry map frame initialized using 40 IMU measurements. Estimated initial rotation [se(3)] is 0.00261014 -0.0700391          0
+[INFO] Estimated accel bias: 0 0 0, gyro bias: 0 0 0
+== run_exp04_gyro002
+[INFO] Odometry map frame initialized using 40 IMU measurements. Estimated initial rotation [se(3)] is 0.415449 -3.08893        0
+[INFO] Estimated accel bias:   -0.0025289 -0.000340127     0.102672, gyro bias: 0.000721739   0.0016086 -7.7234e-05
+== run_mid360_gyro002
+[INFO] Odometry map frame initialized using 20 IMU measurements. Estimated initial rotation [se(3)] is  -0.152116 -0.0753629          0
+[INFO] Estimated accel bias: -0.00113888  0.00229878  -0.0149665, gyro bias: -0.00463468 -0.00106916 -0.00254759

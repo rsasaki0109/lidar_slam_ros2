@@ -1,0 +1,14 @@
+[INFO] [1792260083.176100212] [rosbag2_storage]: Opened database '/home/user/data/mapshd/bags/long-corridor_trial-1/long-corridor_trial-1_0.db3' for READ_WRITE.
+lidar0000.laz: 100 scans so far
+lidar0001.laz: 200 scans so far
+lidar0002.laz: 300 scans so far
+lidar0003.laz: 401 scans so far
+lidar0004.laz: 501 scans so far
+lidar0005.laz: 601 scans so far
+lidar0006.laz: 701 scans so far
+lidar0007.laz: 802 scans so far
+lidar0008.laz: 902 scans so far
+lidar0009.laz: 1002 scans so far
+lidar0010.laz: 1102 scans so far
+lidar0011.laz: 1203 scans so far
+done: 1203 scans, 24023910 points, 24020 imu samples, 0 zero-time points, 4026 trailing points dropped

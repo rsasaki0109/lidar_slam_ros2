@@ -1,0 +1,28 @@
+run,config,ape_rmse_m
+calibration-room_trial-1_G,meas=GT,0.074738
+calibration-room_trial-1_G,meas=GT loop_t=10000 loop_r=10000,0.070012
+calibration-room_trial-1_G,meas=GT loop_t=100 loop_r=10000,0.073711
+calibration-room_trial-2_G,meas=GT,0.083001
+calibration-room_trial-2_G,meas=GT loop_t=10000 loop_r=10000,0.079261
+calibration-room_trial-2_G,meas=GT loop_t=100 loop_r=10000,0.079717
+flat-room_trial-1_G,meas=GT,0.077915
+flat-room_trial-1_G,meas=GT loop_t=10000 loop_r=10000,0.078430
+flat-room_trial-1_G,meas=GT loop_t=100 loop_r=10000,0.076677
+long-corridor_trial-1_G,meas=GT,0.077222
+long-corridor_trial-1_G,meas=GT loop_t=10000 loop_r=10000,0.081016
+long-corridor_trial-1_G,meas=GT loop_t=100 loop_r=10000,0.077372
+outdoor-urk_trial-1_G,meas=GT,0.056812
+outdoor-urk_trial-1_G,meas=GT loop_t=10000 loop_r=10000,0.056454
+outdoor-urk_trial-1_G,meas=GT loop_t=100 loop_r=10000,0.057842
+underground-garage_trial-1_G,meas=GT,0.128444
+underground-garage_trial-1_G,meas=GT loop_t=10000 loop_r=10000,0.128150
+underground-garage_trial-1_G,meas=GT loop_t=100 loop_r=10000,0.128242
+underground-garage_trial-2_G,meas=GT,0.090443
+underground-garage_trial-2_G,meas=GT loop_t=10000 loop_r=10000,0.079587
+underground-garage_trial-2_G,meas=GT loop_t=100 loop_r=10000,0.091435
+underground-garage_trial-3_G,meas=GT,0.105063
+underground-garage_trial-3_G,meas=GT loop_t=10000 loop_r=10000,0.105738
+underground-garage_trial-3_G,meas=GT loop_t=100 loop_r=10000,0.104960
+oxford_G,meas=GT,0.051992
+oxford_G,meas=GT loop_t=10000 loop_r=10000,0.052743
+oxford_G,meas=GT loop_t=100 loop_r=10000,0.051139

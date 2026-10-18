@@ -1,0 +1,22 @@
+best_loop_candidate id:0 source:distance latest_id:13 travel_distance:20.9207 euclidean_distance:19.2244 fitness:10.4243 correction_translation:9.50443 correction_rotation_deg:18.7717 overlap_ratio:0 support_rmse_m:0 support_p90_m:0 used_3d_bbs:0 3d_bbs_score:0
+best_loop_candidate id:1 source:distance latest_id:14 travel_distance:20.8518 euclidean_distance:18.2393 fitness:9.20274 correction_translation:9.15712 correction_rotation_deg:13.8904 overlap_ratio:0 support_rmse_m:0 support_p90_m:0 used_3d_bbs:0 3d_bbs_score:0
+best_loop_candidate id:97 source:distance latest_id:109 travel_distance:20.0925 euclidean_distance:19.9792 fitness:2.50312 correction_translation:1.2052 correction_rotation_deg:0.388662 overlap_ratio:0 support_rmse_m:0 support_p90_m:0 used_3d_bbs:0 3d_bbs_score:0
+best_loop_candidate id:106 source:distance latest_id:118 travel_distance:20.0436 euclidean_distance:19.992 fitness:2.22822 correction_translation:1.01807 correction_rotation_deg:0.356083 overlap_ratio:0 support_rmse_m:0 support_p90_m:0 used_3d_bbs:0 3d_bbs_score:0
+best_loop_candidate id:109 source:distance latest_id:121 travel_distance:20.0028 euclidean_distance:19.9919 fitness:2.42415 correction_translation:1.05452 correction_rotation_deg:0.344917 overlap_ratio:0 support_rmse_m:0 support_p90_m:0 used_3d_bbs:0 3d_bbs_score:0
+id_loop_point 1:120 id_loop_point 2:132
+id_loop_point 1:121 id_loop_point 2:133
+id_loop_point 1:122 id_loop_point 2:134
+loop edge skipped as redundant or lower quality
+id_loop_point 1:123 id_loop_point 2:135
+loop edge skipped as redundant or lower quality
+best_loop_candidate id:124 source:distance latest_id:136 travel_distance:21.3602 euclidean_distance:19.6004 fitness:1.00349 correction_translation:0.677026 correction_rotation_deg:0.170174 overlap_ratio:0 support_rmse_m:0 support_p90_m:0 used_3d_bbs:0 3d_bbs_score:0
+best_loop_candidate id:127 source:distance latest_id:138 travel_distance:20.3514 euclidean_distance:19.516 fitness:1.82197 correction_translation:0.63267 correction_rotation_deg:0.167859 overlap_ratio:0 support_rmse_m:0 support_p90_m:0 used_3d_bbs:0 3d_bbs_score:0
+best_loop_candidate id:302 source:distance latest_id:314 travel_distance:20.0026 euclidean_distance:19.9773 fitness:3.03915 correction_translation:2.02744 correction_rotation_deg:0.37115 overlap_ratio:0 support_rmse_m:0 support_p90_m:0 used_3d_bbs:0 3d_bbs_score:0
+best_loop_candidate id:405 source:distance latest_id:417 travel_distance:21.089 euclidean_distance:19.7757 fitness:1.44636 correction_translation:1.4228 correction_rotation_deg:0.441462 overlap_ratio:0 support_rmse_m:0 support_p90_m:0 used_3d_bbs:0 3d_bbs_score:0
+best_loop_candidate id:406 source:distance latest_id:418 travel_distance:20.8659 euclidean_distance:19.2298 fitness:1.36582 correction_translation:1.95944 correction_rotation_deg:0.45284 overlap_ratio:0 support_rmse_m:0 support_p90_m:0 used_3d_bbs:0 3d_bbs_score:0
+best_loop_candidate id:407 source:distance latest_id:419 travel_distance:20.7057 euclidean_distance:18.7953 fitness:1.53621 correction_translation:2.15222 correction_rotation_deg:0.491783 overlap_ratio:0 support_rmse_m:0 support_p90_m:0 used_3d_bbs:0 3d_bbs_score:0
+best_loop_candidate id:408 source:distance latest_id:420 travel_distance:20.588 euclidean_distance:18.4937 fitness:1.59833 correction_translation:3.05156 correction_rotation_deg:0.633656 overlap_ratio:0 support_rmse_m:0 support_p90_m:0 used_3d_bbs:0 3d_bbs_score:0
+best_loop_candidate id:409 source:distance latest_id:421 travel_distance:20.2324 euclidean_distance:18.2313 fitness:1.51279 correction_translation:3.1119 correction_rotation_deg:0.567173 overlap_ratio:0 support_rmse_m:0 support_p90_m:0 used_3d_bbs:0 3d_bbs_score:0
+best_loop_candidate id:490 source:distance latest_id:503 travel_distance:20.0006 euclidean_distance:19.998 fitness:3.31574 correction_translation:1.44318 correction_rotation_deg:0.469806 overlap_ratio:0 support_rmse_m:0 support_p90_m:0 used_3d_bbs:0 3d_bbs_score:0
+best_loop_candidate id:14 source:distance latest_id:537 travel_distance:975.096 euclidean_distance:19.4768 fitness:4.93949 correction_translation:2.60404 correction_rotation_deg:1.18234 overlap_ratio:0 support_rmse_m:0 support_p90_m:0 used_3d_bbs:0 3d_bbs_score:0
+best_loop_candidate id:1 source:distance latest_id:538 travel_distance:1040.72 euclidean_distance:8.75868 fitness:13.205 correction_translation:3.47592 correction_rotation_deg:1.03779 overlap_ratio:0 support_rmse_m:0 support_p90_m:0 used_3d_bbs:0 3d_bbs_score:0

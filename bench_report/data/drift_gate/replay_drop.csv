@@ -1,0 +1,9 @@
+run,config,ape_rmse_m
+long-corridor_trial-1_R,as_run,0.079668
+long-corridor_trial-1_R,drop=5-30,0.077113
+long-corridor_trial-1_R,drop=3-16,0.079779
+long-corridor_trial-1_R,drop=5-30,3-16,0.077190
+underground-garage_trial-2_R,as_run,0.096301
+underground-garage_trial-2_R,drop=1-148,0.092699
+calibration-room_trial-2_R,as_run,0.080422
+calibration-room_trial-2_R,drop=8-25,0.080739

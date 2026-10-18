@@ -71,6 +71,8 @@ GraphSlamConfig loadGraphSlamConfig(rclcpp::Node & node)
     loop_overlap_large_correction_translation_m_,
     "loop_overlap_large_correction_translation_m");
   LOAD(loop_overlap_max_distance_m_, "loop_overlap_max_distance_m");
+  LOAD(loop_max_drift_ratio_, "loop_max_drift_ratio");
+  LOAD(loop_max_drift_offset_m_, "loop_max_drift_offset_m");
   LOAD(loop_max_translation_delta_descriptor_, "loop_max_translation_delta_descriptor");
   LOAD(loop_max_rotation_delta_deg_descriptor_, "loop_max_rotation_delta_deg_descriptor");
   LOAD(num_adjacent_pose_cnstraints_, "num_adjacent_pose_cnstraints");
@@ -228,6 +230,7 @@ GraphSlamConfig loadGraphSlamConfig(rclcpp::Node & node)
   LOAD(odom_cloud_sync_queue_size_, "odom_cloud_sync_queue_size");
   LOAD(odom_cloud_sync_use_exact_time_, "odom_cloud_sync_use_exact_time");
   LOAD(cloud_subscriber_qos_reliable_, "cloud_subscriber_qos_reliable");
+  LOAD(extrinsic_lidar2base_quat_xyzw_xyz_, "extrinsic_lidar2base_quat_xyzw_xyz");
   LOAD(degeneracy_diagnostics_csv_path_, "degeneracy_diagnostics_csv_path");
   LOAD(save_degeneracy_report_, "save_degeneracy_report");
 #undef LOAD
@@ -311,6 +314,14 @@ ConfigNormalization normalizeGraphSlamConfig(GraphSlamConfig & config)
     config.loop_overlap_large_correction_translation_m_ = 0.0;
   }
   positiveOr(config.loop_overlap_max_distance_m_, 0.5, "loop_overlap_max_distance_m");
+  if (config.loop_max_drift_ratio_ < 0.0) {
+    warn("loop_max_drift_ratio", "must be non-negative; reset to disabled");
+    config.loop_max_drift_ratio_ = 0.0;
+  }
+  if (config.loop_max_drift_offset_m_ < 0.0) {
+    warn("loop_max_drift_offset_m", "must be non-negative; reset to its safe default");
+    config.loop_max_drift_offset_m_ = 0.5;
+  }
   if (config.loop_max_translation_delta_descriptor_ <= 0.0 &&
     config.loop_max_translation_delta_descriptor_ != -1.0)
   {
@@ -496,6 +507,17 @@ std::vector<std::string> validateGraphSlamConfig(const GraphSlamConfig & config)
   if (config.use_pcd_cache_ && config.pcd_cache_dir_.empty()) {
     errors.emplace_back("pcd_cache_dir must not be empty when use_pcd_cache is true");
   }
+  const std::vector<double> & extrinsic = config.extrinsic_lidar2base_quat_xyzw_xyz_;
+  if (
+    extrinsic.size() != 7 ||
+    !std::all_of(extrinsic.begin(), extrinsic.end(), [](double v) {return std::isfinite(v);}) ||
+    !(extrinsic[0] * extrinsic[0] + extrinsic[1] * extrinsic[1] + extrinsic[2] * extrinsic[2] +
+    extrinsic[3] * extrinsic[3] > 1e-18))
+  {
+    errors.emplace_back(
+      "extrinsic_lidar2base_quat_xyzw_xyz must be 7 finite values [qx, qy, qz, qw, x, y, z] "
+      "with a non-zero quaternion");
+  }
   return errors;
 }
 
@@ -526,6 +548,19 @@ void logGraphSlamConfig(const GraphSlamConfig & config, const rclcpp::Logger & l
     config.odom_cloud_sync_use_exact_time_ ? "exact" : "approximate",
     config.odom_cloud_sync_queue_size_,
     config.cloud_subscriber_qos_reliable_ ? "reliable" : "best_effort");
+  const std::vector<double> & extrinsic = config.extrinsic_lidar2base_quat_xyzw_xyz_;
+  if (
+    extrinsic.size() == 7 &&
+    (extrinsic[0] != 0.0 || extrinsic[1] != 0.0 || extrinsic[2] != 0.0 || extrinsic[4] != 0.0 ||
+    extrinsic[5] != 0.0 || extrinsic[6] != 0.0))
+  {
+    RCLCPP_INFO(
+      logger,
+      "graph SLAM config: cloud_input extrinsic_lidar2base_quat_xyzw_xyz="
+      "[%g, %g, %g, %g, %g, %g, %g]",
+      extrinsic[0], extrinsic[1], extrinsic[2], extrinsic[3], extrinsic[4], extrinsic[5],
+      extrinsic[6]);
+  }
 }
 
 }  // namespace graphslam

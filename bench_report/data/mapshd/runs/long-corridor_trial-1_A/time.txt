@@ -1,0 +1,23 @@
+	Command being timed: "bash /home/user/scripts/pipe_pipeline.sh /home/user/bench/mapshd/rows.csv long-corridor_trial-1_A /home/user/ws/pipe_dev_a92dfd4 /home/user/bench/params/lidarslam_competitive_v2_loop_ndt1.yaml /home/user/bench/mapshd/long-corridor_trial-1_A"
+	User time (seconds): 50.61
+	System time (seconds): 4.62
+	Percent of CPU this job got: 144%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:38.14
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 140548
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 6
+	Minor (reclaiming a frame) page faults: 130274
+	Voluntary context switches: 31822
+	Involuntary context switches: 1231630
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 4072
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

@@ -1,0 +1,15 @@
+glim,1,0,NA,37.190,0.2956,694.0,107.9,0,13331360,/home/user/bench/glim_cmp3/glim_1/dump/traj_imu.txt,NA,9e362e51d2b7695a6f18e861de315d34,2026-10-17T01:42:03Z
+ours_off,1,0,39.960,40.413,0.3212,461.2,139.2,8,13404048,/home/user/bench/glim_cmp3/ours_off_1/trajectory_optimized.tum,bc23199243971466e1645e4eed7640ca,31467b8b3615842778ab65079a6cf3ff,2026-10-17T01:43:01Z
+ours_loop,1,0,44.525,44.939,0.3572,457.6,158.8,0,13411912,/home/user/bench/glim_cmp3/ours_loop_1/trajectory_optimized.tum,bc23199243971466e1645e4eed7640ca,ce7c82a56c3126cf4822c65068b7b85e,2026-10-17T01:44:07Z
+ours_off,2,0,41.584,42.070,0.3344,454.8,144.9,0,13333496,/home/user/bench/glim_cmp3/ours_off_2/trajectory_optimized.tum,bc23199243971466e1645e4eed7640ca,31467b8b3615842778ab65079a6cf3ff,2026-10-17T01:45:18Z
+ours_loop,2,0,45.006,45.444,0.3612,449.7,160.3,24,13341348,/home/user/bench/glim_cmp3/ours_loop_2/trajectory_optimized.tum,bc23199243971466e1645e4eed7640ca,ce7c82a56c3126cf4822c65068b7b85e,2026-10-17T01:46:26Z
+glim,2,0,NA,38.030,0.3023,692.3,109.9,0,13346808,/home/user/bench/glim_cmp3/glim_2/dump/traj_imu.txt,NA,87ed04804b4afbf1c8cf70aa6dd29fc1,2026-10-17T01:47:38Z
+ours_loop,3,0,44.609,45.049,0.3581,456.2,158.4,0,13380520,/home/user/bench/glim_cmp3/ours_loop_3/trajectory_optimized.tum,bc23199243971466e1645e4eed7640ca,ce7c82a56c3126cf4822c65068b7b85e,2026-10-17T01:48:37Z
+glim,3,0,NA,38.100,0.3028,673.3,108.7,0,13344752,/home/user/bench/glim_cmp3/glim_3/dump/traj_imu.txt,NA,a6665eeb78fa61d10d22aa37d28a5cee,2026-10-17T01:49:48Z
+ours_off,3,0,39.554,40.003,0.3180,459.5,137.2,16,13413700,/home/user/bench/glim_cmp3/ours_off_3/trajectory_optimized.tum,bc23199243971466e1645e4eed7640ca,31467b8b3615842778ab65079a6cf3ff,2026-10-17T01:50:46Z
+glim,4,0,NA,37.500,0.2981,713.4,108.0,0,13421556,/home/user/bench/glim_cmp3/glim_4/dump/traj_imu.txt,NA,caee30b2227889de413aa2bf99c6ca36,2026-10-17T01:51:52Z
+ours_off,4,0,40.559,41.029,0.3261,453.1,140.9,0,13409356,/home/user/bench/glim_cmp3/ours_off_4/trajectory_optimized.tum,bc23199243971466e1645e4eed7640ca,31467b8b3615842778ab65079a6cf3ff,2026-10-17T01:52:51Z
+ours_loop,4,0,44.400,44.837,0.3564,450.2,158.4,0,13392632,/home/user/bench/glim_cmp3/ours_loop_4/trajectory_optimized.tum,bc23199243971466e1645e4eed7640ca,ce7c82a56c3126cf4822c65068b7b85e,2026-10-17T01:53:58Z
+ours_off,5,0,42.448,42.895,0.3409,457.6,144.4,0,13352736,/home/user/bench/glim_cmp3/ours_off_5/trajectory_optimized.tum,bc23199243971466e1645e4eed7640ca,31467b8b3615842778ab65079a6cf3ff,2026-10-17T01:55:09Z
+ours_loop,5,0,45.155,45.605,0.3625,452.7,160.6,8,13360580,/home/user/bench/glim_cmp3/ours_loop_5/trajectory_optimized.tum,bc23199243971466e1645e4eed7640ca,ce7c82a56c3126cf4822c65068b7b85e,2026-10-17T01:56:18Z
+glim,5,0,NA,37.840,0.3008,681.7,110.2,0,13344364,/home/user/bench/glim_cmp3/glim_5/dump/traj_imu.txt,NA,b0d57f1d694932493af9efb6001ad7fa,2026-10-17T01:57:29Z

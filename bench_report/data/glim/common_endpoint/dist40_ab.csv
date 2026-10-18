@@ -1,0 +1,6 @@
+glim,1,0,NA,38.040,0.3024,693.1,109.9,224,13461920,/home/user/bench/glim_cmp3/glim_d1/dump/traj_imu.txt,NA,3e95d849e193854f4067aa79ce9ada7c,2026-10-17T02:11:28Z
+ours_loop_d40,1,0,43.553,43.998,0.3497,444.6,153.8,0,13418900,/home/user/bench/glim_cmp3/ours_loop_d40_d1/trajectory_optimized.tum,bc23199243971466e1645e4eed7640ca,ce7c82a56c3126cf4822c65068b7b85e,2026-10-17T02:12:27Z
+glim,2,0,NA,37.140,0.2952,684.9,107.1,0,13356220,/home/user/bench/glim_cmp3/glim_d2/dump/traj_imu.txt,NA,7fc9bb441b5d5385bd0be3980e536247,2026-10-17T02:13:37Z
+ours_loop_d40,2,0,42.512,42.948,0.3414,446.2,149.7,0,13428420,/home/user/bench/glim_cmp3/ours_loop_d40_d2/trajectory_optimized.tum,bc23199243971466e1645e4eed7640ca,ce7c82a56c3126cf4822c65068b7b85e,2026-10-17T02:14:35Z
+glim,3,0,NA,38.280,0.3043,697.9,110.7,0,13348840,/home/user/bench/glim_cmp3/glim_d3/dump/traj_imu.txt,NA,6c7340d49c915a9ed1d06f8ee5aa451f,2026-10-17T02:15:44Z
+ours_loop_d40,3,0,41.427,41.878,0.3329,462.2,147.0,0,13407320,/home/user/bench/glim_cmp3/ours_loop_d40_d3/trajectory_optimized.tum,bc23199243971466e1645e4eed7640ca,ce7c82a56c3126cf4822c65068b7b85e,2026-10-17T02:16:43Z

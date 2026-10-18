@@ -72,6 +72,7 @@
 
 #include "graph_based_slam/backend_core.hpp"
 #include "graph_based_slam/backend_registration_preflight.hpp"
+#include "graph_based_slam/cloud_input_extrinsic.hpp"
 #include "graph_based_slam/degeneracy_diagnostics_csv.hpp"
 #include "graph_based_slam/degeneracy_report_summary.hpp"
 #include "graph_based_slam/dense_pose_correction.hpp"
@@ -330,6 +331,18 @@ int main(int argc, char ** argv)
   node->get_parameter_or("voxel_leaf_size", voxel_leaf_size, 0.2);
   node->get_parameter_or("submap_distance_threshold", submap_distance_threshold, 1.5);
   node->get_parameter_or("debug_flag", debug_flag, false);
+  std::vector<double> extrinsic_lidar2base {0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0};
+  node->get_parameter_or(
+    "extrinsic_lidar2base_quat_xyzw_xyz", extrinsic_lidar2base, extrinsic_lidar2base);
+  graphslam::cloud_input::LidarExtrinsic cloud_extrinsic;
+  std::string extrinsic_error;
+  if (!graphslam::cloud_input::parseLidarExtrinsic(
+      extrinsic_lidar2base, &cloud_extrinsic, &extrinsic_error))
+  {
+    RCLCPP_ERROR(logger, "%s", extrinsic_error.c_str());
+    rclcpp::shutdown();
+    return 1;
+  }
 
   // Report-only thickness attribution from every paired frontend scan. This
   // remains opt-in because retaining scan provenance increases replay memory.
@@ -870,6 +883,8 @@ int main(int argc, char ** argv)
     gates.overlap_large_correction_translation_m, 0.0);
   node->get_parameter_or(
     "loop_overlap_max_distance_m", gates.overlap_max_distance_m, 0.5);
+  node->get_parameter_or("loop_max_drift_ratio", gates.max_drift_ratio, 0.0);
+  node->get_parameter_or("loop_max_drift_offset_m", gates.max_drift_offset_m, 0.5);
   node->get_parameter_or(
     "loop_max_translation_delta_descriptor", gates.max_translation_descriptor_m, -1.0);
   node->get_parameter_or(
@@ -1212,7 +1227,22 @@ int main(int argc, char ** argv)
   std::vector<ScanAttributionRecord> attribution_scans;
 
   const auto process_pair =
-    [&](const nav_msgs::msg::Odometry & odom, const sensor_msgs::msg::PointCloud2 & cloud_msg) {
+    [&](const nav_msgs::msg::Odometry & odom, const sensor_msgs::msg::PointCloud2 & input_cloud) {
+      // Same placement as the live component: a LiDAR-frame scan is moved
+      // into the base frame of the odometry pose first.
+      sensor_msgs::msg::PointCloud2 base_cloud;
+      if (!cloud_extrinsic.identity) {
+        base_cloud = input_cloud;
+        std::string transform_error;
+        if (!graphslam::cloud_input::transformCloudToBase(
+            cloud_extrinsic, base_cloud, &transform_error))
+        {
+          RCLCPP_WARN(logger, "scan skipped: %s", transform_error.c_str());
+          return;
+        }
+      }
+      const sensor_msgs::msg::PointCloud2 & cloud_msg =
+        cloud_extrinsic.identity ? input_cloud : base_cloud;
       ++paired_count;
       degeneracy_sink.recordScan(odom);
       const Eigen::Vector3d position(

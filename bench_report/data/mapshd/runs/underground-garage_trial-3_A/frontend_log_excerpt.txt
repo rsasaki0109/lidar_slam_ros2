@@ -1,0 +1,4 @@
+[offline_node-1] [INFO] Odometry map frame initialized using 20 IMU measurements. Estimated initial rotation [se(3)] is  0.18286 -2.92207        0
+[offline_node-1] [INFO] Estimated accel bias:  -0.00126645 -7.92533e-05   0.00584418, gyro bias:  -0.0055389 -0.00177067  0.00424594
+[offline_node-1] [0m[INFO] [1792264197.954895565] [rko_lio_offline_node]: Bag exhausted with 50 trailing LiDAR frame(s) that can no longer be matched with IMU data. Dropping them and finishing the run.[0m
+[offline_node-1] RKO LIO Offline Node took 30.1047 seconds.

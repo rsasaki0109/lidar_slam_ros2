@@ -64,8 +64,10 @@ bool PcdSubmapStorage::store(int index, const ports::PointCloud & cloud)
 {
   if (index < 0) {return false;}
   std::lock_guard<std::mutex> lock(mutex_);
-  return pcl::io::savePCDFileBinaryCompressed(
+  const bool stored = pcl::io::savePCDFileBinaryCompressed(
     map_saver::submapCachePath(directory_, index), cloud) == 0;
+  point_counts_[index] = stored ? cloud.size() : 0;
+  return stored;
 }
 
 std::vector<bool> PcdSubmapStorage::storeBatch(
@@ -78,6 +80,9 @@ std::vector<bool> PcdSubmapStorage::storeBatch(
     const bool stored = write.index >= 0 && write.cloud &&
       pcl::io::savePCDFileBinaryCompressed(
       map_saver::submapCachePath(directory_, write.index), *write.cloud) == 0;
+    if (write.index >= 0) {
+      point_counts_[write.index] = stored ? write.cloud->size() : 0;
+    }
     results.push_back(stored);
   }
   return results;
@@ -93,6 +98,13 @@ ports::PointCloudPtr PcdSubmapStorage::load(int index) const
     cloud->clear();
   }
   return cloud;
+}
+
+std::size_t PcdSubmapStorage::pointCount(int index) const
+{
+  std::lock_guard<std::mutex> lock(mutex_);
+  const auto found = point_counts_.find(index);
+  return found == point_counts_.end() ? 0 : found->second;
 }
 
 bool FilesystemMapOutput::prepareDirectory(const std::string & directory)
@@ -149,6 +161,13 @@ bool FilesystemMapOutput::writePointCloudXyz(
 {
   createParentDirectory(artifact);
   return pcl::io::savePCDFileBinary(artifact, cloud) == 0;
+}
+
+bool FilesystemMapOutput::writeMapCloud(
+  const std::string & artifact, const ports::MapCloud & cloud)
+{
+  createParentDirectory(artifact);
+  return pcl::io::savePCDFileBinaryCompressed(artifact, cloud) == 0;
 }
 
 }  // namespace adapters

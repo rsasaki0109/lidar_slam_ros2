@@ -1,0 +1,14 @@
+# loop_combined.yaml with ndt_num_threads: 0
+graph_based_slam:
+  ros__parameters:
+    registration_method: "NDT"
+    range_of_searching_loop_closure: 20.0
+    loop_search_query_stride: 1
+    cloud_subscriber_qos_reliable: true
+    odom_cloud_sync_use_exact_time: true
+    odom_cloud_sync_queue_size: 256
+    map_leaf_size: 0.1
+    max_loop_candidate_count: 1
+    distance_loop_closure: 40.0
+    ndt_num_threads: 0
+    debug_flag: false

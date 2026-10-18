@@ -1,0 +1,48 @@
+calibration-room_trial-1_B,loop=1 adj_r=300,0.073284
+calibration-room_trial-1_B,loop=1 adj_r=1000,0.073133
+calibration-room_trial-1_B,loop=1 adj_r=10000,0.072852
+calibration-room_trial-1_B,loop=0.3 adj_r=1000,0.073273
+calibration-room_trial-1_B,loop=1 adj_r=1000 adj_t=3,0.073392
+calibration-room_trial-1_B,loop=1 adj_r=1000 adj_t=0.3,0.072923
+calibration-room_trial-2_B,loop=1 adj_r=300,0.082409
+calibration-room_trial-2_B,loop=1 adj_r=1000,0.080422
+calibration-room_trial-2_B,loop=1 adj_r=10000,0.079778
+calibration-room_trial-2_B,loop=0.3 adj_r=1000,0.079616
+calibration-room_trial-2_B,loop=1 adj_r=1000 adj_t=3,0.079978
+calibration-room_trial-2_B,loop=1 adj_r=1000 adj_t=0.3,0.082188
+flat-room_trial-1_B,loop=1 adj_r=300,0.077401
+flat-room_trial-1_B,loop=1 adj_r=1000,0.077451
+flat-room_trial-1_B,loop=1 adj_r=10000,0.077482
+flat-room_trial-1_B,loop=0.3 adj_r=1000,0.077179
+flat-room_trial-1_B,loop=1 adj_r=1000 adj_t=3,0.077133
+flat-room_trial-1_B,loop=1 adj_r=1000 adj_t=0.3,0.077848
+long-corridor_trial-1_B,loop=1 adj_r=300,0.079471
+long-corridor_trial-1_B,loop=1 adj_r=1000,0.079395
+long-corridor_trial-1_B,loop=1 adj_r=10000,0.079386
+long-corridor_trial-1_B,loop=0.3 adj_r=1000,0.078076
+long-corridor_trial-1_B,loop=1 adj_r=1000 adj_t=3,0.077660
+long-corridor_trial-1_B,loop=1 adj_r=1000 adj_t=0.3,0.092196
+outdoor-urk_trial-1_B,loop=1 adj_r=300,0.055454
+outdoor-urk_trial-1_B,loop=1 adj_r=1000,0.055369
+outdoor-urk_trial-1_B,loop=1 adj_r=10000,0.055416
+outdoor-urk_trial-1_B,loop=0.3 adj_r=1000,0.056570
+outdoor-urk_trial-1_B,loop=1 adj_r=1000 adj_t=3,0.056349
+outdoor-urk_trial-1_B,loop=1 adj_r=1000 adj_t=0.3,0.055035
+underground-garage_trial-1_B,loop=1 adj_r=300,0.126461
+underground-garage_trial-1_B,loop=1 adj_r=1000,0.126080
+underground-garage_trial-1_B,loop=1 adj_r=10000,0.125970
+underground-garage_trial-1_B,loop=0.3 adj_r=1000,0.126969
+underground-garage_trial-1_B,loop=1 adj_r=1000 adj_t=3,0.127057
+underground-garage_trial-1_B,loop=1 adj_r=1000 adj_t=0.3,0.124219
+underground-garage_trial-2_B,loop=1 adj_r=300,0.096236
+underground-garage_trial-2_B,loop=1 adj_r=1000,0.096301
+underground-garage_trial-2_B,loop=1 adj_r=10000,0.096307
+underground-garage_trial-2_B,loop=0.3 adj_r=1000,0.097329
+underground-garage_trial-2_B,loop=1 adj_r=1000 adj_t=3,0.096294
+underground-garage_trial-2_B,loop=1 adj_r=1000 adj_t=0.3,0.098267
+underground-garage_trial-3_B,loop=1 adj_r=300,0.114095
+underground-garage_trial-3_B,loop=1 adj_r=1000,0.112980
+underground-garage_trial-3_B,loop=1 adj_r=10000,0.110106
+underground-garage_trial-3_B,loop=0.3 adj_r=1000,0.109458
+underground-garage_trial-3_B,loop=1 adj_r=1000 adj_t=3,0.111616
+underground-garage_trial-3_B,loop=1 adj_r=1000 adj_t=0.3,0.115419

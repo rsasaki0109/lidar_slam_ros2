@@ -1,0 +1,3 @@
+ 130  142  residual   0.028 m   0.12 deg
+   9  602  residual   0.000 m   1.01 deg
+ 624  637  residual   0.005 m   0.15 deg

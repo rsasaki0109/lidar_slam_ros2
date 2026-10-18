@@ -1,0 +1,13 @@
+# configs/hilti2022/lidarslam_competitive_v2.yaml with loop closure enabled:
+# range_of_searching_loop_closure is set back to the graph_based_slam default (20 m)
+# instead of 0.0. Every other key is unchanged.
+graph_based_slam:
+  ros__parameters:
+    registration_method: "NDT"
+    range_of_searching_loop_closure: 20.0
+    loop_search_query_stride: 1
+    cloud_subscriber_qos_reliable: true
+    odom_cloud_sync_use_exact_time: true
+    odom_cloud_sync_queue_size: 256
+    map_leaf_size: 0.1
+    debug_flag: false

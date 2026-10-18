@@ -1,0 +1,23 @@
+	Command being timed: "bash /home/user/scripts/pipe_pipeline.sh /home/user/bench/mapshd/rows.csv underground-garage_trial-2_B /home/user/ws/pipe_dev_40b3a06 /home/user/bench/params/lidarslam_competitive_v2_loop_ndt1_res2.yaml /home/user/bench/mapshd/underground-garage_trial-2_B"
+	User time (seconds): 150.85
+	System time (seconds): 18.88
+	Percent of CPU this job got: 220%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 1:17.08
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 307376
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 15
+	Minor (reclaiming a frame) page faults: 760739
+	Voluntary context switches: 97993
+	Involuntary context switches: 7043066
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 36000
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
