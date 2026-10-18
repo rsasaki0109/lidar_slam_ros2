@@ -1,0 +1,16 @@
+| sequence | frontend alone | B | R | R / B |
+|---|---:|---:|---:|---:|
+| calibration-room_trial-1 | 0.0749 | 0.0733 | 0.0731 | 0.997 |
+| calibration-room_trial-2 | 0.0804 | 0.1002 | 0.0804 | 0.803 |
+| flat-room_trial-1 | 0.0766 | 0.0793 | 0.0775 | 0.977 |
+| long-corridor_trial-1 | 0.0772 | 0.1449 | 0.0797 | 0.550 |
+| outdoor-urk_trial-1 | 0.0610 | 0.0817 | 0.0554 | 0.678 |
+| underground-garage_trial-1 | 0.1277 | 0.1397 | 0.1261 | 0.902 |
+| underground-garage_trial-2 | 0.0932 | 0.1081 | 0.0963 | 0.891 |
+| underground-garage_trial-3 | 0.1047 | 0.1206 | 0.1130 | 0.937 |
+| oxford | 0.0530 | 0.0552 | 0.0490 | 0.888 |
+| exp04 | 0.0520 | 0.0547 | 0.0521 | 0.952 |
+| geometric mean | 0.0771 | 0.0908 | 0.0767 | 0.845 |
+MapsHD only: frontend 0.0849, B 0.1029, R 0.0851
+criterion 1 (GM lower): True; criterion 2 (no sequence >= 10% worse, worst R/B 0.997): True
+exp04 README 6 points: B 0.050724, R 0.048186
