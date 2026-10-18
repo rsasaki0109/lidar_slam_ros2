@@ -720,6 +720,7 @@ MapsHD のベンチマーク（`MapsHD/benchmark-HDMapping-Orchestration` の `H
   - フロントエンドは exp04 で 81 MiB、Oxford で 85 MiB 減った（77072e4）。
 - **16.5 の 2 つも使うと**：合計は exp04 で 34%、MID-360 で 55%、Oxford で 53% 減る。
 - **時間**：Oxford の結果の保存までが 427.8 → 298.2 秒になった。ループ探索中の pose adjustment が点群に触らなくなったため（8cd140b の (b)）。1 回ずつなので、ほかの差（exp04 の −3.5 秒、MID-360 の +3.9 秒）は誤差の範囲かもしれない。RTF はどれも 0.85 以下。
+  - フロントエンドだけの ABAB では、77072e4 の速さは変わらない（exp04 で比 0.986、Oxford で 0.994。rko_lio の bench_report 14 章）。表のフロントエンドの時間の差は、回ごとのばらつきと考えられる。
 - **ピークの場所**：どの系列でも、バックエンドのピークは最後の地図の保存（`data/memory/backend_peak_timing.csv`）。走行中のバックエンドの最大は次のとおり。
   - 3 コミット：exp04 196 MiB、MID-360 193 MiB、Oxford 628 MiB。
   - 3 コミットと 16.5 の 2 つ：178、101、245 MiB。
