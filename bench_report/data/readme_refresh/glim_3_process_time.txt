@@ -1,0 +1,23 @@
+	Command being timed: "ros2 run glim_ros glim_rosbag /home/user/data/hilti2022/exp04_ros2 --ros-args -p config_path:=/home/user/bench/readme_cmp/glim_3/glim_config -p auto_quit:=true -p dump_path:=/home/user/bench/readme_cmp/glim_3/dump"
+	User time (seconds): 74.20
+	System time (seconds): 3.23
+	Percent of CPU this job got: 289%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:26.73
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 692848
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 71
+	Minor (reclaiming a frame) page faults: 290481
+	Voluntary context switches: 56801
+	Involuntary context switches: 4415
+	Swaps: 0
+	File system inputs: 1968
+	File system outputs: 165792
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

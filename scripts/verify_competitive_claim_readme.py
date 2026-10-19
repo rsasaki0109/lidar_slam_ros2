@@ -70,8 +70,12 @@ SCHEMA_NAME = 'competitive_claim_readme_publication_v1.schema.json'
 DEFAULT_CONFIG = ROOT / (
     'configs/slam_benchmark_profiles/'
     'competitive_claim_readme_publication_v1.json')
+# Revision 2 (2026-10-19): the HILTI exp04 summary and table were re-measured
+# on one 4-vCPU VM (bench_report chapter 26); revision 1 was
+# 51886466f415f69562a48276c6356aa28ee6fbb84be57d615ecbe197faafdc5e.
+LEGACY_ALLOWLIST_REVISION = 2
 LEGACY_ALLOWLIST_SHA256 = (
-    '51886466f415f69562a48276c6356aa28ee6fbb84be57d615ecbe197faafdc5e')
+    '8d395ce573ab2a12e5971a967a32edd33d6f4c24f3dcb7adaf0f7e3689d2b8f2')
 
 
 class ReadmeClaimGuardError(ValueError):
@@ -195,7 +199,7 @@ def _load_config(config_path: Path, repo_root: Path) -> dict[str, Any]:
         raise ReadmeClaimGuardError('README guard config self-hash mismatch')
     if config['repository_root'] != '.':
         raise ReadmeClaimGuardError('README guard repository_root must be "."')
-    if config['legacy_allowlist_revision'] != 1:
+    if config['legacy_allowlist_revision'] != LEGACY_ALLOWLIST_REVISION:
         raise ReadmeClaimGuardError('unsupported legacy allowlist revision')
     if _sha_bytes(_canonical(config['legacy_allowlist'])) != LEGACY_ALLOWLIST_SHA256:
         raise ReadmeClaimGuardError(

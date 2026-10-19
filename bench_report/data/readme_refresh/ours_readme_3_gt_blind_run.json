@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "ground_truth_accessed": false,
+  "scorer_invoked": false,
+  "bag_path": "/home/user/data/hilti2022/exp04_ros2",
+  "trajectory": {
+    "raw_path": "/home/user/bench/readme_cmp/ours_readme_3/traj_raw.tum",
+    "raw_sha256": "040f44fee1980898461c92b8e36d56e3eeb1ab6e49938103125f0f10334e3f68",
+    "corrected_path": "/home/user/bench/readme_cmp/ours_readme_3/traj_corrected.tum",
+    "corrected_sha256": "e313441487bc96feafaf5e023ad69015ce81a3f934fbf3623f94af0b8d9cf1f1"
+  },
+  "wall_seconds": 24.363903189999746
+}

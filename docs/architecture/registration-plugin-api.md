@@ -71,7 +71,7 @@ APE translation RMSE `10.439764002361335 m` with maximum time gap
 measurements were baseline 48.95 s median / 112,400 KiB maximum RSS and
 adapter 48.49 s median / 112,508 KiB maximum RSS (-0.94% wall, +0.10% RSS;
 processing RTF 0.3891 vs 0.3854). This is a scanmatcher-only gate and is not
-the README RKO-LIO/GLIM comparison (0.0565 m). With the explicit `--save-map`
+the 2026-07 README RKO-LIO/GLIM comparison (0.0565 m). With the explicit `--save-map`
 evidence option, both sides also emitted byte-identical world-frame `map.pcd`
 (MD5 `16454b536af73b5486af2460c0920507`, SHA-256
 `bbf742a1d223c0d21b9a85be705282bde71e73cae0e941f20a85049b472550fd`). The

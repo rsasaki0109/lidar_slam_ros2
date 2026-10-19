@@ -39,7 +39,7 @@
       ]
     },
     "legacy_allowlist_policy": {"type": "string", "minLength": 1},
-    "legacy_allowlist_revision": {"type": "integer", "const": 1},
+    "legacy_allowlist_revision": {"type": "integer", "const": 2},
     "legacy_allowlist": {
       "type": "array",
       "items": {"$ref": "#/definitions/legacyParagraph"}
