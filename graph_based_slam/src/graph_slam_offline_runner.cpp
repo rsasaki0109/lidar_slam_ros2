@@ -911,6 +911,10 @@ int main(int argc, char ** argv)
     "non_observable_adjacent_edge_information_scale",
     non_observable_adjacent_edge_information_scale, 0.05);
   node->get_parameter_or("loop_edge_info_weight", loop_edge_info_weight, 100.0);
+  double loop_edge_info_constant_trans;
+  double loop_edge_info_constant_rot;
+  node->get_parameter_or("loop_edge_info_constant_trans", loop_edge_info_constant_trans, 0.0);
+  node->get_parameter_or("loop_edge_info_constant_rot", loop_edge_info_constant_rot, 0.0);
   node->get_parameter_or("loop_edge_robust_kernel_delta", loop_edge_robust_kernel_delta, 1.0);
   node->get_parameter_or(
     "loop_edge_robust_kernel_type", loop_edge_robust_kernel_type, std::string("huber"));
@@ -1490,6 +1494,8 @@ int main(int argc, char ** argv)
       non_observable_adjacent_edge_information_scale));
   graphslam::pose_graph::LoopEdgeConfig loop_config;
   loop_config.info_weight = loop_edge_info_weight;
+  loop_config.constant_info_trans = std::max(0.0, loop_edge_info_constant_trans);
+  loop_config.constant_info_rot = std::max(0.0, loop_edge_info_constant_rot);
   loop_config.robust_kernel_type = loop_edge_robust_kernel_type;
   loop_config.robust_kernel_delta = loop_edge_robust_kernel_delta;
   graphslam::pose_graph::ImuEdgeConfig imu_config;

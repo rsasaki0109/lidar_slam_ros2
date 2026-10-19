@@ -107,7 +107,7 @@ TEST_F(GraphSlamConfigTest, LoaderAppliesRosOverridesAndDeclaresCompleteSurface)
     (std::vector<double>{0.7071068, -0.7071068, 0.0, 0.0, -0.001, -0.00855, 0.055}));
   EXPECT_TRUE(node->has_parameter("triangle_descriptor_keypoint_mode"));
   EXPECT_TRUE(node->has_parameter("degeneracy_diagnostics_csv_path"));
-  EXPECT_EQ(node->list_parameters({}, 0).names.size() - parameters_before_load, 148U);
+  EXPECT_EQ(node->list_parameters({}, 0).names.size() - parameters_before_load, 150U);
 }
 
 TEST_F(GraphSlamConfigTest, ValidationReportsIndependentConfigurationErrors)
@@ -142,6 +142,8 @@ TEST_F(GraphSlamConfigTest, NormalizationRepairsDependentAndBoundedValues)
   config.loop_min_overlap_ratio_ = 2.0;
   config.loop_max_drift_ratio_ = -0.1;
   config.loop_max_drift_offset_m_ = -1.0;
+  config.loop_edge_info_constant_trans_ = -1.0;
+  config.loop_edge_info_constant_rot_ = -1.0;
   config.triangle_descriptor_keypoint_mode_ = "unknown";
   config.planar_map_filter_min_retained_ratio_ = 1.5;
 
@@ -155,6 +157,8 @@ TEST_F(GraphSlamConfigTest, NormalizationRepairsDependentAndBoundedValues)
   EXPECT_DOUBLE_EQ(config.loop_min_overlap_ratio_, 0.0);
   EXPECT_DOUBLE_EQ(config.loop_max_drift_ratio_, 0.0);
   EXPECT_DOUBLE_EQ(config.loop_max_drift_offset_m_, 0.5);
+  EXPECT_DOUBLE_EQ(config.loop_edge_info_constant_trans_, 0.0);
+  EXPECT_DOUBLE_EQ(config.loop_edge_info_constant_rot_, 0.0);
   EXPECT_EQ(config.triangle_descriptor_keypoint_mode_, "bev_max_height");
   EXPECT_DOUBLE_EQ(config.planar_map_filter_min_retained_ratio_, 1.0);
 }

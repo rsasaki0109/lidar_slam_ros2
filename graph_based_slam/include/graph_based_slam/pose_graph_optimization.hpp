@@ -125,7 +125,27 @@ struct LoopEdgeConfig
   double info_weight {100.0};
   std::string robust_kernel_type {"NONE"};
   double robust_kernel_delta {1.0};
+  // When both are positive, every loop edge gets this fixed information
+  // (translation, rotation) instead of info_weight / fitness: the
+  // registration fitness barely predicts the edge's accuracy
+  // (bench_report chapter 19). 0 keeps the fitness-based information.
+  double constant_info_trans {0.0};
+  double constant_info_rot {0.0};
 };
+
+// Information matrix of one loop edge (g2o EdgeSE3 order: translation first).
+inline Eigen::Matrix<double, 6, 6> loopEdgeInformation(
+  const LoopEdgeConfig & loop_cfg, double fitness_score)
+{
+  if (loop_cfg.constant_info_trans > 0.0 && loop_cfg.constant_info_rot > 0.0) {
+    Eigen::Matrix<double, 6, 6> information = Eigen::Matrix<double, 6, 6>::Zero();
+    information.topLeftCorner<3, 3>().diagonal().setConstant(loop_cfg.constant_info_trans);
+    information.bottomRightCorner<3, 3>().diagonal().setConstant(loop_cfg.constant_info_rot);
+    return information;
+  }
+  const double fitness = std::max(fitness_score, 1e-3);
+  return Eigen::Matrix<double, 6, 6>::Identity() * (loop_cfg.info_weight / fitness);
+}
 
 struct ImuEdgeConfig
 {
@@ -252,10 +272,7 @@ inline OptimizationResult optimizePoseGraph(
   for (const auto & loop_constraint : loop_constraints) {
     g2o::EdgeSE3 * edge_se3 = new g2o::EdgeSE3();
     edge_se3->setMeasurement(loop_constraint.relative_pose);
-    const double fitness = std::max(loop_constraint.fitness_score, 1e-3);
-    Eigen::Matrix<double, 6, 6> loop_info_mat =
-      Eigen::Matrix<double, 6, 6>::Identity() * (loop_cfg.info_weight / fitness);
-    edge_se3->setInformation(loop_info_mat);
+    edge_se3->setInformation(loopEdgeInformation(loop_cfg, loop_constraint.fitness_score));
     edge_se3->setRobustKernel(
       graphslam::robust::makeLoopEdgeKernel(
         loop_kernel_type, loop_cfg.robust_kernel_delta));

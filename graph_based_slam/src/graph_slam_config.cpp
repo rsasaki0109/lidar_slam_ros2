@@ -96,6 +96,8 @@ GraphSlamConfig loadGraphSlamConfig(rclcpp::Node & node)
     adjacent_edge_info_auto_scale_target_nis_rot_,
     "adjacent_edge_info_auto_scale_target_nis_rot");
   LOAD(loop_edge_info_weight_, "loop_edge_info_weight");
+  LOAD(loop_edge_info_constant_trans_, "loop_edge_info_constant_trans");
+  LOAD(loop_edge_info_constant_rot_, "loop_edge_info_constant_rot");
   LOAD(loop_edge_robust_kernel_delta_, "loop_edge_robust_kernel_delta");
   LOAD(loop_edge_robust_kernel_type_, "loop_edge_robust_kernel_type");
   LOAD(use_scan_context_, "use_scan_context");
@@ -336,6 +338,14 @@ ConfigNormalization normalizeGraphSlamConfig(GraphSlamConfig & config)
   }
   atLeastOne(config.num_adjacent_pose_cnstraints_, "num_adjacent_pose_cnstraints");
   positiveOr(config.loop_edge_info_weight_, 100.0, "loop_edge_info_weight");
+  if (config.loop_edge_info_constant_trans_ < 0.0) {
+    warn("loop_edge_info_constant_trans", "must be non-negative; reset to disabled");
+    config.loop_edge_info_constant_trans_ = 0.0;
+  }
+  if (config.loop_edge_info_constant_rot_ < 0.0) {
+    warn("loop_edge_info_constant_rot", "must be non-negative; reset to disabled");
+    config.loop_edge_info_constant_rot_ = 0.0;
+  }
   positiveOr(config.loop_edge_robust_kernel_delta_, 1.0, "loop_edge_robust_kernel_delta");
 
   positiveOr(config.bev_descriptor_threshold_, 0.20, "bev_descriptor_threshold");
