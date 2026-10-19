@@ -1,0 +1,19 @@
+| sequence | Z (run) | C (replay prediction) | C (run) | C / Z |
+|---|---:|---:|---:|---:|
+| calibration-room_trial-1 | 0.0271 | 0.0257 | 0.0257 | 0.948 |
+| calibration-room_trial-2 | 0.0207 | 0.0206 | 0.0206 | 0.998 |
+| flat-room_trial-1 | 0.0151 | 0.0149 | 0.0149 | 0.989 |
+| long-corridor_trial-1 | 0.0712 | 0.0712 | 0.0712 | 1.000 |
+| outdoor-urk_trial-1 | 0.0499 | 0.0506 | 0.0506 | 1.014 |
+| underground-garage_trial-1 | 0.0460 | 0.0427 | 0.0427 | 0.927 |
+| underground-garage_trial-2 | 0.0372 | 0.0381 | 0.0381 | 1.022 |
+| underground-garage_trial-3 | 0.0377 | 0.0316 | 0.0316 | 0.837 |
+| oxford | 0.0472 | 0.0463 | 0.0463 | 0.982 |
+| exp04 | 0.0521 | 0.0517 | 0.0517 | 0.992 |
+| geometric mean | 0.0370 | 0.0358 | 0.0358 | 0.969 |
+
+1. GM lower than Z: True (0.0370 -> 0.0358)
+2. no sequence >= 5% worse: True (worst 1.022)
+3. MID-360 start loop (638 submaps): ['9 601 residual 0.030 m 0.89 deg']
+4. MID-360 thickness: Z 0.044251, C 0.044162 (-0.20%)
+5. frontend md5 equal to Z: True (11/11)
