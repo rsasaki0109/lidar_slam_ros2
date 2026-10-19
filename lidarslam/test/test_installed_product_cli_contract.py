@@ -198,6 +198,51 @@ def test_source_launcher_activates_only_a_matching_built_workspace(
     assert result_without_product.stdout.splitlines()[0] == 'missing'
 
 
+def test_source_launcher_notes_an_installed_cli_older_than_the_checkout(
+    tmp_path: Path,
+):
+    workspace = tmp_path / 'source workspace'
+    repo = workspace / 'src' / 'lidar_slam_ros2'
+    scripts = repo / 'scripts'
+    scripts.mkdir(parents=True)
+    launcher = scripts / 'lidarslam'
+    shutil.copy2(LAUNCHER, launcher)
+    _write_probe_cli(scripts / 'lidarslam_cli.py')
+    (repo / 'lidarslam').mkdir()
+    (repo / 'lidarslam' / 'product-runtime-files.txt').write_text(
+        '# curated\nlidarslam_cli.py\nlauncher_probe_module.py\n',
+        encoding='utf-8',
+    )
+    install_root = workspace / 'install'
+    installed_scripts = (
+        install_root / 'lidarslam/share/lidarslam/product/scripts'
+    )
+    _write_probe_cli(installed_scripts / 'lidarslam_cli.py')
+    (install_root / 'setup.bash').write_text(
+        'export LIDARSLAM_LAUNCHER_SETUP_TEST=source\n',
+        encoding='utf-8',
+    )
+
+    current = _run_launcher(launcher)
+    assert current.returncode == 0, current.stderr
+    assert current.stderr == ''
+
+    (scripts / 'launcher_probe_module.py').write_text(
+        'VALUE = 1  # edited\n',
+        encoding='utf-8',
+    )
+    stale = _run_launcher(launcher)
+
+    # The installed implementation still runs; the note says why edits are
+    # not visible and how to pick them up.
+    assert stale.returncode == 0, stale.stderr
+    assert stale.stdout.splitlines()[0] == 'source'
+    assert '1 product script(s) in this checkout differ' in stale.stderr
+    assert '(first: launcher_probe_module.py)' in stale.stderr
+    assert 'colcon build --packages-select lidarslam' in stale.stderr
+    assert str(install_root) in stale.stderr
+
+
 def test_direct_launcher_reports_setup_activation_failure(tmp_path: Path):
     prefix = tmp_path / 'broken install'
     launcher = prefix / 'bin' / 'lidarslam-map'

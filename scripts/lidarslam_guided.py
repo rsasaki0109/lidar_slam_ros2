@@ -397,18 +397,31 @@ def _runtime_install_roots() -> tuple[Path, ...]:
         for candidate in (workspace_root / 'install', REPO_ROOT / 'install'):
             if (candidate / 'setup.bash').is_file():
                 return (candidate,)
+        # A workspace built elsewhere and already sourced in this shell is
+        # the runtime the delegated workflow will use, so accept it too when
+        # it provides lidarslam (a bare ROS underlay keeps the build hint).
+        sourced = _unique_prefixes(_ament_prefixes())
+        if any((root / 'share' / 'lidarslam' / 'package.xml').is_file()
+               for root in sourced):
+            return sourced
         return ()
 
     # Installed product scripts live at <prefix>/share/lidarslam/product/scripts.
     # A colcon isolated workspace keeps the other packages beside the product
     # prefix, while a merged/deb install exposes them through AMENT_PREFIX_PATH.
     prefix = REPO_ROOT.parents[2]
-    candidates = [
+    return _unique_prefixes([*_ament_prefixes(), prefix, prefix.parent])
+
+
+def _ament_prefixes() -> list[Path]:
+    return [
         Path(item)
         for item in os.environ.get('AMENT_PREFIX_PATH', '').split(os.pathsep)
         if item
     ]
-    candidates.extend((prefix, prefix.parent))
+
+
+def _unique_prefixes(candidates: Sequence[Path]) -> tuple[Path, ...]:
     unique: list[Path] = []
     for candidate in candidates:
         candidate = candidate.expanduser().resolve()
