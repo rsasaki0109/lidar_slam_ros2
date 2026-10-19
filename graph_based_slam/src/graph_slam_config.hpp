@@ -83,6 +83,8 @@ struct GraphSlamConfig
   double adjacent_edge_info_auto_scale_target_nis_trans_ {3.0};
   double adjacent_edge_info_auto_scale_target_nis_rot_ {3.0};
   double loop_edge_info_weight_ {100.0};
+  double loop_edge_info_constant_trans_ {0.0};
+  double loop_edge_info_constant_rot_ {0.0};
   double loop_edge_robust_kernel_delta_ {1.0};
   std::string loop_edge_robust_kernel_type_ {"huber"};
 

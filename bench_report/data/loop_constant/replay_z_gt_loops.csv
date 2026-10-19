@@ -1,0 +1,16 @@
+calibration-room_trial-1_Z,meas=GT,0.027022
+calibration-room_trial-1_Z,meas=GT loop_t=200 loop_r=100000,0.025725
+calibration-room_trial-2_Z,meas=GT,0.020692
+calibration-room_trial-2_Z,meas=GT loop_t=200 loop_r=100000,0.020475
+flat-room_trial-1_Z,meas=GT,0.014939
+flat-room_trial-1_Z,meas=GT loop_t=200 loop_r=100000,0.014821
+outdoor-urk_trial-1_Z,meas=GT,0.050577
+outdoor-urk_trial-1_Z,meas=GT loop_t=200 loop_r=100000,0.050166
+underground-garage_trial-1_Z,meas=GT,0.043937
+underground-garage_trial-1_Z,meas=GT loop_t=200 loop_r=100000,0.043303
+underground-garage_trial-2_Z,meas=GT,0.029081
+underground-garage_trial-2_Z,meas=GT loop_t=200 loop_r=100000,0.029325
+underground-garage_trial-3_Z,meas=GT,0.027009
+underground-garage_trial-3_Z,meas=GT loop_t=200 loop_r=100000,0.026756
+oxford_Z,meas=GT,0.047179
+oxford_Z,meas=GT loop_t=200 loop_r=100000,0.046896

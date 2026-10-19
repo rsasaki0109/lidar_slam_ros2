@@ -506,5 +506,34 @@ TEST(PoseGraphOptimization, OrthogonalPlaneRevisitsReduceTrajectoryRmse)
   EXPECT_LT(result.plane_revisit_chi2_after, result.plane_revisit_chi2_before * 1e-3);
 }
 
+TEST(PoseGraphOptimization, LoopEdgeInformationFollowsFitnessByDefault)
+{
+  LoopEdgeConfig config;
+  config.info_weight = 100.0;
+  const Eigen::Matrix<double, 6, 6> information = pose_graph::loopEdgeInformation(config, 0.5);
+  EXPECT_TRUE(information.isApprox(Eigen::Matrix<double, 6, 6>::Identity() * 200.0));
+  // Fitness is floored at 1e-3.
+  EXPECT_TRUE(
+    pose_graph::loopEdgeInformation(config, 0.0).isApprox(
+      Eigen::Matrix<double, 6, 6>::Identity() * 1e5));
+  // One positive constant alone keeps the fitness-based information.
+  config.constant_info_trans = 200.0;
+  EXPECT_TRUE(pose_graph::loopEdgeInformation(config, 0.5).isApprox(information));
+}
+
+TEST(PoseGraphOptimization, LoopEdgeInformationCanBeConstant)
+{
+  LoopEdgeConfig config;
+  config.constant_info_trans = 200.0;
+  config.constant_info_rot = 1e5;
+  for (const double fitness : {0.001, 0.05, 0.8}) {
+    const Eigen::Matrix<double, 6, 6> information =
+      pose_graph::loopEdgeInformation(config, fitness);
+    Eigen::Matrix<double, 6, 6> expected = Eigen::Matrix<double, 6, 6>::Zero();
+    expected.diagonal() << 200.0, 200.0, 200.0, 1e5, 1e5, 1e5;
+    EXPECT_TRUE(information.isApprox(expected));
+  }
+}
+
 }  // namespace
 }  // namespace graphslam
