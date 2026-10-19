@@ -1,0 +1,6 @@
+exp04,default,0.052024427185148804,10c44850,23.8962
+exp04,localizability_weighting:=true localizability_normal_only:=true localizability_boost:=10.0,0.05323654316684315,357dcc8e,23.9157
+exp04,localizability_weighting:=true localizability_normal_only:=true localizability_boost:=5.0,0.05198942164072885,fe0e094d,28.1093
+oxford,default,0.05034843286824531,6f874a74,209.207
+oxford,localizability_weighting:=true localizability_normal_only:=true localizability_boost:=10.0,0.061618192920655394,498776b4,257.69
+oxford,localizability_weighting:=true localizability_normal_only:=true localizability_boost:=5.0,0.059664164988375734,f589393e,265.715

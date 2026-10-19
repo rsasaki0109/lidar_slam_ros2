@@ -1,0 +1,48 @@
+calibration-room_trial-1,max_correspondence_distance:=0.25,0.027733,0.011239,0.010758,0.022959,0.012007,72d8508c
+calibration-room_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0,0.034387,0.011133,0.011217,0.030540,0.019907,6af4a396
+calibration-room_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0 localizability_horizontal_axis:=true,0.038838,0.011811,0.011925,0.035024,0.025446,78f76c56
+calibration-room_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0 localizability_normal_only:=true,0.026293,0.008250,0.008021,0.023641,0.012458,3aa06658
+calibration-room_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0 localizability_horizontal_axis:=true localizability_normal_only:=true,0.024448,0.008151,0.008067,0.021591,0.012479,ce89f1e9
+calibration-room_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=30.0 localizability_horizontal_axis:=true localizability_normal_only:=true,0.033047,0.008330,0.008488,0.030833,0.015434,aa6509d2
+calibration-room_trial-2,max_correspondence_distance:=0.25,0.026103,0.013890,0.011178,0.019066,0.011970,4a77fd88
+calibration-room_trial-2,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0,0.033322,0.014468,0.012049,0.027493,0.019467,93d20049
+calibration-room_trial-2,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0 localizability_horizontal_axis:=true,0.037978,0.013015,0.011914,0.033630,0.024504,97d5dfb1
+calibration-room_trial-2,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0 localizability_normal_only:=true,0.020481,0.011385,0.009393,0.014200,0.010405,071210ef
+calibration-room_trial-2,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0 localizability_horizontal_axis:=true localizability_normal_only:=true,0.024430,0.011706,0.009936,0.019002,0.011658,9a6a8363
+calibration-room_trial-2,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=30.0 localizability_horizontal_axis:=true localizability_normal_only:=true,0.022143,0.011260,0.009383,0.016598,0.012819,c70539ed
+flat-room_trial-1,max_correspondence_distance:=0.25,0.015664,0.007620,0.008689,0.010573,0.009805,fcf1979b
+flat-room_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0,0.023137,0.007656,0.009461,0.019677,0.017827,7c0cca5d
+flat-room_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0 localizability_horizontal_axis:=true,0.023447,0.007798,0.009648,0.019897,0.018443,dae6b400
+flat-room_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0 localizability_normal_only:=true,0.014800,0.006923,0.007915,0.010414,0.009452,58825b41
+flat-room_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0 localizability_horizontal_axis:=true localizability_normal_only:=true,0.014692,0.006767,0.007742,0.010493,0.009620,b71631c6
+flat-room_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=30.0 localizability_horizontal_axis:=true localizability_normal_only:=true,0.015628,0.007208,0.007712,0.011525,0.010766,dcd20bac
+long-corridor_trial-1,max_correspondence_distance:=0.25,0.071853,0.036581,0.059162,0.018015,0.012940,1612a424
+long-corridor_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0,0.074320,0.036074,0.059496,0.026123,0.018398,d7fae2f8
+long-corridor_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0 localizability_horizontal_axis:=true,0.076692,0.035515,0.059677,0.032543,0.021735,a89ea7dd
+long-corridor_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0 localizability_normal_only:=true,0.071193,0.035955,0.059274,0.016196,0.012612,87177585
+long-corridor_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0 localizability_horizontal_axis:=true localizability_normal_only:=true,0.071443,0.036247,0.059268,0.016657,0.013166,ad0a9898
+long-corridor_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=30.0 localizability_horizontal_axis:=true localizability_normal_only:=true,0.072592,0.035373,0.058932,0.023352,0.017979,6e53a1d0
+underground-garage_trial-1,max_correspondence_distance:=0.25,0.100592,0.095415,0.024785,0.020013,0.006384,1301d60e
+underground-garage_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0,0.055924,0.035143,0.026819,0.034252,0.009107,8bbd063b
+underground-garage_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0 localizability_horizontal_axis:=true,0.060070,0.034395,0.025178,0.042326,0.010043,9865eaf4
+underground-garage_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0 localizability_normal_only:=true,0.043998,0.031742,0.023949,0.018833,0.006574,66188b0b
+underground-garage_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0 localizability_horizontal_axis:=true localizability_normal_only:=true,0.043245,0.031388,0.022464,0.019501,0.006680,3ba3c9cb
+underground-garage_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=30.0 localizability_horizontal_axis:=true localizability_normal_only:=true,0.038074,0.023923,0.023646,0.017838,0.007828,4793cfa4
+underground-garage_trial-2,max_correspondence_distance:=0.25,0.066127,0.063503,0.014142,0.011837,0.007681,905d3770
+underground-garage_trial-2,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0,0.034842,0.026998,0.012776,0.017939,0.010907,b85142d0
+underground-garage_trial-2,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0 localizability_horizontal_axis:=true,0.036265,0.030145,0.012769,0.015601,0.012408,5bd672c3
+underground-garage_trial-2,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0 localizability_normal_only:=true,0.029335,0.024562,0.008376,0.013677,0.007623,91884993
+underground-garage_trial-2,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0 localizability_horizontal_axis:=true localizability_normal_only:=true,0.028805,0.024295,0.008746,0.012767,0.007850,cfbe21c0
+underground-garage_trial-2,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=30.0 localizability_horizontal_axis:=true localizability_normal_only:=true,0.025632,0.020331,0.008835,0.012869,0.008738,d261177c
+underground-garage_trial-3,max_correspondence_distance:=0.25,0.075394,0.074174,0.011072,0.007736,0.006548,93e5015a
+underground-garage_trial-3,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0,0.037094,0.028555,0.012720,0.019969,0.008937,6628167a
+underground-garage_trial-3,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0 localizability_horizontal_axis:=true,0.039068,0.027808,0.012257,0.024552,0.010087,c6c5f2e3
+underground-garage_trial-3,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0 localizability_normal_only:=true,0.026736,0.024442,0.007686,0.007637,0.006515,c1cd384f
+underground-garage_trial-3,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0 localizability_horizontal_axis:=true localizability_normal_only:=true,0.027229,0.024903,0.007492,0.008069,0.006751,8c21cbc1
+underground-garage_trial-3,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=30.0 localizability_horizontal_axis:=true localizability_normal_only:=true,0.023313,0.020124,0.008091,0.008548,0.007629,b1c771df
+outdoor-urk_trial-1,max_correspondence_distance:=0.25,0.059384,0.048232,0.031534,0.014341,0.007746,7e73075a
+outdoor-urk_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0,0.050231,0.041061,0.026375,0.011894,0.008824,cd8d454c
+outdoor-urk_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0 localizability_horizontal_axis:=true,0.050839,0.041988,0.026603,0.010673,0.009312,e90c9823
+outdoor-urk_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0 localizability_normal_only:=true,0.050725,0.041208,0.026155,0.013815,0.007920,5ea4a0e0
+outdoor-urk_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0 localizability_horizontal_axis:=true localizability_normal_only:=true,0.049921,0.040775,0.026134,0.012104,0.007857,633b22a0
+outdoor-urk_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=30.0 localizability_horizontal_axis:=true localizability_normal_only:=true,0.048504,0.039821,0.025358,0.011131,0.008510,f9f070d4

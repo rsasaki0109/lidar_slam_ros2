@@ -1,0 +1,12 @@
+underground-garage_trial-1,max_correspondence_distance:=0.25,0.100592,0.095415,0.024785,0.020013,0.006384,1301d60e
+underground-garage_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0,0.055924,0.035143,0.026819,0.034252,0.009107,8bbd063b
+underground-garage_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=30.0,0.055640,0.028370,0.026948,0.039557,0.012270,17177379
+underground-garage_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=100.0,0.062663,0.029022,0.034853,0.043240,0.014358,5816b060
+underground-garage_trial-2,max_correspondence_distance:=0.25,0.066127,0.063503,0.014142,0.011837,0.007681,905d3770
+underground-garage_trial-2,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0,0.034842,0.026998,0.012776,0.017939,0.010907,b85142d0
+underground-garage_trial-2,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=30.0,0.041638,0.028707,0.016714,0.025105,0.013827,2d2bd6ec
+underground-garage_trial-2,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=100.0,0.044376,0.026692,0.023022,0.026959,0.017485,7f95bc1e
+underground-garage_trial-3,max_correspondence_distance:=0.25,0.075394,0.074174,0.011072,0.007736,0.006548,93e5015a
+underground-garage_trial-3,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0,0.037094,0.028555,0.012720,0.019969,0.008937,6628167a
+underground-garage_trial-3,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=30.0,0.046545,0.027766,0.018418,0.032501,0.011992,643b0ce2
+underground-garage_trial-3,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=100.0,0.049176,0.024789,0.023329,0.035490,0.014813,2fcb54f3
