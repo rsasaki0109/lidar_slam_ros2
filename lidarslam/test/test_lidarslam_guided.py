@@ -30,6 +30,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -221,6 +222,37 @@ def test_source_runtime_finds_documented_workspace_install(
     assert '--build-only' in rendered
     assert f"source '{install / 'setup.bash'}'" in rendered
     assert len(next_steps) == 4
+
+
+def test_source_runtime_accepts_a_sourced_workspace_built_elsewhere(
+    monkeypatch,
+    tmp_path,
+):
+    """A workspace sourced from another path must satisfy the runtime check."""
+    module = _load_module()
+    repo = tmp_path / 'checkout' / 'lidar_slam_ros2'
+    repo.mkdir(parents=True)
+    other = tmp_path / 'other_ws' / 'install'
+    (other / 'lidarslam' / 'share' / 'lidarslam').mkdir(parents=True)
+    (other / 'lidarslam' / 'share' / 'lidarslam' / 'package.xml').write_text(
+        '<package/>\n', encoding='utf-8')
+    underlay = tmp_path / 'opt_ros'
+    underlay.mkdir()
+    monkeypatch.setattr(module, 'REPO_ROOT', repo)
+    monkeypatch.setattr(module, 'SOURCE_LAYOUT', True)
+    monkeypatch.setenv(
+        'AMENT_PREFIX_PATH',
+        os.pathsep.join([str(other / 'lidarslam'), str(underlay)]),
+    )
+
+    assert module._runtime_install_roots() == (
+        (other / 'lidarslam').resolve(),
+        underlay.resolve(),
+    )
+
+    # A bare ROS underlay still gets the build-this-workspace guidance.
+    monkeypatch.setenv('AMENT_PREFIX_PATH', str(underlay))
+    assert module._runtime_install_roots() == ()
 
 
 def test_guided_delegates_run_then_viewer_without_touching_slam_logic(

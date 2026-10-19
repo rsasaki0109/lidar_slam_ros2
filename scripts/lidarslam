@@ -95,6 +95,34 @@ for setup_candidate in "${SETUP_CANDIDATES[@]}"; do
   break
 done
 
+# A source launcher runs the matching installed CLI so the activated runtime
+# and the command implementation stay together.  Edits to this checkout's
+# product scripts therefore take effect only after a rebuild; say so instead
+# of silently running the older installed copy.
+if [[ "${SOURCE_LAYOUT}" == true && "${CLI_PATH}" != "${SCRIPT_DIR}/lidarslam_cli.py" ]]; then
+  RUNTIME_MANIFEST="${REPO_ROOT}/lidarslam/product-runtime-files.txt"
+  INSTALLED_SCRIPTS=$(dirname "${CLI_PATH}")
+  STALE_SCRIPTS=()
+  if [[ -f "${RUNTIME_MANIFEST}" ]]; then
+    while IFS= read -r runtime_name || [[ -n "${runtime_name}" ]]; do
+      runtime_name="${runtime_name%%#*}"
+      runtime_name="${runtime_name//[[:space:]]/}"
+      [[ -n "${runtime_name}" && -f "${SCRIPT_DIR}/${runtime_name}" ]] || continue
+      if ! cmp -s "${SCRIPT_DIR}/${runtime_name}" "${INSTALLED_SCRIPTS}/${runtime_name}"; then
+        STALE_SCRIPTS+=("${runtime_name}")
+      fi
+    done < "${RUNTIME_MANIFEST}"
+  fi
+  if [[ ${#STALE_SCRIPTS[@]} -gt 0 ]]; then
+    BUILT_WORKSPACE=$(dirname "${SETUP_ROOT}")
+    echo "note: running the installed lidarslam-map under ${SETUP_ROOT};" \
+      "${#STALE_SCRIPTS[@]} product script(s) in this checkout differ from it" \
+      "(first: ${STALE_SCRIPTS[0]})." >&2
+    echo "      Rebuild to use your edits: cd $(printf '%q' "${BUILT_WORKSPACE}")" \
+      "&& colcon build --packages-select lidarslam" >&2
+  fi
+fi
+
 export LIDARSLAM_CLI_NAME
 LIDARSLAM_CLI_NAME=$(basename "$0")
 export PYTHONDONTWRITEBYTECODE=1
