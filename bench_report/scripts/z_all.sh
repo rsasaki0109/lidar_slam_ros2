@@ -3,7 +3,7 @@
 # development sequence, one run at a time; the baseline is chapter 23's Y (same backend build, same
 # harness), with BARRIER=1 (the frontend reads the bag only after graph_based_slam has subscribed). Build: pipe_z,
 # rko_lio 5207d36 (77072e4 plus the opt-in localizability_normal_only) + graph_based_slam of chapter 18.
-#   1. MapsHD: every trial.
+#   1. MapsHD: every trial (Z_SCENARIOS limits the scenarios, e.g. to resume after a failed conversion).
 #      Each scenario archive is downloaded from zenodo record 21318128 (md5 checked) and
 #      only its trials are extracted; their ground truth was sealed in chapter 15 and is deleted unread here. One
 #      trial at a time is converted (mapshd_to_ros2.py), run, and deleted with its raw data.
@@ -55,7 +55,7 @@ mapshd_trial() {
   df -h / | tail -1
 }
 
-for sc in flat-room calibration-room long-corridor underground-garage outdoor-urk; do
+for sc in ${Z_SCENARIOS:-flat-room calibration-room long-corridor underground-garage outdoor-urk}; do
   ok=0
   for wait in 2 4 8 16 0; do
     curl -sS -L --fail -m 3600 -o "$D/dl/${sc}.7z" "https://zenodo.org/records/21318128/files/${sc}.7z?download=1" && { ok=1; break; }
