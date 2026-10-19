@@ -1,0 +1,6 @@
+glim,1,0,37.86,37.86,0.3009,0.3009,696.0,80.0,512592,13637232,1228,NA,/home/user/bench/readme_cmp/glim_1/dump/traj_imu.txt,2026-10-19T10:11:34Z
+ours_readme,1,0,26.61,26.61,0.2115,0.2115,369.4,64.2,78400,13569396,1258,bc23199243971466e1645e4eed7640ca,/home/user/bench/readme_cmp/ours_readme_1/front_0/front_tum_0.txt,2026-10-19T10:12:36Z
+ours_readme,2,0,22.37,22.37,0.1778,0.1778,354.5,65.2,56,13619520,1258,bc23199243971466e1645e4eed7640ca,/home/user/bench/readme_cmp/ours_readme_2/front_0/front_tum_0.txt,2026-10-19T10:13:25Z
+glim,2,0,27.42,27.42,0.2179,0.2179,678.7,78.8,29272,13621228,1228,NA,/home/user/bench/readme_cmp/glim_2/dump/traj_imu.txt,2026-10-19T10:14:10Z
+glim,3,0,26.73,26.73,0.2125,0.2125,676.6,77.4,1968,13584592,1228,NA,/home/user/bench/readme_cmp/glim_3/dump/traj_imu.txt,2026-10-19T10:15:01Z
+ours_readme,3,0,24.36,24.36,0.1936,0.1936,359.1,68.5,5600,13585300,1258,bc23199243971466e1645e4eed7640ca,/home/user/bench/readme_cmp/ours_readme_3/front_0/front_tum_0.txt,2026-10-19T10:15:50Z

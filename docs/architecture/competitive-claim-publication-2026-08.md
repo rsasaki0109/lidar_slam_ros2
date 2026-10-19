@@ -86,7 +86,11 @@ scoped comparison paragraphs are allowlisted by stable ID, exact heading, and
 paragraph SHA, so unrelated paragraphs may be inserted above them without
 changing their identity.  A changed paragraph, duplicate identity, or newly
 added allowlist entry is rejected; revision 1 requires a versioned guard
-migration for any intentional baseline change.
+migration for any intentional baseline change.  Revision 2 (2026-10-19) is such a migration: the
+HILTI `exp04` summary and table were re-measured on one 4-vCPU VM against a
+native build of the same pinned GLIM revision, and only those two entries'
+hashes, the revision constant and the configuration self-hash changed; the
+entry IDs, the Voxel-SLAM entry and the forbidden patterns are unchanged.
 
 When a future reviewed configuration becomes `READY`, the guard must reopen
 the publication spec and sealed root, invoke the Phase 1 publisher into a new

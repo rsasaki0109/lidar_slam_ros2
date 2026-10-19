@@ -98,14 +98,14 @@ Moving rigs: `--refine-spatiotemporal-calibration` ([design](docs/research/color
 ## Open-source benchmark results
 
 On the same HILTI 2022 `exp04` LiDAR/IMU input and CPU-only host, the competitive
-profile recorded **34.7% lower median APE RMSE than GLIM** over three runs:
+profile recorded **44.1% lower median APE RMSE than GLIM** over three runs:
 
 | System | Median APE RMSE | Median processing RTF | Maximum peak RSS |
 | --- | ---: | ---: | ---: |
-| **lidarslam_ros2** | **0.0565 m** | 0.993 | **586.83 MB** |
-| GLIM CPU | 0.0866 m | **0.244** | 690.88 MB |
+| **lidarslam_ros2** | **0.0482 m** | **0.194** | **369.4 MB** |
+| GLIM CPU | 0.0863 m | 0.218 | 696.0 MB |
 
-This is a scoped HILTI `exp04` trajectory-accuracy and peak-memory win; GLIM wins runtime. It is not an overall best-system claim. Commands, scoring rules and map-quality limits: [Comparison](docs/comparison.md#same-input-hilti-2022-exp04-vs-glim-cpu).
+This is a scoped HILTI `exp04` result from one 4-vCPU cloud VM (2026-10-19, three alternated runs per system, GLIM v1.2.2 built natively because the VM has no Docker daemon). There, lidarslam_ros2 has the lower median APE, processing RTF and peak RSS; the RTF ranges barely separate. It is not an overall best-system claim. Commands, scoring rules, the earlier Docker-based record and map-quality limits: [Comparison](docs/comparison.md#same-input-hilti-2022-exp04-vs-glim-cpu).
 
 The separate Voxel-SLAM `v17` research candidate also achieved the lowest
 geometric-mean APE across NavINST, Oxford, and UrbanNav: **2.2836 m**, versus
@@ -114,6 +114,11 @@ GLIM `5.0779`, Point-LIO `3.8388`, FAST-LIO2 `6.9576`, and fixed Voxel-SLAM
 not win every sequence, and is not fresh-blind evidence. Exact revisions,
 per-sequence results, input hashes, resource results, map limitations, and
 reproduction notes are in [Comparison](docs/comparison.md#voxel-slam-v17-research-candidate-vs-pinned-oss-rivals).
+
+Development-data results with loop closure on the MapsHD humanoid MID-360
+trials, Oxford Spires Keble 05 and HILTI `exp04`, with settings chosen on those
+same sequences, are in
+[Comparison](docs/comparison.md#development-data-results-mapshd-humanoid-trials-oxford-spires-and-exp04).
 
 <!-- BEGIN GENERATED COMPETITIVE CLAIM PUBLICATION -->
 <!-- END GENERATED COMPETITIVE CLAIM PUBLICATION -->

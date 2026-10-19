@@ -1,6 +1,6 @@
 {
   "config_kind": "competitive_claim_readme_publication",
-  "config_sha256": "5bd640138b041f24d565dc6af2ceb31465a1e92af94cef748a4c3f6478863ea0",
+  "config_sha256": "a116c17e9921b0504fe1b7a0e942b806db035a12bab882b2e033143ea3c27626",
   "forbidden_patterns": [
     "\\bSOTA\\b",
     "state[- ]of[- ]the[- ]art",
@@ -16,12 +16,12 @@
     {
       "legacy_id": "hilti-exp04-summary",
       "heading": "## Open-source benchmark results",
-      "sha256": "5789ad62d8edabe491384d60bd14a5963b1b70757cc81bffc297deed00bad9cd"
+      "sha256": "742e020f0114171ae8c7b73a73bb65403d3095f6793118af38aac4d3a71b87ff"
     },
     {
       "legacy_id": "hilti-exp04-table",
       "heading": "## Open-source benchmark results",
-      "sha256": "d2721f7af0f8e2bda54b75fa9a53a973000fb5ef435cab09801a8124460e0830"
+      "sha256": "cbde828aa9f96c60bbee3a85dda7269ce3490d013e71a980f0dcf6d3b04677e5"
     },
     {
       "legacy_id": "voxel-v17-research-summary",
@@ -29,8 +29,8 @@
       "sha256": "d82cdfcae5e774c1517e74c2e8b2cef8edc17cde9c589412260cad1fd7884406"
     }
   ],
-  "legacy_allowlist_policy": "Existing scoped comparison paragraphs are immutable allowlist entries. New entries require an explicit versioned migration and are rejected by this revision.",
-  "legacy_allowlist_revision": 1,
+  "legacy_allowlist_policy": "Existing scoped comparison paragraphs are immutable allowlist entries. New entries require an explicit versioned migration and are rejected by this revision. Revision 2 (2026-10-19) re-measured the HILTI exp04 summary and table on one 4-vCPU VM; the IDs and the Voxel-SLAM entry are unchanged.",
+  "legacy_allowlist_revision": 2,
   "markers": {
     "begin": "<!-- BEGIN GENERATED COMPETITIVE CLAIM PUBLICATION -->",
     "end": "<!-- END GENERATED COMPETITIVE CLAIM PUBLICATION -->"
