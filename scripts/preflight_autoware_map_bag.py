@@ -10,6 +10,7 @@ from pathlib import Path
 import shlex
 import sys
 import textwrap
+import time
 from typing import Any, Callable
 
 import yaml
@@ -440,6 +441,47 @@ def _finalize_timestamp_scan(
     }
 
 
+class _ScanProgress:
+    """Progress of a bag scan on an interactive stderr; silent otherwise.
+
+    The timestamp scan can read the whole bag (a LiDAR topic rarely reaches the
+    per-topic record cap), which takes minutes on a large bag that is not in
+    the page cache. Without this, ``doctor`` would print nothing until then.
+    """
+
+    def __init__(self, label: str, total: int, interval_s: float = 2.0) -> None:
+        self._label = label
+        self._total = max(int(total), 0)
+        self._interval_s = interval_s
+        self._enabled = bool(getattr(sys.stderr, 'isatty', lambda: False)())
+        self._start = time.monotonic()
+        self._last = self._start
+        self._shown = False
+        self.count = 0
+        if self._enabled:
+            print(f'{label}: reading the bag (large bags can take minutes) ...',
+                  file=sys.stderr, flush=True)
+
+    def step(self) -> None:
+        self.count += 1
+        if not self._enabled:
+            return
+        now = time.monotonic()
+        if now - self._last < self._interval_s:
+            return
+        self._last = now
+        self._shown = True
+        done = f'{self.count}/{self._total}' if self._total else str(self.count)
+        percent = (f' ({100.0 * self.count / self._total:.0f}%)'
+                   if self._total else '')
+        print(f'\r  {done} messages{percent}, {now - self._start:.0f} s',
+              end='', file=sys.stderr, flush=True)
+
+    def close(self) -> None:
+        if self._enabled and self._shown:
+            print(file=sys.stderr, flush=True)
+
+
 def inspect_timestamp_order(
     bag_path: Path,
     topics: list[TopicRecord],
@@ -480,6 +522,10 @@ def inspect_timestamp_order(
         IMU: Imu,
     }
     states = _timestamp_scan_state(selected, max_records_per_topic)
+    progress = _ScanProgress(
+        'Checking header timestamps',
+        sum(topic.message_count for topic in selected),
+    )
     try:
         reader = _open_rosbag_reader(rosbag2_py, bag_path, storage_id)
         reader.set_filter(
@@ -491,6 +537,7 @@ def inspect_timestamp_order(
                 exhausted = False
                 break
             topic, serialized, _ = reader.read_next()
+            progress.step()
             state = states.get(topic)
             if state is None or _timestamp_scan_satisfied(state):
                 continue
@@ -503,12 +550,14 @@ def inspect_timestamp_order(
                 _stamp_ns_from_message(message),
                 getattr(getattr(message, 'header', None), 'frame_id', None),
             )
+        progress.close()
         return _finalize_timestamp_scan(
             states,
             exhausted=exhausted,
             max_records_per_topic=max_records_per_topic,
         )
     except Exception as exc:  # storage plugins expose backend-specific errors
+        progress.close()
         return {
             'status': 'error',
             'timestamp_source': 'header.stamp',
