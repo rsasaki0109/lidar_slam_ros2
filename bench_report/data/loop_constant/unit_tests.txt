@@ -1,0 +1,6 @@
+test_pose_graph_optimization: [==========] 16 tests from 1 test suite ran. (16 ms total)
+test_pose_graph_optimization: [  PASSED  ] 16 tests.
+test_graph_slam_config: [==========] 6 tests from 1 test suite ran. (25 ms total)
+test_graph_slam_config: [  PASSED  ] 6 tests.
+test_graph_slam_composition: [==========] 3 tests from 1 test suite ran. (0 ms total)
+test_graph_slam_composition: [  PASSED  ] 3 tests.
