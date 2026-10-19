@@ -288,6 +288,69 @@ Per-sequence tables, revisions and reproduction are in the
 [ENWIDE](research/enwide-photometric-registration-2026-10.md) and
 [GEODE](research/geode-hard-evaluation-2026-10.md) research notes.
 
+## Development-data results: MapsHD humanoid trials, Oxford Spires and exp04
+
+These results come from the 2026-10 benchmark report
+([`bench_report/REPORT.md`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/bench_report/REPORT.md),
+chapters 15–25). Every setting was chosen on these same sequences, so they are
+development-data results, not held-out evidence. The settings are kept as
+parameter files under `bench_report/params/`; the repository defaults and the
+competitive profile above are unchanged.
+
+- **Sequences:** the eight trials of MapsHD HUMANOID-LIO-DATASET (humanoid
+  walking with a Livox MID-360, zenodo record 21318128), Oxford Spires Keble 05
+  and HILTI 2022 `exp04`.
+- **Pipeline:** RKO-LIO + `graph_based_slam` with loop closure, one run per
+  sequence on a 4-vCPU cloud VM.
+- **Scoring:**
+  - MapsHD: the benchmark's own `evo_ape tum <ground truth> <estimate> -a`, in
+    the LiDAR frame.
+  - Oxford: SE(3)-aligned APE against the dataset ground truth.
+  - `exp04`: all seven surveyed checkpoints. This is different from the
+    six-checkpoint GLIM table above.
+- **Settings:**
+  - backend: `lidarslam_competitive_v2_loop_ndt1_res2_rot1e6_drift_adjt1e4_dist60_loopc.yaml`;
+  - MapsHD frontend: `rko_params_mapshd_gyro002_jerk1000_corr025_locn10.ros.yaml`, a
+    per-dataset profile that makes Oxford worse;
+  - Oxford and `exp04` frontends: `rko_params_oxford_gyro002_jerk1000.ros.yaml`
+    and `rko_params_gyro002_jerk1000.ros.yaml`.
+
+| Sequence | Pipeline APE RMSE, m | Frontend alone, m |
+| --- | ---: | ---: |
+| MapsHD calibration-room 1 | 0.0257 | 0.0263 |
+| MapsHD calibration-room 2 | 0.0206 | 0.0205 |
+| MapsHD flat-room 1 | 0.0149 | 0.0148 |
+| MapsHD long-corridor 1 | 0.0712 | 0.0712 |
+| MapsHD outdoor-urk 1 | 0.0506 | 0.0507 |
+| MapsHD underground-garage 1 | 0.0427 | 0.0440 |
+| MapsHD underground-garage 2 | 0.0381 | 0.0293 |
+| MapsHD underground-garage 3 | 0.0316 | 0.0267 |
+| Oxford Spires Keble 05 | 0.0463 | 0.0503 |
+| HILTI 2022 `exp04` (seven checkpoints) | 0.0517 | 0.0520 |
+| Geometric mean | 0.0358 | 0.0348 |
+
+The geometric mean over these ten sequences was 0.0908 m at the start of the
+report (chapter 15). The pipeline is still above the frontend alone, mostly on
+the garage trials: there, the NDT loop edges are 5–25 cm off while the frontend
+is 1–3 cm off between the same submaps.
+
+Context, not a ranking:
+
+- **MapsHD calibration-room trial 1:** the benchmark's published table lists
+  APE values from 0.0365 m to 0.150 m for 25 methods. These cannot be ranked
+  against the value above:
+  - the settings above were chosen on this trial;
+  - the benchmark records each method's trajectory through an HDMapping
+    session and a wrapper-specific frame;
+  - a same-VM rerun of the benchmark's GLIM configuration did not reproduce its
+    published value (0.663 m against 0.150 m; report chapter 15.7).
+- **Oxford Spires Keble 05:** on the same VM, bag and scorer, GLIM CPU (core
+  `faa264a`, the `hilti2022_cpu` configuration with Oxford's extrinsics) gave
+  0.125 and 0.112 m in two runs (report chapter 14.5). That measurement predates
+  chapters 15–25 and was not alternated with the final settings.
+- **Runtime and memory** were not measured with alternated repetitions in these
+  chapters, so they are not reported here.
+
 ## Current Default Position
 
 The current tagged-release position is:

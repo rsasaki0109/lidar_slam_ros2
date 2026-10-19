@@ -115,6 +115,11 @@ not win every sequence, and is not fresh-blind evidence. Exact revisions,
 per-sequence results, input hashes, resource results, map limitations, and
 reproduction notes are in [Comparison](docs/comparison.md#voxel-slam-v17-research-candidate-vs-pinned-oss-rivals).
 
+Development-data results with loop closure on the MapsHD humanoid MID-360
+trials, Oxford Spires Keble 05 and HILTI `exp04`, with settings chosen on those
+same sequences, are in
+[Comparison](docs/comparison.md#development-data-results-mapshd-humanoid-trials-oxford-spires-and-exp04).
+
 <!-- BEGIN GENERATED COMPETITIVE CLAIM PUBLICATION -->
 <!-- END GENERATED COMPETITIVE CLAIM PUBLICATION -->
 
