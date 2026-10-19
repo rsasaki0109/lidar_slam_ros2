@@ -34,6 +34,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import shutil
 import signal
 import struct
 import subprocess
@@ -42,7 +43,7 @@ import threading
 import time
 
 import jsonschema
-
+import pytest
 import yaml
 
 
@@ -63,6 +64,18 @@ SESSION_SCHEMA = (
     REPO_ROOT / 'docs' / 'schemas' / 'map-session-index-v1.schema.json'
 )
 SCRIPT = REPO_ROOT / 'scripts' / 'sensor_setup_wizard.py'
+
+
+def _disk_usage_with_free(free_bytes: int):
+    def disk_usage(_path):
+        return shutil._ntuple_diskusage(2 * free_bytes, free_bytes, free_bytes)
+    return disk_usage
+
+
+@pytest.fixture(autouse=True)
+def _ample_output_storage(monkeypatch):
+    """Keep in-process start tests independent of the host's free disk."""
+    monkeypatch.setattr(shutil, 'disk_usage', _disk_usage_with_free(1 << 40))
 
 
 def _load_module():
@@ -546,6 +559,66 @@ def test_start_pins_setup_then_delegates_map_and_viewer(
     jsonschema.validate(session_index, session_schema)
     assert session_index['status'] == 'verified'
     assert (session / 'session.html').is_file()
+
+
+def test_start_refuses_before_mapping_when_output_storage_is_short(
+    monkeypatch,
+    tmp_path: Path,
+    capsys,
+):
+    """A full disk gets a storage finding, not a generic runner retry."""
+    module = _load_module()
+    bag = tmp_path / 'mid360_bag'
+    session = tmp_path / 'session'
+    _write_bag(bag)
+    monkeypatch.setattr(module, '_runtime_readiness', lambda _profile: ([], []))
+    monkeypatch.setenv('LIDARSLAM_CLI_COMMAND', 'lidarslam-map start')
+    monkeypatch.setattr(shutil, 'disk_usage', _disk_usage_with_free(1 << 30))
+    calls: list[list[str]] = []
+
+    def fake_run(command, **_kwargs):
+        calls.append(list(command))
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(module, '_run_delegated_session', fake_run)
+
+    result = module.main([
+        '--run', str(bag), '--output-dir', str(session), '--yes',
+        '--viewer', 'none',
+    ])
+
+    assert result == 2
+    assert calls == []
+    # Nothing is written, so the same --output-dir works once space is freed.
+    assert not session.exists()
+    stderr = capsys.readouterr().err
+    assert 'error: [insufficient-free-space]' in stderr
+    assert 'only 1.00 GiB is available' in stderr
+    assert '--output-dir DIR' in stderr
+    assert 'runner-start-failed' not in stderr
+
+
+def test_start_dry_run_warns_when_output_storage_is_short(
+    monkeypatch,
+    tmp_path: Path,
+    capsys,
+):
+    """The dry run shows the storage shortfall the real start would refuse."""
+    module = _load_module()
+    bag = tmp_path / 'mid360_bag'
+    session = tmp_path / 'session'
+    _write_bag(bag)
+    monkeypatch.setenv('LIDARSLAM_CLI_COMMAND', 'lidarslam-map start')
+    monkeypatch.setattr(shutil, 'disk_usage', _disk_usage_with_free(1 << 30))
+
+    result = module.main([
+        '--run', str(bag), '--output-dir', str(session), '--yes',
+        '--dry-run', '--viewer', 'none',
+    ])
+
+    assert result == 0
+    assert 'warning: [insufficient-free-space]' in capsys.readouterr().err
+    assert not session.exists()
 
 
 def test_start_interactive_confirmation_completes_one_command(

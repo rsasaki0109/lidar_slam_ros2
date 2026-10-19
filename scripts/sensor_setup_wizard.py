@@ -173,6 +173,58 @@ def _safe_output_stem(value: str) -> str:
     return rendered or 'bag'
 
 
+def _output_storage_shortfall(
+    output_dir: Path,
+    minimum_free_space_gib: float,
+) -> tuple[Path, float] | None:
+    """Return the probed directory and free GiB when below the reserve."""
+    probe_path = output_dir
+    while not probe_path.exists():
+        if probe_path.parent == probe_path:
+            return None
+        probe_path = probe_path.parent
+    try:
+        free_bytes = shutil.disk_usage(probe_path).free
+    except OSError:
+        return None
+    if free_bytes >= math.ceil(minimum_free_space_gib * 1024**3):
+        return None
+    return probe_path, free_bytes / 1024**3
+
+
+def _start_map_output(args: argparse.Namespace) -> Path:
+    """Return the map directory that generate() will pin for this start."""
+    return (
+        Path(args.map_output_dir).expanduser().resolve()
+        if getattr(args, 'map_output_dir', None)
+        else Path(args.output_dir).expanduser().resolve() / 'map'
+    )
+
+
+def _report_storage_shortfall(args: argparse.Namespace) -> bool:
+    """Print a start storage finding; return True when free space is short."""
+    shortfall = _output_storage_shortfall(
+        _start_map_output(args),
+        args.min_free_space_gib,
+    )
+    if shortfall is None:
+        return False
+    probe_path, free_gib = shortfall
+    severity = 'warning' if args.dry_run else 'error'
+    print(
+        f'{severity}: [insufficient-free-space] the map output needs at least '
+        f'{args.min_free_space_gib:.2f} GiB free under {probe_path}, but only '
+        f'{free_gib:.2f} GiB is available.',
+        file=sys.stderr,
+    )
+    print(
+        'Next: free storage there, or choose a larger disk with --output-dir '
+        'DIR; lower --min-free-space-gib only after sizing the expected map.',
+        file=sys.stderr,
+    )
+    return True
+
+
 def _default_output_dir(bag_path: Path, *, start_mode: bool) -> Path:
     if start_mode:
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -3555,8 +3607,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     confirmed = args.yes
     runtime_checked = False
+    # Check storage before the setup bundle is written, so a refused start
+    # can be retried with the same --output-dir once space is freed.
+    storage_blocked = (
+        args.run_now
+        and not args.dry_run
+        and _output_storage_shortfall(
+            _start_map_output(args),
+            args.min_free_space_gib,
+        ) is not None
+    )
     try:
-        result = generate(args, publish=not args.dry_run)
+        result = generate(
+            args, publish=not args.dry_run and not storage_blocked
+        )
     except (
         FileNotFoundError,
         OSError,
@@ -3588,6 +3652,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     and sys.stdin.isatty()
                 ),
             ))
+        if args.run_now and args.dry_run:
+            _report_storage_shortfall(args)
         if not args.run_now or args.dry_run:
             return 0
         decision = _ask_to_start(calibration_review=True)
@@ -3602,6 +3668,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         runtime_result = _check_runtime(result['profile']['id'])
         if runtime_result != 0:
             return runtime_result
+        if storage_blocked:
+            _report_storage_shortfall(args)
+            return 2
         runtime_checked = True
         args.accept_profile_extrinsics = True
         confirmed = True
@@ -3625,10 +3694,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         runtime_result = _check_runtime(result['profile']['id'])
         if runtime_result != 0:
             return runtime_result
+    if storage_blocked:
+        _report_storage_shortfall(args)
+        return 2
     if args.json:
         print(json.dumps(result, indent=2, sort_keys=True))
     elif not (args.run_now and not args.dry_run and confirmed):
         print(_render_text(result))
+    if args.run_now and args.dry_run:
+        _report_storage_shortfall(args)
     if not args.run_now or args.dry_run:
         return 0
     if not confirmed:
