@@ -1,0 +1,29 @@
+# rko_params_mapshd_gyro002_jerk1000_corr025.ros.yaml (chapter 21, W) with the localizability weighting of RKO-LIO
+# in its normal-only form (chapter 24): correspondences on map surfaces whose normal lies along the predicted
+# motion get up to 1 + 10 times the information, along that normal only (localizability_normal_only, rko_lio
+# 5207d36).
+/**:
+  ros__parameters:
+    extrinsic_imu2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+    extrinsic_lidar2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, -0.011, -0.02329, 0.04412]
+    initialization_phase: true
+    odom_topic: /rko_lio/odometry
+    deskew: true
+    voxel_size: 0.25
+    min_range: 0.7
+    max_range: 100.0
+    double_downsample: true
+    enable_kidnap_relocalization: false
+    reset_on_registration_failure: false
+    relocalize_after_scan_gap: false
+    max_iterations: 50
+    convergence_criterion: 3.0e-05
+    icp_keypoint_voxel_multiplier: 2.25
+    publisher_queue_depth: 128
+    initialization_max_gyro_rad_s: 0.02
+    imu_acceleration_unit: auto
+    max_expected_jerk: 1000.0
+    max_correspondence_distance: 0.25
+    localizability_weighting: true
+    localizability_boost: 10.0
+    localizability_normal_only: true

@@ -12,6 +12,9 @@ Weights (key=value, all optional):
   loop           factor on the loop edges' information as stored (100 / fitness), default 1
   loop_t, loop_r if given, a fixed loop information for translation / rotation instead of 100 / fitness * loop
   drop           comma-separated 'i-j' loop edges to leave out
+  travel_min     leave out the loop edges whose frontend path between the two submaps is shorter than this (m)
+  fit_max        leave out the loop edges whose registration fitness (loop_edges.csv) is above this
+  travel_l0      scale each loop edge's information by s^2 / (s^2 + travel_l0^2), s its frontend path (m)
   meas           CSV (from,to,tx,ty,tz,qx,qy,qz,qw) of loop measurements to use instead of the run's, e.g. the
                  ground truth from loop_gt_measurements.py (an upper bound on what better loops could give)
 Usage: graph_replay.py <run_dir> <out_dir> <scorer: mapshd:<gt_tum> | oxford:<gt_tum>,<T_imu_base.npy> |
@@ -82,6 +85,8 @@ def main():
     loop_f = float(opts.get('loop', 1))
     loop_t, loop_r = opts.get('loop_t'), opts.get('loop_r')
     drop = {tuple(map(int, d.split('-'))) for d in opts.get('drop', '').split(',') if d}
+    travel_min, travel_l0 = float(opts.get('travel_min', 0)), float(opts.get('travel_l0', 0))
+    fit_max = float(opts.get('fit_max', 'inf'))
     meas_override = {}
     if 'meas' in opts:
         for l in open(opts['meas']):
@@ -91,10 +96,14 @@ def main():
 
     stamps = read_tum(f'{run}/trajectory_optimized.tum')[:, 0]
     front = read_tum(f'{run}/front_0/front_tum_0.txt')
-    loops = set()
+    # frontend path length up to each submap, as in loop_features.py (frontend positions at the submap stamps)
+    pos = np.array([at(front, t)[:3] for t in stamps])
+    cum = np.concatenate([[0.0], np.cumsum(np.linalg.norm(np.diff(pos, axis=0), axis=1))])
+    loops, fitness = set(), {}
     for l in list(open(f'{run}/loop_edges.csv'))[1:]:
         f = l.split(',')
         loops.add((int(f[0]), int(f[1])))
+        fitness[(int(f[0]), int(f[1]))] = float(f[2])
     lines = []
     for l in open(f'{run}/pose_graph.g2o'):
         f = l.split()
@@ -109,7 +118,9 @@ def main():
             meas = f[3:10]
             info = info_from(list(map(float, f[10:31])))
             if (i, j) in loops or (j, i) in loops:
-                if (i, j) in drop:
+                travel = abs(cum[j] - cum[i])
+                fit = fitness.get((i, j), fitness.get((j, i)))
+                if (i, j) in drop or travel < travel_min or fit > fit_max:
                     continue
                 if (i, j) in meas_override:
                     meas = ['%.12g' % v for v in meas_override[(i, j)]]
@@ -122,6 +133,8 @@ def main():
                     info = np.diag([float(loop_t)] * 3 + [float(loop_r)] * 3)
                 else:
                     info = info * loop_f
+                if travel_l0 > 0:
+                    info = info * travel ** 2 / (travel ** 2 + travel_l0 ** 2)
             else:
                 info[:3, :3] *= adj_t
                 info[3:, 3:] *= adj_r

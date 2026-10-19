@@ -1,0 +1,6 @@
+exp04,default,0.052024427185148804,10c44850,21.0235
+exp04,max_correspondence_distance:=0.25,0.050396542925134714,563690bb,19.8648
+exp04,double_downsample:=false max_correspondence_distance:=0.25,0.054100911508330074,6bf254b2,21.1037
+oxford,default,0.05034843286824531,6f874a74,207.611
+oxford,max_correspondence_distance:=0.25,0.06057834021054527,c4e2cf8b,196.554
+oxford,double_downsample:=false max_correspondence_distance:=0.25,0.10743159660179276,c88807c1,262.482

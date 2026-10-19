@@ -1,0 +1,10 @@
+flat-room_trial-1,max_correspondence_distance:=0.35,0.021942,0.007702,0.008885,0.018526,0.015421,0.99940,0.0219,4c6aeadb
+flat-room_trial-1,max_correspondence_distance:=0.4,0.024418,0.007785,0.008852,0.021384,0.016448,0.99935,0.0244,6bc6557d
+underground-garage_trial-3,max_correspondence_distance:=0.35,0.091027,0.089783,0.012956,0.007554,0.006518,0.99661,0.0232,41a42ff6
+underground-garage_trial-3,max_correspondence_distance:=0.4,0.096069,0.094724,0.014135,0.007532,0.006564,0.99642,0.0243,adf457a9
+flat-room_trial-1,max_correspondence_distance:=0.25 max_correspondence_distance_range_slope:=0.005,0.018661,0.007723,0.008923,0.014456,0.012437,0.99946,0.0186,4ad4f9cf
+flat-room_trial-1,max_correspondence_distance:=0.25 max_correspondence_distance_range_slope:=0.01,0.020183,0.007646,0.008612,0.016575,0.013509,0.99949,0.0202,49c7c6ee
+flat-room_trial-1,max_correspondence_distance:=0.25 max_correspondence_distance_range_slope:=0.02,0.026071,0.007860,0.009156,0.023110,0.017359,0.99933,0.0260,e67bbd21
+underground-garage_trial-3,max_correspondence_distance:=0.25 max_correspondence_distance_range_slope:=0.005,0.087355,0.086211,0.011855,0.007610,0.006545,0.99676,0.0239,89e8b0c7
+underground-garage_trial-3,max_correspondence_distance:=0.25 max_correspondence_distance_range_slope:=0.01,0.094152,0.092855,0.013476,0.007802,0.006719,0.99649,0.0241,8e4419f7
+underground-garage_trial-3,max_correspondence_distance:=0.25 max_correspondence_distance_range_slope:=0.02,0.096035,0.094295,0.016423,0.007843,0.006857,0.99643,0.0252,cf086083

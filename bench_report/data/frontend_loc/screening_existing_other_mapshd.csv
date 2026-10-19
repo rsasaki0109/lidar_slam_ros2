@@ -1,0 +1,20 @@
+calibration-room_trial-1,max_correspondence_distance:=0.25,0.027733,0.011239,0.010758,0.022959,0.012007,72d8508c
+calibration-room_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=5.0,0.032573,0.009880,0.009944,0.029402,0.016772,f18302e7
+calibration-room_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0,0.034387,0.011133,0.011217,0.030540,0.019907,6af4a396
+calibration-room_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=30.0,0.040801,0.014404,0.014998,0.035104,0.025083,35d30edc
+calibration-room_trial-2,max_correspondence_distance:=0.25,0.026103,0.013890,0.011178,0.019066,0.011970,4a77fd88
+calibration-room_trial-2,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=5.0,0.029831,0.013561,0.011413,0.023994,0.015723,fbb60167
+calibration-room_trial-2,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0,0.033322,0.014468,0.012049,0.027493,0.019467,93d20049
+calibration-room_trial-2,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=30.0,0.039250,0.014667,0.013585,0.033777,0.022185,6ee66acb
+flat-room_trial-1,max_correspondence_distance:=0.25,0.015664,0.007620,0.008689,0.010573,0.009805,fcf1979b
+flat-room_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=5.0,0.018206,0.007578,0.008885,0.013967,0.012661,18104907
+flat-room_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0,0.023137,0.007656,0.009461,0.019677,0.017827,7c0cca5d
+flat-room_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=30.0,0.025520,0.008901,0.011193,0.021137,0.019473,c842a412
+long-corridor_trial-1,max_correspondence_distance:=0.25,0.071853,0.036581,0.059162,0.018015,0.012940,1612a424
+long-corridor_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=5.0,0.072990,0.035333,0.059068,0.024292,0.015464,ddf87033
+long-corridor_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0,0.074320,0.036074,0.059496,0.026123,0.018398,d7fae2f8
+long-corridor_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=30.0,0.077973,0.036594,0.060134,0.033534,0.022596,39850464
+outdoor-urk_trial-1,max_correspondence_distance:=0.25,0.059384,0.048232,0.031534,0.014341,0.007746,7e73075a
+outdoor-urk_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=5.0,0.052209,0.042452,0.027208,0.013538,0.008179,abcd5e35
+outdoor-urk_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=10.0,0.050231,0.041061,0.026375,0.011894,0.008824,cd8d454c
+outdoor-urk_trial-1,max_correspondence_distance:=0.25 localizability_weighting:=true localizability_boost:=30.0,0.049184,0.039767,0.026343,0.011985,0.010653,33ad7076

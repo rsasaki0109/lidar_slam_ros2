@@ -1,0 +1,99 @@
+calibration-room_trial-1_Y,as_run,0.032808
+calibration-room_trial-1_Y,loop=0.3,0.032261
+calibration-room_trial-1_Y,loop=0.1,0.031901
+calibration-room_trial-1_Y,loop_t=100 loop_r=10000,0.030136
+calibration-room_trial-1_Y,loop_t=400 loop_r=10000,0.031159
+calibration-room_trial-1_Y,loop_t=400 loop_r=100000,0.031949
+calibration-room_trial-1_Y,loop_t=1000 loop_r=100000,0.031821
+calibration-room_trial-1_Y,fit_max=0.3,0.032808
+calibration-room_trial-1_Y,fit_max=0.5,0.032808
+calibration-room_trial-2_Y,as_run,0.026591
+calibration-room_trial-2_Y,loop=0.3,0.026219
+calibration-room_trial-2_Y,loop=0.1,0.026137
+calibration-room_trial-2_Y,loop_t=100 loop_r=10000,0.026237
+calibration-room_trial-2_Y,loop_t=400 loop_r=10000,0.026643
+calibration-room_trial-2_Y,loop_t=400 loop_r=100000,0.026893
+calibration-room_trial-2_Y,loop_t=1000 loop_r=100000,0.027345
+calibration-room_trial-2_Y,fit_max=0.3,0.026591
+calibration-room_trial-2_Y,fit_max=0.5,0.026591
+flat-room_trial-1_Y,as_run,0.015910
+flat-room_trial-1_Y,loop=0.3,0.015671
+flat-room_trial-1_Y,loop=0.1,0.015648
+flat-room_trial-1_Y,loop_t=100 loop_r=10000,0.015688
+flat-room_trial-1_Y,loop_t=400 loop_r=10000,0.015687
+flat-room_trial-1_Y,loop_t=400 loop_r=100000,0.015798
+flat-room_trial-1_Y,loop_t=1000 loop_r=100000,0.015796
+flat-room_trial-1_Y,fit_max=0.3,0.015910
+flat-room_trial-1_Y,fit_max=0.5,0.015910
+long-corridor_trial-1_Y,as_run,0.071849
+long-corridor_trial-1_Y,loop=0.3,0.071849
+long-corridor_trial-1_Y,loop=0.1,0.071849
+long-corridor_trial-1_Y,loop_t=100 loop_r=10000,0.071849
+long-corridor_trial-1_Y,loop_t=400 loop_r=10000,0.071849
+long-corridor_trial-1_Y,loop_t=400 loop_r=100000,0.071849
+long-corridor_trial-1_Y,loop_t=1000 loop_r=100000,0.071849
+long-corridor_trial-1_Y,fit_max=0.3,0.071849
+long-corridor_trial-1_Y,fit_max=0.5,0.071849
+outdoor-urk_trial-1_Y,as_run,0.057581
+outdoor-urk_trial-1_Y,loop=0.3,0.058644
+outdoor-urk_trial-1_Y,loop=0.1,0.059106
+outdoor-urk_trial-1_Y,loop_t=100 loop_r=10000,0.058807
+outdoor-urk_trial-1_Y,loop_t=400 loop_r=10000,0.057580
+outdoor-urk_trial-1_Y,loop_t=400 loop_r=100000,0.058299
+outdoor-urk_trial-1_Y,loop_t=1000 loop_r=100000,0.057342
+outdoor-urk_trial-1_Y,fit_max=0.3,0.057581
+outdoor-urk_trial-1_Y,fit_max=0.5,0.057581
+underground-garage_trial-1_Y,as_run,0.101376
+underground-garage_trial-1_Y,loop=0.3,0.101270
+underground-garage_trial-1_Y,loop=0.1,0.100935
+underground-garage_trial-1_Y,loop_t=100 loop_r=10000,0.100925
+underground-garage_trial-1_Y,loop_t=400 loop_r=10000,0.101249
+underground-garage_trial-1_Y,loop_t=400 loop_r=100000,0.100208
+underground-garage_trial-1_Y,loop_t=1000 loop_r=100000,0.100736
+underground-garage_trial-1_Y,fit_max=0.3,0.100591
+underground-garage_trial-1_Y,fit_max=0.5,0.100591
+underground-garage_trial-2_Y,as_run,0.070010
+underground-garage_trial-2_Y,loop=0.3,0.069287
+underground-garage_trial-2_Y,loop=0.1,0.068145
+underground-garage_trial-2_Y,loop_t=100 loop_r=10000,0.069980
+underground-garage_trial-2_Y,loop_t=400 loop_r=10000,0.072691
+underground-garage_trial-2_Y,loop_t=400 loop_r=100000,0.071933
+underground-garage_trial-2_Y,loop_t=1000 loop_r=100000,0.073593
+underground-garage_trial-2_Y,fit_max=0.3,0.068367
+underground-garage_trial-2_Y,fit_max=0.5,0.069311
+underground-garage_trial-3_Y,as_run,0.080459
+underground-garage_trial-3_Y,loop=0.3,0.078612
+underground-garage_trial-3_Y,loop=0.1,0.076664
+underground-garage_trial-3_Y,loop_t=100 loop_r=10000,0.078795
+underground-garage_trial-3_Y,loop_t=400 loop_r=10000,0.080711
+underground-garage_trial-3_Y,loop_t=400 loop_r=100000,0.078194
+underground-garage_trial-3_Y,loop_t=1000 loop_r=100000,0.079959
+underground-garage_trial-3_Y,fit_max=0.3,0.075392
+underground-garage_trial-3_Y,fit_max=0.5,0.075392
+oxford_Y,as_run,0.047195
+oxford_Y,loop=0.3,0.047429
+oxford_Y,loop=0.1,0.047438
+oxford_Y,loop_t=100 loop_r=10000,0.046884
+oxford_Y,loop_t=400 loop_r=10000,0.046626
+oxford_Y,loop_t=400 loop_r=100000,0.046175
+oxford_Y,loop_t=1000 loop_r=100000,0.045944
+oxford_Y,fit_max=0.3,0.047195
+oxford_Y,fit_max=0.5,0.047195
+exp04_Y,as_run,0.052101
+exp04_Y,loop=0.3,0.052041
+exp04_Y,loop=0.1,0.052029
+exp04_Y,loop_t=100 loop_r=10000,0.051989
+exp04_Y,loop_t=400 loop_r=10000,0.052096
+exp04_Y,loop_t=400 loop_r=100000,0.051800
+exp04_Y,loop_t=1000 loop_r=100000,0.052081
+exp04_Y,fit_max=0.3,0.052025
+exp04_Y,fit_max=0.5,0.052101
+mid360_Y,as_run,0.044
+mid360_Y,loop=0.3,0.241
+mid360_Y,loop=0.1,0.741
+mid360_Y,loop_t=100 loop_r=10000,0.063
+mid360_Y,loop_t=400 loop_r=10000,0.006
+mid360_Y,loop_t=400 loop_r=100000,0.011
+mid360_Y,loop_t=1000 loop_r=100000,0.004
+mid360_Y,fit_max=0.3,4.519
+mid360_Y,fit_max=0.5,4.519

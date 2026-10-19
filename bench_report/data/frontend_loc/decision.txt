@@ -1,0 +1,19 @@
+| sequence | Y (run) | Z frontend (screening) | Z frontend (run) | Z (run) | Z / Y |
+|---|---:|---:|---:|---:|---:|
+| calibration-room_trial-1 | 0.0328 | 0.0263 | 0.0263 | 0.0271 | 0.826 |
+| calibration-room_trial-2 | 0.0266 | 0.0205 | 0.0205 | 0.0207 | 0.778 |
+| flat-room_trial-1 | 0.0159 | 0.0148 | 0.0148 | 0.0151 | 0.949 |
+| long-corridor_trial-1 | 0.0719 | 0.0712 | 0.0712 | 0.0712 | 0.991 |
+| outdoor-urk_trial-1 | 0.0576 | 0.0507 | 0.0507 | 0.0499 | 0.867 |
+| underground-garage_trial-1 | 0.1014 | 0.0440 | 0.0440 | 0.0460 | 0.454 |
+| underground-garage_trial-2 | 0.0700 | 0.0293 | 0.0293 | 0.0372 | 0.532 |
+| underground-garage_trial-3 | 0.0805 | 0.0267 | 0.0267 | 0.0377 | 0.469 |
+| oxford | 0.0472 | - | - | 0.0472 | 1.000 |
+| exp04 | 0.0521 | - | - | 0.0521 | 1.000 |
+| geometric mean | 0.0491 | | | 0.0370 | 0.754 |
+
+1. GM lower than Y: True (0.0491 -> 0.0370)
+2. no sequence >= 5% worse: True (worst 1.000)
+3. MID-360 start loop (638 submaps): ['9 601 residual 0.044 m 1.09 deg']
+4. MID-360 thickness: Y 0.044251, Z 0.044251 (+0.00%)
+5. MapsHD frontend md5 equal to the screening: True (8/8)

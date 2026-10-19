@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 # Frontend-only runs of exp04 (7 checkpoints, ape_from_tum --interpolate) and Oxford Keble 05 (ape_oxford.py) per
 # variant (ROS parameter overrides "k:=v ..."), one run at a time. Appends seq,variant,ape,md5 to <csv>.
-# Usage: front_sweep_other.sh <csv> <out_root> <seqs: exp04,oxford> "<overrides>" ...
+# YAML_SUFFIX (e.g. _jerk1000) picks params/<profile><suffix>.yaml. The last column is the offline node time (s).
+# Usage: [YAML_SUFFIX=..] front_sweep_other.sh <csv> <out_root> <seqs: exp04,oxford> "<overrides>" ...
 set -uo pipefail
 csv=$1; root=$2; seqs=$3; shift 3
 WS=${WS:-/home/user/ws/cand_77072e4}; P=/home/user/bench/params; REPO=/home/user/lidar_slam_ros2
 mkdir -p "${root}"
 for seq in ${seqs//,/ }; do
   case ${seq} in
-    exp04) yaml=${P}/exp04_gyro002.yaml; bag=/home/user/data/hilti2022/exp04_ros2; lidar=/hesai/pandar; imu=/alphasense/imu ;;
-    oxford) yaml=${P}/oxford_keble05_gyro002.yaml; bag=/home/user/data/oxford_keble05/ros2; lidar=/hesai/pandar
+    exp04) yaml=${P}/exp04_gyro002${YAML_SUFFIX:-}.yaml; bag=/home/user/data/hilti2022/exp04_ros2; lidar=/hesai/pandar; imu=/alphasense/imu ;;
+    oxford) yaml=${P}/oxford_keble05_gyro002${YAML_SUFFIX:-}.yaml; bag=/home/user/data/oxford_keble05/ros2; lidar=/hesai/pandar
             imu=/alphasense_driver_ros/imu ;;
   esac
   dd if="$(ls ${bag}/*.db3)" of=/dev/null bs=16M 2>&1 | tail -1
@@ -29,7 +30,8 @@ for seq in ${seqs//,/ }; do
       ape=$(python3 ${REPO}/bench_report/scripts/ape_oxford.py "${t}" /home/user/data/oxford_keble05/gt_sealed/gt-tum.txt \
         /home/user/data/oxford_keble05/calib/T_imu_base.npy "${root}/${name}/ape" | awk '/^rmse:/ {print $2}')
     fi
-    echo "${seq},${v:-default},${ape},$(md5sum "${t}" | cut -c1-8)" | tee -a "${csv}"
+    took=$(awk -F, -v n="${name}" '$1 == n {print $3}' "${root}/runs.csv" | tail -1)
+    echo "${seq},${v:-default},${ape},$(md5sum "${t}" | cut -c1-8),${took}" | tee -a "${csv}"
     rm -rf "${root}/${name}/roslog"
   done
 done
