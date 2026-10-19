@@ -1636,3 +1636,44 @@ def test_rosbags_reader_detects_reversal_in_serialized_records(
     assert points['reversal_count'] == 1
     assert points['max_backward_jump_ns'] == 50_000_000
     assert payload['recommended_profile_id'] is None
+
+
+class _FakeStderr:
+    def __init__(self, tty: bool) -> None:
+        self.tty = tty
+        self.text = ''
+
+    def isatty(self) -> bool:
+        return self.tty
+
+    def write(self, text: str) -> int:
+        self.text += text
+        return len(text)
+
+    def flush(self) -> None:
+        pass
+
+
+def test_scan_progress_is_silent_without_a_terminal(monkeypatch):
+    module = _load_module()
+    stderr = _FakeStderr(tty=False)
+    monkeypatch.setattr(module.sys, 'stderr', stderr)
+    progress = module._ScanProgress('Checking header timestamps', 10, interval_s=0.0)
+    for _ in range(10):
+        progress.step()
+    progress.close()
+    assert progress.count == 10
+    assert stderr.text == ''
+
+
+def test_scan_progress_reports_count_and_percent_on_a_terminal(monkeypatch):
+    module = _load_module()
+    stderr = _FakeStderr(tty=True)
+    monkeypatch.setattr(module.sys, 'stderr', stderr)
+    progress = module._ScanProgress('Checking header timestamps', 4, interval_s=0.0)
+    for _ in range(2):
+        progress.step()
+    progress.close()
+    assert stderr.text.startswith('Checking header timestamps: reading the bag')
+    assert '2/4 messages (50%)' in stderr.text
+    assert stderr.text.endswith('\n')

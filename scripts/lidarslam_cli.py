@@ -68,7 +68,7 @@ def render_help(*, include_all: bool = False) -> str:
         '',
         'Fastest verified first map:',
         (
-            '  demo [work_dir]      Download public data, map, verify, and '
+            '  demo [work_dir]        Download public data, map, verify, and '
             'open the result'
         ),
         (
@@ -80,12 +80,12 @@ def render_help(*, include_all: bool = False) -> str:
             '  compare <left> <right> Compare two sessions using retained '
             'evidence'
         ),
-        '  report <output>      Prepare a verified first-map report',
-        '  support <session>    Prepare a privacy-first maintainer ZIP',
+        '  report <output>        Prepare a verified first-map report',
+        '  support <session>      Prepare a privacy-first maintainer ZIP',
         '',
         'Core rosbag2-to-map commands:',
         (
-            '  doctor [rosbag2_dir] Check the install; with a bag, inspect '
+            '  doctor [rosbag2_dir]   Check the install; with a bag, inspect '
             'compatibility'
         ),
         '  setup <rosbag2_dir>    Generate a reviewed sensor configuration bundle',
