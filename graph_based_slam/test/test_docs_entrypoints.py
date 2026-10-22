@@ -2010,7 +2010,7 @@ def test_official_rko_binary_gate_is_release_shaped_and_version_pinned():
     )
     release_doc = ROSDISTRO_RELEASE_DOC.read_text(encoding='utf-8')
 
-    assert 'RKO_RELEASE_VERSION: 0.4.0-1' in workflow
+    assert 'RKO_RELEASE_VERSION: 0.4.2-1' in workflow
     assert 'ros2-testing-apt-source' in workflow
     assert '/etc/apt/sources.list.d/ros2-testing.list' not in workflow
     assert '- develop' in workflow
