@@ -142,22 +142,82 @@ def test_confirmed_demo_delegates_to_the_existing_command(
     )
 
 
+def _make_bag(path: Path) -> Path:
+    path.mkdir(parents=True)
+    (path / 'metadata.yaml').write_text('rosbag2_bagfile_information: {}\n')
+    return path
+
+
 def test_own_bag_home_reuses_start_and_its_sensor_review(
-    monkeypatch, capsys, cli_module
+    monkeypatch, capsys, cli_module, tmp_path
 ):
+    bag = _make_bag(tmp_path / 'my bag')
     monkeypatch.setattr(cli_module, '_interactive_terminal', lambda: True)
-    _set_answers(monkeypatch, ['2', '/tmp/my bag', ''])
+    _set_answers(monkeypatch, ['2', str(bag), ''])
     captured = _capture_delegate(monkeypatch, cli_module)
 
     assert cli_module.main([]) == 0
 
     command = captured['command']
     assert Path(command[1]).name == 'sensor_setup_wizard.py'
-    assert command[2:] == ['--run', '/tmp/my bag']
+    assert command[2:] == ['--run', str(bag)]
     output = capsys.readouterr().out
-    assert "'/tmp/my bag'" in output
+    assert f"'{bag}'" in output
     assert 'No launch-file or YAML edits are needed' in output
     assert 'profile, and calibration are reviewed before mapping' in output
+
+
+def test_own_bag_home_reasks_for_a_missing_path(
+    monkeypatch, capsys, cli_module, tmp_path
+):
+    """A typo is caught at the prompt instead of after the start command."""
+    bag = _make_bag(tmp_path / 'bag')
+    monkeypatch.setattr(cli_module, '_interactive_terminal', lambda: True)
+    _set_answers(monkeypatch, ['2', str(tmp_path / 'typo'), str(bag), ''])
+    captured = _capture_delegate(monkeypatch, cli_module)
+
+    assert cli_module.main([]) == 0
+
+    assert captured['command'][2:] == ['--run', str(bag)]
+    assert f'Not found: {tmp_path / "typo"}' in capsys.readouterr().out
+
+
+def test_own_bag_home_lists_rosbags_below_a_parent_folder(
+    monkeypatch, capsys, cli_module, tmp_path
+):
+    """Pointing at a dataset folder shows the rosbag2 directories inside it."""
+    bag = _make_bag(tmp_path / 'dataset' / 'extracted' / 'run_01')
+    monkeypatch.setattr(cli_module, '_interactive_terminal', lambda: True)
+    _set_answers(monkeypatch, ['2', str(tmp_path / 'dataset'), str(bag), ''])
+    captured = _capture_delegate(monkeypatch, cli_module)
+
+    assert cli_module.main([]) == 0
+
+    assert captured['command'][2:] == ['--run', str(bag)]
+    output = capsys.readouterr().out
+    assert 'is not a rosbag2 directory' in output
+    assert f'  {bag}' in output
+
+
+def test_own_bag_home_stops_after_three_unusable_paths(
+    monkeypatch, capsys, cli_module, tmp_path
+):
+    monkeypatch.setattr(cli_module, '_interactive_terminal', lambda: True)
+    _set_answers(monkeypatch, ['2', *(str(tmp_path / 'x') for _ in range(3))])
+    captured = _capture_delegate(monkeypatch, cli_module)
+
+    assert cli_module.main([]) == 0
+
+    assert 'command' not in captured
+    assert 'No rosbag2 directory after three tries.' in capsys.readouterr().out
+
+
+def test_rosbag_search_is_bounded_by_depth_and_entries(cli_module, tmp_path):
+    near = _make_bag(tmp_path / 'a' / 'near')
+    _make_bag(tmp_path / 'b' / 'c' / 'd' / 'e' / 'too_deep')
+
+    assert cli_module._rosbag_dirs_below(tmp_path) == [near]
+    assert cli_module._rosbag_dirs_below(tmp_path, max_entries=1) == []
 
 
 def test_sessions_home_reuses_the_local_catalog(

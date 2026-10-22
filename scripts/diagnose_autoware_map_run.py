@@ -285,9 +285,10 @@ def _extract_problem_hints(
     launch_log: str,
     map_save_log: str,
     verify_summary: dict[str, Any],
+    workflow_log: str = '',
 ) -> list[str]:
     hints: list[str] = []
-    combined = '\n'.join([launch_log, map_save_log])
+    combined = '\n'.join([launch_log, map_save_log, workflow_log])
     pcl_fallocate_enospc = (
         'raw_fallocate' in combined
         and (
@@ -318,6 +319,11 @@ def _extract_problem_hints(
         hints.append(
             'The output filesystem ran out of writable space or quota. '
             'Preserve the run evidence, free storage, and rerun into a new output directory.'
+        )
+    if re.search(r'Timed out waiting for \S.* startup', combined):
+        hints.append(
+            'A SLAM node did not start within the startup timeout. A first '
+            'run after boot can be slow; rerun the same command.'
         )
     if 'Added 0 GNSS position constraint edges' in combined:
         hints.append('GNSS was enabled but the backend accepted zero GNSS edges.')
@@ -370,6 +376,7 @@ def summarize_run(
     launch_log_path = _find_first(run_dir, ['lidarslam.launch.log', 'slam.launch.log'])
     map_save_log_path = _find_first(run_dir, ['map_save.log'])
     verify_log_path = _find_first(run_dir, ['verify_autoware_map.log'])
+    workflow_log_path = _find_first(run_dir, ['map_workflow.log'])
     pointcloud_metadata_path = run_dir / 'pointcloud_map' / 'pointcloud_map_metadata.yaml'
     map_projector_path = run_dir / 'map_projector_info.yaml'
 
@@ -378,7 +385,12 @@ def summarize_run(
     verify_log = _read_text(verify_log_path)
     verify_summary = _parse_verify_log(verify_log)
     launch_flags = _extract_launch_flags(launch_log)
-    problem_hints = _extract_problem_hints(launch_log, map_save_log, verify_summary)
+    problem_hints = _extract_problem_hints(
+        launch_log,
+        map_save_log,
+        verify_summary,
+        _read_text(workflow_log_path),
+    )
     run_manifest, manifest_hints = _read_run_manifest(run_dir)
     problem_hints.extend(manifest_hints)
     manifest_status = run_manifest.get('status') if run_manifest else None

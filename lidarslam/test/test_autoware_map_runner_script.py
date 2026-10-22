@@ -294,6 +294,37 @@ def test_start_session_replays_retained_workflow_tail_on_failure(
     assert f'Complete workflow output: {workflow_log}' in terminal.err
 
 
+def test_start_session_retains_workflow_stderr_and_still_shows_it(
+    capsys,
+    tmp_path: Path,
+):
+    """Startup timeouts are printed to stderr; keep them as evidence too."""
+    module = _load_module()
+    workflow_log = tmp_path / module.CONCISE_WORKFLOW_LOG_NAME
+    command = [
+        sys.executable,
+        '-c',
+        (
+            "import sys; print('stdout detail', flush=True); "
+            "print('Timed out waiting for RKO-LIO startup.', "
+            'file=sys.stderr, flush=True); raise SystemExit(1)'
+        ),
+    ]
+
+    assert module._run_workflow(
+        command,
+        tmp_path,
+        True,
+        workflow_log,
+    ) == (1, False, None)
+
+    retained = workflow_log.read_text(encoding='utf-8').splitlines()
+    assert 'stdout detail' in retained
+    assert 'Timed out waiting for RKO-LIO startup.' in retained
+    terminal = capsys.readouterr()
+    assert terminal.err.startswith('Timed out waiting for RKO-LIO startup.\n')
+
+
 def test_start_session_success_defers_terminal_summary_to_parent(
     monkeypatch,
     capsys,

@@ -173,6 +173,69 @@ def _confirm(prompt: str, *, default: bool) -> bool:
     return False
 
 
+def _rosbag_dirs_below(root: Path, *, max_depth: int = 4, limit: int = 5,
+                       max_entries: int = 20000) -> list[Path]:
+    """Return rosbag2 directories a few levels below ``root``, nearest first.
+
+    The scan is bounded by depth and by the number of directory entries read,
+    so pointing it at a home directory stays interactive.
+    """
+    found: list[Path] = []
+    level = [root]
+    budget = max_entries
+    for _ in range(max_depth):
+        next_level: list[Path] = []
+        for directory in level:
+            try:
+                with os.scandir(directory) as entries:
+                    children = []
+                    for entry in entries:
+                        budget -= 1
+                        if budget < 0:
+                            return found
+                        if (not entry.name.startswith('.')
+                                and entry.is_dir(follow_symlinks=False)):
+                            children.append(Path(entry.path))
+            except OSError:
+                continue
+            for child in sorted(children):
+                if (child / 'metadata.yaml').is_file():
+                    found.append(child)
+                    if len(found) >= limit:
+                        return found
+                else:
+                    next_level.append(child)
+        level = next_level
+    return found
+
+
+def _ask_rosbag_dir() -> Path | None:
+    """Ask for a rosbag2 directory until one exists; empty input cancels."""
+    for _ in range(3):
+        answer = input('Rosbag2 directory containing metadata.yaml: ').strip()
+        if not answer:
+            return None
+        path = Path(answer).expanduser()
+        if (path / 'metadata.yaml').is_file():
+            return path
+        if not path.exists():
+            print(f'Not found: {path}')
+            continue
+        if not path.is_dir():
+            print(f'Not a directory: {path}')
+            continue
+        candidates = _rosbag_dirs_below(path)
+        if not candidates:
+            print(f'No metadata.yaml in {path} or the folders below it.')
+            continue
+        print(f'{path} is not a rosbag2 directory; rosbag2 directories below it:')
+        for candidate in candidates:
+            print(f'  {candidate}')
+        print('Enter one of these paths.')
+    print('No rosbag2 directory after three tries.')
+    return None
+
+
 def _interactive_home() -> tuple[list[str] | None, int]:
     """Turn a no-argument TTY launch into one existing beginner workflow."""
     print('lidarslam_ros2 — rosbag2 to a verified Autoware map')
@@ -227,13 +290,11 @@ def _interactive_home() -> tuple[list[str] | None, int]:
             return args, 0
 
         if choice == '2':
-            bag_dir = input(
-                'Rosbag2 directory containing metadata.yaml: '
-            ).strip()
-            if not bag_dir:
+            bag_path = _ask_rosbag_dir()
+            if bag_path is None:
                 print('No bag selected; no changes made.')
                 return None, 0
-            args = ['start', str(Path(bag_dir).expanduser())]
+            args = ['start', str(bag_path)]
             print('')
             print(f'Next command: {_render_command(args)}')
             print(
