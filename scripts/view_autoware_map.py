@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import subprocess
 import sys
@@ -122,6 +123,27 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help=advanced_help('Automatically close the viewer after N seconds.'),
     )
     return parser.parse_args(argv)
+
+
+def session_map_dir(path: Path) -> Path:
+    """Follow a start session directory to the map output it pinned.
+
+    ``start`` writes the setup (``sensor_setup.json``) and the map in a
+    ``map/`` child; people naturally pass the session directory they were
+    shown. Any other directory is returned unchanged.
+    """
+    setup = path / 'sensor_setup.json'
+    if not setup.is_file():
+        return path
+    try:
+        pinned = json.loads(setup.read_text(encoding='utf-8'))['run']['output_dir']
+    except (OSError, ValueError, KeyError, TypeError):
+        return path
+    map_dir = Path(pinned).expanduser().resolve()
+    if not map_dir.is_dir():
+        return path
+    print(f'Using the session map: {map_dir}', file=sys.stderr)
+    return map_dir
 
 
 def validate_output_dir(output_dir: Path) -> None:
@@ -270,7 +292,7 @@ def finish_browser_preview(
 def main(argv: Sequence[str] | None = None) -> int:
     """Validate the map output and propagate the selected viewer result."""
     args = parse_args(argv)
-    output_dir = Path(args.output_dir).expanduser().resolve()
+    output_dir = session_map_dir(Path(args.output_dir).expanduser().resolve())
     try:
         validate_output_dir(output_dir)
         validate_viewer_options(args)
