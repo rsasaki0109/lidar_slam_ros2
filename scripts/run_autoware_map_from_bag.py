@@ -19,6 +19,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import threading
 import time
 from typing import Sequence
 import uuid
@@ -66,6 +67,10 @@ EMERGENCY_EVIDENCE_RESERVE_NAME = '.terminal-evidence-reserve'
 PRODUCT_SESSION_OUTPUT_ENV = 'LIDARSLAM_PRODUCT_SESSION_OUTPUT'
 PRODUCT_SESSION_OUTPUT_CONCISE = 'concise'
 CONCISE_WORKFLOW_LOG_NAME = 'map_workflow.log'
+# The first run after a boot loads ROS libraries from a cold disk cache; one
+# node can then take most of the dogfood script's 30 s default to come up.
+# Waiting longer only matters when startup is slow, never on a healthy run.
+PRODUCT_STARTUP_TIMEOUT_SECS = 120
 CONCISE_WORKFLOW_FAILURE_TAIL_LINES = 80
 CONCISE_WORKFLOW_STATUS_LINES = frozenset({
     'Mapping is ready; processing the recorded sensor data ...',
@@ -132,6 +137,8 @@ def _run_workflow(
     """Run a workflow in an isolated process group with durable signal results."""
     process: subprocess.Popen | None = None
     log_stream = None
+    log_lock = threading.Lock()
+    stderr_pump: threading.Thread | None = None
     returncode = None
 
     def request_termination(signum, _frame):
@@ -149,6 +156,7 @@ def _run_workflow(
             log_stream = workflow_log.open('w', encoding='utf-8')
             popen_options.update({
                 'stdout': subprocess.PIPE,
+                'stderr': subprocess.PIPE,
                 'text': True,
                 'encoding': 'utf-8',
                 'errors': 'replace',
@@ -162,15 +170,29 @@ def _run_workflow(
         )
         try:
             if concise_output:
-                if process.stdout is None or log_stream is None:
+                if (
+                    process.stdout is None
+                    or process.stderr is None
+                    or log_stream is None
+                ):
                     raise RuntimeError(
                         'concise workflow output pipe was not created'
                     )
+                # Errors stay visible live and are also retained, so the
+                # diagnosis and the failure replay can see them.
+                stderr_pump = threading.Thread(
+                    target=_pump_workflow_stderr,
+                    args=(process.stderr, log_stream, log_lock),
+                    daemon=True,
+                )
+                stderr_pump.start()
                 for line in process.stdout:
-                    log_stream.write(line)
-                    log_stream.flush()
+                    with log_lock:
+                        log_stream.write(line)
+                        log_stream.flush()
                     if line.rstrip('\r\n') in CONCISE_WORKFLOW_STATUS_LINES:
                         print(line, end='', flush=True)
+                stderr_pump.join()
             returncode = process.wait()
         except KeyboardInterrupt:
             requested_signal = signal.SIGINT
@@ -180,6 +202,14 @@ def _run_workflow(
         signal.signal(signal.SIGTERM, previous_sigterm)
         if process is not None and process.stdout is not None:
             process.stdout.close()
+        if stderr_pump is not None and requested_signal is None:
+            stderr_pump.join(timeout=5)
+        if (
+            process is not None
+            and process.stderr is not None
+            and not (stderr_pump is not None and stderr_pump.is_alive())
+        ):
+            process.stderr.close()
         if log_stream is not None:
             log_stream.close()
 
@@ -201,6 +231,21 @@ def _run_workflow(
     if concise_output and returncode != 0 and workflow_log is not None:
         _print_concise_workflow_failure(workflow_log)
     return returncode, False, None
+
+
+def _pump_workflow_stderr(stream, log_stream, log_lock) -> None:
+    """Show child stderr live and retain it in the concise workflow log."""
+    try:
+        for line in stream:
+            sys.stderr.write(line)
+            sys.stderr.flush()
+            with log_lock:
+                if not log_stream.closed:
+                    log_stream.write(line)
+                    log_stream.flush()
+    except (OSError, ValueError):
+        # The supervisor closed the pipe while stopping an interrupted run.
+        return
 
 
 def _print_concise_workflow_failure(workflow_log: Path) -> None:
@@ -361,6 +406,7 @@ def build_execution_plan(
             ),
             '--output-dir', str(output_dir),
             '--wait-for-offline-completion',
+            '--startup-timeout-secs', str(PRODUCT_STARTUP_TIMEOUT_SECS),
             '--skip-viewer',
         ]
     elif selected_profile == 'rko_lio_graph_mid360_preset':
@@ -381,6 +427,7 @@ def build_execution_plan(
             '--rko-param', str(PACKAGE_SHARE / 'param' / 'rko_lio_mid360.yaml'),
             '--output-dir', str(output_dir),
             '--wait-for-offline-completion',
+            '--startup-timeout-secs', str(PRODUCT_STARTUP_TIMEOUT_SECS),
             '--skip-viewer',
         ]
     elif selected_profile == 'pointcloud_gnss_smoke':

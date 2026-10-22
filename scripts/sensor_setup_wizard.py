@@ -2259,6 +2259,17 @@ def _session_recovery_payload(
             'The map runner stopped before it retained an output directory.',
             dry_run_command,
         )
+    elif (
+        not findings
+        and 'did not start within the startup timeout' in signals
+    ):
+        # Keep the stable code; the message and the action name the cause.
+        add_finding(
+            'workflow-failed',
+            'A SLAM node did not start within the startup timeout. A first '
+            'run after boot can be slow; rerunning usually succeeds.',
+            retry_command,
+        )
     elif not findings and diagnosis_status == 'incomplete':
         add_finding(
             'map-output-incomplete',

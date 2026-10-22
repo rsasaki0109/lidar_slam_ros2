@@ -1626,6 +1626,32 @@ def test_runtime_recovery_taxonomy_covers_recognized_failure_classes(
         assert recovery['reason']['code'] == expected
 
 
+def test_startup_timeout_keeps_the_stable_code_and_offers_a_retry(
+    tmp_path: Path,
+):
+    """A slow cold start gets a cause and a rerun, not a generic inspect."""
+    module = _load_module()
+    manifest = _session_manifest(tmp_path)
+    run_dir = Path(manifest['run']['output_dir'])
+    _write_run_manifest(run_dir, status='failed')
+    _write_diagnosis(
+        run_dir,
+        status='runtime_failed',
+        hints=[
+            'A SLAM node did not start within the startup timeout. A first '
+            'run after boot can be slow; rerun the same command.'
+        ],
+    )
+
+    recovery = module._session_recovery_payload(manifest, 1)
+
+    assert recovery['reason']['code'] == 'workflow-failed'
+    assert 'startup timeout' in recovery['reason']['message']
+    finding = recovery['findings'][0]
+    assert finding['next_action'] == recovery['retry']['command']
+    assert recovery['next_command'] == recovery['retry']['command']
+
+
 def test_recovery_refuses_unsafe_or_ambiguous_resume_states(tmp_path: Path):
     """Offer resume only when one terminal manifest-v2 proves it."""
     module = _load_module()

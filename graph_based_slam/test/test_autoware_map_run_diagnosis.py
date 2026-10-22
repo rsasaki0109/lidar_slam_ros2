@@ -150,6 +150,26 @@ def test_summary_reports_map_write_disk_exhaustion(tmp_path: Path):
     assert 'free storage' in hints
 
 
+def test_summary_names_a_startup_timeout_from_the_workflow_log(
+    tmp_path: Path,
+):
+    """The concise runner keeps stderr in map_workflow.log; use it."""
+    module = _load_module()
+    run_dir = tmp_path / 'run'
+    run_dir.mkdir()
+    (run_dir / 'map_workflow.log').write_text(
+        'Timed out waiting for RKO-LIO startup. Recent launch log:\n',
+        encoding='utf-8',
+    )
+
+    summary = module.summarize_run(run_dir)
+    hints = '\n'.join(summary['problem_hints'])
+
+    assert summary['status'] == 'runtime_failed'
+    assert 'did not start within the startup timeout' in hints
+    assert 'rerun the same command' in hints
+
+
 def test_summary_recognizes_pcl_raw_fallocate_enospc(tmp_path: Path):
     module = _load_module()
     run_dir = tmp_path / 'run'
