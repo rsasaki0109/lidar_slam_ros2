@@ -341,6 +341,23 @@ def test_terminal_history_prints_share_or_recovery_next_action(
     assert '[ACTION REQUIRED] 2026-08-12T04:00:00Z' in rendered
 
 
+def test_source_launcher_name_prints_a_runnable_command(monkeypatch):
+    """'lidarslam' is the source launcher's display name, not a PATH command."""
+    module = _load(SCRIPT, 'session_history_source_command')
+    monkeypatch.setattr(module, 'SOURCE_LAYOUT', True)
+    monkeypatch.setattr(module.shutil, 'which', lambda _name: None)
+    monkeypatch.setenv('LIDARSLAM_CLI_COMMAND', 'lidarslam sessions')
+
+    assert module._first_map_report_command('/tmp/s') == (
+        './scripts/lidarslam report /tmp/s'
+    )
+
+    monkeypatch.setenv('LIDARSLAM_CLI_COMMAND', 'lidarslam-map sessions')
+    assert module._first_map_report_command('/tmp/s') == (
+        'lidarslam-map report /tmp/s'
+    )
+
+
 def test_terminal_history_compacts_retained_summary_text(
     tmp_path: Path,
 ):

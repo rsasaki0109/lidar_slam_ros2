@@ -11,6 +11,7 @@ import json
 import os
 from pathlib import Path
 import shlex
+import shutil
 from string import Template
 import sys
 import tempfile
@@ -272,6 +273,15 @@ def _product_command_prefix(command: str) -> str:
         return f'lidarslam-map {command}'
     if parts and parts[-1] == 'sessions':
         parts.pop()
+    # A source checkout's launcher is named 'lidarslam' for display but is
+    # not on PATH; print the runnable spelling the other commands use.
+    if (
+        SOURCE_LAYOUT
+        and parts
+        and parts[0] == 'lidarslam'
+        and shutil.which('lidarslam') is None
+    ):
+        parts[0] = './scripts/lidarslam'
     parts.append(command)
     return shlex.join(parts)
 
