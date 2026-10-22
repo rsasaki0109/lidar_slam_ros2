@@ -335,6 +335,10 @@ def test_terminal_history_prints_share_or_recovery_next_action(
         'The retained run stopped before verification.'
     ) in rendered
     assert 'Next: lidarslam-map support /tmp/failed' in rendered
+    # Distinct status and quality are both shown; an identical pair is not
+    # repeated as "ACTION REQUIRED / ACTION REQUIRED".
+    assert '[VERIFIED / PASS] 2026-08-12T03:00:00Z' in rendered
+    assert '[ACTION REQUIRED] 2026-08-12T04:00:00Z' in rendered
 
 
 def test_terminal_history_compacts_retained_summary_text(

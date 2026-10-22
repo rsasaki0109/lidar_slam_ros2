@@ -675,11 +675,12 @@ def _render_terminal(payload: dict[str, Any]) -> str:
         )
         return '\n'.join(lines)
     for entry in payload['sessions']:
+        status = _status_label(entry['status'])
+        quality = _quality_label(entry['quality']['overall'])
+        badge = status if quality == status else f'{status} / {quality}'
         lines.extend([
             '',
-            f"[{_status_label(entry['status'])} / "
-            f"{_quality_label(entry['quality']['overall'])}] "
-            f"{entry['created_at']}",
+            f"[{badge}] {entry['created_at']}",
             f"  {entry['profile']['label']}",
             f"  {entry['bundle_path']}",
         ])
