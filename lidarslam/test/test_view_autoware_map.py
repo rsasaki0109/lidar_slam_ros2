@@ -30,6 +30,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 import subprocess
 import sys
@@ -82,6 +83,24 @@ def test_help_has_a_small_viewer_specific_surface():
     assert '--runtime-dir' in completed.stdout
     assert '--viewer-run-dir' not in completed.stdout
     assert '--rebuild' in completed.stdout
+
+
+def test_start_session_directory_resolves_to_its_map(tmp_path: Path, capsys):
+    """The session directory start prints resolves to the map it pinned."""
+    module = _load_module()
+    session = tmp_path / 'session'
+    map_dir = session / 'map'
+    map_dir.mkdir(parents=True)
+    (session / 'sensor_setup.json').write_text(
+        json.dumps({'run': {'output_dir': str(map_dir)}}), encoding='utf-8'
+    )
+
+    assert module.session_map_dir(session) == map_dir.resolve()
+    assert f'Using the session map: {map_dir.resolve()}' in capsys.readouterr().err
+    # A plain map directory, or a malformed setup, is left unchanged.
+    assert module.session_map_dir(map_dir) == map_dir
+    (session / 'sensor_setup.json').write_text('{}', encoding='utf-8')
+    assert module.session_map_dir(session) == session
 
 
 def test_missing_or_incomplete_output_is_rejected_before_launch(

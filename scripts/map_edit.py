@@ -100,9 +100,17 @@ def resolve_bundle_dir(path: Path) -> Path:
     )
 
 
+# ROS writes its runtime logs (and a ``latest`` symlink) here during mapping.
+# They are run evidence, not map content, and are not carried into a candidate.
+ROS_RUNTIME_LOG_DIR = '.ros_log'
+
+
 def _reject_source_symlinks(bundle_dir: Path) -> None:
     """Prevent a map edit from importing files outside its source bundle."""
     for candidate in bundle_dir.rglob('*'):
+        relative = candidate.relative_to(bundle_dir)
+        if relative.parts[0] == ROS_RUNTIME_LOG_DIR:
+            continue
         if candidate.is_symlink():
             raise MapEditError(
                 'source map bundle must not contain symlinks: '
@@ -344,7 +352,16 @@ def apply_map_edit(
         staging = Path(temporary) / 'candidate'
         # The source bundle was checked above, so this copy cannot import an
         # external symlink target or preserve a link that later writes back.
-        shutil.copytree(bundle_dir, staging, symlinks=False)
+        shutil.copytree(
+            bundle_dir,
+            staging,
+            symlinks=False,
+            ignore=lambda directory, _names: (
+                [ROS_RUNTIME_LOG_DIR]
+                if Path(directory) == bundle_dir
+                else []
+            ),
+        )
         replay_report: dict[str, Any] = {'performed': False}
         if loop_operations:
             replay_report = _replay_without_disabled_loops(

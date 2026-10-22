@@ -334,6 +334,37 @@ def test_source_bundle_symlink_cannot_import_external_content(tmp_path: Path):
     assert not (tmp_path / 'candidate').exists()
 
 
+def test_ros_runtime_log_symlink_does_not_block_an_edit(tmp_path: Path):
+    """A map from start keeps ROS's .ros_log/latest link; edit still works."""
+    source = _write_bundle(tmp_path / 'source')
+    run_log = source / '.ros_log' / '2026-10-22-run'
+    run_log.mkdir(parents=True)
+    (run_log / 'node.log').write_text('runtime log\n', encoding='utf-8')
+    (source / '.ros_log' / 'latest').symlink_to('2026-10-22-run')
+    plan = _write_plan(
+        tmp_path / 'plan.json',
+        source,
+        [{
+            'id': 'remove-origin',
+            'type': 'remove_box',
+            'min_xyz': [-0.5, -0.5, -0.5],
+            'max_xyz': [0.5, 0.5, 0.5],
+        }],
+    )
+    candidate = tmp_path / 'candidate'
+
+    receipt = apply_map_edit(
+        source_dir=source,
+        plan_path=plan,
+        output_dir=candidate,
+    )
+
+    assert receipt['status'] == 'PASS'
+    # Runtime logs are run evidence, not map content.
+    assert not (candidate / '.ros_log').exists()
+    assert (source / '.ros_log' / 'latest').is_symlink()
+
+
 def test_geometry_change_invalidates_plan_even_when_manifest_is_unchanged(
     tmp_path: Path,
 ):

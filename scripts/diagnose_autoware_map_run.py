@@ -9,12 +9,16 @@ import os
 from pathlib import Path
 import re
 import shlex
+import shutil
 import sys
 from typing import Any
 
 import yaml
 
 SCHEMA_VERSION = 1
+SOURCE_LAYOUT = (
+    Path(__file__).resolve().parent.parent / 'lidarslam' / 'package.xml'
+).is_file()
 SCHEMA_URI = 'https://rsasaki0109.github.io/lidar_slam_ros2/schemas/diagnosis-v1.schema.json'
 
 SYMPTOM_CHOICES = (
@@ -179,6 +183,14 @@ def _product_command(*args: str) -> str:
             prefix.pop()
     else:
         prefix = ['lidarslam-map']
+    # 'lidarslam' is a source launcher's display name and is not on PATH.
+    if (
+        SOURCE_LAYOUT
+        and prefix
+        and prefix[0] == 'lidarslam'
+        and shutil.which('lidarslam') is None
+    ):
+        prefix[0] = './scripts/lidarslam'
     return shlex.join([*prefix, *args])
 
 
@@ -339,25 +351,26 @@ def _suggest_next_steps(summary: dict[str, Any]) -> list[str]:
 
     if summary['status'] == 'success':
         steps.extend([
-            f'bash scripts/run_graph_slam_pointcloud_map_in_autoware_foxglove.sh {run_dir}',
-            f'bash scripts/run_graph_slam_pointcloud_map_in_autoware.sh {run_dir}',
+            _product_command('view', run_dir),
+            _product_command('view', run_dir, '--viewer', 'foxglove'),
+            _product_command('view', run_dir, '--viewer', 'autoware'),
         ])
     elif summary['status'] == 'map_saved':
         steps.append(f'python3 scripts/verify_autoware_map.py {pointcloud_map_dir}')
     elif summary['status'] == 'verify_failed':
         steps.extend([
             f'python3 scripts/verify_autoware_map.py {pointcloud_map_dir}',
-            f'python3 scripts/diagnose_autoware_map_run.py {run_dir} --write',
+            _product_command('inspect', run_dir, '--write'),
         ])
     else:
         launch_log = summary['files']['launch_log']
         if launch_log:
             steps.append(f'tail -n 120 {launch_log}')
         if 'bag_preflight' in summary:
-            steps.append(
-                'python3 scripts/preflight_autoware_map_bag.py '
-                f"{summary['bag_preflight']['summary']['bag_path']}"
-            )
+            steps.append(_product_command(
+                'doctor',
+                summary['bag_preflight']['summary']['bag_path'],
+            ))
 
     if summary['files']['verify_log']:
         steps.append(f"less {summary['files']['verify_log']}")
@@ -545,6 +558,27 @@ def render_markdown(summary: dict[str, Any]) -> str:
     return '\n'.join(lines)
 
 
+def session_map_dir(path: Path) -> Path:
+    """Follow a start session directory to the map output it pinned.
+
+    ``start`` writes the setup (``sensor_setup.json``) and the map in a
+    ``map/`` child; people naturally pass the session directory they were
+    shown. Any other directory is returned unchanged.
+    """
+    setup = path / 'sensor_setup.json'
+    if not setup.is_file():
+        return path
+    try:
+        pinned = json.loads(setup.read_text(encoding='utf-8'))['run']['output_dir']
+    except (OSError, ValueError, KeyError, TypeError):
+        return path
+    map_dir = Path(pinned).expanduser().resolve()
+    if not map_dir.is_dir():
+        return path
+    print(f'Using the session map: {map_dir}', file=sys.stderr)
+    return map_dir
+
+
 def validate_run_dir(run_dir: Path) -> None:
     """Validate a CLI run directory input."""
     if run_dir.is_file():
@@ -640,7 +674,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    run_dir = Path(args.run_dir).expanduser().resolve()
+    run_dir = session_map_dir(Path(args.run_dir).expanduser().resolve())
     bag_path = Path(args.bag).expanduser().resolve() if args.bag else None
     try:
         validate_run_dir(run_dir)

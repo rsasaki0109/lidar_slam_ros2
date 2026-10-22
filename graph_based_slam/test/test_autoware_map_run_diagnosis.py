@@ -102,10 +102,33 @@ def test_summary_marks_success_when_map_and_verify_pass_exist(tmp_path: Path):
     assert summary['status'] == 'success'
     assert summary['verify']['result'] == 'PASS'
     assert summary['projector_type'] == 'LocalCartesian'
+    # Next steps are product commands, not repository-relative scripts.
     assert any(
-        'run_graph_slam_pointcloud_map_in_autoware_foxglove.sh' in step
+        step.endswith(f'view {run_dir.resolve()} --viewer foxglove')
         for step in summary['suggested_next_steps']
     )
+    assert not any(
+        'scripts/run_graph_slam' in step
+        for step in summary['suggested_next_steps']
+    )
+
+
+def test_start_session_directory_resolves_to_its_map(tmp_path: Path, capsys):
+    """The session directory start prints resolves to the map it pinned."""
+    module = _load_module()
+    session = tmp_path / 'session'
+    map_dir = session / 'map'
+    map_dir.mkdir(parents=True)
+    (session / 'sensor_setup.json').write_text(
+        json.dumps({'run': {'output_dir': str(map_dir)}}), encoding='utf-8'
+    )
+
+    assert module.session_map_dir(session) == map_dir.resolve()
+    assert f'Using the session map: {map_dir.resolve()}' in capsys.readouterr().err
+    # A plain map directory, or a malformed setup, is left unchanged.
+    assert module.session_map_dir(map_dir) == map_dir
+    (session / 'sensor_setup.json').write_text('{}', encoding='utf-8')
+    assert module.session_map_dir(session) == session
 
 
 def test_summary_reports_tf_issue_hints(tmp_path: Path):
