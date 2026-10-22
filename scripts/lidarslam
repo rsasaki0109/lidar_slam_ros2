@@ -125,14 +125,5 @@ fi
 
 export LIDARSLAM_CLI_NAME
 LIDARSLAM_CLI_NAME=$(basename "$0")
-# A source checkout's launcher is usually run by path (./scripts/lidarslam)
-# rather than found on PATH.  Name it as invoked so the commands it prints can
-# be pasted back; keep the bare name when PATH resolves it to this launcher.
-if [[ "${SOURCE_LAYOUT}" == true ]]; then
-  PATH_LAUNCHER=$(command -v "${LIDARSLAM_CLI_NAME}" 2>/dev/null || true)
-  if [[ -z "${PATH_LAUNCHER}" || "$(realpath "${PATH_LAUNCHER}")" != "$(realpath "$0")" ]]; then
-    LIDARSLAM_CLI_NAME="$0"
-  fi
-fi
 export PYTHONDONTWRITEBYTECODE=1
 exec python3 "${CLI_PATH}" "$@"

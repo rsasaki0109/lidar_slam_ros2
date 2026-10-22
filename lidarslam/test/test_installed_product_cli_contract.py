@@ -183,27 +183,12 @@ def test_source_launcher_activates_only_a_matching_built_workspace(
     result = _run_launcher(launcher)
 
     assert result.returncode == 0, result.stderr
-    # A source launcher run by path names itself by that path, so printed
-    # next commands can be pasted back; the bare name is not on PATH.
     assert result.stdout.splitlines() == [
         'source',
-        str(launcher),
+        'lidarslam',
         '1',
         'doctor /tmp/example bag --json',
     ]
-
-    env = os.environ.copy()
-    env.pop('LIDARSLAM_LAUNCHER_SETUP_TEST', None)
-    env['PATH'] = f'{scripts}{os.pathsep}{env.get("PATH", "")}'
-    on_path = subprocess.run(
-        ['lidarslam', 'doctor', '/tmp/example bag', '--json'],
-        check=False,
-        capture_output=True,
-        env=env,
-        text=True,
-    )
-    assert on_path.returncode == 0, on_path.stderr
-    assert on_path.stdout.splitlines()[1] == 'lidarslam'
 
     (installed_scripts / 'lidarslam_cli.py').unlink()
     (installed_scripts / 'launcher_probe_module.py').unlink()
