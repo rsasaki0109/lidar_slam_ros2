@@ -224,6 +224,40 @@ def test_stale_inventory_digest_is_rejected():
         CHECKER.validate_plan(plan, _schema(), _planned_paths(plan))
 
 
+def _git(cwd: Path, *arguments: str) -> str:
+    return subprocess.run(
+        ['git', *arguments], cwd=cwd, check=True, capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
+def test_shallow_clone_failure_names_the_unshallow_fix(
+    monkeypatch, tmp_path: Path,
+):
+    """A missing historical commit in a shallow clone gets an actionable hint."""
+    source = tmp_path / 'source'
+    source.mkdir()
+    _git(source, 'init', '-q')
+    for index in range(2):
+        (source / 'file.txt').write_text(f'{index}\n', encoding='utf-8')
+        _git(source, 'add', 'file.txt')
+        _git(source, '-c', 'user.name=t', '-c', 'user.email=t@example.com',
+             'commit', '-q', '-m', f'commit {index}')
+    first = _git(source, 'rev-list', '--max-parents=0', 'HEAD')
+    shallow = tmp_path / 'shallow'
+    _git(tmp_path, 'clone', '-q', '--depth', '1', source.as_uri(),
+         str(shallow))
+    monkeypatch.setattr(CHECKER, 'REPO_ROOT', shallow)
+
+    with pytest.raises(CHECKER.PlanError, match='git fetch --unshallow'):
+        CHECKER._run_git(['diff', '--check', f'{first}..HEAD', '--'])
+
+    monkeypatch.setattr(CHECKER, 'REPO_ROOT', source)
+    with pytest.raises(CHECKER.PlanError) as full_history_error:
+        CHECKER._run_git(['diff', '--check', f'{"0" * 40}..HEAD', '--'])
+    assert 'unshallow' not in str(full_history_error.value)
+
+
 def test_unresolvable_public_head_is_rejected():
     plan = _plan()
     plan['candidate']['public_head_sha'] = '0' * 40

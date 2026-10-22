@@ -138,8 +138,28 @@ def _run_git(arguments: Sequence[str]) -> list[str]:
         ) from exc
     if result.returncode != 0:
         detail = result.stderr.strip() or 'git returned no error text'
+        if _is_shallow_repository():
+            detail += (
+                " (this clone is shallow, so the plan's historical commits "
+                'may be missing; run `git fetch --unshallow` and retry)'
+            )
         raise PlanError(f'read-only Git inspection failed: {detail}')
     return [line for line in result.stdout.splitlines() if line]
+
+
+def _is_shallow_repository() -> bool:
+    try:
+        result = subprocess.run(
+            ['git', 'rev-parse', '--is-shallow-repository'],
+            cwd=REPO_ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return result.returncode == 0 and result.stdout.strip() == 'true'
 
 
 def candidate_paths(base_sha: str) -> list[str]:
