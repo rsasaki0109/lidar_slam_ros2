@@ -1,0 +1,157 @@
+diff --git a/rko_lio/core/lio.cpp b/rko_lio/core/lio.cpp
+index f285859..5cd733e 100644
+--- a/rko_lio/core/lio.cpp
++++ b/rko_lio/core/lio.cpp
+@@ -202,7 +202,8 @@ LinearSystem build_icp_linear_system(const Sophus::SE3d& current_pose,
+                                      const double localizability_boost = 0.0,
+                                      IcpWeightingStats* weighting_stats = nullptr,
+                                      std::vector<VoxelHashMap::NeighborhoodCache>* neighborhoods = nullptr,
+-                                     const bool localizability_normal_only = false) {
++                                     const bool localizability_normal_only = false,
++                                     const double localizability_tangential_weight = 1.0) {
+   // H, b, chi, weight sum, correspondence count. The weight sum replaces the correspondence
+   // count in the H/b normalization; with weighting disabled every weight is exactly 1
+   // and the result is bit-identical to the historical count-normalized system.
+@@ -243,6 +244,13 @@ LinearSystem build_icp_linear_system(const Sophus::SE3d& current_pose,
+         boosted_counter++;
+       }
+     }
++    if (localizability_normal_only && localizability_tangential_weight != 1.0 && normal.has_value()) {
++      // The along-surface residual of every correspondence with a map normal is down-weighted
++      // (planar_information); the weight sum counts the mean information, trace(W) / 3.
++      const Eigen::Matrix3d W = planar_information(normal, weight, localizability_tangential_weight);
++      return WeightedSystem(J_r.transpose() * W * J_r, J_r.transpose() * W * residual, residual.dot(W * residual),
++                            W.trace() / 3.0, 1);
++    }
+     if (localizability_normal_only && weight > 1.0) {
+       // Only the residual along the map normal is boosted (normal_only_information). The weight
+       // sum counts the mean added information, trace(W) / 3.
+@@ -441,7 +449,8 @@ IcpResult icp(const Vector3dVector& frame,
+         geometric = build_icp_linear_system(current_pose, frame, voxel_map, config.max_correspondence_distance,
+                                             voxel_search_radius, localizability_axis, localizability_boost,
+                                             &weighting_stats, voxel_search_radius <= 1 ? &neighborhoods : nullptr,
+-                                            config.localizability_normal_only);
++                                            config.localizability_normal_only,
++                                            config.localizability_tangential_weight);
+       }
+       auto [H_icp, b_icp, chi_icp] = geometric;
+       if (photometric != nullptr && weighting_stats.correspondences > 0) {
+diff --git a/rko_lio/core/lio.hpp b/rko_lio/core/lio.hpp
+index 6df2b6b..f83b470 100644
+--- a/rko_lio/core/lio.hpp
++++ b/rko_lio/core/lio.hpp
+@@ -576,6 +576,12 @@ public:
+      *  of the map points, keeps its unit weight. */
+     bool localizability_normal_only = false;
+ 
++    /** With localizability_normal_only, the weight of the along-surface residual of every
++     *  correspondence that has a map normal (W = t (I - n n^T) + w n n^T, w the localizability
++     *  weight, at least 1). 1 keeps the point-to-point residual along the surface; 0 leaves only
++     *  the point-to-plane residual. */
++    double localizability_tangential_weight = 1.0;
++
+     /** Correct translation along a confirmed persistent weak direction using scan-to-scan
+      *  cross-correlation of a 1D reflectivity/intensity profile built along that axis.
+      *  Recovers along-tunnel translation that geometric ICP under-observes in self-similar
+diff --git a/rko_lio/core/localizability_weighting.hpp b/rko_lio/core/localizability_weighting.hpp
+index c58bea4..3f81bed 100644
+--- a/rko_lio/core/localizability_weighting.hpp
++++ b/rko_lio/core/localizability_weighting.hpp
+@@ -38,6 +38,7 @@
+ 
+ #include <Eigen/Core>
+ 
++#include <algorithm>
+ #include <optional>
+ 
+ namespace rko_lio::core {
+@@ -79,4 +80,21 @@ inline Eigen::Matrix3d normal_only_information(const std::optional<Eigen::Vector
+   return Eigen::Matrix3d::Identity() + (weight - 1.0) * (*normal) * normal->transpose();
+ }
+ 
++/**
++ * Information matrix of one correspondence on a surface whose along-surface residual is also
++ * down-weighted: W = tangential (I - n n^T) + weight n n^T. The along-surface part of a
++ * point-to-point residual is mostly the spacing of the map points; tangential = 0 leaves only
++ * the point-to-plane residual. Returns the identity without a normal; a weight below 1 counts
++ * as 1, as in normal_only_information.
++ */
++inline Eigen::Matrix3d planar_information(const std::optional<Eigen::Vector3d>& normal,
++                                          const double weight,
++                                          const double tangential) {
++  if (!normal.has_value()) {
++    return Eigen::Matrix3d::Identity();
++  }
++  const Eigen::Matrix3d nn = (*normal) * normal->transpose();
++  return tangential * (Eigen::Matrix3d::Identity() - nn) + std::max(weight, 1.0) * nn;
++}
++
+ } // namespace rko_lio::core
+diff --git a/rko_lio/ros/base_node.cpp b/rko_lio/ros/base_node.cpp
+index b6704a7..d1fd01d 100644
+--- a/rko_lio/ros/base_node.cpp
++++ b/rko_lio/ros/base_node.cpp
+@@ -206,6 +206,7 @@ void to_json(BasicJsonType& nlohmann_json_j, const LIO::Config& nlohmann_json_t)
+   nlohmann_json_j["localizability_boost"] = nlohmann_json_t.localizability_boost;
+   nlohmann_json_j["localizability_min_step_m"] = nlohmann_json_t.localizability_min_step_m;
+   nlohmann_json_j["localizability_normal_only"] = nlohmann_json_t.localizability_normal_only;
++  nlohmann_json_j["localizability_tangential_weight"] = nlohmann_json_t.localizability_tangential_weight;
+   nlohmann_json_j["kinematic_velocity_gate"] = nlohmann_json_t.kinematic_velocity_gate;
+   nlohmann_json_j["kinematic_gate_accel_margin"] = nlohmann_json_t.kinematic_gate_accel_margin;
+   nlohmann_json_j["kinematic_gate_min_speed"] = nlohmann_json_t.kinematic_gate_min_speed;
+@@ -367,6 +368,7 @@ void from_json(const BasicJsonType& nlohmann_json_j, LIO::Config& nlohmann_json_
+   nlohmann_json_j.at("localizability_boost").get_to(nlohmann_json_t.localizability_boost);
+   nlohmann_json_j.at("localizability_min_step_m").get_to(nlohmann_json_t.localizability_min_step_m);
+   nlohmann_json_j.at("localizability_normal_only").get_to(nlohmann_json_t.localizability_normal_only);
++  nlohmann_json_j.at("localizability_tangential_weight").get_to(nlohmann_json_t.localizability_tangential_weight);
+   nlohmann_json_j.at("kinematic_velocity_gate").get_to(nlohmann_json_t.kinematic_velocity_gate);
+   nlohmann_json_j.at("kinematic_gate_accel_margin").get_to(nlohmann_json_t.kinematic_gate_accel_margin);
+   nlohmann_json_j.at("kinematic_gate_min_speed").get_to(nlohmann_json_t.kinematic_gate_min_speed);
+@@ -764,6 +766,8 @@ BaseNode::BaseNode(const std::string& node_name, const rclcpp::NodeOptions& opti
+       node->declare_parameter<double>("localizability_min_step_m", lio_config.localizability_min_step_m);
+   lio_config.localizability_normal_only =
+       node->declare_parameter<bool>("localizability_normal_only", lio_config.localizability_normal_only);
++  lio_config.localizability_tangential_weight = node->declare_parameter<double>(
++      "localizability_tangential_weight", lio_config.localizability_tangential_weight);
+ 
+   // ---- accelerometer-consistency velocity gate (fork addition; default-off) ----
+   lio_config.kinematic_velocity_gate =
+diff --git a/test/test_localizability_weighting.cpp b/test/test_localizability_weighting.cpp
+index 2375891..c37a008 100644
+--- a/test/test_localizability_weighting.cpp
++++ b/test/test_localizability_weighting.cpp
+@@ -16,6 +16,7 @@ namespace {
+ 
+ using rko_lio::core::localizability_weight;
+ using rko_lio::core::normal_only_information;
++using rko_lio::core::planar_information;
+ using rko_lio::core::VoxelHashMap;
+ 
+ TEST(LocalizabilityWeight, NeutralWithoutNormalOrBoostOrAxis) {
+@@ -63,6 +64,26 @@ TEST(NormalOnlyInformation, BoostsOnlyAlongTheNormal) {
+   EXPECT_TRUE(normal_only_information(-normal, 31.0).isApprox(W));
+ }
+ 
++TEST(PlanarInformation, IdentityWithoutNormal) {
++  EXPECT_TRUE(planar_information(std::nullopt, 31.0, 0.0).isApprox(Eigen::Matrix3d::Identity()));
++}
++
++TEST(PlanarInformation, ScalesTheAlongSurfaceResidual) {
++  const Eigen::Vector3d normal = Eigen::Vector3d(1.0, 1.0, 0.0).normalized();
++  const Eigen::Vector3d along_surface = Eigen::Vector3d(1.0, -1.0, 0.0).normalized();
++  const Eigen::Matrix3d W = planar_information(normal, 31.0, 0.25);
++  EXPECT_NEAR(normal.dot(W * normal), 31.0, 1.0e-12);
++  EXPECT_NEAR(along_surface.dot(W * along_surface), 0.25, 1.0e-12);
++  EXPECT_NEAR(Eigen::Vector3d::UnitZ().dot(W * Eigen::Vector3d::UnitZ()), 0.25, 1.0e-12);
++  EXPECT_NEAR(W.trace(), 31.0 + 2.0 * 0.25, 1.0e-12);
++  // Tangential weight 1 is the normal-only information; 0 is point-to-plane.
++  EXPECT_TRUE(planar_information(normal, 31.0, 1.0).isApprox(normal_only_information(normal, 31.0)));
++  EXPECT_TRUE(planar_information(normal, 5.0, 0.0).isApprox(5.0 * normal * normal.transpose()));
++  // A weight below 1 (an axis-neutral surface) counts as 1 along the normal.
++  EXPECT_NEAR(normal.dot(planar_information(normal, 1.0, 0.0) * normal), 1.0, 1.0e-12);
++  EXPECT_TRUE(planar_information(-normal, 31.0, 0.25).isApprox(W));
++}
++
+ TEST(VoxelHashMapNormals, PlanarVoxelYieldsSurfaceNormal) {
+   VoxelHashMap grid(1.0, 100.0, 20);
+   grid.set_maintain_normals(true);

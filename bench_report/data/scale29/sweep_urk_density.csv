@@ -1,0 +1,6 @@
+outdoor-urk_trial-1,default,0.050725,0.041208,0.026155,0.013815,0.007920,5ea4a0e0
+outdoor-urk_trial-1,icp_keypoint_voxel_multiplier:=1.5,0.054365,0.043217,0.027879,0.017622,0.007371,28aaa3d0
+outdoor-urk_trial-1,icp_keypoint_voxel_multiplier:=1.0,0.055975,0.043424,0.027595,0.022046,0.007000,419d8186
+outdoor-urk_trial-1,max_points_per_voxel:=5,0.052905,0.042122,0.026788,0.017521,0.008154,afc7ec6e
+outdoor-urk_trial-1,max_points_per_voxel:=50,0.047941,0.038850,0.024928,0.012945,0.007913,b5f5d511
+outdoor-urk_trial-1,localizability_boost:=20.0,0.050389,0.040756,0.026026,0.014167,0.008010,2986ce4d
