@@ -1,0 +1,19 @@
+| sequence | C (run) | D (replay, garage only) | D (run) | D / C |
+|---|---:|---:|---:|---:|
+| calibration-room_trial-1 | 0.0257 | – | 0.0272 | 1.059 |
+| calibration-room_trial-2 | 0.0206 | – | 0.0209 | 1.012 |
+| flat-room_trial-1 | 0.0149 | – | 0.0149 | 1.000 |
+| long-corridor_trial-1 | 0.0712 | – | 0.0712 | 1.000 |
+| outdoor-urk_trial-1 | 0.0506 | – | 0.0520 | 1.027 |
+| underground-garage_trial-1 | 0.0427 | – | 0.0431 | 1.010 |
+| underground-garage_trial-2 | 0.0381 | 0.0352 | 0.0334 | 0.876 |
+| underground-garage_trial-3 | 0.0316 | 0.0304 | 0.0284 | 0.900 |
+| oxford | 0.0463 | – | 0.0463 | 1.000 |
+| exp04 | 0.0517 | – | 0.0520 | 1.007 |
+| geometric mean | 0.0358 | – | 0.0354 | 0.988 |
+
+1. GM lower than C: True (0.0358 -> 0.0354)
+2. no sequence >= 5% worse: False (worst 1.059)
+3. MID-360 start loop (638 submaps): ['9 601 residual 0.030 m 0.90 deg']
+4. MID-360 thickness: C 0.044162, D 0.044300 (+0.31%)
+5. frontend md5 equal to C: True (11/11)

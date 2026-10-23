@@ -8,7 +8,7 @@
 #          patch_count,mean_map_entropy_nats
 csv=$1; shift
 REPO=/home/user/lidar_slam_ros2
-SETUP=/home/user/ws/slam_dev/install/setup.bash
+SETUP=${MAP_QUALITY_SETUP:-/home/user/ws/dev_c/install/setup.bash}
 for run in "$@"; do
   name=$(basename "${run}")
   mq=${run}/map_quality
