@@ -42,10 +42,22 @@ namespace graphslam
 namespace map_saver
 {
 
+// The test of voxelGridWouldCopyInput below for a cloud whose bounding box is [min_p, max_p].
+inline bool voxelGridIndexOverflows(
+  const Eigen::Vector4f & min_p, const Eigen::Vector4f & max_p, float leaf_size)
+{
+  const Eigen::Array4f leaf(leaf_size, leaf_size, leaf_size, 1.0f);
+  const Eigen::Array4f inverse_leaf = Eigen::Array4f::Ones() / leaf;
+  const std::int64_t dx = static_cast<std::int64_t>((max_p[0] - min_p[0]) * inverse_leaf[0]) + 1;
+  const std::int64_t dy = static_cast<std::int64_t>((max_p[1] - min_p[1]) * inverse_leaf[1]) + 1;
+  const std::int64_t dz = static_cast<std::int64_t>((max_p[2] - min_p[2]) * inverse_leaf[2]) + 1;
+  return dx * dy * dz > static_cast<std::int64_t>(std::numeric_limits<std::int32_t>::max());
+}
+
 // True when pcl::VoxelGrid with this leaf size would not downsample `cloud`: its grid has more
 // voxels than a 32-bit index holds, and VoxelGrid::applyFilter then copies the input to the
 // output unchanged. This is the same test, with the same float arithmetic, as in PCL 1.14
-// (no filter field, every point used). A caller can then use the cloud itself instead of a copy.
+// (no filter field, every point used).
 template<typename PointT>
 inline bool voxelGridWouldCopyInput(const pcl::PointCloud<PointT> & cloud, float leaf_size)
 {
@@ -54,12 +66,7 @@ inline bool voxelGridWouldCopyInput(const pcl::PointCloud<PointT> & cloud, float
   }
   Eigen::Vector4f min_p, max_p;
   pcl::getMinMax3D<PointT>(cloud, min_p, max_p);
-  const Eigen::Array4f leaf(leaf_size, leaf_size, leaf_size, 1.0f);
-  const Eigen::Array4f inverse_leaf = Eigen::Array4f::Ones() / leaf;
-  const std::int64_t dx = static_cast<std::int64_t>((max_p[0] - min_p[0]) * inverse_leaf[0]) + 1;
-  const std::int64_t dy = static_cast<std::int64_t>((max_p[1] - min_p[1]) * inverse_leaf[1]) + 1;
-  const std::int64_t dz = static_cast<std::int64_t>((max_p[2] - min_p[2]) * inverse_leaf[2]) + 1;
-  return dx * dy * dz > static_cast<std::int64_t>(std::numeric_limits<std::int32_t>::max());
+  return voxelGridIndexOverflows(min_p, max_p, leaf_size);
 }
 
 }  // namespace map_saver

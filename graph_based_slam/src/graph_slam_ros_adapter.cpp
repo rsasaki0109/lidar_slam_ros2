@@ -1246,10 +1246,10 @@ void GraphBasedSlamComponent::Impl::saveGridDividedMap(MapCloud::Ptr map)
   const std::size_t map_points = map->size();
   const float leaf_size = static_cast<float>(config_.map_leaf_size_);
   if (map_saver::voxelGridWouldCopyInput(*map, leaf_size)) {
-    // VoxelGrid would only copy the map (32-bit voxel index overflow): use the map itself.
+    // VoxelGrid would only copy the map (32-bit voxel index overflow): downsample it in parts.
     std::cout << "[map save] map too large for VoxelGrid's 32-bit voxel indices at leaf " <<
-      leaf_size << " m; saving it undownsampled, as VoxelGrid does" << std::endl;
-    downsampled = map;
+      leaf_size << " m; downsampling it in parts" << std::endl;
+    map_saver::voxelGridFilterInParts(*map, leaf_size, *downsampled);
   } else {
     map_saver::voxelGridFilter(map, leaf_size, *downsampled);
   }

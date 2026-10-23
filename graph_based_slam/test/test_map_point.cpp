@@ -29,8 +29,11 @@
 
 #include <gtest/gtest.h>
 
+#include <array>
 #include <cmath>
 #include <cstring>
+#include <limits>
+#include <map>
 #include <random>
 #include <string>
 #include <vector>
@@ -39,6 +42,7 @@
 #include <pcl/point_types.h>  // NOLINT(build/include_order)
 
 #include "graph_based_slam/map_point.hpp"
+#include "graph_based_slam/voxel_grid_overflow.hpp"
 
 namespace
 {
@@ -135,5 +139,97 @@ TEST(MapPoint, VoxelGridMatchesPointXYZIBitForBit)
       differing += sameFields(expected[i], actual[i]) ? 0 : 1;
     }
     EXPECT_EQ(differing, 0U) << "extent " << extent;
+  }
+}
+
+TEST(MapPoint, InPartsMatchesVoxelGridWhenTheMapFits)
+{
+  const MapCloud::Ptr cloud = graphslam::toMapCloud(*uniformCloud(100000, 10.0f, 5));
+  ASSERT_FALSE(graphslam::map_saver::voxelGridWouldCopyInput(*cloud, 0.1f));
+  MapCloud expected;
+  graphslam::map_saver::voxelGridFilter(cloud, 0.1f, expected);
+  MapCloud actual;
+  graphslam::map_saver::voxelGridFilterInParts(*cloud, 0.1f, actual);
+  ASSERT_EQ(actual.size(), expected.size());
+  EXPECT_EQ(actual.width, expected.width);
+  EXPECT_EQ(actual.height, expected.height);
+  EXPECT_EQ(actual.is_dense, expected.is_dense);
+  std::size_t differing = 0;
+  for (std::size_t i = 0; i < expected.size(); ++i) {
+    differing += std::memcmp(expected[i].data, actual[i].data, sizeof(expected[i].data)) == 0 ?
+      0 : 1;
+  }
+  EXPECT_EQ(differing, 0U);
+}
+
+// A map VoxelGrid would return unchanged gets one point per occupied leaf-sized voxel, at the
+// centroid of that voxel's points, as one VoxelGrid pass without the index limit would give.
+TEST(MapPoint, InPartsDownsamplesAMapVoxelGridWouldCopy)
+{
+  const float leaf = 0.1f;
+  std::mt19937 rng(17);
+  std::uniform_real_distribution<float> unit(0.0f, 1.0f);
+  MapCloud cloud;
+  const auto add = [&cloud](float x, float y, float z, float intensity) {
+      graphslam::MapPoint p;
+      p.x = x;
+      p.y = y;
+      p.z = z;
+      p.intensity = intensity;
+      cloud.push_back(p);
+    };
+  // Two dense 2 m blocks 1000 m apart, and sparse points across the whole box, so the split
+  // planes cut through occupied voxels.
+  for (const std::array<float, 3> & origin : {std::array<float, 3>{-3.0f, -3.0f, -1.0f},
+      std::array<float, 3>{997.0f, 997.0f, 59.0f}})
+  {
+    for (int i = 0; i < 40000; ++i) {
+      add(origin[0] + 2.0f * unit(rng), origin[1] + 2.0f * unit(rng),
+        origin[2] + 2.0f * unit(rng), 255.0f * unit(rng));
+    }
+  }
+  for (int i = 0; i < 20000; ++i) {
+    add(-3.0f + 1002.0f * unit(rng), -3.0f + 1002.0f * unit(rng), -1.0f + 62.0f * unit(rng),
+      255.0f * unit(rng));
+  }
+  add(std::numeric_limits<float>::quiet_NaN(), 0.0f, 0.0f, 1.0f);
+  ASSERT_TRUE(graphslam::map_saver::voxelGridWouldCopyInput(cloud, leaf));
+
+  const float inverse_leaf = 1.0f / leaf;
+  std::map<std::array<int, 3>, std::array<double, 5>> voxels;
+  for (const auto & p : cloud) {
+    if (!std::isfinite(p.x)) {
+      continue;
+    }
+    const std::array<int, 3> key{static_cast<int>(std::floor(p.x * inverse_leaf)),
+      static_cast<int>(std::floor(p.y * inverse_leaf)),
+      static_cast<int>(std::floor(p.z * inverse_leaf))};
+    auto & sum = voxels[key];
+    sum[0] += p.x;
+    sum[1] += p.y;
+    sum[2] += p.z;
+    sum[3] += p.intensity;
+    sum[4] += 1.0;
+  }
+
+  MapCloud actual;
+  graphslam::map_saver::voxelGridFilterInParts(cloud, leaf, actual);
+  ASSERT_EQ(actual.size(), voxels.size());
+  EXPECT_EQ(actual.width, actual.size());
+  EXPECT_EQ(actual.height, 1U);
+  EXPECT_TRUE(actual.is_dense);
+  std::map<std::array<int, 3>, int> seen;
+  for (const auto & p : actual) {
+    const std::array<int, 3> key{static_cast<int>(std::floor(p.x * inverse_leaf)),
+      static_cast<int>(std::floor(p.y * inverse_leaf)),
+      static_cast<int>(std::floor(p.z * inverse_leaf))};
+    const auto voxel = voxels.find(key);
+    ASSERT_NE(voxel, voxels.end()) << p.x << " " << p.y << " " << p.z;
+    const auto & sum = voxel->second;
+    EXPECT_NEAR(p.x, sum[0] / sum[4], 1e-3);
+    EXPECT_NEAR(p.y, sum[1] / sum[4], 1e-3);
+    EXPECT_NEAR(p.z, sum[2] / sum[4], 1e-3);
+    EXPECT_NEAR(p.intensity, sum[3] / sum[4], 1e-2);
+    EXPECT_EQ(++seen[key], 1);
   }
 }

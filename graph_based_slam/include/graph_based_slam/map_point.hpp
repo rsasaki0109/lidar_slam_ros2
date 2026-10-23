@@ -123,6 +123,14 @@ namespace map_saver
 // instantiated from PCL's own implementation in map_point.cpp.
 void voxelGridFilter(const MapCloud::ConstPtr & input, float leaf_size, MapCloud & output);
 
+// The same downsampling for a map whose bounding box holds more voxels than VoxelGrid's 32-bit
+// index, where VoxelGrid itself would return the map unchanged. The map is split at a
+// leaf-aligned plane across its longest axis until every part fits, and each part is passed to
+// voxelGridFilter, lower part first. VoxelGrid's voxels are the multiples of the leaf size, so a
+// point falls in the same voxel as in one VoxelGrid pass over the whole map; the voxels come
+// out part by part. Non-finite points are dropped, as VoxelGrid drops them.
+void voxelGridFilterInParts(const MapCloud & input, float leaf_size, MapCloud & output);
+
 }  // namespace map_saver
 }  // namespace graphslam
 
