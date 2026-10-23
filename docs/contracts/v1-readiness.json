@@ -57,6 +57,7 @@
       "evidence": [
         "docs/distribution.md",
         "docs/evidence/official-rko-binary-compatibility-2026-07-29.json",
+        "docs/evidence/official-rko-binary-compatibility-2026-10-23.json",
         "docs/evidence/ndt-omp-release-preflight-2026-07-29.md",
         "docs/evidence/ndt-omp-release-progress-2026-07-30.md",
         "docs/evidence/ndt-omp-release-review-2026-08-12.md",

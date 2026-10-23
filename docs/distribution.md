@@ -683,10 +683,15 @@ remain:
    [2026-08-12 convergence evidence](evidence/ndt-omp-release-review-2026-08-12.md).
 2. Official PRBonn `rko_lio 0.3.2-1` passed the clean installed golden-path
    E2E on Humble and Jazzy. `lidarslam` now declares `rko_lio >= 0.3.2`.
-   Humble main satisfies that minimum; Jazzy must still sync 0.3.2 from ROS
-   testing to main before normal Jazzy apt dependency resolution can succeed.
+   Official 0.4.1 renamed the deskewed scan topic and moved the scan into the
+   base frame; after the product followed that change, `rko_lio 0.4.2-1`
+   passed the same 18-check E2E on Humble and Jazzy on 2026-10-23. ROS main
+   and testing both carry `0.4.2-1` for Humble and Jazzy (checked
+   2026-10-23), so the minimum resolves from the normal apt channel.
 
-See the [official binary evidence](evidence/official-rko-binary-compatibility-2026-07-29.md)
+See the official binary evidence for
+[`0.3.2-1`](evidence/official-rko-binary-compatibility-2026-07-29.md) and
+[`0.4.2-1`](evidence/official-rko-binary-compatibility-2026-10-23.md)
 and [rosdistro release runbook](rosdistro-release.md) for the verified
 boundary and remaining maintainer prerequisites.
 
