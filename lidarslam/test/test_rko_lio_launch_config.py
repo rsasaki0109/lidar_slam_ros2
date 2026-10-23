@@ -235,6 +235,25 @@ def test_offline_node_pins_odom_topic():
     assert found
 
 
+def test_offline_node_pins_deskewed_scan_topic():
+    """The frontend must publish the deskewed scan where the backend listens."""
+    # Official rko_lio 0.4.1 renamed the deskewed scan topic from
+    # "rko_lio/frame" to "rko_lio/deskewed_scan".  The backend's cloud_input
+    # remap, the offline start barrier and the record_backend_input tooling
+    # use "/rko_lio/frame", so the launch must pin deskewed_scan_topic.
+    module = _parse_launch_ast()
+    factory = _find_function(module, 'create_rko_offline_node')
+
+    found = False
+    for launch_dict in (n for n in ast.walk(factory) if isinstance(n, ast.Dict)):
+        for key, value in zip(launch_dict.keys, launch_dict.values):
+            if _constant_string(key) != 'deskewed_scan_topic':
+                continue
+            assert _constant_string(value) == '/rko_lio/frame'
+            found = True
+    assert found
+
+
 def test_graph_backend_odom_remap_matches_frontend_topic():
     """The backend odom_input remap must target the pinned frontend topic."""
     module = _parse_launch_ast()
@@ -255,6 +274,7 @@ def test_graph_backend_odom_remap_matches_frontend_topic():
             if isinstance(pair, ast.Tuple)
         )
     assert ('odom_input', '/rko_lio/odometry') in remap_pairs
+    assert ('cloud_input', '/rko_lio/frame') in remap_pairs
 
 
 def test_offline_start_barrier_is_opt_in_and_fail_closed():
@@ -308,6 +328,10 @@ def test_offline_wait_parameter_exists_in_vendored_rko_lio():
         return  # submodule not checked out
     assert 'declare_parameter<double>("output_subscriber_timeout_sec"' in (
         offline_node.read_text(encoding='utf-8')
+    )
+    base_node = offline_node.with_name('base_node.cpp')
+    assert 'declare_parameter<std::string>("deskewed_scan_topic"' in (
+        base_node.read_text(encoding='utf-8')
     )
 
 

@@ -1234,8 +1234,11 @@ int main(int argc, char ** argv)
     [&](const nav_msgs::msg::Odometry & odom, const sensor_msgs::msg::PointCloud2 & input_cloud) {
       // Same placement as the live component: a LiDAR-frame scan is moved
       // into the base frame of the odometry pose first.
+      const bool move_to_base = !cloud_extrinsic.identity &&
+        !graphslam::cloud_input::scanIsInBaseFrame(
+        input_cloud.header.frame_id, odom.child_frame_id);
       sensor_msgs::msg::PointCloud2 base_cloud;
-      if (!cloud_extrinsic.identity) {
+      if (move_to_base) {
         base_cloud = input_cloud;
         std::string transform_error;
         if (!graphslam::cloud_input::transformCloudToBase(
@@ -1246,7 +1249,7 @@ int main(int argc, char ** argv)
         }
       }
       const sensor_msgs::msg::PointCloud2 & cloud_msg =
-        cloud_extrinsic.identity ? input_cloud : base_cloud;
+        move_to_base ? base_cloud : input_cloud;
       ++paired_count;
       degeneracy_sink.recordScan(odom);
       const Eigen::Vector3d position(

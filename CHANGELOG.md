@@ -7,6 +7,15 @@ latest published release.
 
 ### Fixed
 
+- **Official RKO-LIO 0.4.1 and later** — official `rko_lio` 0.4.1 renamed the
+  deskewed scan topic from `rko_lio/frame` to `rko_lio/deskewed_scan` and
+  publishes the scan in the base frame instead of the LiDAR frame. With the
+  official 0.4.2 binary that ROS apt now ships for Humble and Jazzy, the RKO
+  profiles saved no map ("initial map is not received"). The RKO launch now
+  pins `deskewed_scan_topic` to `/rko_lio/frame`, and graph_based_slam applies
+  the LiDAR-to-base extrinsic only to scans that are not already stamped with
+  the odometry's base frame, so a non-identity extrinsic is not applied twice.
+  Output with the maintained RKO-LIO fork is unchanged.
 - **Release workflow** — the release bundle is built before the standalone
   Docker launcher, which writes into the checkout the bundle requires to be
   clean. The v0.10.0 run failed there and was published by a re-run.
