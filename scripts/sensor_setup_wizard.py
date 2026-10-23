@@ -109,6 +109,20 @@ RKO_PROFILES = {
         'rko_lio_mid360.yaml',
     ),
 }
+# --motion walking: the parameters adopted on walking (humanoid) MID-360 data
+# (bench_report chapters 14 to 25). The default, wheeled, keeps RKO_PROFILES.
+MOTION_CHOICES = ('wheeled', 'walking')
+WALKING_NOTE = (
+    'walking parameters: tuned on humanoid MID-360 data; their '
+    'localizability and IMU options need the maintained RKO-LIO fork, '
+    'the official rko_lio binary ignores them'
+)
+WALKING_RKO_PROFILES = {
+    'rko_lio_graph_mid360_preset': (
+        'lidarslam_mid360_rko_graph_walking.yaml',
+        'rko_lio_mid360_walking.yaml',
+    ),
+}
 PROFILE_INPUTS = {
     'rko_lio_graph_public_path': {
         'lidar_key': 'pointcloud2',
@@ -392,6 +406,15 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        '--motion',
+        choices=MOTION_CHOICES,
+        default='wheeled',
+        help=(
+            'How the sensor moves; walking selects the humanoid, legged and '
+            'handheld parameters (MID-360 preset only, default: wheeled).'
+        ),
+    )
+    parser.add_argument(
         '--accept-profile-extrinsics',
         action='store_true',
         help='Confirm tracked RKO-LIO extrinsics match this robot (RKO only).',
@@ -524,8 +547,12 @@ def _selected_frame(
     return fallback, 'fallback'
 
 
-def _parameter_sources(profile_id: str) -> tuple[Path, Path] | None:
-    names = RKO_PROFILES.get(profile_id)
+def _parameter_sources(
+    profile_id: str,
+    motion: str = 'wheeled',
+) -> tuple[Path, Path] | None:
+    profiles = WALKING_RKO_PROFILES if motion == 'walking' else RKO_PROFILES
+    names = profiles.get(profile_id)
     if names is None:
         return None
     return (
@@ -576,6 +603,12 @@ def _validate_profile_options(
     args: argparse.Namespace,
 ) -> None:
     """Reject RKO-only controls instead of silently ignoring them."""
+    if args.motion == 'walking' and profile_id not in WALKING_RKO_PROFILES:
+        supported = ', '.join(WALKING_RKO_PROFILES)
+        raise ValueError(
+            f'{profile_id} has no walking parameters; --motion walking '
+            f'requires {supported}.'
+        )
     if profile_id in RKO_PROFILES:
         return
     unsupported = []
@@ -706,6 +739,8 @@ def _review_payload(
         str(output_dir),
     ]
     rerun.append('--yes' if args.run_now else '--accept-profile-extrinsics')
+    if args.motion != 'wheeled':
+        rerun.extend(['--motion', args.motion])
     if args.map_output_dir:
         rerun.extend(['--map-output-dir', str(args.map_output_dir)])
     if args.run_now:
@@ -780,6 +815,10 @@ def _readme(manifest: dict[str, Any]) -> str:
         'files.',
         '',
         f"- Profile: `{manifest['profile']['id']}`",
+        *(
+            [f"- Motion: `walking` ({WALKING_NOTE})"]
+            if manifest['profile'].get('motion') == 'walking' else []
+        ),
         f"- LiDAR topic: `{topics['lidar']}` (`{topics['lidar_type']}`)",
         f"- IMU topic: `{shown(topics['imu'])}`",
         f"- GNSS topic: `{shown(topics['gnss'])}`",
@@ -924,6 +963,10 @@ def _render_text(
             f"Bundle would be: {result['bundle_path']}"
         ),
         f"Profile: {result['profile']['label']}",
+        *(
+            [f"Motion: walking ({WALKING_NOTE})"]
+            if result['profile'].get('motion') == 'walking' else []
+        ),
         (
             f"LiDAR: {topics['lidar']} [{topics['lidar_type']}] "
             f"({shown(result['frames']['lidar']['id'])})"
@@ -1040,7 +1083,7 @@ def generate(
         if args.map_output_dir
         else output_dir / 'map'
     )
-    parameter_sources = _parameter_sources(profile_id)
+    parameter_sources = _parameter_sources(profile_id, args.motion)
     profile_transforms = None
     custom_transforms = None
     accepted_profile_extrinsics = (
@@ -1204,7 +1247,11 @@ def generate(
             'created_at': _utc_now(),
             'bundle_path': str(output_dir),
             'input': runner._bag_identity(bag_path),
-            'profile': {'id': profile_id, 'label': label},
+            'profile': (
+                {'id': profile_id, 'label': label, 'motion': args.motion}
+                if args.motion != 'wheeled'
+                else {'id': profile_id, 'label': label}
+            ),
             'topics': topics,
             'frames': {
                 'base': {

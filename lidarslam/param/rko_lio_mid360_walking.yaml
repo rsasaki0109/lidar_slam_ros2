@@ -1,0 +1,44 @@
+# RKO-LIO parameters for a Livox MID-360 that walks: a humanoid or legged robot,
+# or a handheld sensor. Selected with "lidarslam-map setup --motion walking".
+#
+# These are the frontend settings adopted on the MapsHD HUMANOID-LIO-DATASET
+# (Unitree G1, CC BY 4.0; bench_report/REPORT.md chapters 14 to 24, candidate
+# Z). Over its 8 trials they lowered the frontend APE geometric mean from
+# 0.085 m to 0.032 m. Values were chosen on those trials; other robots have
+# not been tested.
+#
+# localizability_*, initialization_max_gyro_rad_s, imu_acceleration_unit and
+# icp_keypoint_voxel_multiplier exist only in the maintained RKO-LIO fork
+# (Thirdparty/rko_lio); the official rko_lio binary ignores them.
+#
+# IMU frame as base: the MID-360's IMU sits at (-0.011, -0.02329, 0.04412) m in
+# the LiDAR frame.
+extrinsic_imu2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+extrinsic_lidar2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, -0.011, -0.02329, 0.04412]
+initialization_phase: true
+deskew: true
+voxel_size: 0.25
+min_range: 0.7
+max_range: 100.0
+double_downsample: true
+enable_kidnap_relocalization: false
+reset_on_registration_failure: false
+relocalize_after_scan_gap: false
+max_iterations: 50
+convergence_criterion: 3.0e-05
+icp_keypoint_voxel_multiplier: 2.25
+publisher_queue_depth: 128
+# Start the gravity estimate only while the sensor is still (chapter 14).
+initialization_max_gyro_rad_s: 0.02
+imu_acceleration_unit: auto
+# Foot strikes reach about 1,000 m/s^3; the default of 3 made the tilt filter
+# lag them and misjudge gravity (chapter 20).
+max_expected_jerk: 1000.0
+# One voxel: the 0.5 m default let point-to-point ICP overestimate travel in
+# large rooms (chapter 21).
+max_correspondence_distance: 0.25
+# Raise the information of surfaces facing the walking direction, along their
+# normal only (chapter 24).
+localizability_weighting: true
+localizability_boost: 10.0
+localizability_normal_only: true

@@ -5,6 +5,18 @@
 The next release candidate after v0.10.0. It is not tagged; v0.10.0 is the
 latest published release.
 
+### Added
+
+- **`--motion walking` for the MID-360 preset** — `lidarslam-map start` and
+  `setup` accept `--motion {wheeled,walking}` (default `wheeled`, unchanged).
+  `walking` pins `rko_lio_mid360_walking.yaml` and
+  `lidarslam_mid360_rko_graph_walking.yaml`, the frontend and loop settings
+  adopted on the MapsHD HUMANOID-LIO-DATASET (bench_report chapters 14 to 25:
+  APE geometric mean over 8 MapsHD trials, Oxford Keble 05 and HILTI exp04
+  0.0908 to 0.0358 m). `sensor_setup.json`
+  records `profile.motion`. The localizability and IMU options need the
+  maintained RKO-LIO fork; the official binary ignores them.
+
 ### Fixed
 
 - **Large maps saved undownsampled** — when a map's bounding box held more
