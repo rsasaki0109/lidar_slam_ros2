@@ -47,10 +47,10 @@ commands. `validate_real_data_e2e.py` then requires:
 - Autoware verification with at least eight passes and no failures;
 - at least 2500 raw poses, 500 corrected poses, 300 pointcloud tiles, and
   20 MB of tiled pointcloud evidence. The map is saved at a 0.2 m leaf, which
-  gives about 26 MB on this bag. A map whose bounding box holds more 0.2 m
-  voxels than a 32-bit index (2^31) is saved undownsampled instead, as PCL's
-  VoxelGrid does, which gives about 65 MB: the maintained RKO-LIO fork's map
-  just crosses that limit, while the official RKO-LIO 0.4.2 map stays below it.
+  gives about 25 to 27 MB on this bag with both the maintained RKO-LIO fork and
+  official RKO-LIO 0.4.2. (Before 0.10.1, a map whose bounding box held more
+  0.2 m voxels than PCL's 32-bit index was saved undownsampled, about 65 MB;
+  the fork's map on this bag just crosses that limit.)
 
 Any failed assertion exits non-zero. The workflow also has a 45-minute job
 limit and a 20-minute product-run limit. If the product run times out, its

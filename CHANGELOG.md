@@ -7,6 +7,15 @@ latest published release.
 
 ### Fixed
 
+- **Large maps saved undownsampled** — when a map's bounding box held more
+  `map_leaf_size` voxels than PCL VoxelGrid's 32-bit index (about 2.1e9), the
+  map was saved with every point, because VoxelGrid returns its input
+  unchanged there. On the public MID-360 bag the fork's map just crosses that
+  limit and was saved at 5.6 M points (68 MB) instead of 2.1 M (25 MB);
+  whether a map near the limit was downsampled depended on its exact extent.
+  Such a map is now split at leaf-aligned planes until each part fits and
+  downsampled part by part, which keeps every point in the same voxel as one
+  VoxelGrid pass. Maps within the limit are saved exactly as before.
 - **Official RKO-LIO 0.4.1 and later** — official `rko_lio` 0.4.1 renamed the
   deskewed scan topic from `rko_lio/frame` to `rko_lio/deskewed_scan` and
   publishes the scan in the base frame instead of the LiDAR frame. With the
