@@ -1,0 +1,2 @@
+[wait_for_offline_output_subscribers.sh-1] [INFO] [1792734912.239085817] [rko_lio_offline_node]: Parsed lidar extrinsic as: 0.0648646 0.0573146 0.0106074   2.22144  -2.22144         0
+[wait_for_offline_output_subscribers.sh-1] [INFO] [1792734912.239135442] [rko_lio_offline_node]: Subscribed to IMU: /alphasense/imu and LiDAR: /hesai/pandar. Max number of threads: 1. Publishing odometry to /rko_lio/odometry ( odom ) and acceleration estimates

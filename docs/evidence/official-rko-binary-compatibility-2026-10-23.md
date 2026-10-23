@@ -40,6 +40,27 @@ The originating public workflow is
   0.3.2 maps were saved undownsampled (about 64 MB). See
   [real-data E2E](../real-data-e2e.md).
 
+## Local check with a non-identity LiDAR extrinsic
+
+The MID-360 golden path has an identity LiDAR-to-base extrinsic, so the gate
+cannot tell whether the backend applies the extrinsic to an official 0.4.1+
+scan once or twice. HILTI 2022 exp04, whose PandarXT-32 is mounted upside
+down (a half-turn extrinsic), was therefore run locally on Jazzy with the
+official `0.4.2-1noble.20260930.090637` binary
+([data](https://github.com/rsasaki0109/lidar_slam_ros2/tree/develop/bench_report/data/official_extrinsic)):
+
+| Run | Loops | APE, 7 checkpoints | Thickness RMS mean | Thickness p95 | Planar coverage | Map z range |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| Maintained fork (LiDAR-frame scans) | 1 | 0.051 m | 0.0392 m | 0.0952 m | 0.673 | -5.5 to 17.1 m |
+| Official 0.4.2, this backend | 1 | 0.067 m | 0.0384 m | 0.0959 m | 0.678 | -7.5 to 17.4 m |
+| Official 0.4.2, extrinsic applied twice (backend before #561) | 0 | 0.068 m | 0.0483 m | 0.1087 m | 0.342 | -23.8 to 33.8 m |
+
+With this backend the official map is as consistent as the fork's. Applying
+the extrinsic a second time turns every scan over in the map: planar coverage
+halves, thickness rises by a quarter and the loop is no longer found. The
+APE difference between the fork and the official frontend is the frontend's
+own; the official frontend output is the same in both official runs.
+
 `lidarslam` keeps its `rko_lio >= 0.3.2` dependency. On 2026-10-23 ROS main
 and testing both carry `rko_lio 0.4.2-1` for Humble and Jazzy. This closes
 official-binary compatibility for the maintained MID-360 golden path only.
