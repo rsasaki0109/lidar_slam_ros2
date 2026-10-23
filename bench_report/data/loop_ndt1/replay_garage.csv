@@ -1,0 +1,11 @@
+run,replay,ape_m
+underground-garage_trial-2_C,as_run,0.038083
+underground-garage_trial-2_C,meas=offline_C,0.039819
+underground-garage_trial-2_C,meas=offline_res1,0.035161
+underground-garage_trial-2_C,meas=offline_vox01,0.035630
+underground-garage_trial-2_C,fit_max=0,0.029333
+underground-garage_trial-3_C,as_run,0.031570
+underground-garage_trial-3_C,meas=offline_C,0.028346
+underground-garage_trial-3_C,meas=offline_res1,0.030398
+underground-garage_trial-3_C,meas=offline_vox01,0.028383
+underground-garage_trial-3_C,fit_max=0,0.026739

@@ -18,7 +18,7 @@ rm -rf "${out}"; mkdir -p "${out}"
 set +u; source "${w}/install/setup.bash"; set -u
 export ROS_DOMAIN_ID=36 ROS_LOG_DIR="${out}/roslog" M6A10_BENCHMARK_NO_MAP_ARTIFACTS=1
 cp "${RKO_PARAMS:-/home/user/bench/params/rko_params.ros.yaml}" "${out}/rko_params.ros.yaml"
-barrier=(); [[ ${BARRIER:-0} == 1 ]] && barrier=(wait_for_output_subscribers:=true subscriber_wait_timeout_sec:=30)
+barrier=(); [[ ${BARRIER:-0} == 1 ]] && barrier=(wait_for_output_subscribers:=true subscriber_wait_timeout_sec:=30 ${BARRIER_EXTRA:-})
 cd /home/user/rsasaki0109/lidar_slam_ros2
 timeout 3000 python3 /home/user/scripts/save_when_frontend_done.py "${out}/pipeline_times.json" "${out}/saver.ready" \
   > "${out}/saver.log" 2>&1 &
