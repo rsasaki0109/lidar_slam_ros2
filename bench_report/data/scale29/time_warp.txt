@@ -1,0 +1,3 @@
+outdoor-urk_trial-1: se3 0.0507  sim3 0.0301 best time warp: rate +200 ppm, offset -40 ms -> se3 0.0475 
+underground-garage_trial-1: se3 0.0440  sim3 0.0329 best time warp: rate +100 ppm, offset -20 ms -> se3 0.0438 
+underground-garage_trial-3: se3 0.0263  sim3 0.0139 best time warp: rate +0 ppm, offset -0 ms -> se3 0.0263 

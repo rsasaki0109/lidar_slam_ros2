@@ -1,0 +1,32 @@
+== outdoor-urk trial-1
+glim traj_lidar
+whole: se3 0.0672  sim3 0.0459  scale +0.201% (estimate longer if +)
+t0_s,path_m,se3,sim3,scale_pct
+0,44,0.0301,0.0197,+0.195
+60,58,0.0489,0.0213,+0.287
+120,57,0.0266,0.0259,+0.052
+180,55,0.0245,0.0218,+0.076
+glim odom_lidar
+whole: se3 0.0902  sim3 0.0828  scale +0.146% (estimate longer if +)
+t0_s,path_m,se3,sim3,scale_pct
+0,44,0.0332,0.0196,+0.230
+60,58,0.0461,0.0205,+0.270
+120,57,0.0273,0.0259,-0.072
+180,55,0.0319,0.0284,+0.097
+== underground-garage trial-1
+glim traj_lidar
+whole: se3 0.0519  sim3 0.0478  scale -0.074% (estimate longer if +)
+t0_s,path_m,se3,sim3,scale_pct
+0,16,0.0202,0.0201,+0.248
+60,57,0.0252,0.0233,-0.066
+120,56,0.0170,0.0170,+0.010
+180,58,0.0182,0.0178,+0.025
+240,28,0.0413,0.0412,-0.159
+glim odom_lidar
+whole: se3 0.1301  sim3 0.1283  scale -0.080% (estimate longer if +)
+t0_s,path_m,se3,sim3,scale_pct
+0,16,0.0202,0.0201,+0.248
+60,57,0.0250,0.0236,-0.057
+120,56,0.0191,0.0191,-0.007
+180,58,0.0195,0.0185,+0.041
+240,28,0.0413,0.0412,-0.159

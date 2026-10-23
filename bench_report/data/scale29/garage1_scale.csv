@@ -1,0 +1,6 @@
+x,whole: se3 0.0438  sim3 0.0327  scale +0.107% (estimate longer if +)
+xicp_keypoint_voxel_multiplier__1_5,whole: se3 0.0391  sim3 0.0293  scale +0.095% (estimate longer if +)
+xlocalizability_boost__20_0,whole: se3 0.0411  sim3 0.0331  scale +0.089% (estimate longer if +)
+xlocalizability_tangential_weight__0_0,whole: se3 0.0413  sim3 0.0318  scale +0.097% (estimate longer if +)
+xlocalizability_tangential_weight__0_2,whole: se3 0.0408  sim3 0.0311  scale +0.097% (estimate longer if +)
+xmax_points_per_voxel__50,whole: se3 0.0463  sim3 0.0307  scale +0.127% (estimate longer if +)

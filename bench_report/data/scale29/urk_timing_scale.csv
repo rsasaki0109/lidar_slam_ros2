@@ -1,0 +1,7 @@
+xdeskew__false,whole: se3 0.1121  sim3 0.1052  scale +0.159% (estimate longer if +)
+xlidar_timestamps_multiplier_to_seconds__0_9,whole: se3 0.0491  sim3 0.0307  scale +0.157% (estimate longer if +)
+xlidar_timestamps_multiplier_to_seconds__1_1,whole: se3 0.0490  sim3 0.0299  scale +0.159% (estimate longer if +)
+xlidar_timestamps_offset_seconds__-0_005,whole: se3 0.0487  sim3 0.0308  scale +0.154% (estimate longer if +)
+xlidar_timestamps_offset_seconds__-0_02,whole: se3 0.0524  sim3 0.0398  scale +0.140% (estimate longer if +)
+xlidar_timestamps_offset_seconds__0_005,whole: se3 0.0505  sim3 0.0290  scale +0.170% (estimate longer if +)
+xlidar_timestamps_offset_seconds__0_02,whole: se3 0.0484  sim3 0.0299  scale +0.156% (estimate longer if +)
