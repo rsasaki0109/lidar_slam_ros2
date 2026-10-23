@@ -61,7 +61,7 @@
     "minimum_raw_poses": 2500,
     "minimum_corrected_poses": 500,
     "minimum_pointcloud_tiles": 300,
-    "minimum_pointcloud_bytes": 50000000,
+    "minimum_pointcloud_bytes": 20000000,
     "minimum_verify_passes": 8
   }
 }

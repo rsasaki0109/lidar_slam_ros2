@@ -1062,9 +1062,12 @@ void GraphBasedSlamComponent::Impl::tryCreateSubmap(
   submap.pose = odom_msg.pose.pose;
   submap.cloud = cloud_msg;
   // The odometry pose places the base frame, so a LiDAR-frame scan is moved
-  // there first; the default identity extrinsic leaves the cloud unchanged.
+  // there first; the default identity extrinsic leaves the cloud unchanged,
+  // and so does a scan already stamped with the base frame.
   std::string extrinsic_error;
-  if (!cloud_input::transformCloudToBase(cloud_input_extrinsic_, submap.cloud, &extrinsic_error)) {
+  if (!cloud_input::scanIsInBaseFrame(cloud_msg.header.frame_id, odom_msg.child_frame_id) &&
+    !cloud_input::transformCloudToBase(cloud_input_extrinsic_, submap.cloud, &extrinsic_error))
+  {
     io_ports_.diagnostics->emit(
       {ports::DiagnosticLevel::WARNING, "cloud_input_extrinsic_failed",
         "submap skipped: " + extrinsic_error});

@@ -48,9 +48,10 @@ namespace cloud_input
 
 // The LiDAR-to-base extrinsic of the odom/cloud input, in the layout of
 // RKO-LIO's extrinsic_lidar2base_quat_xyzw_xyz: [qx, qy, qz, qw, x, y, z].
-// RKO-LIO publishes the deskewed scan in its LiDAR frame but the odometry
-// pose of its base frame, so a scan has to pass through this extrinsic
-// before the odometry pose can place it in the map.
+// The maintained RKO-LIO fork and official releases before 0.4.1 publish the
+// deskewed scan in the LiDAR frame but the odometry pose of the base frame,
+// so such a scan has to pass through this extrinsic before the odometry pose
+// can place it in the map.
 struct LidarExtrinsic
 {
   Eigen::Isometry3d base_from_lidar {Eigen::Isometry3d::Identity()};
@@ -93,6 +94,14 @@ inline bool parseLidarExtrinsic(
     quat_xyzw_xyz[6] == 0.0;
   *extrinsic = result;
   return true;
+}
+
+// Official RKO-LIO 0.4.1 and later already moves the deskewed scan into the
+// base frame and stamps it with that frame, the odometry's child frame. Such
+// a scan must not pass through the extrinsic a second time.
+inline bool scanIsInBaseFrame(const std::string & scan_frame_id, const std::string & base_frame_id)
+{
+  return !scan_frame_id.empty() && scan_frame_id == base_frame_id;
 }
 
 // Moves the FLOAT32 x, y and z fields of cloud from the LiDAR frame into the

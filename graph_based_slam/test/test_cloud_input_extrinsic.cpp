@@ -39,6 +39,7 @@
 
 using graphslam::cloud_input::LidarExtrinsic;
 using graphslam::cloud_input::parseLidarExtrinsic;
+using graphslam::cloud_input::scanIsInBaseFrame;
 using graphslam::cloud_input::transformCloudToBase;
 
 namespace
@@ -175,4 +176,14 @@ TEST(CloudInputExtrinsic, RejectsCloudsWithoutSingleFloatCoordinates)
   input = cloud(std::vector<float>(16, 1.0F));
   input.data.resize(60);
   EXPECT_FALSE(transformCloudToBase(extrinsic, input, &error));
+}
+
+TEST(CloudInputExtrinsic, OnlyAScanStampedWithTheBaseFrameIsAlreadyInIt)
+{
+  // Official RKO-LIO >= 0.4.1 stamps the deskewed scan with base_frame; the
+  // fork and earlier releases stamp it with the LiDAR frame.
+  EXPECT_TRUE(scanIsInBaseFrame("base_link", "base_link"));
+  EXPECT_FALSE(scanIsInBaseFrame("livox_frame", "base_link"));
+  EXPECT_FALSE(scanIsInBaseFrame("", "base_link"));
+  EXPECT_FALSE(scanIsInBaseFrame("", ""));
 }

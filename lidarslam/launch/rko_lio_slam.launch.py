@@ -90,6 +90,10 @@ def create_rko_offline_node(context, *args, **kwargs):
         # graph backend below (and the record_backend_input tooling) expect
         # the fork's historical "/rko_lio/odometry".
         'odom_topic': '/rko_lio/odometry',
+        # Official rko_lio 0.4.1 renamed the deskewed scan topic from
+        # "rko_lio/frame" to "rko_lio/deskewed_scan"; the backend's
+        # cloud_input remap and the backend-input tooling keep the former.
+        'deskewed_scan_topic': '/rko_lio/frame',
         'dump_results': LaunchConfiguration('dump_results'),
         'results_dir': LaunchConfiguration('results_dir'),
         'run_name': LaunchConfiguration('run_name'),
@@ -224,9 +228,11 @@ def create_graph_based_slam_node(context, *args, **kwargs):
     _add_optional_param_override(
         overrides, context, 'distance_loop_closure', float,
     )
-    # RKO-LIO publishes its deskewed scan (cloud_input) in the LiDAR frame but
-    # the odometry pose of its base frame, so the backend has to apply the same
-    # LiDAR-to-base extrinsic before that pose can place the scan.
+    # The fork and official RKO-LIO before 0.4.1 publish the deskewed scan
+    # (cloud_input) in the LiDAR frame but the odometry pose of the base frame,
+    # so the backend applies the same LiDAR-to-base extrinsic before that pose
+    # can place the scan. A scan stamped with the base frame (official 0.4.1
+    # and later) is used as it is.
     rko_param_file = LaunchConfiguration('rko_param_file').perform(context)
     if rko_param_file:
         extrinsic = load_rko_params(rko_param_file).get('extrinsic_lidar2base_quat_xyzw_xyz')
