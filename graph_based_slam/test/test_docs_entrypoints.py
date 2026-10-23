@@ -149,6 +149,18 @@ OFFICIAL_RKO_EVIDENCE_DOC = (
     / 'evidence'
     / 'official-rko-binary-compatibility-2026-07-29.md'
 )
+OFFICIAL_RKO_042_EVIDENCE_JSON = (
+    REPO_ROOT
+    / 'docs'
+    / 'evidence'
+    / 'official-rko-binary-compatibility-2026-10-23.json'
+)
+OFFICIAL_RKO_042_EVIDENCE_DOC = (
+    REPO_ROOT
+    / 'docs'
+    / 'evidence'
+    / 'official-rko-binary-compatibility-2026-10-23.md'
+)
 ROS_APT_READINESS_20260812 = (
     REPO_ROOT
     / 'docs'
@@ -338,6 +350,8 @@ def test_docs_exist_and_are_linked_from_readme():
     assert OFFICIAL_RKO_COMPATIBILITY_WORKFLOW.is_file()
     assert OFFICIAL_RKO_EVIDENCE_JSON.is_file()
     assert OFFICIAL_RKO_EVIDENCE_DOC.is_file()
+    assert OFFICIAL_RKO_042_EVIDENCE_JSON.is_file()
+    assert OFFICIAL_RKO_042_EVIDENCE_DOC.is_file()
     assert ROS_APT_READINESS_20260812.is_file()
     assert OPERATIONAL_RELIABILITY_DOC.is_file()
     assert BOUNDED_FILESYSTEM_SCHEMA.is_file()
@@ -1731,11 +1745,14 @@ def test_docs_cover_autoware_and_release_gate_keywords():
         distribution_doc
     )
     rosdistro_release_doc = ROSDISTRO_RELEASE_DOC.read_text(encoding='utf-8')
-    assert '`rko_lio` | PRBonn `0.3.2-1` is registered' in (
+    assert '`rko_lio` | PRBonn `0.4.2-1` is in main and testing' in (
         rosdistro_release_doc
     )
-    assert 'main has Humble `0.3.2` and Jazzy `0.2.0`' in (
+    assert 'official-rko-binary-compatibility-2026-10-23.md' in (
         rosdistro_release_doc
+    )
+    assert 'official-rko-binary-compatibility-2026-10-23.md' in (
+        distribution_doc
     )
     assert '`PRBonn/rko_lio`' in rosdistro_release_doc
     assert '`ndt_omp_ros2`' in rosdistro_release_doc
@@ -1785,6 +1802,23 @@ def test_docs_cover_autoware_and_release_gate_keywords():
         and candidate['e2e']['checks_passed'] == 18
         and candidate['e2e']['checks_failed'] == 0
         for candidate in official_rko_evidence['candidates']
+    )
+    official_rko_042_evidence = json.loads(
+        OFFICIAL_RKO_042_EVIDENCE_JSON.read_text(encoding='utf-8')
+    )
+    assert official_rko_042_evidence['status'] == 'passed'
+    assert official_rko_042_evidence['workflow']['run_id'] == 39892845149
+    assert official_rko_042_evidence['contract']['source_rko_lio_present'] is False
+    assert {
+        candidate['ros_distro']
+        for candidate in official_rko_042_evidence['candidates']
+    } == {'humble', 'jazzy'}
+    assert all(
+        candidate['deb_version'].startswith('0.4.2-1')
+        and candidate['e2e']['status'] == 'PASS'
+        and candidate['e2e']['checks_passed'] == 18
+        and candidate['e2e']['checks_failed'] == 0
+        for candidate in official_rko_042_evidence['candidates']
     )
     apt_readiness = json.loads(
         ROS_APT_READINESS_20260812.read_text(encoding='utf-8')

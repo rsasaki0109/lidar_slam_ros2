@@ -31,7 +31,7 @@ bloom's upstream import) excludes — intended.
 | `libg2o` | released (`ros-<distro>-libg2o`; verified 2026-06-11: `rosdep resolve libg2o` → `ros-humble-libg2o` on jammy, `ros-jazzy-libg2o` on noble) | none |
 | `libpcl-all-dev` | standard rosdep key (system PCL) | none |
 | **`ndt_omp_ros2`** | source tag and Humble/Jazzy Bloom PRs exist, but the candidate overlaps Humble's released `ndt_omp` files, has an unanswered convergence review, and both exact PR heads have a failed check run | converge on canonical `ndt_omp`, or fully isolate the fork; answer both reviews and require a current-base green replacement before requesting merge |
-| `rko_lio` | PRBonn `0.3.2-1` is registered and built in testing for Humble/Jazzy; main has Humble `0.3.2` and Jazzy `0.2.0`; declared as `rko_lio >= 0.3.2` after the official-binary gate passed | wait for Jazzy `0.3.2` to sync to main before the normal Jazzy apt path |
+| `rko_lio` | PRBonn `0.4.2-1` is in main and testing for Humble/Jazzy (checked 2026-10-23); declared as `rko_lio >= 0.3.2`; the official-binary gate passed `0.3.2-1` (2026-07-29) and `0.4.2-1` (2026-10-23) | none |
 
 This table was rechecked directly against the
 [Humble distribution](https://github.com/ros/rosdistro/blob/master/humble/distribution.yaml)
@@ -317,10 +317,18 @@ The resolution gate completed in
    `PRBonn/rko_lio` or give the maintained fork a non-conflicting package
    identity before releasing it. Do not silently substitute untested source
    code.
+4. Official 0.4.1 renamed the deskewed scan topic to `rko_lio/deskewed_scan`
+   and publishes the scan in the base frame. The gate pinned to `0.4.2-1`
+   failed until the product pinned `deskewed_scan_topic` and stopped applying
+   the LiDAR extrinsic to base-frame scans; it then passed all 18 checks on
+   Humble and Jazzy in
+   [public run 39892845149](https://github.com/rsasaki0109/lidar_slam_ros2/actions/runs/39892845149)
+   ([`official-rko-binary-compatibility-2026-10-23.md`](evidence/official-rko-binary-compatibility-2026-10-23.md)).
+   The `rko_lio >= 0.3.2` dependency is unchanged.
 
 Do not advertise `sudo apt install ros-<distro>-lidarslam` as the golden path
-until `ndt_omp_ros2` is released, Jazzy `rko_lio 0.3.2` is synced to main, and
-the package-manager installation E2E gate passes.
+until `ndt_omp_ros2` is released and the package-manager installation E2E gate
+passes. ROS main already carries `rko_lio 0.4.2-1` for Humble and Jazzy.
 
 The compatibility workflow runs when its product boundary changes on
 `develop`, is scheduled weekly to detect repository drift, and can be
