@@ -760,6 +760,7 @@ def test_explicit_calibration_writes_ready_pinned_bundle(tmp_path: Path):
         'source': 'bag_header',
     }
     assert payload['calibration']['source'] == 'explicit_cli_transforms'
+    assert 'motion' not in payload['profile']
     assert len(payload['parameters']) == 2
     assert all(len(item['sha256']) == 64 for item in payload['parameters'])
     assert '--lidarslam-param' in payload['run']['argv']
@@ -772,6 +773,87 @@ def test_explicit_calibration_writes_ready_pinned_bundle(tmp_path: Path):
         0.0, 0.0, 0.0, 1.0, 0.1, 0.0, 0.2,
     ]
     assert (bundle / 'README.md').is_file()
+
+
+def test_walking_motion_pins_the_walking_parameter_files(tmp_path: Path):
+    """--motion walking copies the walking MID-360 parameters into the bundle."""
+    bag = tmp_path / 'mid360_bag'
+    bundle = tmp_path / 'setup'
+    _write_bag(bag)
+
+    result = _run(
+        'setup',
+        str(bag),
+        '--output-dir',
+        str(bundle),
+        '--motion',
+        'walking',
+        '--accept-profile-extrinsics',
+        '--json',
+    )
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    jsonschema.validate(payload, json.loads(SCHEMA.read_text(encoding='utf-8')))
+    assert payload['profile']['id'] == 'rko_lio_graph_mid360_preset'
+    assert payload['profile']['motion'] == 'walking'
+    param_dir = REPO_ROOT / 'lidarslam' / 'param'
+    sources = {
+        item['role']: Path(item['source_path']).name
+        for item in payload['parameters']
+    }
+    assert sources == {
+        'graph_backend': 'lidarslam_mid360_rko_graph_walking.yaml',
+        'rko_lio': 'rko_lio_mid360_walking.yaml',
+    }
+    assert (bundle / 'params' / 'rko_lio.yaml').read_bytes() == (
+        param_dir / 'rko_lio_mid360_walking.yaml'
+    ).read_bytes()
+    assert (bundle / 'params' / 'lidarslam.yaml').read_bytes() == (
+        param_dir / 'lidarslam_mid360_rko_graph_walking.yaml'
+    ).read_bytes()
+    rko = yaml.safe_load(
+        (bundle / 'params' / 'rko_lio.yaml').read_text(encoding='utf-8')
+    )
+    assert rko['max_expected_jerk'] == 1000.0
+    assert rko['localizability_normal_only'] is True
+    assert payload['calibration']['lidar_to_base_quat_xyzw_xyz'] == (
+        rko['extrinsic_lidar2base_quat_xyzw_xyz']
+    )
+    readme = (bundle / 'README.md').read_text(encoding='utf-8')
+    assert '- Motion: `walking`' in readme
+    assert 'official rko_lio binary ignores them' in readme
+
+    review = _run('setup', str(bag), '--motion', 'walking', '--json')
+    review_payload = json.loads(review.stdout)
+    assert review_payload['status'] == 'review_required'
+    assert '--motion walking' in review_payload['next_command']
+    assert review_payload['profile_extrinsics']['lidar_to_base'] == (
+        rko['extrinsic_lidar2base_quat_xyzw_xyz']
+    )
+
+
+def test_walking_motion_requires_the_mid360_preset(tmp_path: Path):
+    """Only the MID-360 preset has walking parameters; others exit 2."""
+    bag = tmp_path / 'mid360_bag'
+    _write_bag(bag)
+
+    public = _run(
+        'setup',
+        str(bag),
+        '--profile',
+        'rko_lio_graph_public_path',
+        '--motion',
+        'walking',
+        '--accept-profile-extrinsics',
+    )
+    invalid = _run('setup', str(bag), '--motion', 'crawling')
+
+    assert public.returncode == 2
+    assert 'has no walking parameters' in public.stderr
+    assert 'rko_lio_graph_mid360_preset' in public.stderr
+    assert invalid.returncode == 2
+    assert 'Traceback' not in public.stderr + invalid.stderr
 
 
 def test_setup_rejects_partial_or_non_unit_calibration(tmp_path: Path):

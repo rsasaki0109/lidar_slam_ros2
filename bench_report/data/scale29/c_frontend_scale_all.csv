@@ -1,0 +1,8 @@
+calibration-room_trial-1,whole: se3 0.0254  sim3 0.0254  scale +0.000% (estimate longer if +)
+calibration-room_trial-2,whole: se3 0.0195  sim3 0.0193  scale +0.029% (estimate longer if +)
+flat-room_trial-1,whole: se3 0.0138  sim3 0.0137  scale +0.030% (estimate longer if +)
+long-corridor_trial-1,whole: se3 0.0708  sim3 0.0706  scale -0.046% (estimate longer if +)
+outdoor-urk_trial-1,whole: se3 0.0501  sim3 0.0291  scale +0.167% (estimate longer if +)
+underground-garage_trial-1,whole: se3 0.0438  sim3 0.0327  scale +0.107% (estimate longer if +)
+underground-garage_trial-2,whole: se3 0.0289  sim3 0.0173  scale +0.088% (estimate longer if +)
+underground-garage_trial-3,whole: se3 0.0263  sim3 0.0136  scale +0.087% (estimate longer if +)

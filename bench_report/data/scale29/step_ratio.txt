@@ -1,0 +1,73 @@
+== outdoor-urk_trial-1
+overall (moving > 0.3 m/s): excess +0.156%  (114 windows)
+speed m/s
+  [0.3, 0.7): excess +0.719%  n=7
+  [0.7, 0.85): excess +0.129%  n=32
+  [0.85, 1.0): excess +0.135%  n=75
+yaw rate rad/s
+  [0.0, 0.05): excess +0.162%  n=68
+  [0.05, 0.15): excess +0.002%  n=30
+  [0.15, 0.4): excess +0.109%  n=12
+  [0.4, 5.0): excess +1.376%  n=4
+|cos(motion, sensor x)|
+  [0.5, 0.85): excess +1.897%  n=3
+  [0.85, 0.97): excess -0.076%  n=19
+  [0.97, 1.01): excess +0.148%  n=92
+== underground-garage_trial-1
+overall (moving > 0.3 m/s): excess +0.064%  (103 windows)
+speed m/s
+  [0.3, 0.7): excess -0.106%  n=3
+  [0.7, 0.85): excess +0.275%  n=11
+  [0.85, 1.0): excess +0.043%  n=89
+yaw rate rad/s
+  [0.0, 0.05): excess +0.024%  n=52
+  [0.05, 0.15): excess +0.213%  n=41
+  [0.15, 0.4): excess -0.539%  n=7
+  [0.4, 5.0): excess +0.026%  n=3
+|cos(motion, sensor x)|
+  [0.85, 0.97): excess -0.152%  n=10
+  [0.97, 1.01): excess +0.089%  n=90
+== underground-garage_trial-2
+overall (moving > 0.3 m/s): excess +0.048%  (139 windows)
+speed m/s
+  [0.3, 0.7): excess -0.383%  n=4
+  [0.7, 0.85): excess +0.133%  n=36
+  [0.85, 1.0): excess +0.029%  n=99
+yaw rate rad/s
+  [0.0, 0.05): excess +0.173%  n=42
+  [0.05, 0.15): excess +0.048%  n=41
+  [0.15, 0.4): excess +0.030%  n=37
+  [0.4, 5.0): excess -0.212%  n=19
+|cos(motion, sensor x)|
+  [0.0, 0.5): excess +0.006%  n=4
+  [0.5, 0.85): excess -0.325%  n=14
+  [0.85, 0.97): excess +0.010%  n=28
+  [0.97, 1.01): excess +0.113%  n=93
+== underground-garage_trial-3
+overall (moving > 0.3 m/s): excess +0.051%  (101 windows)
+speed m/s
+  [0.7, 0.85): excess +0.079%  n=47
+  [0.85, 1.0): excess +0.028%  n=53
+yaw rate rad/s
+  [0.0, 0.05): excess +0.051%  n=54
+  [0.05, 0.15): excess +0.129%  n=34
+  [0.15, 0.4): excess -0.257%  n=11
+|cos(motion, sensor x)|
+  [0.85, 0.97): excess -0.100%  n=12
+  [0.97, 1.01): excess +0.075%  n=87
+== calibration-room_trial-1
+overall (moving > 0.3 m/s): excess +0.028%  (177 windows)
+speed m/s
+  [0.3, 0.7): excess +0.130%  n=24
+  [0.7, 0.85): excess +0.114%  n=39
+  [0.85, 1.0): excess -0.011%  n=114
+yaw rate rad/s
+  [0.0, 0.05): excess -0.076%  n=98
+  [0.05, 0.15): excess +0.263%  n=47
+  [0.15, 0.4): excess -0.242%  n=15
+  [0.4, 5.0): excess +0.223%  n=17
+|cos(motion, sensor x)|
+  [0.0, 0.5): excess -0.341%  n=6
+  [0.5, 0.85): excess +0.559%  n=12
+  [0.85, 0.97): excess +0.226%  n=15
+  [0.97, 1.01): excess -0.017%  n=144

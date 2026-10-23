@@ -685,6 +685,24 @@ starting a map:
 lidarslam-map setup /path/to/rosbag2
 ```
 
+For a MID-360 on a humanoid or legged robot, or carried by hand, add
+`--motion walking` to `start` or `setup`:
+
+```bash
+lidarslam-map start /path/to/rosbag2 --motion walking
+```
+
+It pins `rko_lio_mid360_walking.yaml` and
+`lidarslam_mid360_rko_graph_walking.yaml` instead of the wheeled defaults:
+the frontend and loop settings adopted on the MapsHD HUMANOID-LIO-DATASET
+(Unitree G1), where the frontend absorbs foot strikes and the loops stop
+pulling an accurate frontend off course (`bench_report/REPORT.md`, chapters 14
+to 25). They were tuned on that data only. Their localizability and IMU options
+need the maintained RKO-LIO fork that a source build uses; the official
+`rko_lio` binary ignores them. `--motion walking` is accepted only with the
+`rko_lio_graph_mid360_preset` profile, and `sensor_setup.json` records it as
+`profile.motion`.
+
 The GNSS and packet workflows pin their GNSS or GSOF inputs in
 `sensor_setup.json`. RKO-only transform/frame options and `--editable` are
 rejected on those profiles instead of being silently ignored. These two paths

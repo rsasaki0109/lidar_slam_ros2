@@ -392,6 +392,12 @@
         "kind": "directory",
         "value_name": "<dir>"
       },
+      "--motion": {
+        "choices": ["wheeled", "walking"],
+        "default": "wheeled",
+        "kind": "enum",
+        "value_name": "{wheeled,walking}"
+      },
       "--lidar-to-base": {
         "default": null,
         "kind": "transform",
@@ -541,6 +547,12 @@
         "default": "<bundle>/map",
         "kind": "directory",
         "value_name": "<dir>"
+      },
+      "--motion": {
+        "choices": ["wheeled", "walking"],
+        "default": "wheeled",
+        "kind": "enum",
+        "value_name": "{wheeled,walking}"
       },
       "--lidar-to-base": {
         "default": null,
@@ -954,6 +966,11 @@
           "tier": "output"
         },
         {
+          "names": ["--motion"],
+          "stability": "stable",
+          "tier": "core"
+        },
+        {
           "names": ["--accept-profile-extrinsics"],
           "stability": "stable",
           "tier": "calibration"
@@ -1257,6 +1274,11 @@
           "names": ["--map-output-dir"],
           "stability": "stable",
           "tier": "output"
+        },
+        {
+          "names": ["--motion"],
+          "stability": "stable",
+          "tier": "core"
         },
         {
           "names": ["--accept-profile-extrinsics"],
