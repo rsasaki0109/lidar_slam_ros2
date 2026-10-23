@@ -1,0 +1,6 @@
+frontend (C = D frontend, md5-equal), lidar frame, GT window 72.4-82.6 s = 0.093 of the GT samples
+all / all: rmse 0.0708 xyz [0.0358 0.0592 0.0149]
+aligned on all, outside window: rmse 0.0313 xyz [0.0156 0.0227 0.015 ]
+aligned and evaluated outside window: rmse 0.0245 xyz [0.0121 0.0151 0.0149]
+window, aligned outside: rmse 0.2287 xyz [0.1158 0.1967 0.015 ]
+share of the squared error inside the window (aligned on all): 0.822

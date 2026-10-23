@@ -1,0 +1,9 @@
+trial,events,event_times_rel_s,share_sq_error_near_events,rmse,rmse_outside_events
+calibration-room_trial-1,0,,0.000,0.0254,0.0254
+calibration-room_trial-2,0,,0.000,0.0195,0.0195
+flat-room_trial-1,0,,0.000,0.0138,0.0138
+long-corridor_trial-1,1,82.0,0.116,0.0708,0.0673
+outdoor-urk_trial-1,0,,0.000,0.0501,0.0501
+underground-garage_trial-1,0,,0.000,0.0438,0.0438
+underground-garage_trial-2,0,,0.000,0.0289,0.0289
+underground-garage_trial-3,0,,0.000,0.0263,0.0263
