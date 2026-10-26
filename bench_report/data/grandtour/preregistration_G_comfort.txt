@@ -63,4 +63,7 @@ ARC-3 (validation) and the development data only, and adopted as G. It differs f
 byte-identical). The one upload of comfort_test_G.zip therefore stands for both G and G12; no second submission.
 
 Upload: comfort_test_G.zip (md5 a2fb4334588e96a4d2bad78ab4e71ab0) submitted to the Test Phase by the maintainer,
-reported 2026-10-26T22:16Z. Test-phase submissions used: 1. Scores: pending.
+reported 2026-10-26T22:16Z. Test-phase submissions used: 1. Codabench submission 1011033
+(2026-10-27 07:15 JST), status Finished, score (mean ATE over the six missions) 0.118 m. Per-mission values: pending
+(the maintainer's "Detailed Results"). Not on the public leaderboard (2026-10-26 22:3x UTC: 22 entries, none of them
+this one).
