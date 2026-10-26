@@ -109,6 +109,15 @@ Procedure:
 - **Gate:** with G, every development family is within 1.10× of its own best profile's
   APE, and the geometric mean is within 1.05×.
 
+Status (2026-10-26, [report chapter 30](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/bench_report/REPORT.md)):
+
+- The first candidate was the shared profile plus a median-scaled Geman-McClure kernel. It
+  roughly halves the error of the indoor MapsHD trials. It was rejected because it loses the
+  vertical constraint outdoors: MapsHD outdoor-urk was 1.43× its best profile, and Oxford
+  1.13×.
+- Four other variants were also rejected.
+- Next: separate kernel scales for ground and non-ground correspondences.
+
 ### Phase 2 — Frontend accuracy, driven by the remaining development error
 
 - The garage scale stretch (+0.09–0.11%, specific to RKO-LIO; GLIM does not show it).

@@ -1,0 +1,2 @@
+sequence,scans,keypoints,nn_p25,nn_p50,nn_p75,nn_p90,within_0_25,within_0_5,matched_normals,normal_eigenvalue_min,normal_eigenvalue_mid,normal_eigenvalue_max,motion_axis_information_ratio,axis_ratio_p10,axis_lt_0.1
+oxford_V,5832,5365,0.02803,0.03747,0.04885,0.06421,0.9971,0.9993,4151,0.2662,0.3196,0.4134,0.9421,0.4533,0.000
