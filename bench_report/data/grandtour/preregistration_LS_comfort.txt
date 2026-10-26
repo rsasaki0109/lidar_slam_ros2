@@ -1,0 +1,35 @@
+GrandTour COMFORT Localization Benchmark, test phase, submission 2: preregistration (fixed 2026-10-26 23:5x UTC, before
+any test mission is run with it).
+
+What is submitted
+  The frontend (RKO-LIO) alone with G12, unchanged:
+    configs/sota_v7/rko_lio_global_G12_2026-10-26.yaml       md5 c4bde039a2499e10f7c6557c2e0b523c
+    rko_lio 6be3e3e (branch claude/jolly-gauss-dliz8l), offline_node md5 8324a5c01a3a0cd8a2afb05c583b1372
+  Rig inputs (LS): the Livox MID-360 point cloud, as in submission 1, and the STIM320 IMU instead of the Livox's
+  built-in IMU; the STIM320 frame is the base frame; extrinsics from the export's `transform` attributes;
+  T_world_prism(t) = T_world_stim320(t) T_stim320_prism with box_base -> prism from tf_static, as before.
+  Category: LiDAR + IMU (no camera, GNSS or external odometry).
+
+Why (data/grandtour/decision_rule_rig_2026-10-27.txt, development missions only; ATE without reference spikes, m):
+  mission   Livox IMU   STIM320
+  heap-1    0.0647      0.0636
+  arc-3     0.0715      0.0539
+  arc-4     0.0257      0.0233
+  arc-6     0.0211      0.0188
+  con-1     0.0879      0.0851
+  eig-2     0.0422      0.0413
+  snow-3    0.0344      0.0341
+  spx-1     0.0574      0.0521
+  mean      0.0506      0.0465
+  The Hesai XT-32 alone (HS) and the Hesai + Livox merge (HLS) were better on most missions but fail the rule
+  (HS: snow-3 0.1161, arc-3 0.1262; HLS: snow-3 0.1031, arc-4 0.0311), so LS is the one taken.
+  No test score was used: the test results of submission 1 decided only that more development data were needed.
+
+What is read for a test mission
+  livox_points.tar and stim320_imu.tar of the mission's Hugging Face folder (and the zarr attributes in them).
+
+Policy
+  1. The six test trajectories are produced in one batch (p1_grandtour_batch.sh with IMU=stim320_imu) and packed into
+     one zip; the md5 of every file is recorded here before the zip leaves the VM.
+  2. The maintainer uploads it once to the test phase as submission 2. The scores are recorded whatever they are.
+  3. As before: a pipeline failure is fixed and recorded; a poor trajectory because of G12 or the rig is submitted as is.

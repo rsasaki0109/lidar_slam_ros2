@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# p1_grandtour_batch.sh <label> <zip_name> <hf_folder:short> ... (chapter 31): run p1_grandtour_run.sh on each mission
+# p1_grandtour_batch.sh <label> <zip_name> <hf_folder:short> ... (chapter 31): run p1_grandtour_run.sh (IMU, LIDAR and
+# G_CONFIG passed through) on each mission
 # in turn, delete that mission's downloaded and converted data once its trajectory is written (the VM's disk holds
 # about one mission at a time), then pack the <short>.tum files at the root of
 # /home/user/bench/grandtour/<label>/<zip_name>.zip, the COMFORT benchmark's submission format.
@@ -12,7 +13,7 @@ for item in "$@"; do
   if [[ ! -s ${B}/${short}/${short}.tum ]]; then
     bash "${S}/p1_grandtour_run.sh" "${folder}" "${short}" "${label}"
   fi
-  [[ ${KEEP_INPUTS:-0} == 1 ]] || rm -rf "/home/user/data/grandtour/${short}/z" "/home/user/data/grandtour/${short}/bag"
+  [[ ${KEEP_INPUTS:-0} == 1 ]] || rm -rf "/home/user/data/grandtour/${short}/z" "/home/user/data/grandtour/${short}"/bag*
   files+=("${short}/${short}.tum")
 done
 rm -f "${B}/${zip_name}.zip"
