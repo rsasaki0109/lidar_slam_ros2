@@ -41,3 +41,18 @@ Submission policy
   4. No setting is tuned on the test scores. A later submission with any other configuration needs its own
      preregistration file made before its runs, and every report of a GrandTour score states how many test-phase
      submissions were used in total.
+
+Record (2026-10-26, after the batch, before the zip left the VM)
+  ARC-3 (validation, run before the test missions): ATE 4.597 m RMSE (median 4.270, max 13.13) over 3654 prism
+  points. 180 stairwell scans with 75-99 keypoints were not registered (min_icp_keypoints 100); the IMU alone carried
+  the pose for up to 4.5 s. This is a property of G and is recorded, not fixed, for this submission.
+  Test missions, one run each with G (node time / data span; dropped scans in brackets):
+    arc-2  16.2 s / 437 s (0)   md5 67f16969c97bbe43c1e9c1faccc9f539
+    arc-7  15.6 s / 335 s (0)   md5 c49bf0fcd569627949f9c2c35c4fd4fb
+    con-4 126.4 s / 756 s (0)   md5 3fb8e1bd45646961daed089446cbbfc6
+    eig-1  70.8 s / 443 s (0)   md5 7df55403291dc541b2187f20c68f720b
+    snow-2 69.2 s / 274 s (0)   md5 db10b20649a7a92b910ad4c3671eb155
+    spx-2  28.8 s / 396 s (0)   md5 971cae2fac8bd6b4c184f0cc2d8ff5ef
+  comfort_test_G.zip (the six files at its root): md5 a2fb4334588e96a4d2bad78ab4e71ab0
+  No test mission has a scan with fewer than 100 keypoints, so no test trajectory went through the step that broke
+  ARC-3.

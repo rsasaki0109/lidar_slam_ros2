@@ -1,0 +1,2 @@
+Close-scene settings used on 2560 registered scans (0 registered again with the base settings)
+dropped scans (fewer than min_icp_keypoints): 0
