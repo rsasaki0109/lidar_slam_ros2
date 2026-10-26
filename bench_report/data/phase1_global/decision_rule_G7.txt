@@ -1,0 +1,18 @@
+Phase 1, candidate G7 (fixed 2026-10-26 before any G7 run).
+
+G7 = V, and on scans whose keypoints' median range is below 12 m (the close-scene signal of G6, unchanged) the MapsHD
+profile Z's two keys: max_correspondence_distance 0.25 and localizability weighting (boost 10, normal only).
+No robust kernel. Gravity window off.
+Gate (the roadmap's Phase 1 gate, per family): for each development family (MapsHD 8 trials, Oxford, exp04), the
+geometric mean APE of G7 <= 1.10 x that of the family's best profile on record, and the geometric mean over all ten
+sequences <= 1.05 x the reference one (0.0348). Koide (a known weakness, chapter 30.9): not worse than V by more
+than 10 % on 02a and 02b. Per-sequence ratios are reported.
+
+Result (one run each, frontend only; ratio to reference):
+  MapsHD calib1 0.0261 (0.99), calib2 0.0207 (1.01), flat 0.0148 (1.00), corridor 0.0712 (1.00), urk 0.0545 (1.07),
+  garage1/2/3 0.0440/0.0293/0.0267 (1.00); MapsHD family geometric mean 1.010; Oxford 0.0533 (1.060);
+  exp04 0.0527 (1.014); all ten 0.0353 against 0.0348 (1.015). The family gate passes.
+  Koide 02a 0.829 (V 0.824, 1.005); Koide 02b 1.898 (V 0.714, 2.66): the Koide condition fails, so G7 is NOT adopted.
+  On 02b the heading jumps 3.6 deg at 120-135 s, during borderline scans (median range 10-12 m) registered with the
+  0.25 m cap; at 126.7 s V itself registers only 70 % of the keypoints within 0.25 m (median distance 0.153 m), a scan
+  with a large initial error that the tight cap cannot capture.

@@ -139,8 +139,21 @@ Status (2026-10-26, [report chapter 30](https://github.com/rsasaki0109/lidar_sla
 - No GT-free test was found for when the window may be used (chapter 30.9). The gravity
   window is now a per-rig input, and long handheld outdoor walks like Koide's are a known
   weakness of G for now.
-- Next: the remaining conflict. The kernel helps indoors and loses the height outdoors. The
-  idea to test is a GT-free scene switch based on whether the scan sees a ceiling.
+- **G adopted (2026-10-26, report chapter 30.10):** the shared profile, plus the MapsHD
+  profile's two keys (cap 0.25 m, localizability boost 10, normal only) on scans whose
+  keypoints' median range is below 12 m.
+  - A close scan that the tight cap explains poorly (under 60% of keypoints within 0.25 m)
+    is re-registered coarse-to-fine.
+  - Over the ten development sequences, G is within 1.5% of the per-dataset best profiles
+    (geometric mean 0.0353 against 0.0348; the shared profile alone 0.0635).
+  - Configuration: `configs/sota_v7/rko_lio_global_G_2026-10-26.yaml`.
+  - Both thresholds come from development data, so a holdout must confirm them.
+- Still open:
+  - Koide-style long outdoor walks (no gravity window).
+  - A candidate that adds `min_icp_keypoints: 100` (fixes Koide 01a) missed its rule by 1% on
+    Koide 02a and awaits the maintainer's decision.
+  - More development families (ENWIDE, GEODE, NTU VIRAL) to test G before a holdout is
+    spent.
 
 ### Phase 2 — Frontend accuracy, driven by the remaining development error
 
