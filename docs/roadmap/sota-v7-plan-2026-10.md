@@ -121,6 +121,11 @@ Status (2026-10-26, [report chapter 30](https://github.com/rsasaki0109/lidar_sla
   outdoor-urk was 1.32× its best profile, and garage 1 1.14×.
 - The two outdoor development sequences point in opposite directions, so more outdoor
   development data comes first: Koide outdoor_hard, then ENWIDE.
+- Koide outdoor_hard needs the gravity-window keys. The shared profile is 1.51× worse there.
+  Adding only those keys (G3) matches the Koide profile on Koide but breaks the height
+  everywhere else: Oxford 0.88 m, MapsHD calibration-room 1 0.29 m.
+- Before any gravity key enters G, a GT-free test is needed of when the window's gravity
+  direction can be trusted.
 
 ### Phase 2 — Frontend accuracy, driven by the remaining development error
 

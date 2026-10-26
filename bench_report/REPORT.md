@@ -1989,3 +1989,23 @@ RKO-LIO に、スキャンごとの統計を書き出す設定を足した（既
 
 - 上下の誤差は少し戻る（outdoor-urk の z 4.0 → 3.2 cm、Oxford 4.5 → 4.2 cm）が、V（1.0 cm、3.0 cm）には遠い。garage 1 と outdoor-urk が基準を超えるので、**G2 も採用しない**。残りの 6 系列は走らせていない。コードからは外した。
 - 距離に比例する尺度（30.4）は、outdoor-urk の z を守った（1.2 cm）が、Oxford の z を壊した（12.9 cm）。屋外の開発用の 2 系列が逆の向きを指しているので、屋外の規則を作る前に、屋外の開発用のデータ（Koide の outdoor_hard、ENWIDE）を足す。
+
+### 30.7 追加：屋外の開発用データ（Koide outdoor_hard）と、重力の窓合わせ（G3、`data/phase1_global/decision_rule_G3.txt`）
+
+- **入力**：Koide の Hard Point Cloud Localization Dataset（zenodo 10122133、CC BY 4.0）の outdoor_hard。`/livox/points` と `/livox/imu` だけを MCAP にした（`scripts/p1_koide_get.sh`。02a は 1.1 GB）。採点は `docs/research/koide-handheld-outdoor-profile-2026-10.md` と同じ（GT の `traj_lidar_outdoor_hard_02.txt` に、0.05 s 以内の最も近い姿勢で SE(3) 整列。`scripts/p1_koide_run.sh`）。
+- **Koide の設定**（`lidarslam/param/rko_lio_mid360_handheld_outdoor.yaml` のフロントエンドの形、`params/p1_koide_profile.yaml`）は 02a で 0.546 m（z 0.236 m）で、調査ノートの 0.55 m（z 0.23 m）を再現した。
+- **共通の設定 V**（`params/p1_koide_V.yaml`、外部パラメータは単位変換）は 0.824 m。誤差の大部分は上下（z 0.673 m）。Koide の設定との違いは重力の窓合わせ（40 s、地図の水平の直しつき）なので、それだけを V に足した **G3** を、ランの前に基準を固定して試した。
+
+| 系列 | V | G3（V ＋ 重力の窓合わせ） | G3 の z |
+|---|---:|---:|---:|
+| Koide outdoor_hard_02a | 0.824 | **0.547** | 0.258 |
+| calibration-room 1 | 0.0480 | 0.2923 | 0.292 |
+| flat-room 1 | 0.0279 | 0.0631 | 0.062 |
+| garage 1 | 0.1285 | 0.2305 | 0.192 |
+| outdoor-urk 1 | 0.0594 | 0.1951 | 0.185 |
+| Oxford Keble 05 | 0.0503 | 0.8773 | 0.876 |
+| HILTI exp04（7 点） | 0.0520 | 0.0733 | – |
+
+- **G3 も採用しない**。Koide 以外のすべての系列で高さを失う。
+- **Koide に効くのは重力の 3 つの設定だけ**。G3 は Koide の設定（voxel 0.5、min_range 1.0 などを含む）と同じ 0.547 m になる。
+- **Oxford の高さの誤差は移動とともに増える**。わずかに違う重力の向きに地図を水平に直し続けたときの形で、加速度センサーの推定していないバイアスなどが考えられる（推測）。重力の設定を G に入れる前に、窓で求めた重力の向きを信じてよい条件を、GT を使わずに見つける必要がある。
