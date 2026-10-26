@@ -65,5 +65,7 @@ byte-identical). The one upload of comfort_test_G.zip therefore stands for both 
 Upload: comfort_test_G.zip (md5 a2fb4334588e96a4d2bad78ab4e71ab0) submitted to the Test Phase by the maintainer,
 reported 2026-10-26T22:16Z. Test-phase submissions used: 1. Codabench submission 1011033
 (2026-10-27 07:15 JST), status Finished, score (mean ATE over the six missions) 0.118 m. Per-mission values: pending
-(the maintainer's "Detailed Results"). Not on the public leaderboard (2026-10-26 22:3x UTC: 22 entries, none of them
+(the maintainer's "Detailed Results"). Fact sheet as submitted: method lidar_slam_ros2, novel, real-time and honesty
+confirmed, project https://github.com/rsasaki0109/lidar_slam_ros2, LiDAR yes, IMU yes, camera / GNSS / external
+odometry no (the LiDAR + IMU category). Not on the public leaderboard (2026-10-26 22:3x UTC: 22 entries, none of them
 this one).
