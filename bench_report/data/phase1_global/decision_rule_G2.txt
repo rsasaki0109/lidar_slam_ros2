@@ -1,0 +1,20 @@
+Phase 1, candidate G2 (fixed 2026-10-26 before any split-kernel run).
+
+G2 = V + icp_robust_kernel_scale_factor 2.0 (chosen for G1 on the MapsHD 4-trial screen; not re-tuned)
+     + icp_robust_kernel_split_horizontal true: correspondences whose matched voxel normal is within about 25 deg
+       of the world vertical (|n_z| >= 0.9) take the kernel scale of their own median, the others theirs; a class
+       with fewer than 20 correspondences in an iteration falls back to the scale of all of them.
+Hypothesis (chapter 30): rough ground has large residuals and loses the height constraint under one scale.
+
+Adopt as the Phase 1 base under the same rule as G1: frontend only, one run each, every one of the ten sequences
+(8 MapsHD trials, Oxford Keble 05, exp04 seven points) <= 1.10 x its reference (docs/comparison.md frontend
+alone: calib1 0.0263, calib2 0.0205, flat 0.0148, corridor 0.0712, urk 0.0507, garage1 0.0440, garage2 0.0293,
+garage3 0.0267, Oxford 0.0503, exp04 0.0520) and the geometric mean <= 1.05 x the reference geometric mean.
+Order: the 4 screen trials and Oxford first; the rest only if none of those five is above 1.10 x.
+
+Result (one run each, frontend only): calib1 0.0250, flat 0.0133, garage1 0.0503 (1.14x), urk 0.0668 (1.32x),
+Oxford 0.0551 (1.096x; per axis 0.0267/0.0233/0.0421). Rule 1 fails on garage1 and urk: G2 is NOT adopted and the
+remaining six sequences were not run.
+Note: the range-scaled kernel of G1's notes protected the urk height (z 0.012) but broke Oxford's (z 0.129), so
+the two outdoor development sequences point in opposite directions; more outdoor development data is needed
+before another outdoor rule is designed.

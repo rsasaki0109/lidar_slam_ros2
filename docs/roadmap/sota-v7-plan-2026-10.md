@@ -57,11 +57,12 @@ recovery plan marks as consumed, none of these may appear in a later blind claim
 
 | Slot | Family | Tier | Status (2026-10-26) |
 | --- | --- | --- | --- |
-| H1 | UrbanLoco | C2 | Request form being submitted by the maintainer |
-| H2 | MulRan | C2 | Request form being submitted by the maintainer |
+| H1 | UrbanLoco | C2 | Not available: the request form requires an institutional email address |
+| H2 | MulRan | C2 | Not available: the request form requires an institutional email address |
 | H3 | M2DGR | C2 | Blocked: the official transfer endpoint returned 403 |
 | H4 | HILTI 2022 `exp14`, `exp16`, `exp18` | C0 (same family) | Frozen unopened since 2026-08-21 ([selection](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml)); a within-family holdout, weaker than a fresh family |
-| H5+ | to be audited | C1, C3 | C1 and C3 have no fresh family yet. Each candidate is audited against the exposure ledger before its sensor data is downloaded |
+| H5 | GrandTour (ETH, ANYmal legged robot) | C1, possibly C3 | Candidate (2026-10-26). Public on Hugging Face (`leggedrobotics/grand_tour_dataset`, MIT, not gated), about 50 missions, absent from this repository's records. The Livox MID-360 and Hesai XT-32 point clouds and several IMUs are per-topic files of 0.5–1.7 GB per mission. Reference trajectories are RTK-GNSS/INS (`cpt7_*`) and a Leica total station (`prism_position`). The reference topics and the `dlio_*` outputs of another SLAM system stay unread until the outputs are sealed. No algorithm is run on it before G is frozen |
+| H6+ | to be audited | C2, C3 | Vehicle and degenerate tiers still need families that can be downloaded without an institutional request |
 
 A tier is not claimed until it has at least two fresh families.
 
@@ -116,7 +117,10 @@ Status (2026-10-26, [report chapter 30](https://github.com/rsasaki0109/lidar_sla
   vertical constraint outdoors: MapsHD outdoor-urk was 1.43× its best profile, and Oxford
   1.13×.
 - Four other variants were also rejected.
-- Next: separate kernel scales for ground and non-ground correspondences.
+- Separate kernel scales for horizontal and other surfaces were rejected too: MapsHD
+  outdoor-urk was 1.32× its best profile, and garage 1 1.14×.
+- The two outdoor development sequences point in opposite directions, so more outdoor
+  development data comes first: Koide outdoor_hard, then ENWIDE.
 
 ### Phase 2 — Frontend accuracy, driven by the remaining development error
 
