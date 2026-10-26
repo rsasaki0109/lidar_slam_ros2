@@ -1,4 +1,5 @@
-# SOTA v7 Phase 1 global frontend configuration G (adopted 2026-10-26, bench_report/REPORT.md chapter 30.10).
+# SOTA v7 Phase 1 global frontend configuration G (adopted 2026-10-26, bench_report/REPORT.md chapters 30.10-30.11):
+# G10 plus min_icp_keypoints 100 (G11, adopted by the maintainer's decision).
 # RKO-LIO algorithm keys only (rko_lio claude/jolly-gauss-dliz8l 7a1f45e or later). Combine with the rig's own keys
 # (topics, frames, extrinsics, IMU acceleration unit); bench_report/params/{mapshd_gyro002_jerk1000,
 # oxford_keble05_gyro002_jerk1000, exp04_gyro002_jerk1000, p1_koide_V}.yaml carry those for the development data.
@@ -26,3 +27,4 @@
     close_scene_localizability_boost: 10.0
     close_scene_localizability_normal_only: true
     close_scene_min_inlier_fraction: 0.6
+    min_icp_keypoints: 100

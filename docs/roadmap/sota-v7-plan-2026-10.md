@@ -150,8 +150,9 @@ Status (2026-10-26, [report chapter 30](https://github.com/rsasaki0109/lidar_sla
   - Both thresholds come from development data, so a holdout must confirm them.
 - Still open:
   - Koide-style long outdoor walks (no gravity window).
-  - A candidate that adds `min_icp_keypoints: 100` (fixes Koide 01a) missed its rule by 1% on
-    Koide 02a and awaits the maintainer's decision.
+  - G now includes `min_icp_keypoints: 100` (chapter 30.11), adopted by the maintainer's decision
+    despite a +1.0% rule miss on Koide 02a. It fixes Koide 01a (3.23 to 0.98 m) and leaves the
+    ten development sequences byte-identical.
   - More development families (ENWIDE, GEODE, NTU VIRAL) to test G before a holdout is
     spent.
 
