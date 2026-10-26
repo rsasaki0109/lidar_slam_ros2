@@ -11,7 +11,8 @@
 # IMU=<group> (default livox_imu) takes another IMU of the mission as the base frame (a rig input, not part of G); its
 # data are downloaded and converted into <data>/bag_<group>. BAG_IMUS=a,b writes those IMUs into one bag
 # (<data>/bag_a+b) so that several IMU choices share one conversion; IMU must be one of them. LIDAR=hesai_points takes
-# the Hesai XT-32 instead of the Livox MID-360, RANGE_SCALE=s scales the points (both rig-input tests).
+# the Hesai XT-32 instead of the Livox MID-360 (hesai_points+livox_points merges both), RANGE_SCALE=s scales the points
+# (rig-input tests).
 # Outputs go to /home/user/bench/grandtour/<label>/<short_name>/.
 set -euo pipefail
 folder=$1; short=$2; label=$3; ws=${4:-/home/user/ws/rko_g12}
@@ -22,13 +23,13 @@ SUFFIX=; [[ ${BAG_IMUS} == livox_imu ]] || SUFFIX=_${BAG_IMUS//,/+}
 [[ ${LIDAR} == livox_points ]] || SUFFIX=${SUFFIX}_${LIDAR}; [[ ${RANGE_SCALE} == 1 ]] || SUFFIX=${SUFFIX}_rs${RANGE_SCALE}
 BAG=${D}/bag${SUFFIX}
 IMU_TOPIC=/livox/imu; [[ ${IMU} == livox_imu ]] || IMU_TOPIC=/${IMU}
-LIDAR_TOPIC=/livox/points; [[ ${LIDAR} == livox_points ]] || LIDAR_TOPIC=/${LIDAR}
+LIDAR_TOPIC=/livox/points; [[ ${LIDAR} == livox_points ]] || LIDAR_TOPIC=/${LIDAR}; [[ ${LIDAR} != *+* ]] || LIDAR_TOPIC=/merged_points
 PRISM="0.3088378015503127 -0.038312997211241984 -0.2349441159711169 -0.005724388155828644 -0.0013879431347362404 -0.004742721620119043 0.9999714053840392"
 U=https://huggingface.co/datasets/leggedrobotics/grand_tour_dataset/resolve/main/${folder}/data
 mkdir -p "${D}/z" "${O}"
 set +u; source /opt/ros/jazzy/setup.bash; set -u
 if [[ ! -d ${BAG} ]]; then
-  for f in ${LIDAR} ${BAG_IMUS//,/ }; do
+  for f in ${LIDAR//+/ } ${BAG_IMUS//,/ }; do
     [[ -d ${D}/z/${f} ]] || { curl -sS -L --fail -o "${D}/${f}.tar" "${U}/${f}.tar"; tar xf "${D}/${f}.tar" -C "${D}/z"; rm -f "${D}/${f}.tar"; }
   done
   "${PY}" "${S}/p1_grandtour_to_ros2.py" --imu "${BAG_IMUS}" --lidar "${LIDAR}" --range-scale "${RANGE_SCALE}" "${D}/z" \

@@ -10,7 +10,9 @@ Reads the extracted `livox_points` and `livox_imu` zarr groups of one mission an
                  mission (stim320_imu, adis_imu, ...) is written instead, on topic /<group>, in its own frame;
                  --imu a,b writes several IMUs (the extrinsics use the first).
 --lidar <group> takes another LiDAR (hesai_points: the Hesai XT-32, on /hesai_points, point times in absolute
-seconds instead of nanoseconds); --range-scale s multiplies every point's coordinates by s (a range-scale test).
+seconds instead of nanoseconds); --lidar hesai_points+livox_points merges both LiDARs into one cloud per Hesai scan,
+in the Hesai frame, on /merged_points (the Livox points timed within that scan's span); --range-scale s multiplies
+every point's coordinates by s (a range-scale test).
 Only the first `valid` points of every scan are used, and points at the origin or non-finite are dropped. No other
 stream of the mission is read (in particular no reference or GNSS/INS topic).
 It also prints the RKO-LIO extrinsics and the IMU-to-prism transform of the mission (see --extrinsics), with the
@@ -83,11 +85,62 @@ def imu_topic(group):
 
 
 def lidar_topic(group):
-    return '/livox/points' if group == 'livox_points' else f'/{group}'
+    if group == 'livox_points':
+        return '/livox/points'
+    return '/merged_points' if '+' in group else f'/{group}'
+
+
+def iter_scans(z):
+    """(xyz float64, absolute time in s, intensity float32) of every scan with at least 10 usable points."""
+    valid = z['valid'][:, 0]
+    first = z['time'][0, :max(1, int(valid[0]))]
+    to_seconds = 1e-9 if np.nanmax(first) > 1e12 else 1.0  # Livox: ns, Hesai: s
+    block = 256
+    for start in range(0, len(valid), block):
+        stop = min(start + block, len(valid))
+        points = z['points'][start:stop]
+        intensity = z['intensity'][start:stop]
+        times = z['time'][start:stop]
+        for j in range(stop - start):
+            n = int(valid[start + j])
+            xyz = points[j, :n].astype(np.float64)
+            t = times[j, :n] * to_seconds
+            keep = np.isfinite(xyz).all(1) & np.isfinite(t) & (np.abs(xyz).sum(1) > 0)
+            if keep.sum() < 10:
+                continue
+            yield xyz[keep], t[keep], intensity[j, :n][keep].astype(np.float32)
+
+
+def merged_scans(primary, secondary, T_primary_secondary):
+    """Primary scans with the secondary LiDAR's points of the same time span added, in the primary frame."""
+    R, p = T_primary_secondary[:3, :3], T_primary_secondary[:3, 3]
+    pending = []  # secondary (xyz, t, intensity) not yet assigned
+    source = iter_scans(secondary)
+    exhausted = False
+    for xyz, t, inten in iter_scans(primary):
+        lo, hi = t.min(), t.max()
+        while not exhausted and (not pending or pending[-1][1].max() < hi):
+            try:
+                pending.append(next(source))
+            except StopIteration:
+                exhausted = True
+        parts_xyz, parts_t, parts_i = [xyz], [t], [inten]
+        kept = []
+        for sx, st, si in pending:
+            inside = (st >= lo) & (st <= hi)
+            if inside.any():
+                parts_xyz.append(sx[inside] @ R.T + p)
+                parts_t.append(st[inside])
+                parts_i.append(si[inside])
+            later = st > hi
+            if later.any():
+                kept.append((sx[later], st[later], si[later]))
+        pending = kept
+        yield np.concatenate(parts_xyz), np.concatenate(parts_t), np.concatenate(parts_i)
 
 
 def extrinsics(mission, prism, group='livox_imu', lidar_group='livox_points'):
-    lidar = zarr.open(f'{mission}/{lidar_group}', mode='r')
+    lidar = zarr.open(f'{mission}/{lidar_group.split("+")[0]}', mode='r')
     imu = zarr.open(f'{mission}/{group}', mode='r')
     T_box_lidar = zarr_transform(dict(lidar.attrs))
     T_box_imu = zarr_transform(dict(imu.attrs))
@@ -109,8 +162,15 @@ def convert(mission, out, groups=('livox_imu',), lidar_group='livox_points', ran
         sec = int(np.floor(seconds))
         return Time(sec=sec, nanosec=int(round((seconds - sec) * 1e9)) % 1000000000)
 
-    lidar = zarr.open(f'{mission}/{lidar_group}', mode='r')
-    lidar_frame = dict(lidar.attrs).get('frame_id', lidar_group)
+    lidar_groups = lidar_group.split('+')
+    lidar = zarr.open(f'{mission}/{lidar_groups[0]}', mode='r')
+    lidar_frame = dict(lidar.attrs).get('frame_id', lidar_groups[0])
+    if len(lidar_groups) == 2:
+        secondary = zarr.open(f'{mission}/{lidar_groups[1]}', mode='r')
+        T = np.linalg.inv(zarr_transform(dict(lidar.attrs))) @ zarr_transform(dict(secondary.attrs))
+        scans_iter = merged_scans(lidar, secondary, T)
+    else:
+        scans_iter = iter_scans(lidar)
     writer = rosbag2_py.SequentialWriter()
     writer.open(rosbag2_py.StorageOptions(uri=out, storage_id='mcap', storage_preset_profile='zstd_fast'),
                 rosbag2_py.ConverterOptions('', ''))
@@ -139,43 +199,28 @@ def convert(mission, out, groups=('livox_imu',), lidar_group='livox_points', ran
 
     fields = [PointField(name=n, offset=4 * k, datatype=PointField.FLOAT32, count=1)
               for k, n in enumerate(('x', 'y', 'z', 'intensity', 't'))]
-    valid = lidar['valid'][:, 0]
-    scans = len(valid)
-    first = lidar['time'][0, :max(1, int(valid[0]))]
-    time_to_seconds = 1e-9 if np.nanmax(first) > 1e12 else 1.0  # Livox: ns, Hesai: s
+    scans = len(lidar['valid'])
     kept_scans = 0
-    block = 256
-    for start in range(0, scans, block):
-        stop = min(start + block, scans)
-        points = lidar['points'][start:stop]
-        intensity = lidar['intensity'][start:stop]
-        times = lidar['time'][start:stop]
-        for j in range(stop - start):
-            n = int(valid[start + j])
-            xyz = points[j, :n].astype(np.float64)
-            t = times[j, :n] * time_to_seconds
-            keep = np.isfinite(xyz).all(1) & np.isfinite(t) & (np.abs(xyz).sum(1) > 0)
-            if keep.sum() < 10:
-                continue
-            xyz, t, inten = xyz[keep] * range_scale, t[keep], intensity[j, :n][keep].astype(np.float32)
-            t0 = float(t.min())
-            cloud = np.empty((len(t), 5), dtype=np.float32)
-            cloud[:, :3] = xyz
-            cloud[:, 3] = inten
-            cloud[:, 4] = (t - t0).astype(np.float32)
-            msg = PointCloud2()
-            msg.header.stamp = stamp(t0)
-            msg.header.frame_id = lidar_frame
-            msg.height = 1
-            msg.width = len(t)
-            msg.fields = fields
-            msg.is_bigendian = False
-            msg.point_step = 20
-            msg.row_step = 20 * len(t)
-            msg.data = cloud.tobytes()
-            msg.is_dense = True
-            messages.append((float(t.max()), lidar_topic(lidar_group), msg))
-            kept_scans += 1
+    for xyz, t, inten in scans_iter:
+        xyz = xyz * range_scale
+        t0 = float(t.min())
+        cloud = np.empty((len(t), 5), dtype=np.float32)
+        cloud[:, :3] = xyz
+        cloud[:, 3] = inten
+        cloud[:, 4] = (t - t0).astype(np.float32)
+        msg = PointCloud2()
+        msg.header.stamp = stamp(t0)
+        msg.header.frame_id = lidar_frame
+        msg.height = 1
+        msg.width = len(t)
+        msg.fields = fields
+        msg.is_bigendian = False
+        msg.point_step = 20
+        msg.row_step = 20 * len(t)
+        msg.data = cloud.tobytes()
+        msg.is_dense = True
+        messages.append((float(t.max()), lidar_topic(lidar_group), msg))
+        kept_scans += 1
     messages.sort(key=lambda m: m[0])
     for t, topic, msg in messages:
         writer.write(topic, rclpy.serialization.serialize_message(msg), int(round(t * 1e9)))
