@@ -65,7 +65,7 @@ recovery plan marks as consumed, none of these may appear in a later blind claim
 | H2 | MulRan | C2 | Not available: the request form requires an institutional email address |
 | H3 | M2DGR | C2 | Blocked: the official transfer endpoint returned 403 |
 | H4 | HILTI 2022 `exp14`, `exp16`, `exp18` | C0 (same family) | Frozen unopened since 2026-08-21 ([selection](https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml)); a within-family holdout, weaker than a fresh family |
-| H5 | GrandTour (ETH, ANYmal legged robot) | C1, possibly C3 | Candidate (2026-10-26). Public on Hugging Face (`leggedrobotics/grand_tour_dataset`, MIT, not gated), about 50 missions, absent from this repository's records. The Livox MID-360 and Hesai XT-32 point clouds and several IMUs are per-topic files of 0.5–1.7 GB per mission. Reference trajectories are RTK-GNSS/INS (`cpt7_*`) and a Leica total station (`prism_position`). The reference topics and the `dlio_*` outputs of another SLAM system stay unread until the outputs are sealed. No algorithm is run on it before G is frozen |
+| H5 | GrandTour (ETH, ANYmal legged robot) | C1, possibly C3 | Candidate (2026-10-26). Public on Hugging Face (`leggedrobotics/grand_tour_dataset`, MIT, not gated), about 50 missions, absent from this repository's records. The Livox MID-360 and Hesai XT-32 point clouds and several IMUs are per-topic files of 0.5–1.7 GB per mission. Reference trajectories are RTK-GNSS/INS (`cpt7_*`) and a Leica total station (`prism_position`). The reference topics and the `dlio_*` outputs of another SLAM system stay unread until the outputs are sealed. No algorithm is run on it before G is frozen. **In use for C4 (2026-10-26):** its COMFORT Localization Benchmark hides the references of six test missions. G was preregistered for it before any test mission was run (`bench_report/data/grandtour/preregistration_G_comfort.txt`); the two validation missions (HEAP-1, ARC-3) were used only to check the frame chain and are no longer holdouts. The other missions' public references stay unread, so they remain a C1 holdout |
 | H6+ | to be audited | C2, C3 | Vehicle and degenerate tiers still need families that can be downloaded without an institutional request |
 
 A tier is not claimed until it has at least two fresh families.
@@ -155,6 +155,15 @@ Status (2026-10-26, [report chapter 30](https://github.com/rsasaki0109/lidar_sla
     ten development sequences byte-identical.
   - More development families (ENWIDE, GEODE, NTU VIRAL) to test G before a holdout is
     spent.
+- **G12 adopted (2026-10-26, report chapter 31.3):** the GrandTour validation mission ARC-3
+  (multi-floor building) broke G at 4.6 m. Its stairwell scans have 75–99 keypoints, under
+  `min_icp_keypoints: 100`, and were not registered. G12 adds
+  `keypoint_shortfall_voxel_multiplier: 1.0`: such a scan takes its keypoints again at the
+  0.25 m voxel before it is dropped.
+  - ARC-3 drops to 0.28 m, or 0.072 m without one 16 m jump in the reference.
+  - The checked development sequences (flat-room 1, Oxford, Koide ×4), HEAP-1, and the
+    COMFORT test trajectories are byte-identical to G.
+  - Configuration: `configs/sota_v7/rko_lio_global_G12_2026-10-26.yaml`.
 
 ### Phase 2 — Frontend accuracy, driven by the remaining development error
 
@@ -192,6 +201,11 @@ main item is streaming the saved map instead of holding the full cloud (chapter 
   benchmark. The HILTI 2022 ground truth is now public on the official Hugging Face
   dataset, so it no longer works as a hidden test. Whether the HILTI 2023 leaderboard
   still accepts submissions has not been confirmed.
+- C4, first entry: the GrandTour COMFORT Localization Benchmark on Codabench (LiDAR + IMU
+  category, six test missions with hidden total-station references, SE(3)-aligned ATE,
+  real-time methods only; test phase until 2026-10-30 23:59 UTC). G is submitted once as
+  preregistered (report chapter 31). The maintainer uploads it, because submissions need
+  the maintainer's Codabench account.
 
 ## Appendix: profile inventory
 

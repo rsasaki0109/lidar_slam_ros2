@@ -1,0 +1,3 @@
+Close-scene settings used on 3896 registered scans (0 registered again with the base settings)
+Keypoints taken again at the finer voxel on 0 scans
+dropped scans (fewer than min_icp_keypoints): 0

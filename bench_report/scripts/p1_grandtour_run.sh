@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # p1_grandtour_run.sh <hf_mission_folder> <short_name> <label> [ws] (chapter 31): one GrandTour mission end to end with
-# the frozen global configuration G (configs/sota_v7/rko_lio_global_G_2026-10-26.yaml).
+# the global configuration G (G_CONFIG, default configs/sota_v7/rko_lio_global_G12_2026-10-26.yaml; the COMFORT test
+# batch of 2026-10-26 ran the G11 file rko_lio_global_G_2026-10-26.yaml with the rko_lio 7a1f45e build).
 #   1. download only livox_points.tar and livox_imu.tar from the Hugging Face export (no reference or GNSS stream),
 #   2. convert them to a ROS 2 bag (p1_grandtour_to_ros2.py),
 #   3. write the mission's RKO-LIO parameters: G plus the rig keys (IMU frame as base, LiDAR extrinsic from the export),
@@ -9,7 +10,7 @@
 #      (box_base -> prism from grand_tour_box's tf_static_metadata_new_*.bag, the same in all nine of them).
 # Outputs go to /home/user/bench/grandtour/<label>/<short_name>/.
 set -euo pipefail
-folder=$1; short=$2; label=$3; ws=${4:-/home/user/ws/rko_k}
+folder=$1; short=$2; label=$3; ws=${4:-/home/user/ws/rko_g12}
 REPO=/home/user/lidar_slam_ros2; S=${REPO}/bench_report/scripts; PY=/home/user/mapshd/venv/bin/python
 D=/home/user/data/grandtour/${short}; O=/home/user/bench/grandtour/${label}/${short}
 PRISM="0.3088378015503127 -0.038312997211241984 -0.2349441159711169 -0.005724388155828644 -0.0013879431347362404 -0.004742721620119043 0.9999714053840392"
@@ -24,7 +25,7 @@ if [[ ! -d ${D}/bag ]]; then
 fi
 # shellcheck disable=SC2086
 "${PY}" "${S}/p1_grandtour_to_ros2.py" --extrinsics "${D}/z" ${PRISM} > "${O}/extrinsics.txt"
-"${PY}" - "${REPO}/configs/sota_v7/rko_lio_global_G_2026-10-26.yaml" "${O}/extrinsics.txt" "${O}/params.yaml" <<'PY'
+"${PY}" - "${G_CONFIG:-${REPO}/configs/sota_v7/rko_lio_global_G12_2026-10-26.yaml}" "${O}/extrinsics.txt" "${O}/params.yaml" <<'PY'
 import sys
 import yaml
 g = yaml.safe_load(open(sys.argv[1]))['/**']['ros__parameters']
