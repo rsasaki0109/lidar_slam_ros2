@@ -8,7 +8,9 @@ own orientations. With a perfect, unbiased accelerometer the mean points straigh
 accelerometer itself contributes (bias, misalignment). The azimuth of that tilt is compared with the heading.
 Usage: p1_gravity_window_check.py <bag> <imu_topic> <gt_tum> <T_imu_gtframe 4x4 .npy or 'identity'> <out_csv>
        [--window 40] [--step 5] [--accel-scale 1.0]
-The ground truth must give the pose of its body frame in a gravity-aligned world frame.
+The ground truth must give the pose of its body frame in a gravity-aligned world frame. Any TUM trajectory of the IMU
+frame can stand in for it, e.g. RKO-LIO's own front_tum_0.txt (identity extrinsic): the bias line then is what an
+estimate without ground truth would see.
 """
 import argparse
 import csv
@@ -28,17 +30,20 @@ def quat_to_R(q):
                      [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)]])
 
 
-def read_imu(bag, topic):
+def read_imu(bag, topic, with_gyro=False):
     reader = rosbag2_py.SequentialReader()
     storage = 'mcap' if any(p.endswith('.mcap') for p in os.listdir(bag)) else 'sqlite3'
     reader.open(rosbag2_py.StorageOptions(uri=bag, storage_id=storage), rosbag2_py.ConverterOptions('', ''))
     reader.set_filter(rosbag2_py.StorageFilter(topics=[topic]))
-    t, a = [], []
+    t, a, w = [], [], []
     while reader.has_next():
         _, data, _ = reader.read_next()
         msg = rclpy.serialization.deserialize_message(data, Imu)
         t.append(msg.header.stamp.sec + 1e-9 * msg.header.stamp.nanosec)
         a.append([msg.linear_acceleration.x, msg.linear_acceleration.y, msg.linear_acceleration.z])
+        w.append([msg.angular_velocity.x, msg.angular_velocity.y, msg.angular_velocity.z])
+    if with_gyro:
+        return np.array(t), np.array(a), np.array(w)
     return np.array(t), np.array(a)
 
 

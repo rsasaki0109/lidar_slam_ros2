@@ -1,0 +1,38 @@
+##### window 40 s, min observability 0.1
+== Oxford
+trajectory   bias [ 0.1717 -0.1327  0.0077] m/s^2 (1.27 deg)  observability [0.01 0.3  0.3 ]  window tilt median 2.54 deg  drift about the mean tilt: median 0.56 p90 1.08 max 1.13 deg (15 windows)
+ground truth bias [ 0.1709 -0.1322  0.0079] m/s^2 (1.26 deg)  observability [0.01 0.29 0.29]  window tilt median 0.47 deg  drift about the mean tilt: median 0.47 p90 1.02 max 1.06 deg (15 windows)
+== Koide 02a
+trajectory   bias [-0.0096 -0.04   -0.0015] m/s^2 (0.24 deg)  observability [0.   0.17 0.17]  window tilt median 1.58 deg  drift about the mean tilt: median 1.02 p90 1.44 max 2.21 deg (10 windows)
+ground truth bias [-0.0447 -0.0453 -0.0024] m/s^2 (0.37 deg)  observability [0.   0.17 0.18]  window tilt median 0.27 deg  drift about the mean tilt: median 0.34 p90 1.41 max 1.95 deg (10 windows)
+== Koide 02b
+trajectory   bias [ 0.0036 -0.1287 -0.0007] m/s^2 (0.75 deg)  observability [0.01 0.14 0.14]  window tilt median 1.50 deg  drift about the mean tilt: median 1.51 p90 1.95 max 1.96 deg (8 windows)
+ground truth bias [-0.0045 -0.1326 -0.0016] m/s^2 (0.78 deg)  observability [0.01 0.13 0.14]  window tilt median 0.63 deg  drift about the mean tilt: median 0.60 p90 1.21 max 1.65 deg (8 windows)
+== MapsHD calibration-room_trial-1
+trajectory   bias [-0.2508 -0.0395 -0.0562] m/s^2 (1.48 deg)  observability [0.01 0.2  0.21]  window tilt median 1.43 deg  drift about the mean tilt: median 1.09 p90 1.85 max 3.15 deg (10 windows)
+ground truth bias [-0.22   -0.0961 -0.047 ] m/s^2 (1.40 deg)  observability [0.01 0.33 0.33]  window tilt median 1.99 deg  drift about the mean tilt: median 1.29 p90 1.83 max 2.95 deg (10 windows)
+== MapsHD outdoor-urk_trial-1
+trajectory   bias [-0.2918  0.1446 -0.0618] m/s^2 (1.90 deg)  observability [0.   0.14 0.14]  window tilt median 1.87 deg  drift about the mean tilt: median 0.78 p90 1.67 max 2.27 deg (8 windows)
+ground truth bias [-0.3067  0.0457 -0.0659] m/s^2 (1.81 deg)  observability [0.   0.17 0.17]  window tilt median 1.67 deg  drift about the mean tilt: median 1.09 p90 2.09 max 2.59 deg (7 windows)
+== MapsHD flat-room_trial-1
+trajectory   bias [ 0.001  -0.1246  0.004 ] m/s^2 (0.73 deg)  observability [0.   0.17 0.17]  window tilt median 0.78 deg  drift about the mean tilt: median 0.85 p90 1.44 max 1.72 deg (7 windows)
+ground truth bias [ 0.0456 -0.1657  0.0161] m/s^2 (1.00 deg)  observability [0.   0.24 0.24]  window tilt median 2.28 deg  drift about the mean tilt: median 1.22 p90 1.38 max 1.48 deg (7 windows)
+##### window 120 s, min observability 0.1
+== Oxford
+trajectory   bias [ 0.1513 -0.1001  0.0057] m/s^2 (1.06 deg)  observability [0.01 0.74 0.74]  window tilt median 2.48 deg  drift about the mean tilt: median 0.20 p90 0.43 max 0.49 deg (5 windows)
+ground truth bias [ 0.1527 -0.0987  0.0057] m/s^2 (1.06 deg)  observability [0.01 0.74 0.74]  window tilt median 0.26 deg  drift about the mean tilt: median 0.24 p90 0.33 max 0.38 deg (5 windows)
+== Koide 02a
+trajectory   bias [ 0.0244 -0.0615 -0.0003] m/s^2 (0.39 deg)  observability [0.   0.37 0.37]  window tilt median 1.85 deg  drift about the mean tilt: median 0.85 p90 1.10 max 1.21 deg (4 windows)
+ground truth bias [-0.0322 -0.0268 -0.002 ] m/s^2 (0.24 deg)  observability [0.01 0.37 0.37]  window tilt median 0.23 deg  drift about the mean tilt: median 0.59 p90 1.29 max 1.56 deg (4 windows)
+== Koide 02b
+trajectory   bias [ 0.0351 -0.048  -0.    ] m/s^2 (0.35 deg)  observability [0.01 0.29 0.29]  window tilt median 2.05 deg  drift about the mean tilt: median 1.21 p90 1.50 max 1.57 deg (3 windows)
+ground truth bias [-0.0614 -0.0647 -0.0022] m/s^2 (0.52 deg)  observability [0.01 0.28 0.29]  window tilt median 0.47 deg  drift about the mean tilt: median 0.27 p90 0.30 max 0.31 deg (3 windows)
+== MapsHD calibration-room_trial-1
+trajectory   bias [-0.1132 -0.0421 -0.0268] m/s^2 (0.71 deg)  observability [0.01 0.71 0.71]  window tilt median 1.58 deg  drift about the mean tilt: median 0.72 p90 0.83 max 0.86 deg (4 windows)
+ground truth bias [-0.2027  0.0072 -0.0505] m/s^2 (1.19 deg)  observability [0.01 0.79 0.79]  window tilt median 1.64 deg  drift about the mean tilt: median 1.16 p90 2.21 max 2.58 deg (4 windows)
+== MapsHD outdoor-urk_trial-1
+trajectory   bias [-0.2376  0.0979 -0.0589] m/s^2 (1.50 deg)  observability [0.   0.51 0.51]  window tilt median 1.47 deg  drift about the mean tilt: median 0.63 p90 1.04 max 1.15 deg (3 windows)
+ground truth bias [-0.2611  0.0954 -0.0645] m/s^2 (1.62 deg)  observability [0.   0.56 0.56]  window tilt median 1.25 deg  drift about the mean tilt: median 0.81 p90 1.14 max 1.22 deg (3 windows)
+== MapsHD flat-room_trial-1
+trajectory   bias [ 0.0509 -0.0051  0.013 ] m/s^2 (0.30 deg)  observability [0.   0.36 0.36]  window tilt median 0.46 deg  drift about the mean tilt: median 0.09 p90 0.12 max 0.13 deg (3 windows)
+ground truth bias [ 0.0003 -0.0394  0.0016] m/s^2 (0.23 deg)  observability [0.   0.42 0.42]  window tilt median 1.82 deg  drift about the mean tilt: median 0.20 p90 0.25 max 0.26 deg (3 windows)

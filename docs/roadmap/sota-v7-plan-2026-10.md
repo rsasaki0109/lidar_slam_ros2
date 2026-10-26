@@ -24,7 +24,11 @@ transfer endpoint returned 403, and UrbanLoco and MulRan need a request form.
 
 **One global configuration (G).** A single frontend and backend parameter set for every
 sequence. Per-rig inputs are allowed: topics, frames, extrinsics, IMU acceleration unit,
-calibrated clock offsets, and the LiDAR beam model. Nothing else may differ by dataset or
+calibrated clock offsets, and the LiDAR beam model. The gravity-window alignment is also
+a per-rig input (decided 2026-10-26, report chapter 30.9). It is on only for a rig whose IMU
+calibration (for example static multi-orientation data, never a reference trajectory)
+shows a small horizontal accelerometer bias. It is off for public data without such a
+calibration. Nothing else may differ by dataset or
 sequence. Self-adaptation inside the algorithm is allowed when it uses only sensor data
 and its rule and thresholds are frozen before any holdout is opened.
 
@@ -132,6 +136,11 @@ Status (2026-10-26, [report chapter 30](https://github.com/rsasaki0109/lidar_sla
   - Koide's bias is 0.3°.
   - Separating the bias inside the window (G4) and raising the re-level threshold to 1°
     (G5) both fail.
+- No GT-free test was found for when the window may be used (chapter 30.9). The gravity
+  window is now a per-rig input, and long handheld outdoor walks like Koide's are a known
+  weakness of G for now.
+- Next: the remaining conflict. The kernel helps indoors and loses the height outdoors. The
+  idea to test is a GT-free scene switch based on whether the scan sees a ceiling.
 
 ### Phase 2 — Frontend accuracy, driven by the remaining development error
 
