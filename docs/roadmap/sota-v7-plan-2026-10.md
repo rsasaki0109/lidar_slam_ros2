@@ -126,6 +126,12 @@ Status (2026-10-26, [report chapter 30](https://github.com/rsasaki0109/lidar_sla
   everywhere else: Oxford 0.88 m, MapsHD calibration-room 1 0.29 m.
 - Before any gravity key enters G, a GT-free test is needed of when the window's gravity
   direction can be trusted.
+- Ground-truth attitudes show why G3 fails (report chapter 30.8).
+  - On Oxford and MapsHD, the window tilt turns with the heading. It comes from a body-frame
+    accelerometer bias of 0.7–1.0°, which is larger than RKO-LIO's own attitude drift.
+  - Koide's bias is 0.3°.
+  - Separating the bias inside the window (G4) and raising the re-level threshold to 1°
+    (G5) both fail.
 
 ### Phase 2 — Frontend accuracy, driven by the remaining development error
 

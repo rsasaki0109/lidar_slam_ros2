@@ -1,0 +1,22 @@
+Phase 1, candidate G4 (fixed 2026-10-26 before any G4 run).
+
+Diagnosis (chapter 30.8, ground-truth attitudes, development data): the gravity window, fed with ground-truth
+attitudes, still tilts by a median 0.70 deg (Oxford), 0.46 (MapsHD calibration-room 1), 0.49 (outdoor-urk), and the
+tilt azimuth follows the heading (resultant 0.79-0.93), i.e. a body-frame horizontal accelerometer bias of
+0.7-1.0 deg; Koide 02a has 0.31 deg and its tilt does not follow the heading.
+
+G4 = V + gravity_window_alignment true, gravity_window_sec 40.0, gravity_alignment_relevel_map true
+     + gravity_alignment_estimate_bias true (gravity_alignment_bias_min_observability 0.3, the default; not tuned).
+Reference values and rule as for G3: every sequence <= 1.10 x its reference (MapsHD Z values, Oxford 0.0503,
+exp04 0.0520, Koide 02a 0.546 from the Koide profile). Order: Koide 02a, Oxford, MapsHD calib1/flat/garage1/urk,
+exp04; then the remaining MapsHD trials and Koide 02b/01b/01a. Sequences where V itself is above 1.10 x are reported
+with V beside them; G4 must not be worse than V there either.
+
+Result (one run each, frontend only; x / y / z in m where measured):
+  Koide 02a 0.595 (0.407/0.268/0.342), Oxford 0.174 (0.037/0.029/0.168), MapsHD calib1 0.181 (z 0.180),
+  flat 0.059, garage1 0.373 (z 0.352), urk 0.344 (z 0.337), exp04 0.0622 (1.20x).
+G4 is NOT adopted (Oxford 3.5x, every MapsHD trial far above 1.10x).
+The bias estimated inside the 40 s window disagrees with the one computed with ground-truth attitudes (Oxford: last
+in-loop estimate -0.177/-0.184/0.012 m/s^2 against 0.121/-0.109/-0.146), and even with the ground-truth bias removed
+the window tilt keeps a median 0.28 deg of noise, the size of the 0.29 deg re-level threshold. The option is removed
+from the code.
