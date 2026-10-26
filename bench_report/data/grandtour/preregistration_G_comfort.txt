@@ -1,0 +1,43 @@
+GrandTour COMFORT Localization Benchmark, test phase: preregistration (fixed 2026-10-26, before any test mission run).
+
+What is submitted
+  The frontend (RKO-LIO) alone with the frozen global configuration G:
+    configs/sota_v7/rko_lio_global_G_2026-10-26.yaml        md5 e29483c69b0da9c109d81e25053ccde2
+    rko_lio commit 7a1f45e (branch claude/jolly-gauss-dliz8l), offline_node md5 f9752eabba30ab88dbc0b02f2f4755cd
+  plus the rig keys only: the Livox IMU frame as the base frame, the Livox LiDAR extrinsic from the export's own
+  `transform` attributes, imu_acceleration_unit auto. No parameter of G is changed for GrandTour.
+  No backend (graph_based_slam, loop closure) and no post-processing: every pose is the frontend's online estimate,
+  written as T_world_prism(t) = T_world_imu(t) T_imu_prism (box_base -> prism from grand_tour_box
+  tf_static_metadata_new_*.bag, the same in all nine of them).
+  Category: LiDAR + IMU (Livox MID-360 point cloud and its built-in IMU).
+
+What is read for a test mission
+  livox_points.tar and livox_imu.tar of the mission's Hugging Face folder, nothing else. No cpt7_*, prism_position,
+  dlio_* or other reference / other-method stream of a test mission is downloaded.
+
+Pipeline (bench_report/scripts/)
+  p1_grandtour_to_ros2.py   zarr -> ROS 2 bag, extrinsics
+  p1_grandtour_run.sh       one mission: download, convert, parameters, one offline_node run, T_world_prism TUM
+  p1_grandtour_batch.sh     the six missions in turn, zip with the six TUM files at its root
+  p1_grandtour_ate.py       ATE (SE(3) alignment, no scale) against a validation-split prism reference
+
+Validation of the frame chain (validation split, references public)
+  HEAP-1 (2024-11-14-13-45-37): 3029 poses, 36.7 s for 303 s of data (single run, real time), close-scene settings on
+  1365 scans, 0 fallbacks. ATE 0.0647 m RMSE over 4597 prism points (154 m path), median 0.0496, max 0.1738.
+  Checks: IMU origin without the prism lever arm 0.0728, negated lever arm 0.0838; reference time offsets
+  -0.1/-0.05/0/+0.05/+0.1 s give 0.0846/0.0682/0.0647/0.0760/0.0971, so the chain and the time base are as intended.
+  Nothing of G was changed after these numbers.
+  ARC-3 (2024-11-18-13-48-19), the second validation mission, is run with the same pipeline before the test missions,
+  and its score is recorded whatever it is.
+
+Submission policy
+  1. The six test trajectories (arc-2, arc-7, con-4, eig-1, snow-2, spx-2) are produced in one batch with G and packed
+     into one zip; the md5 of every file is recorded here before the zip leaves the VM.
+  2. The maintainer uploads that zip once to the test phase. The returned scores are recorded in chapter 31 whatever
+     they are.
+  3. A run that fails for a reason that is not a property of G (a conversion or pipeline bug, a crash of the VM) is
+     fixed in the pipeline, rerun, and recorded here with the fix. A trajectory that is poor because of G is submitted
+     as it is.
+  4. No setting is tuned on the test scores. A later submission with any other configuration needs its own
+     preregistration file made before its runs, and every report of a GrandTour score states how many test-phase
+     submissions were used in total.
