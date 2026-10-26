@@ -12,8 +12,10 @@ The ground truth must give the pose of its body frame in a gravity-aligned world
 """
 import argparse
 import csv
+import os
 
 import numpy as np
+
 import rclpy.serialization
 import rosbag2_py
 from sensor_msgs.msg import Imu
@@ -28,7 +30,7 @@ def quat_to_R(q):
 
 def read_imu(bag, topic):
     reader = rosbag2_py.SequentialReader()
-    storage = 'mcap' if any(p.endswith('.mcap') for p in __import__('os').listdir(bag)) else 'sqlite3'
+    storage = 'mcap' if any(p.endswith('.mcap') for p in os.listdir(bag)) else 'sqlite3'
     reader.open(rosbag2_py.StorageOptions(uri=bag, storage_id=storage), rosbag2_py.ConverterOptions('', ''))
     reader.set_filter(rosbag2_py.StorageFilter(topics=[topic]))
     t, a = [], []
