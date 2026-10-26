@@ -141,7 +141,12 @@ def main():
         members = members[:int(os.environ['LIMIT'])]
     print(f'archive {size} bytes, {len(members)} scans', flush=True)
     writer = rosbag2_py.SequentialWriter()
-    writer.open(rosbag2_py.StorageOptions(uri=OUT, storage_id='sqlite3'), rosbag2_py.ConverterOptions('', ''))
+    # BAG_STORAGE=mcap writes a zstd-chunked MCAP (about 0.75x the sqlite3 size, read transparently).
+    if os.environ.get('BAG_STORAGE') == 'mcap':
+        storage = rosbag2_py.StorageOptions(uri=OUT, storage_id='mcap', storage_preset_profile='zstd_fast')
+    else:
+        storage = rosbag2_py.StorageOptions(uri=OUT, storage_id='sqlite3')
+    writer.open(storage, rosbag2_py.ConverterOptions('', ''))
     for topic, kind in (('/hesai/pandar', 'sensor_msgs/msg/PointCloud2'),
                         ('/alphasense_driver_ros/imu', 'sensor_msgs/msg/Imu')):
         writer.create_topic(rosbag2_py.TopicMetadata(id=0, name=topic, type=kind, serialization_format='cdr'))

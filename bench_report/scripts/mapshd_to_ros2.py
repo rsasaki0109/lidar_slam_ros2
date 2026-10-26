@@ -71,7 +71,12 @@ def cloud(points_xyz, intensity, t_ns):
 
 def main():
     writer = rosbag2_py.SequentialWriter()
-    writer.open(rosbag2_py.StorageOptions(uri=OUT, storage_id='sqlite3'), rosbag2_py.ConverterOptions('', ''))
+    # BAG_STORAGE=mcap writes a zstd-chunked MCAP (about 0.75x the sqlite3 size, read transparently).
+    if os.environ.get('BAG_STORAGE') == 'mcap':
+        storage = rosbag2_py.StorageOptions(uri=OUT, storage_id='mcap', storage_preset_profile='zstd_fast')
+    else:
+        storage = rosbag2_py.StorageOptions(uri=OUT, storage_id='sqlite3')
+    writer.open(storage, rosbag2_py.ConverterOptions('', ''))
     for topic, kind in (('/livox/pointcloud', 'sensor_msgs/msg/PointCloud2'), ('/livox/imu', 'sensor_msgs/msg/Imu')):
         writer.create_topic(rosbag2_py.TopicMetadata(id=0, name=topic, type=kind, serialization_format='cdr'))
     imu = 0
