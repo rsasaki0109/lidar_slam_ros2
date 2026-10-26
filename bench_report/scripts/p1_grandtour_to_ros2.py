@@ -9,12 +9,15 @@ Reads the extracted `livox_points` and `livox_imu` zarr groups of one mission an
   /livox/imu     sensor_msgs/Imu, frame livox_imu, as stored (m/s^2, rad/s); with --imu <group> another IMU of the
                  mission (stim320_imu, adis_imu, ...) is written instead, on topic /<group>, in its own frame;
                  --imu a,b writes several IMUs (the extrinsics use the first).
+--lidar <group> takes another LiDAR (hesai_points: the Hesai XT-32, on /hesai_points, point times in absolute
+seconds instead of nanoseconds); --range-scale s multiplies every point's coordinates by s (a range-scale test).
 Only the first `valid` points of every scan are used, and points at the origin or non-finite are dropped. No other
 stream of the mission is read (in particular no reference or GNSS/INS topic).
 It also prints the RKO-LIO extrinsics and the IMU-to-prism transform of the mission (see --extrinsics), with the
 chosen IMU as the base frame.
-Usage: p1_grandtour_to_ros2.py [--imu <group>] <mission_zarr_dir containing livox_points/ and the IMU group> <out_bag>
-       p1_grandtour_to_ros2.py [--imu <group>] --extrinsics <mission_zarr_dir> <box_base_to_prism: x y z qx qy qz qw>
+Usage: p1_grandtour_to_ros2.py [--imu <groups>] [--lidar <group>] [--range-scale s] <mission_zarr_dir> <out_bag>
+       p1_grandtour_to_ros2.py [--imu <group>] [--lidar <group>] --extrinsics <mission_zarr_dir>
+           <box_base_to_prism: x y z qx qy qz qw>
 """
 import sys
 
@@ -79,8 +82,12 @@ def imu_topic(group):
     return '/livox/imu' if group == 'livox_imu' else f'/{group}'
 
 
-def extrinsics(mission, prism, group='livox_imu'):
-    lidar = zarr.open(f'{mission}/livox_points', mode='r')
+def lidar_topic(group):
+    return '/livox/points' if group == 'livox_points' else f'/{group}'
+
+
+def extrinsics(mission, prism, group='livox_imu', lidar_group='livox_points'):
+    lidar = zarr.open(f'{mission}/{lidar_group}', mode='r')
     imu = zarr.open(f'{mission}/{group}', mode='r')
     T_box_lidar = zarr_transform(dict(lidar.attrs))
     T_box_imu = zarr_transform(dict(imu.attrs))
@@ -92,7 +99,7 @@ def extrinsics(mission, prism, group='livox_imu'):
     print('T_imu_prism_quat_xyzw_xyz: ' + str([round(v, 9) for v in as_list(T_imu_prism)]))
 
 
-def convert(mission, out, groups=('livox_imu',)):
+def convert(mission, out, groups=('livox_imu',), lidar_group='livox_points', range_scale=1.0):
     import rclpy.serialization
     import rosbag2_py
     from builtin_interfaces.msg import Time
@@ -102,11 +109,12 @@ def convert(mission, out, groups=('livox_imu',)):
         sec = int(np.floor(seconds))
         return Time(sec=sec, nanosec=int(round((seconds - sec) * 1e9)) % 1000000000)
 
-    lidar = zarr.open(f'{mission}/livox_points', mode='r')
+    lidar = zarr.open(f'{mission}/{lidar_group}', mode='r')
+    lidar_frame = dict(lidar.attrs).get('frame_id', lidar_group)
     writer = rosbag2_py.SequentialWriter()
     writer.open(rosbag2_py.StorageOptions(uri=out, storage_id='mcap', storage_preset_profile='zstd_fast'),
                 rosbag2_py.ConverterOptions('', ''))
-    topics = [('/livox/points', 'sensor_msgs/msg/PointCloud2')]
+    topics = [(lidar_topic(lidar_group), 'sensor_msgs/msg/PointCloud2')]
     topics += [(imu_topic(g), 'sensor_msgs/msg/Imu') for g in groups]
     for topic, kind in topics:
         writer.create_topic(rosbag2_py.TopicMetadata(id=0, name=topic, type=kind, serialization_format='cdr'))
@@ -133,6 +141,8 @@ def convert(mission, out, groups=('livox_imu',)):
               for k, n in enumerate(('x', 'y', 'z', 'intensity', 't'))]
     valid = lidar['valid'][:, 0]
     scans = len(valid)
+    first = lidar['time'][0, :max(1, int(valid[0]))]
+    time_to_seconds = 1e-9 if np.nanmax(first) > 1e12 else 1.0  # Livox: ns, Hesai: s
     kept_scans = 0
     block = 256
     for start in range(0, scans, block):
@@ -142,12 +152,12 @@ def convert(mission, out, groups=('livox_imu',)):
         times = lidar['time'][start:stop]
         for j in range(stop - start):
             n = int(valid[start + j])
-            xyz = points[j, :n].astype(np.float32)
-            t = times[j, :n] * 1e-9
+            xyz = points[j, :n].astype(np.float64)
+            t = times[j, :n] * time_to_seconds
             keep = np.isfinite(xyz).all(1) & np.isfinite(t) & (np.abs(xyz).sum(1) > 0)
             if keep.sum() < 10:
                 continue
-            xyz, t, inten = xyz[keep], t[keep], intensity[j, :n][keep].astype(np.float32)
+            xyz, t, inten = xyz[keep] * range_scale, t[keep], intensity[j, :n][keep].astype(np.float32)
             t0 = float(t.min())
             cloud = np.empty((len(t), 5), dtype=np.float32)
             cloud[:, :3] = xyz
@@ -155,7 +165,7 @@ def convert(mission, out, groups=('livox_imu',)):
             cloud[:, 4] = (t - t0).astype(np.float32)
             msg = PointCloud2()
             msg.header.stamp = stamp(t0)
-            msg.header.frame_id = 'livox_lidar'
+            msg.header.frame_id = lidar_frame
             msg.height = 1
             msg.width = len(t)
             msg.fields = fields
@@ -164,7 +174,7 @@ def convert(mission, out, groups=('livox_imu',)):
             msg.row_step = 20 * len(t)
             msg.data = cloud.tobytes()
             msg.is_dense = True
-            messages.append((float(t.max()), '/livox/points', msg))
+            messages.append((float(t.max()), lidar_topic(lidar_group), msg))
             kept_scans += 1
     messages.sort(key=lambda m: m[0])
     for t, topic, msg in messages:
@@ -174,13 +184,19 @@ def convert(mission, out, groups=('livox_imu',)):
 
 def main():
     args = sys.argv[1:]
-    group = 'livox_imu'
-    if len(args) >= 2 and args[0] == '--imu':
-        group, args = args[1], args[2:]
+    group, lidar_group, range_scale = 'livox_imu', 'livox_points', 1.0
+    while len(args) >= 2 and args[0] in ('--imu', '--lidar', '--range-scale'):
+        if args[0] == '--imu':
+            group = args[1]
+        elif args[0] == '--lidar':
+            lidar_group = args[1]
+        else:
+            range_scale = float(args[1])
+        args = args[2:]
     if len(args) >= 1 and args[0] == '--extrinsics':
-        extrinsics(args[1], [float(v) for v in args[2:9]], group.split(',')[0])
+        extrinsics(args[1], [float(v) for v in args[2:9]], group.split(',')[0], lidar_group)
     elif len(args) == 2:
-        convert(args[0], args[1], tuple(group.split(',')))
+        convert(args[0], args[1], tuple(group.split(',')), lidar_group, range_scale)
     else:
         print(__doc__)
         return 1

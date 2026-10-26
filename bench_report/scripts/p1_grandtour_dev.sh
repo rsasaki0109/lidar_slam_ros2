@@ -11,7 +11,8 @@ HF=https://huggingface.co/datasets/leggedrobotics/grand_tour_dataset/resolve/mai
 for item in "$@"; do
   folder=${item%%:*}; short=${item##*:}
   bash "${S}/p1_grandtour_run.sh" "${folder}" "${short}" "${label}" "${WS:-/home/user/ws/rko_g12}"
-  find "/home/user/data/grandtour/${short}/z" -type f ! -name '.z*' -delete
+  # two variants on one bag may finish together: a file the other run already deleted is not an error
+  find "/home/user/data/grandtour/${short}/z" -type f ! -name '.z*' -delete 2>/dev/null || true
   ref=/home/user/data/grandtour/reference_dev/${short}
   if [[ ! -d ${ref}/prism_position ]]; then
     mkdir -p "${ref}"

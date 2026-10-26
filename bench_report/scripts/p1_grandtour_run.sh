@@ -10,27 +10,32 @@
 #      (box_base -> prism from grand_tour_box's tf_static_metadata_new_*.bag, the same in all nine of them).
 # IMU=<group> (default livox_imu) takes another IMU of the mission as the base frame (a rig input, not part of G); its
 # data are downloaded and converted into <data>/bag_<group>. BAG_IMUS=a,b writes those IMUs into one bag
-# (<data>/bag_a+b) so that several IMU choices share one conversion; IMU must be one of them.
+# (<data>/bag_a+b) so that several IMU choices share one conversion; IMU must be one of them. LIDAR=hesai_points takes
+# the Hesai XT-32 instead of the Livox MID-360, RANGE_SCALE=s scales the points (both rig-input tests).
 # Outputs go to /home/user/bench/grandtour/<label>/<short_name>/.
 set -euo pipefail
 folder=$1; short=$2; label=$3; ws=${4:-/home/user/ws/rko_g12}
 REPO=/home/user/lidar_slam_ros2; S=${REPO}/bench_report/scripts; PY=/home/user/mapshd/venv/bin/python
 D=/home/user/data/grandtour/${short}; O=/home/user/bench/grandtour/${label}/${short}
-IMU=${IMU:-livox_imu}; BAG_IMUS=${BAG_IMUS:-${IMU}}
-BAG=${D}/bag; [[ ${BAG_IMUS} == livox_imu ]] || BAG=${D}/bag_${BAG_IMUS//,/+}
+IMU=${IMU:-livox_imu}; BAG_IMUS=${BAG_IMUS:-${IMU}}; LIDAR=${LIDAR:-livox_points}; RANGE_SCALE=${RANGE_SCALE:-1}
+SUFFIX=; [[ ${BAG_IMUS} == livox_imu ]] || SUFFIX=_${BAG_IMUS//,/+}
+[[ ${LIDAR} == livox_points ]] || SUFFIX=${SUFFIX}_${LIDAR}; [[ ${RANGE_SCALE} == 1 ]] || SUFFIX=${SUFFIX}_rs${RANGE_SCALE}
+BAG=${D}/bag${SUFFIX}
 IMU_TOPIC=/livox/imu; [[ ${IMU} == livox_imu ]] || IMU_TOPIC=/${IMU}
+LIDAR_TOPIC=/livox/points; [[ ${LIDAR} == livox_points ]] || LIDAR_TOPIC=/${LIDAR}
 PRISM="0.3088378015503127 -0.038312997211241984 -0.2349441159711169 -0.005724388155828644 -0.0013879431347362404 -0.004742721620119043 0.9999714053840392"
 U=https://huggingface.co/datasets/leggedrobotics/grand_tour_dataset/resolve/main/${folder}/data
 mkdir -p "${D}/z" "${O}"
 set +u; source /opt/ros/jazzy/setup.bash; set -u
 if [[ ! -d ${BAG} ]]; then
-  for f in livox_points ${BAG_IMUS//,/ }; do
+  for f in ${LIDAR} ${BAG_IMUS//,/ }; do
     [[ -d ${D}/z/${f} ]] || { curl -sS -L --fail -o "${D}/${f}.tar" "${U}/${f}.tar"; tar xf "${D}/${f}.tar" -C "${D}/z"; rm -f "${D}/${f}.tar"; }
   done
-  "${PY}" "${S}/p1_grandtour_to_ros2.py" --imu "${BAG_IMUS}" "${D}/z" "${BAG}" | tee "${D}/convert_${BAG_IMUS//,/+}.log"
+  "${PY}" "${S}/p1_grandtour_to_ros2.py" --imu "${BAG_IMUS}" --lidar "${LIDAR}" --range-scale "${RANGE_SCALE}" "${D}/z" \
+    "${BAG}" | tee "${D}/convert${SUFFIX}.log"
 fi
 # shellcheck disable=SC2086
-"${PY}" "${S}/p1_grandtour_to_ros2.py" --imu "${IMU}" --extrinsics "${D}/z" ${PRISM} > "${O}/extrinsics.txt"
+"${PY}" "${S}/p1_grandtour_to_ros2.py" --imu "${IMU}" --lidar "${LIDAR}" --extrinsics "${D}/z" ${PRISM} > "${O}/extrinsics.txt"
 "${PY}" - "${G_CONFIG:-${REPO}/configs/sota_v7/rko_lio_global_G12_2026-10-26.yaml}" "${O}/extrinsics.txt" "${O}/params.yaml" <<'PY'
 import sys
 import yaml
@@ -41,7 +46,7 @@ rig = {'base_frame': 'base_link', 'odom_frame': 'odom', 'lidar_frame': '', 'imu_
 params = {**rig, **ext, **g}
 yaml.safe_dump({'/**': {'ros__parameters': params}}, open(sys.argv[3], 'w'), sort_keys=False)
 PY
-RUN_TIMEOUT=7200 bash /home/user/scripts/run_front.sh "${label}_${short}" "${ws}" "${O}/params.yaml" "${BAG}" /livox/points \
+RUN_TIMEOUT=7200 bash /home/user/scripts/run_front.sh "${label}_${short}" "${ws}" "${O}/params.yaml" "${BAG}" "${LIDAR_TOPIC}" \
   "${IMU_TOPIC}" "${O}/run" /home/user/bench/grandtour/runs.csv > /dev/null
 "${PY}" - "${O}/run/front_0/front_tum_0.txt" "${O}/extrinsics.txt" "${O}/${short}.tum" <<'PY'
 import sys

@@ -1,0 +1,14 @@
+GrandTour rig inputs: which LiDAR and which IMU (fixed 2026-10-27 before the Hesai runs on the development set other
+than HEAP-1). G12 (configs/sota_v7/rko_lio_global_G12_2026-10-26.yaml) is not changed; only the sensors are.
+
+Candidates, frontend only, one run each on the eight development missions (HEAP-1, ARC-3, ARC-4, ARC-6, CON-1, EIG-2,
+SNOW-3, SPX-1; data/grandtour/dev_missions_2026-10-27.txt):
+  L   Livox MID-360 + its built-in IMU (the submitted configuration)       mean ATE 0.0506 m (measured)
+  LS  Livox MID-360 + STIM320                                             mean ATE 0.0465 m (measured)
+  HS  Hesai XT-32 + STIM320                                                HEAP-1 0.0281 m (L 0.0647, LS 0.0636)
+(ATE without reference spikes, p1_grandtour_ate.py.) A Livox range scale of 0.998 was probed on HEAP-1 only (0.0404 m)
+and is not a candidate: it would be a calibration fitted to the references.
+
+Rule: take the candidate with the lowest mean ATE over the eight missions, provided that it is not worse than L by
+more than 10 % on any mission and every run is real-time. If HS is taken, the six test missions are run once with HS
+after a new preregistration file, and that is the second COMFORT test-phase submission.
