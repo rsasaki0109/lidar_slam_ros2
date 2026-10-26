@@ -1,0 +1,13 @@
+GrandTour train missions taken as development data (fixed 2026-10-27, maintainer decision "数本だけ使う", before any of
+their references was read). One per test site, plus a second ARCHE mission because arc-2 is the worst test mission:
+
+  ARC-4   2024-11-18-15-46-05   ARCHE - Train (indoor/outdoor, stairs)          site of arc-2 / arc-7
+  ARC-6   2024-11-18-17-13-09   ARCHE - Panic Smoke 1                           site of arc-7 (smoke)
+  CON-1   2024-12-09-09-34-43   Construction Halter - Corridor 1                site of con-4
+  EIG-2   2024-11-03-13-59-54   Jungfraujoch - Eigergletscher Up                eig-1 is the same route down
+  SNOW-3  2024-11-03-08-17-23   Jungfraujoch - Snow 3                           site of snow-2
+  SPX-1   2024-11-02-17-10-25   Jungfraujoch - Sphinx 1                         site of spx-2
+
+With HEAP-1 and ARC-3 (validation, already open) these eight are the GrandTour development set. Their prism
+references are read only after each run's trajectory is written. The other train missions stay unread as the C1
+holdout (H5). The test missions' sensor data are not inspected beyond running the pipeline on them.

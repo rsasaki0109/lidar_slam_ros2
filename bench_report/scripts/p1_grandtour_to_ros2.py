@@ -6,12 +6,14 @@ Reads the extracted `livox_points` and `livox_imu` zarr groups of one mission an
   /livox/points  sensor_msgs/PointCloud2, frame livox_lidar: x y z intensity t (float32); the header stamp is the
                  earliest point time of the scan and t is seconds since it; the message is stored at the last point
                  time, when a driver would deliver it;
-  /livox/imu     sensor_msgs/Imu, frame livox_imu, as stored (m/s^2, rad/s).
+  /livox/imu     sensor_msgs/Imu, frame livox_imu, as stored (m/s^2, rad/s); with --imu <group> another IMU of the
+                 mission (stim320_imu, adis_imu, ...) is written instead, on topic /<group>, in its own frame.
 Only the first `valid` points of every scan are used, and points at the origin or non-finite are dropped. No other
 stream of the mission is read (in particular no reference or GNSS/INS topic).
-It also prints the RKO-LIO extrinsics and the IMU-to-prism transform of the mission (see --extrinsics).
-Usage: p1_grandtour_to_ros2.py <mission_zarr_dir containing livox_points/ and livox_imu/> <out_bag_dir>
-       p1_grandtour_to_ros2.py --extrinsics <mission_zarr_dir> <box_base_to_prism: x y z qx qy qz qw>
+It also prints the RKO-LIO extrinsics and the IMU-to-prism transform of the mission (see --extrinsics), with the
+chosen IMU as the base frame.
+Usage: p1_grandtour_to_ros2.py [--imu <group>] <mission_zarr_dir containing livox_points/ and the IMU group> <out_bag>
+       p1_grandtour_to_ros2.py [--imu <group>] --extrinsics <mission_zarr_dir> <box_base_to_prism: x y z qx qy qz qw>
 """
 import sys
 
@@ -72,9 +74,13 @@ def as_list(T):
     return [float(v) for v in (*q, *T[:3, 3])]
 
 
-def extrinsics(mission, prism):
+def imu_topic(group):
+    return '/livox/imu' if group == 'livox_imu' else f'/{group}'
+
+
+def extrinsics(mission, prism, group='livox_imu'):
     lidar = zarr.open(f'{mission}/livox_points', mode='r')
-    imu = zarr.open(f'{mission}/livox_imu', mode='r')
+    imu = zarr.open(f'{mission}/{group}', mode='r')
     T_box_lidar = zarr_transform(dict(lidar.attrs))
     T_box_imu = zarr_transform(dict(imu.attrs))
     T_box_prism = matrix(prism[:3], prism[3:])
@@ -85,7 +91,7 @@ def extrinsics(mission, prism):
     print('T_imu_prism_quat_xyzw_xyz: ' + str([round(v, 9) for v in as_list(T_imu_prism)]))
 
 
-def convert(mission, out):
+def convert(mission, out, group='livox_imu'):
     import rclpy.serialization
     import rosbag2_py
     from builtin_interfaces.msg import Time
@@ -96,11 +102,12 @@ def convert(mission, out):
         return Time(sec=sec, nanosec=int(round((seconds - sec) * 1e9)) % 1000000000)
 
     lidar = zarr.open(f'{mission}/livox_points', mode='r')
-    imu = zarr.open(f'{mission}/livox_imu', mode='r')
+    imu = zarr.open(f'{mission}/{group}', mode='r')
+    imu_frame = dict(imu.attrs).get('frame_id', group)
     writer = rosbag2_py.SequentialWriter()
     writer.open(rosbag2_py.StorageOptions(uri=out, storage_id='mcap', storage_preset_profile='zstd_fast'),
                 rosbag2_py.ConverterOptions('', ''))
-    for topic, kind in (('/livox/points', 'sensor_msgs/msg/PointCloud2'), ('/livox/imu', 'sensor_msgs/msg/Imu')):
+    for topic, kind in (('/livox/points', 'sensor_msgs/msg/PointCloud2'), (imu_topic(group), 'sensor_msgs/msg/Imu')):
         writer.create_topic(rosbag2_py.TopicMetadata(id=0, name=topic, type=kind, serialization_format='cdr'))
 
     messages = []
@@ -110,11 +117,11 @@ def convert(mission, out):
     for i in range(len(imu_t)):
         msg = Imu()
         msg.header.stamp = stamp(imu_t[i])
-        msg.header.frame_id = 'livox_imu'
+        msg.header.frame_id = imu_frame
         msg.angular_velocity.x, msg.angular_velocity.y, msg.angular_velocity.z = map(float, gyro[i])
         msg.linear_acceleration.x, msg.linear_acceleration.y, msg.linear_acceleration.z = map(float, acc[i])
         msg.orientation_covariance[0] = -1.0
-        messages.append((imu_t[i], '/livox/imu', msg))
+        messages.append((imu_t[i], imu_topic(group), msg))
 
     fields = [PointField(name=n, offset=4 * k, datatype=PointField.FLOAT32, count=1)
               for k, n in enumerate(('x', 'y', 'z', 'intensity', 't'))]
@@ -160,10 +167,14 @@ def convert(mission, out):
 
 
 def main():
-    if len(sys.argv) >= 2 and sys.argv[1] == '--extrinsics':
-        extrinsics(sys.argv[2], [float(v) for v in sys.argv[3:10]])
-    elif len(sys.argv) == 3:
-        convert(sys.argv[1], sys.argv[2])
+    args = sys.argv[1:]
+    group = 'livox_imu'
+    if len(args) >= 2 and args[0] == '--imu':
+        group, args = args[1], args[2:]
+    if len(args) >= 1 and args[0] == '--extrinsics':
+        extrinsics(args[1], [float(v) for v in args[2:9]], group)
+    elif len(args) == 2:
+        convert(args[0], args[1], group)
     else:
         print(__doc__)
         return 1
