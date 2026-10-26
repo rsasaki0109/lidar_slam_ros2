@@ -61,3 +61,6 @@ After the batch (2026-10-26): G12 (G + keypoint_shortfall_voxel_multiplier 1.0, 
 ARC-3 (validation) and the development data only, and adopted as G. It differs from G only on scans with fewer than
 100 keypoints, and no test mission has one, so its six test trajectories are the files above (checked on ARC-2:
 byte-identical). The one upload of comfort_test_G.zip therefore stands for both G and G12; no second submission.
+
+Upload: comfort_test_G.zip (md5 a2fb4334588e96a4d2bad78ab4e71ab0) submitted to the Test Phase by the maintainer,
+reported 2026-10-26T22:16Z. Test-phase submissions used: 1. Scores: pending.
