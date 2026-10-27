@@ -14,3 +14,15 @@ Variants (ws/rko_g21, the files of the sixth screen with the new build):
   mgof2 = G15b + moving_start_gravity_window_sec 5.0 + the filter.
   Both on the five moving starts arc-5, arc-4, ice-1, arc-6, snow-3; of2 also on arc-1.
 Compared with G15b, mg5 and the sixth screen. A screen: a candidate gets its own rule on all 15 HS missions.
+
+Result (2026-10-27; ws/rko_g21, rko_lio 9461e71; ATE without reference spikes, m; G15b / of2 / mgof2 (mg5)):
+  arc-5   0.0152 / 0.0152 / 0.0172 (0.0180)    of2 md5 5991b7bb... = G15b
+  arc-4   0.0178 / 0.0178 / 0.0171 (0.0171)    of2 md5 bce31ee9... = G15b
+  ice-1   0.0111 / 0.0111 / 0.0109 (0.0108)    of2 md5 a7edce9f... = G15b
+  arc-6   0.0099 / 0.0099 / 0.0097 (0.0099)    of2 md5 1e4c1ad4... = G15b
+  snow-3  0.0268 / 0.0268 / 0.0256 (0.0266)    of2 md5 614fbe59... = G15b
+  arc-1 (static): of2 0.0120, md5 2a5e90d9... = the sixth screen's of.
+The hold works: ARC-5's start failure is gone (mgof 0.0524 -> mgof2 0.0172) and without the gravity window the
+moving starts keep G15b's output exactly. mgof2 gains 0.2-1.2 mm on four moving starts but loses 2.0 mm (13 %) on
+ARC-5, where the re-estimated gravity itself costs height (mg5). Candidate: of2, judged as G15c under
+decision_rule_G15c.txt (fixed before its remaining runs).
