@@ -60,3 +60,5 @@ second test-phase submission (2 of 60 used). Mean ATE / RTE / LE 0.119920 / 0.02
   snow-2 0.037714 / 0.021383 / 0.011676   (G 0.038418)
   spx-2  0.053142 / 0.023291 / 0.065775   (G 0.058268)
 Five of six missions are 2-10 % better, as on the development data; arc-2 is 8 % worse and decides the mean.
+Leaderboard: maintainer decision (2026-10-27): neither submission 1 nor submission 2 is put on the public leaderboard.
+No further test-phase submission before the deadline.
