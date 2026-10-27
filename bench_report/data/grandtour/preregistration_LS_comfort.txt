@@ -33,3 +33,19 @@ Policy
      one zip; the md5 of every file is recorded here before the zip leaves the VM.
   2. The maintainer uploads it once to the test phase as submission 2. The scores are recorded whatever they are.
   3. As before: a pipeline failure is fixed and recorded; a poor trajectory because of G12 or the rig is submitted as is.
+
+Record (2026-10-27, after the batch, before the zip left the VM)
+  First attempt: a typo put the SPX-1 folder in place of SPX-2; the batch was stopped during the arc-2 conversion and
+  restarted with the right folder. Then the con-4 run lost its output (the VM ran out of memory with other jobs
+  beside it; the converter now streams, checked byte-identical on ARC-6); con-4 was run again alone. arc-2 and arc-7
+  are the runs of the first attempt (only their end-of-bag drops, below, in their logs).
+  Test missions, one run each with LS (node time / data span):
+    arc-2  21.1 s / 425 s   md5 8eadb3c955da43f0446b892079a81f49
+    arc-7  25.5 s / 322 s   md5 8c4379c5075f41f76c0c4eba7c5cc714
+    con-4  72.8 s / 743 s   md5 1942ef844eee2cfcdf64dc52afec65cc
+    eig-1  44.1 s / 430 s   md5 81b106922f132c20a3f4dca2b03fe477
+    snow-2 30.6 s / 261 s   md5 1581dcba52feb0cfc7530160b7b535a0
+    spx-2  14.0 s / 383 s   md5 b973cde0d28a58e03f25529f646b9510
+  comfort_test_LS.zip (the six files at its root): md5 91d8b8de2deac65ca6b932ebeb609e8b
+  Each trajectory ends 12.5-13.1 s before the G one: the STIM320 recording stops about 14 s before the Livox one, and
+  the last LiDAR scans, with no IMU data after them, are not processed. No scan was dropped for too few keypoints.
