@@ -1,0 +1,12 @@
+Loop closure with a causal output on GrandTour (2026-10-27, written before any of these runs). Exploratory: it shows
+whether loops help the COMFORT configuration, it adopts nothing.
+
+Frontend: HS-G15 (configs/sota_v7/rko_lio_grandtour_hs_G15_2026-10-27.yaml, ws/rko_g15), the submission-3 frontend.
+Backend: graph_slam_offline_runner (ws/slam_dev build of lidar_slam_ros2 8f171e9 or later) with
+causal_trajectory_output, through p3_grandtour_backend.sh, which now passes the LiDAR extrinsic to the runner (the first
+SPX-3 test placed every Hesai scan as if it were in the IMU frame, turned by 90 deg; all its loop candidates came out
+2-8 m off and were rejected). Presets: walk60 (lidarslam_mid360_rko_graph_walking.yaml as it is: loops only after 60 m
+of travel) and walk20 (the same with distance_loop_closure 20).
+Missions (development, revisits found without the reference): con-3, heap-1, arc-1, spx-1, pil-2, con-2.
+Reported per run: frontend ATE, causal ATE, the non-causal optimized ATE (for comparison only), loop edges, the worker's
+largest lag behind a submap's stamp.

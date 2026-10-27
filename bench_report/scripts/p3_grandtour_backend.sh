@@ -26,9 +26,13 @@ bash "${REPO}/scripts/record_backend_input.sh" --output-dir "${O}/backend_input"
   > "${O}/backend_input_record.log" 2>&1
 a=$(md5sum < "${O}/run/front_0/front_tum_0.txt"); b=$(md5sum < "${O}/run_backend_input/front_0/front_tum_0.txt")
 [[ ${a} == "${b}" ]] || { echo "frontend trajectory differs when it publishes the backend input"; exit 1; }
+# rko_lio publishes the deskewed scans in the LiDAR frame; the runner moves them into the base (IMU) frame with the
+# same extrinsic (without it every submap is placed turned by the LiDAR's mounting, 90 deg of yaw for the Hesai)
+EXT=$("${PY}" -c "import sys, yaml; print(yaml.safe_load(open(sys.argv[1]))['extrinsic_lidar2base_quat_xyzw_xyz'])" \
+  "${O}/extrinsics.txt" | tr -d ' ')
 t0=$(date +%s.%N)
 "${RUNNER}" --ros-args --params-file "${bparams}" -p bag_path:="${O}/backend_input" -p output_dir:="${O}/backend" \
-  -p causal_trajectory_output:=true > "${O}/backend.log" 2>&1
+  -p causal_trajectory_output:=true -p extrinsic_lidar2base_quat_xyzw_xyz:="${EXT}" > "${O}/backend.log" 2>&1
 t1=$(date +%s.%N)
 echo "backend_wall_seconds $(python3 -c "print(f'{${t1}-${t0}:.1f}')")" > "${O}/backend_timing.txt"
 grep -h "Offline run complete\|Causal trajectory" "${O}/backend.log" || true

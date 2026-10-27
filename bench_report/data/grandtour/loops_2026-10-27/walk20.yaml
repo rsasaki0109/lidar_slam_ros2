@@ -1,0 +1,38 @@
+# lidarslam_mid360_rko_graph_walking.yaml with distance_loop_closure 20 (loops after 20 m of travel)
+# graph_based_slam parameters for a Livox MID-360 that walks: a humanoid or
+# legged robot, or a handheld sensor. Selected with
+# "lidarslam-map setup --motion walking", together with rko_lio_mid360_walking.yaml.
+#
+# This is the backend adopted on the MapsHD HUMANOID-LIO-DATASET with that
+# frontend (bench_report/REPORT.md chapters 14 to 25, candidate C): the 10
+# development sequences (8 MapsHD trials, Oxford Keble 05, HILTI exp04) reached
+# an APE geometric mean of 0.0358 m. The public MID-360 driving bag still closes
+# its start loop with it. Every key not listed keeps the graph_based_slam default.
+#
+# - NDT 2 m cells for loop registration (chapter 14).
+# - Adjacent edges: rotation information 1e6 and translation 1e4 per submap
+#   step, about 0.1 deg and 1 cm (chapters 17 and 22).
+# - A loop whose correction exceeds 0.5 m + 2% of the travel between its two
+#   submaps is rejected as a false loop (chapter 18).
+# - Loop candidates only after 60 m of travel (chapter 23), with constant loop
+#   information (translation 200, rotation 1e5; chapter 25).
+graph_based_slam:
+  ros__parameters:
+    registration_method: "NDT"
+    range_of_searching_loop_closure: 20.0
+    loop_search_query_stride: 1
+    cloud_subscriber_qos_reliable: true
+    odom_cloud_sync_use_exact_time: true
+    odom_cloud_sync_queue_size: 256
+    map_leaf_size: 0.1
+    ndt_num_threads: 1
+    debug_flag: false
+    ndt_resolution: 2.0
+    adjacent_edge_info_auto_scale_split_trans_rot: true
+    adjacent_edge_info_weight_trans: 10000.0
+    adjacent_edge_info_weight_rot: 1000000.0
+    loop_max_drift_ratio: 0.02
+    loop_max_drift_offset_m: 0.5
+    distance_loop_closure: 20.0
+    loop_edge_info_constant_trans: 200.0
+    loop_edge_info_constant_rot: 100000.0
