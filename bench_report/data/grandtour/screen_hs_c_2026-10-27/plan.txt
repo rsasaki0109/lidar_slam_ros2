@@ -12,3 +12,8 @@ Data: Oxford Keble 05; Koide outdoor_hard 02a, 02b, 01b, 01a; GrandTour HS arc-3
 (where bump's height mattered: arc-5's height drift and pil-2's start with G12, arc-3's stairs).
 Reported: ATE per run, against G12 and G15. A screen, not an adoption: a candidate it picks gets its own rule on all the
 development data.
+
+Amendment (before any run of the corrected variant): the first build (rko_lio 7973a41) zeroed the bump system's z row
+and column, and Oxford diverged within 10 s (5.95 m, oxford_front.csv G15v_zeroed): the ground's height residuals then
+act on the attitude. rko_lio 4th commit after 05ab894 marginalises the height out (Schur complement) instead; the
+variant is run again under the label G15m with that build (ws/rko_g16, offline_node md5 e82baf07...).
