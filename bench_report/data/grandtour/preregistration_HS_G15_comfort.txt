@@ -61,3 +61,11 @@ Record (2026-10-27, after the batch, before the zip left the VM)
     spx-2   67.7 s / 383 s   md5 eb9705ee8cc2dbc6afafb11929c2aff2
   comfort_test_G15HS.zip (the six files at its root): md5 337b7ab9e02dbdc280bb294ea360b062
   (data/grandtour/G15HS/, and a copy at the repository root for the maintainer.)
+
+Correction (2026-10-27, after the record; the files are unchanged): "no scan dropped" holds for the span the STIM320
+covers, not for the whole bag. In every run (development and test) the bag's last LiDAR frames come after the IMU
+stream ends; they cannot be deskewed or propagated, wait for IMU data that never comes, and are dropped at the end
+(each test log: about 71 "Dropping oldest pending frame" and "Bag exhausted with 50 trailing LiDAR frame(s) that can
+no longer be matched with IMU data"). On ARC-5 (development) the last pose is 4 ms before the last IMU sample and the
+reference covers that span (2985 of 2987 reference points inside the estimate); within the IMU's span no frame is
+dropped.
