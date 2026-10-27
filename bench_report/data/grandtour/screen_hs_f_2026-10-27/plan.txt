@@ -21,3 +21,26 @@ Missions: arc-1, pil-2, eig-2, heap-1 (static starts), arc-5, arc-4, ice-1, arc-
 (hsd_sd3 / G15b_g15b) and, for mgof, with the fifth screen's mg5. Reported: ATE without reference spikes, jitter, and
 the band split. A screen: a candidate it picks is judged on all 15 HS missions under a rule fixed before those runs.
 Check: ws/rko_g20 with the filter off (G15b's file, check/g15b.yaml) on spx-3 must give G15b's trajectory byte for byte.
+
+Result (2026-10-27; ws/rko_g20, rko_lio 52f5609; ATE without reference spikes, m):
+  mission  G15b    of      mgof    (mg5)     start
+  arc-1    0.0149  0.0120  0.0120            static
+  pil-2    0.0279  0.0262  0.0262            static
+  eig-2    0.0265  0.0256  0.0256            static
+  heap-1   0.0241  0.0238  0.0238            static
+  arc-5    0.0152  0.0269  0.0524  (0.0180)  moving, 16 deg
+  arc-4    0.0178  0.0178  0.0171  (0.0171)  moving, 2.9 deg
+  ice-1    0.0111  0.0114  0.0109  (0.0108)  moving, 1.5 deg
+  arc-6    0.0099  0.0097  0.0097  (0.0099)  moving, 0.2 deg
+  Check: the filter off (check/g15b.yaml) gives G15b's spx-3 byte for byte; of and mgof give the same files on the
+  static starts (arc-1 md5 2a5e90d9...), as they should.
+  Bands (mm, <1 s / 1-10 s / slow, G15b -> of): arc-1 10.2 / 4.2 / 9.7 -> 4.1 / 4.7 / 9.5; pil-2 10.8 / 6.9 / 23.5 ->
+  4.8 / 7.6 / 23.5; eig-2 6.0 / 4.3 / 24.8 -> 3.3 / 4.6 / 24.4; heap-1 6.0 / 4.1 / 22.6 -> 2.9 / 4.4 / 22.9; arc-4
+  7.6 / 8.2 / 11.5 -> 3.9 / 9.8 / 11.6; ice-1 4.1 / 3.5 / 9.4 -> 2.4 / 5.1 / 9.4; arc-6 4.1 / 3.4 / 7.6 -> 2.1 / 4.0
+  / 7.8; arc-5 6.7 / 5.3 / 11.7 -> 3.7 / 15.4 / 16.9.
+Reading: on the static starts the filter does what the prototype showed (the sub-second band halves, the 1-10-s band
+grows by about a tenth, the slow band stays): -0.3 to -2.9 mm. On ARC-5 it fails in the first 20 s (mgof: xy 134.5
+mm there, then as G15b): before the gravity is estimated again the filter's acceleration carries the 16-deg frame's
+2.7 m/s^2, which its bias state cannot learn, and the acceleration jumps when the gravity changes; without the window
+(of) the bias stays all mission (max 0.228 m). The fix (rko_lio 9461e71: no filtering after a moving start until the
+gravity is estimated again; none at all without the window) is screened in screen_hs_g_2026-10-27.
