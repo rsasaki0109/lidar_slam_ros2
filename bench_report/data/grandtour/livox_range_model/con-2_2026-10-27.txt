@@ -1,0 +1,35 @@
+# p2_livox_range_model.py on CON-2 (2024-12-09-09-41-46), stride 20, 2026-10-27. Hesai surface from the HS (G12) frontend
+# trajectory, Livox points placed with the same trajectory and the Livox extrinsic. No reference used.
+hesai surface: 4761294 points
+livox points compared: 247400 along the ray, 224133 on horizontal surfaces
+along-ray residual (m, + = Livox measures the range too long), median per bin:
+  range    n       median    p25      p75
+   1-3   128003     +6.8 mm    -2.4   +16.4
+   3-5    22259     +4.9 mm    -3.9   +13.5
+   5-8    27986     +4.2 mm    -5.3   +13.9
+   8-12   30561     +3.1 mm   -12.2   +18.3
+  12-18   19634     +7.9 mm   -16.1   +32.2
+  18-25    7740    +11.8 mm   -11.7   +44.1
+  25-35    6099    +15.8 mm   -11.1   +52.1
+  35-60    3519    +17.0 mm   -25.8   +57.2
+  elevation (Livox frame, deg):
+  -10.. +0  n   74581  median   +5.4 mm   median range   9.7 m
+   +0..+10  n   53027  median   +6.2 mm   median range   7.1 m
+  +10..+20  n   11383  median   +6.4 mm   median range   2.8 m
+  +20..+30  n   12955  median   +8.2 mm   median range   2.0 m
+  +30..+40  n   39713  median   +9.7 mm   median range   1.6 m
+  +40..+50  n   54141  median   +4.0 mm   median range   1.3 m
+  incidence (deg):
+   0..20  n   49818  median   +5.6 mm
+  20..40  n   61155  median   +6.4 mm
+  40..60  n  134828  median   +6.3 mm
+least squares d_ray = +0.026 % * range +5.5 mm
+height error on horizontal surfaces (m, + = Livox point above the Hesai surface), median per range bin:
+   1-3  n  160566  median   -4.0 mm   median Livox elevation +34.6 deg
+   3-5  n   36371  median   -2.1 mm   median Livox elevation +14.2 deg
+   5-8  n   16198  median   -4.0 mm   median Livox elevation  +8.7 deg
+   8-12 n    6889  median   -4.2 mm   median Livox elevation  +5.4 deg
+  12-18 n    3218  median   +2.1 mm   median Livox elevation  +3.3 deg
+  18-25 n     703  median   +6.7 mm   median Livox elevation  +1.8 deg
+  25-35 n     115  median   -4.8 mm   median Livox elevation  +0.2 deg
+  least squares height error = +0.017 deg * range -3.5 mm (an elevation-angle bias of that size bends the ground)

@@ -26,15 +26,32 @@ IMU_TOPIC=/livox/imu; [[ ${IMU} == livox_imu ]] || IMU_TOPIC=/${IMU}
 LIDAR_TOPIC=/livox/points; [[ ${LIDAR} == livox_points ]] || LIDAR_TOPIC=/${LIDAR}; [[ ${LIDAR} != *+* ]] || LIDAR_TOPIC=/merged_points
 PRISM="0.3088378015503127 -0.038312997211241984 -0.2349441159711169 -0.005724388155828644 -0.0013879431347362404 -0.004742721620119043 0.9999714053840392"
 U=https://huggingface.co/datasets/leggedrobotics/grand_tour_dataset/resolve/main/${folder}/data
+# fetch <group>: download <group>.tar and extract it into ${D}/z/<group>, retrying; the directory appears only when the
+# whole archive arrived and is marked .complete (a thinned or partial copy has no marker and is fetched again)
+fetch() {
+  local f=$1 k
+  [[ -f ${D}/z/${f}/.complete ]] && return 0
+  for k in 1 2 3 4; do
+    rm -rf "${D}/z.part" "${D}/z/${f}"; mkdir -p "${D}/z.part" "${D}/z"
+    if curl -sS -L --fail "${U}/${f}.tar" | tar xf - -C "${D}/z.part"; then
+      mv "${D}/z.part/${f}" "${D}/z/${f}"; rm -rf "${D}/z.part"; touch "${D}/z/${f}/.complete"; return 0
+    fi
+    echo "download of ${f} failed (attempt ${k})" >&2; sleep $((2 ** k))
+  done
+  return 1
+}
 mkdir -p "${D}/z" "${O}"
 set +u; source /opt/ros/jazzy/setup.bash; set -u
 if [[ ! -d ${BAG} ]]; then
   for f in ${LIDAR//+/ } ${BAG_IMUS//,/ }; do
     # streamed into tar, so that a large tar file and its extracted copy are never on the disk together
-    [[ -d ${D}/z/${f} ]] || curl -sS -L --fail "${U}/${f}.tar" | tar xf - -C "${D}/z"
+    fetch "${f}"
   done
+  # written as .part and renamed when complete, so that a failed conversion is never taken for a bag
+  rm -rf "${BAG}.part"
   "${PY}" "${S}/p1_grandtour_to_ros2.py" --imu "${BAG_IMUS}" --lidar "${LIDAR}" --range-scale "${RANGE_SCALE}" "${D}/z" \
-    "${BAG}" | tee "${D}/convert${SUFFIX}.log"
+    "${BAG}.part" | tee "${D}/convert${SUFFIX}.log"
+  mv "${BAG}.part" "${BAG}"
 fi
 # the inputs of this run, for later steps on the same data (p3_grandtour_backend.sh)
 echo "${BAG} ${LIDAR_TOPIC} ${IMU_TOPIC}" > "${O}/inputs.txt"

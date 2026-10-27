@@ -18,8 +18,8 @@ for item in "$@"; do
       G_CONFIG=${cfg} bash "${S}/p1_grandtour_run.sh" "${folder}" "${short}" "${label}" "${ws}" 9>&- \
         || { echo "${label},${short},run failed" | tee -a "${B}/dev_scores.csv"; continue; }
       line=$("${PY}" -I "${S}/p1_grandtour_ate.py" "${B}/${label}/${short}/${short}.tum" \
-        "/home/user/data/grandtour/reference_dev/${short}/prism_position")
-      jit=$("${PY}" -I "${S}/p1_grandtour_jitter.py" "${B}/${label}/${short}/${short}.tum" | cut -d" " -f1-6)
+        "/home/user/data/grandtour/reference_dev/${short}/prism_position") || line="ATE failed"
+      jit=$("${PY}" -I "${S}/p1_grandtour_jitter.py" "${B}/${label}/${short}/${short}.tum" | cut -d" " -f1-6) || jit=""
       echo "${label},${short},${line},${jit}" | tee -a "${B}/dev_scores.csv"
     done
     rm -rf "${DATA_ROOT:?}/${short}"

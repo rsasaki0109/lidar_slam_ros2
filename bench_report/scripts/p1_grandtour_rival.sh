@@ -11,16 +11,33 @@ REPO=/home/user/lidar_slam_ros2; S=${REPO}/bench_report/scripts; PY=/home/user/m
 D=/home/user/data/grandtour/${short}; O=/home/user/bench/grandtour/${label}/${short}; BAG=${D}/bag_rival_hesai_stim
 PRISM="0.3088378015503127 -0.038312997211241984 -0.2349441159711169 -0.005724388155828644 -0.0013879431347362404 -0.004742721620119043 0.9999714053840392"
 U=https://huggingface.co/datasets/leggedrobotics/grand_tour_dataset/resolve/main/${folder}/data
+# fetch <group>: download <group>.tar and extract it into ${D}/z/<group>, retrying; the directory appears only when the
+# whole archive arrived and is marked .complete (a thinned or partial copy has no marker and is fetched again)
+fetch() {
+  local f=$1 k
+  [[ -f ${D}/z/${f}/.complete ]] && return 0
+  for k in 1 2 3 4; do
+    rm -rf "${D}/z.part" "${D}/z/${f}"; mkdir -p "${D}/z.part" "${D}/z"
+    if curl -sS -L --fail "${U}/${f}.tar" | tar xf - -C "${D}/z.part"; then
+      mv "${D}/z.part/${f}" "${D}/z/${f}"; rm -rf "${D}/z.part"; touch "${D}/z/${f}/.complete"; return 0
+    fi
+    echo "download of ${f} failed (attempt ${k})" >&2; sleep $((2 ** k))
+  done
+  return 1
+}
 # one heavy job at a time on the VM's disk: other jobs that download a mission take the same lock (flock)
 exec 9>/home/user/bench/grandtour/.disk.lock; flock 9  # (closed for the ROS processes below, which may outlive the run)
 mkdir -p "${D}/z" "${O}"
 set +u; source /opt/ros/jazzy/setup.bash; set -u
 if [[ ! -d ${BAG} ]]; then
   for f in hesai_points stim320_imu; do
-    [[ -d ${D}/z/${f} ]] || curl -sS -L --fail "${U}/${f}.tar" | tar xf - -C "${D}/z"
+    fetch "${f}"
   done
-  "${PY}" "${S}/p1_grandtour_to_ros2.py" --imu stim320_imu --lidar hesai_points --time-field time "${D}/z" "${BAG}" \
+  # written as .part and renamed when complete, so that a failed conversion is never taken for a bag
+  rm -rf "${BAG}.part"
+  "${PY}" "${S}/p1_grandtour_to_ros2.py" --imu stim320_imu --lidar hesai_points --time-field time "${D}/z" "${BAG}.part" \
     | tee "${D}/convert_rival.log"
+  mv "${BAG}.part" "${BAG}"
 fi
 # the bag holds the points now; keep only the zarr metadata (the extrinsics) so that a large mission fits on the disk
 find "${D}/z" -type f ! -name '.z*' -delete 2>/dev/null || true
