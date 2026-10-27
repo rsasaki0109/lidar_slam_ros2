@@ -19,10 +19,13 @@ read -r BAG LIDAR_TOPIC IMU_TOPIC < "${O}/inputs.txt"
 set +u; source /opt/ros/jazzy/setup.bash; source "${ws}/install/setup.bash"; set -u
 export ROS_DOMAIN_ID=$((40 + RANDOM % 50)) ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST ROS_LOG_DIR="${O}/roslog_backend"
 rm -rf "${O}/backend_input" "${O}/run_backend_input" "${O}/backend"
-bash "${REPO}/scripts/record_backend_input.sh" --output-dir "${O}/backend_input" --setup "${ws}/install/setup.bash" -- \
+# scans thinned to 0.1 m (the walking preset's map_leaf_size) and compressed, so that a long mission's input and its
+# Hesai bag fit on the disk together
+BACKEND_CAPTURE_STORAGE_PRESET=zstd_fast bash "${REPO}/scripts/record_backend_input.sh" --output-dir "${O}/backend_input" --setup "${ws}/install/setup.bash" -- \
   "${ws}/install/rko_lio/lib/rko_lio/offline_node" --ros-args --params-file "${O}/params.yaml" \
   -p bag_path:="${BAG}" -p lidar_topic:="${LIDAR_TOPIC}" -p imu_topic:="${IMU_TOPIC}" \
   -p results_dir:="${O}/run_backend_input" -p publish_deskewed_scan:=true -p output_subscriber_timeout_sec:=60.0 \
+  -p deskewed_scan_voxel_size:="${DESKEW_VOXEL:-0.1}" \
   > "${O}/backend_input_record.log" 2>&1
 a=$(md5sum < "${O}/run/front_0/front_tum_0.txt"); b=$(md5sum < "${O}/run_backend_input/front_0/front_tum_0.txt")
 [[ ${a} == "${b}" ]] || { echo "frontend trajectory differs when it publishes the backend input"; exit 1; }

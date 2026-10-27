@@ -10,3 +10,9 @@ of travel) and walk20 (the same with distance_loop_closure 20).
 Missions (development, revisits found without the reference): con-3, heap-1, arc-1, spx-1, pil-2, con-2.
 Reported per run: frontend ATE, causal ATE, the non-causal optimized ATE (for comparison only), loop edges, the worker's
 largest lag behind a submap's stamp.
+
+Amendment (2026-10-27, before any result): the first attempt filled the disk while recording CON-3's backend input
+(8,088 full Hesai scans next to the mission's bag), the recorder stalled and the frontend dropped frames; no run of
+the six gave a result. The backend input is now recorded compressed (zstd_fast) with the scans thinned to 0.1 m (the
+walking preset's map_leaf_size; rko_lio deskewed_scan_voxel_size), and the frontend runs from ws/rko_g17 (rko_lio
+HEAD with that option; its trajectories are checked against the G15 confirmation runs, md5).
