@@ -12,7 +12,8 @@ Reads the extracted `livox_points` and `livox_imu` zarr groups of one mission an
 --lidar <group> takes another LiDAR (hesai_points: the Hesai XT-32, on /hesai_points, point times in absolute
 seconds instead of nanoseconds); --lidar hesai_points+livox_points merges both LiDARs into one cloud per Hesai scan,
 in the Hesai frame, on /merged_points (the Livox points timed within that scan's span); --range-scale s multiplies
-every point's coordinates by s (a range-scale test).
+every point's coordinates by s (a range-scale test); --time-field time names the per-point time field `time` instead
+of `t` (float32 seconds since the scan's first point either way; BIEVR-LIO reads `t` as Ouster's uint32 ns).
 Only the first `valid` points of every scan are used, and points at the origin or non-finite are dropped. No other
 stream of the mission is read (in particular no reference or GNSS/INS topic).
 It also prints the RKO-LIO extrinsics and the IMU-to-prism transform of the mission (see --extrinsics), with the
@@ -153,7 +154,7 @@ def extrinsics(mission, prism, group='livox_imu', lidar_group='livox_points'):
     print('T_imu_prism_quat_xyzw_xyz: ' + str([round(v, 9) for v in as_list(T_imu_prism)]))
 
 
-def convert(mission, out, groups=('livox_imu',), lidar_group='livox_points', range_scale=1.0):
+def convert(mission, out, groups=('livox_imu',), lidar_group='livox_points', range_scale=1.0, time_field='t'):
     import rclpy.serialization
     import rosbag2_py
     from builtin_interfaces.msg import Time
@@ -203,7 +204,7 @@ def convert(mission, out, groups=('livox_imu',), lidar_group='livox_points', ran
     imu_messages.sort(key=lambda m: m[0])
 
     fields = [PointField(name=n, offset=4 * k, datatype=PointField.FLOAT32, count=1)
-              for k, n in enumerate(('x', 'y', 'z', 'intensity', 't'))]
+              for k, n in enumerate(('x', 'y', 'z', 'intensity', time_field))]
     scans = len(lidar['valid'])
     kept = [0]
 
@@ -245,19 +246,21 @@ def convert(mission, out, groups=('livox_imu',), lidar_group='livox_points', ran
 
 def main():
     args = sys.argv[1:]
-    group, lidar_group, range_scale = 'livox_imu', 'livox_points', 1.0
-    while len(args) >= 2 and args[0] in ('--imu', '--lidar', '--range-scale'):
+    group, lidar_group, range_scale, time_field = 'livox_imu', 'livox_points', 1.0, 't'
+    while len(args) >= 2 and args[0] in ('--imu', '--lidar', '--range-scale', '--time-field'):
         if args[0] == '--imu':
             group = args[1]
         elif args[0] == '--lidar':
             lidar_group = args[1]
+        elif args[0] == '--time-field':
+            time_field = args[1]
         else:
             range_scale = float(args[1])
         args = args[2:]
     if len(args) >= 1 and args[0] == '--extrinsics':
         extrinsics(args[1], [float(v) for v in args[2:9]], group.split(',')[0], lidar_group)
     elif len(args) == 2:
-        convert(args[0], args[1], tuple(group.split(',')), lidar_group, range_scale)
+        convert(args[0], args[1], tuple(group.split(',')), lidar_group, range_scale, time_field)
     else:
         print(__doc__)
         return 1
