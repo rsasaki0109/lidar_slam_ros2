@@ -1,0 +1,13 @@
+GrandTour rig input: a range scale for the Livox MID-360 (fixed 2026-10-27 before any run with it).
+
+GT-free estimate: the Livox (LS) and Hesai (HS) frontend trajectories of the eight development missions were aligned
+to each other with Sim(3) (from 20 s after the start, to leave out the Hesai start failures). The Livox trajectory is
+longer on all eight: Livox -> Hesai scale 0.99749 heap-1, 0.99892 arc-3, 0.99869 arc-4, 0.99941 arc-6, 0.99925 con-1,
+0.99860 eig-2, 0.99833 snow-3, 0.99733 spx-1; mean 0.99848 (leaving any one mission out changes it by at most
+0.00016). No reference was used for this. (Static Livox-to-Hesai cross-calibration at the start of HEAP-1 and ARC-3
+gave -1.1 % to -0.09 %: too few overlapping points, all within 10 m; not used.)
+
+Candidate LS-rs: LS (G12, Livox MID-360 + STIM320) with every Livox point scaled by 0.9985 (RANGE_SCALE=0.9985).
+Take it as the GrandTour rig calibration if, on the eight development missions (ATE without reference spikes):
+  1. the mean ATE is below LS's 0.0465 m, and
+  2. no mission is worse than LS by more than 10 %.
