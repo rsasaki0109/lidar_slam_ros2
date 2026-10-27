@@ -48,3 +48,7 @@ Result (2026-10-27; one run each, frontend only, rko_lio 05ab894):
   5. Oxford took 597.7 s for 583 s of data (G12 458.5 s): not real-time on the 64-beam handheld rig. The GrandTour,
      MapsHD and Koide runs are real-time.
   4. The LS runs were stopped before their first result.
+  Diagnostics after the rule (2026-10-27, rko_lio 05ab894): bump alone (G14) / G15 / G15 with min_beta 100 / G12:
+    Oxford Keble 05      0.0771 / 0.0700 / 0.0681 / 0.0533 m  (the bump terms themselves cost Oxford's height)
+    Koide outdoor_hard_02b 0.539 / 2.206 / 1.239 / 0.715 m    (bump alone is better than G12; the point-to-point terms
+                                                               added to it break 02b)
