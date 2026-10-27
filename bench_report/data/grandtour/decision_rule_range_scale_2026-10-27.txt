@@ -11,3 +11,9 @@ Candidate LS-rs: LS (G12, Livox MID-360 + STIM320) with every Livox point scaled
 Take it as the GrandTour rig calibration if, on the eight development missions (ATE without reference spikes):
   1. the mean ATE is below LS's 0.0465 m, and
   2. no mission is worse than LS by more than 10 %.
+
+Result (2026-10-27, one run each, ATE without reference spikes, m; LS in brackets):
+  heap-1 0.0453 (0.0636, -29 %), snow-3 0.0256 (0.0341, -25 %), spx-1 0.0444 (0.0521, -15 %), eig-2 0.0391
+  (0.0413, -5 %), con-1 0.0816 (0.0851, -4 %), arc-6 0.0178 (0.0188, -5 %), arc-4 0.0207 (0.0233, -11 %),
+  arc-3 0.0466 (0.0539, -14 %); mean 0.0401 (0.0465, -14 %).
+Both criteria hold: LS-rs (Livox points scaled by 0.9985) is taken as the GrandTour rig calibration.
