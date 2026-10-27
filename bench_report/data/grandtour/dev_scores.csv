@@ -44,3 +44,11 @@ diag_hs_standstill,arc-3,reference points 3654 of 3654, path 196.9 m, ATE rmse 0
 diag_hs_hold,snow-3,reference points 4608 of 4694, path 141.1 m, ATE rmse 0.0442 m, median 0.0199, max 0.3442, without 0 reference spikes 0.0442
 diag_hs_hold,arc-3,reference points 3654 of 3654, path 196.9 m, ATE rmse 3.9557 m, median 3.3208, max 15.8558, without 1 reference spikes 3.9475
 diag_hs_hold,heap-1,reference points 4596 of 4598, path 154.0 m, ATE rmse 0.0233 m, median 0.0173, max 0.1017, without 0 reference spikes 0.0233
+dev_G13_stim,heap-1,reference points 4597 of 4598, path 154.0 m, ATE rmse 0.0654 m, median 0.0490, max 0.1653, without 0 reference spikes 0.0654
+dev_G13_stim,snow-3,reference points 4612 of 4694, path 141.2 m, ATE rmse 0.0351 m, median 0.0290, max 0.1107, without 0 reference spikes 0.0351
+dev_G13_stim,spx-1,reference points 4197 of 4197, path 139.4 m, ATE rmse 0.0669 m, median 0.0548, max 0.1814, without 0 reference spikes 0.0669
+dev_G13_stim,eig-2,reference points 3903 of 3903, path 166.9 m, ATE rmse 0.0387 m, median 0.0312, max 0.1227, without 0 reference spikes 0.0387
+dev_G13_stim,con-1,reference points 5898 of 5898, path 242.8 m, ATE rmse 0.0859 m, median 0.0598, max 0.2659, without 1 reference spikes 0.0859
+dev_G13_stim,arc-6,reference points 3171 of 3173, path 97.0 m, ATE rmse 0.0211 m, median 0.0181, max 0.0588, without 0 reference spikes 0.0211
+dev_G13_stim,arc-4,reference points 1514 of 1514, path 43.8 m, ATE rmse 0.0290 m, median 0.0236, max 0.0768, without 0 reference spikes 0.0290
+dev_G13_stim,arc-3,reference points 3654 of 3654, path 196.9 m, ATE rmse 0.3094 m, median 0.1099, max 16.1269, without 1 reference spikes 0.1565

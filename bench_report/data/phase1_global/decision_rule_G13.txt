@@ -22,3 +22,11 @@ Adopt G13 as G if all of these hold (one run each, frontend only):
   4. Every run real-time.
 If G13 is adopted, the six test missions are run once with G13 and the LS rig after a new preregistration (a third
 COMFORT submission).
+
+Result (2026-10-27; GrandTour LS rig, ATE without reference spikes, m; G12 in brackets):
+  heap-1 0.0654 (0.0636), snow-3 0.0351 (0.0341), spx-1 0.0669 (0.0521, +28 %), eig-2 0.0387 (0.0413),
+  con-1 0.0859 (0.0851), arc-6 0.0211 (0.0188, +12 %), arc-4 0.0290 (0.0233, +24 %), arc-3 0.1565 (0.0539, x2.9);
+  mean 0.0623 (0.0465).
+Criterion 3 fails: G13 is NOT adopted. The MapsHD / Oxford / exp04 / Koide runs were stopped once the rule had
+failed (the first MapsHD trial was interrupted; no result is recorded). With the Livox MID-360 (a non-repetitive
+pattern, not rings) keeping still-standing scans out of the map takes away more than it gives.
