@@ -1,0 +1,5 @@
+LOOPS,con-3,front 0.0139,walk60 causal 0.0151 opt 0.4840 (2 loop edges, lag at most 6.553 s),walk20 causal 0.0163 opt 0.4836 (4 loop edges, lag at most 0.825 s)
+LOOPS,heap-1,front 0.0242,walk60 causal 0.0246 opt 0.1752 (3 loop edges, lag at most 0.763 s),walk20 causal 0.0235 opt 0.1750 (3 loop edges, lag at most 0.784 s)
+LOOPS,arc-1,front 0.0168,walk60 causal 0.0183 opt 0.3502 (6 loop edges, lag at most 2.889 s),walk20 causal 0.0190 opt 0.3500 (7 loop edges, lag at most 3.341 s)
+LOOPS,spx-1,front 0.0188,walk60 causal 0.0263 opt 0.2650 (4 loop edges, lag at most 0.732 s),walk20 causal 0.0249 opt 0.2639 (4 loop edges, lag at most 0.670 s)
+LOOPS,pil-2,front 0.0317,walk60 causal 0.0317 opt 0.1958 (1 loop edges, lag at most 0.547 s),walk20 causal 0.0317 opt 0.1958 (1 loop edges, lag at most 11.329 s)

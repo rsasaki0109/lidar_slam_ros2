@@ -16,12 +16,13 @@ U=https://huggingface.co/datasets/leggedrobotics/grand_tour_dataset/resolve/main
 fetch() {
   local f=$1 k
   [[ -f ${D}/z/${f}/.complete ]] && return 0
-  for k in 1 2 3 4; do
+  for k in 1 2 3 4 5 6; do
     rm -rf "${D}/z.part" "${D}/z/${f}"; mkdir -p "${D}/z.part" "${D}/z"
     if curl -sS -L --fail "${U}/${f}.tar" | tar xf - -C "${D}/z.part"; then
       mv "${D}/z.part/${f}" "${D}/z/${f}"; rm -rf "${D}/z.part"; touch "${D}/z/${f}/.complete"; return 0
     fi
-    echo "download of ${f} failed (attempt ${k})" >&2; sleep $((2 ** k))
+    # Hugging Face answers 429 when it rate-limits; wait 1, 2, 4, 8, 15, 15 min
+    echo "download of ${f} failed (attempt ${k})" >&2; sleep $(( k < 5 ? 60 * 2 ** (k - 1) : 900 ))
   done
   return 1
 }
