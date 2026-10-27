@@ -49,3 +49,14 @@ Record (2026-10-27, after the batch, before the zip left the VM)
   comfort_test_LS.zip (the six files at its root): md5 91d8b8de2deac65ca6b932ebeb609e8b
   Each trajectory ends 12.5-13.1 s before the G one: the STIM320 recording stops about 14 s before the Livox one, and
   the last LiDAR scans, with no IMU data after them, are not processed. No scan was dropped for too few keypoints.
+
+Upload and scores (reported by the maintainer, 2026-10-27): comfort_test_LS.zip submitted to the Test Phase as the
+second test-phase submission (2 of 60 used). Mean ATE / RTE / LE 0.119920 / 0.024559 / 0.108403 (submission 1, G:
+0.117901 / 0.024559 / 0.107554). Per mission ATE / RTE / LE:
+  arc-2  0.336448 / 0.030592 / 0.371653   (G 0.311146)
+  arc-7  0.026150 / 0.021792 / 0.015707   (G 0.028961)
+  con-4  0.151832 / 0.023273 / 0.043344   (G 0.154113)
+  eig-1  0.114232 / 0.027024 / 0.142263   (G 0.116501)
+  snow-2 0.037714 / 0.021383 / 0.011676   (G 0.038418)
+  spx-2  0.053142 / 0.023291 / 0.065775   (G 0.058268)
+Five of six missions are 2-10 % better, as on the development data; arc-2 is 8 % worse and decides the mean.
