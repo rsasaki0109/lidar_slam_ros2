@@ -1,0 +1,20 @@
+GrandTour HS configuration G15b (fixed 2026-10-27 before any G15b run other than the six missions of the fourth HS
+screen, screen_hs_d_2026-10-27/, whose results are known and count with these runs).
+
+G15b = HS-G15 (configs/sota_v7/rko_lio_grandtour_hs_G15_2026-10-27.yaml) + bump_image_point_to_point_start_distance
+3.0 (rko_lio 8fdafdf, ws/rko_g18): until the registered pose is 3 m from the first pose the bump terms register
+alone, then the keypoints' point-to-point terms join with weight 1.0 (latched). A configuration for the HS rig of
+GrandTour (Hesai XT-32 + STIM320), like HS-G15; it is not a candidate for the global configuration G and is not run on
+the other datasets.
+
+Why: HS-G15's largest development error is SNOW-3's start (0.0889 m). In the screen (sd1 / sd3 / HS-G15):
+snow-3 0.0268 / 0.0268 / 0.0889, pil-2 0.0282 / 0.0279 / 0.0317, arc-1 0.0152 / 0.0149 / 0.0168, arc-3 0.0227 /
+0.0197 / 0.0247, arc-5 0.0158 / 0.0152 / 0.0180, con-1 0.0249 / 0.0249 / 0.0248; sd3 has the lower mean.
+
+Adopt G15b as the GrandTour HS configuration in place of HS-G15 if all of these hold (one run each, frontend only):
+  1. The 15 HS development missions of decision_rule_G15.txt (all but snow-1): mean below HS-G15's 0.0245, and no
+     mission worse than HS-G15 by more than 10 % and more than 2 mm at once. snow-1 is run and reported only.
+  2. Every run real-time (node time below the data duration).
+HS-G15's values per mission are those of decision_rule_G15.txt (G15hs_g15 in dev_scores.csv). If G15b is adopted, a
+COMFORT submission with it needs its own preregistration (test runs, md5s sealed before upload) and the maintainer's
+decision; submission 3 (HS-G15) stays as prepared until then.

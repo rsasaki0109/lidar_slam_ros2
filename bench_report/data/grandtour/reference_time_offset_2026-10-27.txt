@@ -1,0 +1,30 @@
+Reference time offset on the GrandTour development missions (2026-10-27; HS rig, ATE without reference spikes, mm).
+
+The ATE of p1_grandtour_ate.py was evaluated with the reference timestamps shifted by dt (est(t_ref + dt) against
+ref(t_ref)), dt from -40 to +40 ms in 5 ms steps, then 1 ms steps around the best. Outputs: HS-G15
+(G15hs_g15), BIEVR-LIO and FAST-LIO2 (rival_*_hs), the same runs as decision_rule_G15.txt and chapter 33.
+
+mission  best dt, ms (ATE at best / at 0): HS-G15 | BIEVR-LIO | FAST-LIO2
+heap-1   -19 (21.0 / 24.2) | -24 (23.9 / 28.5) | -17 (13.2 / 17.3)
+arc-3    -13 (23.9 / 24.7) |                   |
+arc-4     -9 (19.6 / 20.0) |  -7 (16.5 / 16.8) | -13 (29.0 / 29.6)
+arc-6    -10 ( 8.6 /  9.7) | -10 (11.0 / 11.8) | -11 (29.5 / 29.9)
+con-1     -5 (24.6 / 24.8) |  -3 (42.6 / 42.6) | -12 (36.3 / 37.3)
+eig-2    -12 (29.1 / 30.2) | -14 (26.2 / 27.9) |  -8 (19.6 / 20.4)
+snow-3    -9 (88.8 / 88.9) |                   |
+spx-1    -10 (17.9 / 18.8) |  -9 (29.8 / 30.2) | -13 (41.6 / 42.2)
+spx-3     -5 ( 7.8 /  8.7) |  -6 ( 6.6 /  8.0) |  -6 (11.7 / 12.6)
+ice-1     -3 (11.4 / 11.5) |  -4 ( 8.3 /  8.4) |  -4 (19.3 / 19.4)
+arc-1     -8 (16.0 / 16.8) |  -8 (14.1 / 15.0) |  -6 (14.9 / 15.4)
+arc-5    -12 (16.8 / 18.0) | -14 (12.7 / 14.7) |  -4 (25.1 / 25.1)
+con-2     -4 (25.6 / 25.8) |   0 (45.6 / 45.6) |  -4 (21.2 / 21.4)
+pil-2     -7 (31.3 / 31.7) | -14 (28.3 / 29.7) | -12 (34.7 / 35.6)
+con-3     -8 (13.6 / 13.9) | -12 (15.6 / 16.2) | -20 (54.7 / 55.2)
+
+Reading: every mission prefers a negative dt for all three methods, three independent estimators with their own
+time handling, and the per-mission values move together (heap-1 about -20 ms for all three, con-2 and ice-1 about
+-4 ms). The lag is in the reference's time chain (the total station's tracking), not in the estimators' stamps; it
+varies with the mission. Shifting a submission's timestamps by a constant would fit the benchmark's reference latency
+from the development ground truth, help every method alike and say nothing about the estimator: it is NOT applied to
+any submission. Worth reporting to the organizers (the maintainer's decision); the frame-chain check on HEAP-1 (section 31.2,
+50 ms steps, older G) was too coarse to see it.
