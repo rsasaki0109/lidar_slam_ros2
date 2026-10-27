@@ -17,3 +17,11 @@ Amendment (before any run of the corrected variant): the first build (rko_lio 79
 and column, and Oxford diverged within 10 s (5.95 m, oxford_front.csv G15v_zeroed): the ground's height residuals then
 act on the attitude. rko_lio 4th commit after 05ab894 marginalises the height out (Schur complement) instead; the
 variant is run again under the label G15m with that build (ws/rko_g16, offline_node md5 e82baf07...).
+
+Result (2026-10-27): the variant does not help where G15 fails, so the screen was stopped after Oxford and Koide 02b.
+  Oxford Keble 05: G15m 0.0684 m (G15 0.0700, G12 0.0533). The height error stays in the same windows (60-120 s,
+  150-240 s, 300-360 s: z 0.05-0.12 m, G12 0.02-0.08), though the height now comes from the point-to-point terms
+  alone; the tilt error is the same as G12's (0.2-0.3 deg) and close-scene scans are as many (892 / 893). So the bump
+  terms do not pull the height directly: the height drift comes with the bump-registered horizontal / attitude.
+  Koide outdoor_hard_02b: G15m 2.335 m (G15 2.206, bump alone 0.539, G12 0.715); it drifts gradually, no single slip.
+  The interrupted Koide 02a / 01b / 01a runs were removed from koide_front.csv; no GrandTour run was made.
