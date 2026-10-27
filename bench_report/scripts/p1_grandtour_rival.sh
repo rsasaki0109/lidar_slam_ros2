@@ -11,6 +11,8 @@ REPO=/home/user/lidar_slam_ros2; S=${REPO}/bench_report/scripts; PY=/home/user/m
 D=/home/user/data/grandtour/${short}; O=/home/user/bench/grandtour/${label}/${short}; BAG=${D}/bag_rival_hesai_stim
 PRISM="0.3088378015503127 -0.038312997211241984 -0.2349441159711169 -0.005724388155828644 -0.0013879431347362404 -0.004742721620119043 0.9999714053840392"
 U=https://huggingface.co/datasets/leggedrobotics/grand_tour_dataset/resolve/main/${folder}/data
+# one heavy job at a time on the VM's disk: other jobs that download a mission take the same lock (flock)
+exec 9>/home/user/bench/grandtour/.disk.lock; flock 9  # (closed for the ROS processes below, which may outlive the run)
 mkdir -p "${D}/z" "${O}"
 set +u; source /opt/ros/jazzy/setup.bash; set -u
 if [[ ! -d ${BAG} ]]; then
@@ -80,13 +82,13 @@ PY
     export ROS_DOMAIN_ID=$((40 + RANDOM % 50)) ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
     rm -rf "${O}/odom_bag"
     "${FW}/install/fast_lio/lib/fast_lio/fastlio_mapping" --ros-args --params-file "${O}/fastlio.yaml" \
-      > "${O}/stdout.log" 2>&1 &
+      > "${O}/stdout.log" 2>&1 9>&- &
     node=$!
-    ros2 bag record -o "${O}/odom_bag" /Odometry > "${O}/record.log" 2>&1 &
+    ros2 bag record -o "${O}/odom_bag" /Odometry > "${O}/record.log" 2>&1 9>&- &
     rec=$!
     sleep 5
     t0=$(date +%s.%N)
-    ros2 bag play "${BAG}" --rate 1.0 > "${O}/play.log" 2>&1 || true
+    ros2 bag play "${BAG}" --rate 1.0 > "${O}/play.log" 2>&1 9>&- || true
     sleep 5
     t1=$(date +%s.%N)
     # a background job of a non-interactive shell ignores SIGINT; the recorder stops cleanly on SIGTERM
