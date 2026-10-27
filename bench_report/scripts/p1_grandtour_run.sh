@@ -30,7 +30,8 @@ mkdir -p "${D}/z" "${O}"
 set +u; source /opt/ros/jazzy/setup.bash; set -u
 if [[ ! -d ${BAG} ]]; then
   for f in ${LIDAR//+/ } ${BAG_IMUS//,/ }; do
-    [[ -d ${D}/z/${f} ]] || { curl -sS -L --fail -o "${D}/${f}.tar" "${U}/${f}.tar"; tar xf "${D}/${f}.tar" -C "${D}/z"; rm -f "${D}/${f}.tar"; }
+    # streamed into tar, so that a large tar file and its extracted copy are never on the disk together
+    [[ -d ${D}/z/${f} ]] || curl -sS -L --fail "${U}/${f}.tar" | tar xf - -C "${D}/z"
   done
   "${PY}" "${S}/p1_grandtour_to_ros2.py" --imu "${BAG_IMUS}" --lidar "${LIDAR}" --range-scale "${RANGE_SCALE}" "${D}/z" \
     "${BAG}" | tee "${D}/convert${SUFFIX}.log"
