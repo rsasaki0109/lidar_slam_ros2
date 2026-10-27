@@ -1,0 +1,28 @@
+Screen of registration options on the Hesai XT-32 + STIM320 rig (HS), GrandTour development missions (2026-10-27).
+Written before any of these runs.
+
+Why: HS is better than Livox on most development missions (chapter 31.6), but
+  - its scan-to-scan vertical jitter is 2-3 times BIEVR-LIO's on the same missions (RMS of the position minus its
+    1-s moving average, z: ARC-5 18.5 vs 6.0 mm, CON-3 15.3 vs 5.9, PIL-2 18.0 vs 9.5; no reference used), and
+  - it has transient failures: ARC-5 52-57 s (z off by up to 0.19 m, alternating scan to scan), CON-3 444-449 s
+    (drifts 0.17 m while the robot stands), PIL-2 and ARC-1 at the start.
+  The same 3x jitter against BIEVR-LIO was seen on GEODE (docs/research/geode-hard-evaluation-2026-10.md), where
+  Levenberg-Marquardt steps reduced it.
+
+What: G12 on HS (base, dev_G12_hesai_stim, already run) and these variants, each a set of rko_lio keys on top of
+G12 (rko_lio 400fc3c build, ws/rko_g13; at G12's keys it gives the same trajectories as ws/rko_g12):
+  base      G12 with scan_statistics (per-scan diagnostics; the trajectory stays G12's)
+  lm        icp_levenberg_marquardt: true
+  nograv    min_beta: 1e9 (no gravity regularisation of the registration's roll and pitch)
+  lmnograv  lm + nograv
+  p2pl      icp_tangential_weight: 0 (point-to-plane)
+  lmp2pl    lm + nograv + p2pl
+  bump      bump_image_registration: true with the ENWIDE v10 fallback (2 deg, 3 of 10)
+  iw        inertial_window: true (10 s)
+Missions (5 of the 16 development missions): ARC-5, CON-3, PIL-2 (the failures above), HEAP-1, SPX-3 (no failure).
+
+Reported per run: ATE without reference spikes (p1_grandtour_ate.py) and the vertical / horizontal jitter
+(no reference).
+
+This is a screen, not an adoption: it only picks which variant goes forward. A candidate is adopted only under a
+rule fixed before its runs, on all 16 development missions (HS) and on the Phase 1 development data (G regression).
