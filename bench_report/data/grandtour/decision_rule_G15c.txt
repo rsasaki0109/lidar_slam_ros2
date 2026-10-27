@@ -1,0 +1,24 @@
+GrandTour HS configuration G15c (fixed 2026-10-27 before any G15c run other than those of the sixth and seventh HS
+screens, screen_hs_f_2026-10-27/ and screen_hs_g_2026-10-27/, whose results are known and count with these runs).
+
+G15c = HS-G15b (configs/sota_v7/rko_lio_grandtour_hs_G15b_2026-10-27.yaml) + output_filter_position_sigma 0.02,
+output_filter_acceleration_noise 0.001, output_filter_bias_noise 1e-4 (rko_lio 9461e71, ws/rko_g21): the output
+positions are those of a causal 9-state filter (IMU-driven, the registered positions as measurements); the
+registration chain and the map are G15b's. After a moving start the filter stays off (no
+moving_start_gravity_window_sec), so on those missions the output is G15b's byte for byte. A configuration for the HS
+rig of GrandTour only, like G15b.
+
+Why: on the static starts of the sixth screen it lowers the ATE by 0.3-2.9 mm (arc-1 0.0149 -> 0.0120, pil-2 0.0279 ->
+0.0262, eig-2 0.0265 -> 0.0256, heap-1 0.0241 -> 0.0238 m) by halving the sub-second error; on moving starts it needs
+the gravity direction, and the re-estimated gravity of moving_start_gravity_window_sec costs ARC-5 (mg5 0.0180, mgof2
+0.0172 against 0.0152 m), so that window is not part of G15c.
+
+Adopt G15c as the GrandTour HS configuration in place of G15b if all of these hold (one run each, frontend only):
+  1. The 15 HS development missions of decision_rule_G15b.txt: mean below G15b's 0.0189 m, and no mission worse than
+     G15b by more than 10 % and more than 2 mm at once. snow-1 is run and reported only.
+  2. Every run real-time (node time below the mission span).
+  3. On every moving start (log "Moving start") the trajectory is G15b's byte for byte.
+Results counted from the screens: arc-1, pil-2, eig-2, heap-1 (sixth screen, ws/rko_g20; rko_lio 9461e71 changes only
+the moving-start path, and the seventh screen's of2 gives the sixth screen's arc-1 byte for byte), arc-5, arc-4, ice-1,
+arc-6, snow-3 (seventh screen, of2). To run: arc-3, con-1, con-2, con-3, spx-1, spx-3, snow-1. If G15c is adopted, a
+COMFORT submission with it needs its own preregistration and the maintainer's decision.
