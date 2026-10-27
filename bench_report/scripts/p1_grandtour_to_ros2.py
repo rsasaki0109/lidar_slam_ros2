@@ -21,6 +21,7 @@ Usage: p1_grandtour_to_ros2.py [--imu <groups>] [--lidar <group>] [--range-scale
        p1_grandtour_to_ros2.py [--imu <group>] [--lidar <group>] --extrinsics <mission_zarr_dir>
            <box_base_to_prism: x y z qx qy qz qw>
 """
+import heapq
 import sys
 
 import numpy as np
@@ -179,7 +180,10 @@ def convert(mission, out, groups=('livox_imu',), lidar_group='livox_points', ran
     for topic, kind in topics:
         writer.create_topic(rosbag2_py.TopicMetadata(id=0, name=topic, type=kind, serialization_format='cdr'))
 
-    messages = []
+    # IMU messages are small and kept in memory; the point clouds are generated scan by scan and merged into the IMU
+    # stream by time (stable: an IMU message and a scan with the same time keep this order), so that a long Hesai
+    # mission does not hold every cloud in memory at once.
+    imu_messages = []
     imu_samples = 0
     for group in groups:
         imu = zarr.open(f'{mission}/{group}', mode='r')
@@ -195,35 +199,47 @@ def convert(mission, out, groups=('livox_imu',), lidar_group='livox_points', ran
             msg.angular_velocity.x, msg.angular_velocity.y, msg.angular_velocity.z = map(float, gyro[i])
             msg.linear_acceleration.x, msg.linear_acceleration.y, msg.linear_acceleration.z = map(float, acc[i])
             msg.orientation_covariance[0] = -1.0
-            messages.append((imu_t[i], imu_topic(group), msg))
+            imu_messages.append((float(imu_t[i]), imu_topic(group), msg))
+    imu_messages.sort(key=lambda m: m[0])
 
     fields = [PointField(name=n, offset=4 * k, datatype=PointField.FLOAT32, count=1)
               for k, n in enumerate(('x', 'y', 'z', 'intensity', 't'))]
     scans = len(lidar['valid'])
-    kept_scans = 0
-    for xyz, t, inten in scans_iter:
-        xyz = xyz * range_scale
-        t0 = float(t.min())
-        cloud = np.empty((len(t), 5), dtype=np.float32)
-        cloud[:, :3] = xyz
-        cloud[:, 3] = inten
-        cloud[:, 4] = (t - t0).astype(np.float32)
-        msg = PointCloud2()
-        msg.header.stamp = stamp(t0)
-        msg.header.frame_id = lidar_frame
-        msg.height = 1
-        msg.width = len(t)
-        msg.fields = fields
-        msg.is_bigendian = False
-        msg.point_step = 20
-        msg.row_step = 20 * len(t)
-        msg.data = cloud.tobytes()
-        msg.is_dense = True
-        messages.append((float(t.max()), lidar_topic(lidar_group), msg))
-        kept_scans += 1
-    messages.sort(key=lambda m: m[0])
-    for t, topic, msg in messages:
+    kept = [0]
+
+    def cloud_messages():
+        window = []  # a few scans, so that a scan ending before the previous one still comes out in time order
+        for xyz, t, inten in scans_iter:
+            xyz = xyz * range_scale
+            t0 = float(t.min())
+            cloud = np.empty((len(t), 5), dtype=np.float32)
+            cloud[:, :3] = xyz
+            cloud[:, 3] = inten
+            cloud[:, 4] = (t - t0).astype(np.float32)
+            msg = PointCloud2()
+            msg.header.stamp = stamp(t0)
+            msg.header.frame_id = lidar_frame
+            msg.height = 1
+            msg.width = len(t)
+            msg.fields = fields
+            msg.is_bigendian = False
+            msg.point_step = 20
+            msg.row_step = 20 * len(t)
+            msg.data = cloud.tobytes()
+            msg.is_dense = True
+            window.append((float(t.max()), kept[0], lidar_topic(lidar_group), msg))
+            kept[0] += 1
+            if len(window) > 8:
+                window.sort(key=lambda m: (m[0], m[1]))
+                first = window.pop(0)
+                yield first[0], first[2], first[3]
+        window.sort(key=lambda m: (m[0], m[1]))
+        for t, _, topic, msg in window:
+            yield t, topic, msg
+
+    for t, topic, msg in heapq.merge(imu_messages, cloud_messages(), key=lambda m: m[0]):
         writer.write(topic, rclpy.serialization.serialize_message(msg), int(round(t * 1e9)))
+    kept_scans = kept[0]
     print(f'done: {kept_scans} of {scans} scans, {imu_samples} imu samples')
 
 
