@@ -1,0 +1,15 @@
+Second screen on the Hesai XT-32 + STIM320 rig (HS): bump images with point-to-point terms (2026-10-27, written before
+any of these runs).
+
+Why: G14 (G12 + bump images) brought ARC-5, CON-3 and PIL-2 to BIEVR-LIO's level, but slipped in open scenes (ARC-3
+0.2374, CON-1 0.0391 against G12's 0.1262 and 0.0261), as BIEVR-LIO does (decision_rule_G14.txt). rko_lio 05ab894
+adds bump_image_point_to_point_weight: the keypoints' point-to-point system added to the bump system with that weight,
+each averaged over its own residuals (0: bump alone, G14). On a synthetic cube the point-to-point terms carry the
+sampling bias of the map voxels, so a large weight may cost precision where bump alone was good.
+
+Variants (G14 + the key; rko_lio 05ab894, ws/rko_g15): w0 (0, must equal G14), w01 (0.1), w03 (0.3), w1 (1.0).
+Missions: ARC-3, CON-1, ARC-6 (G14 worse than G12), ARC-5, PIL-2, CON-3 (G14 much better), SNOW-3, SPX-1, ICE-1,
+ARC-1, CON-2 (not yet run with G14; their diagnostics were lost to a full disk). HEAP-1, SPX-3, ARC-4, EIG-2 (G14
+equal or better and not open) and SNOW-1 (unusable reference) are left out.
+Reported: ATE without reference spikes and the jitter, per run. A screen, not an adoption: the weight it picks is
+judged by a new rule on all 16 development missions and the Phase 1 data.

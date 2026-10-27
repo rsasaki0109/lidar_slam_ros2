@@ -44,3 +44,15 @@ If criterion 1 holds and a later one fails, G14 is not adopted as G; whether bum
 a rig property (a spinning multi-beam LiDAR) is a new candidate with its own rule.
 If G14 is adopted, the HS rig with G14 becomes the COMFORT candidate; a submission needs a new preregistration and the
 maintainer's decision.
+
+Result (2026-10-27; GrandTour HS rig, ATE without reference spikes, m; G12 in brackets):
+  arc-5 0.0120 (0.0554), con-3 0.0164 (0.0281), pil-2 0.0294 (0.0768), heap-1 0.0281 (0.0281), spx-3 0.0091 (0.0097)
+  (the screen runs), arc-3 0.2374 (0.1262, +88 %, +111 mm), arc-4 0.0188 (0.0233), arc-6 0.0124 (0.0104, +19 %,
+  +2.0 mm), con-1 0.0391 (0.0261, +50 %, +13 mm), eig-2 0.0285 (0.0375).
+Criterion 1 fails on arc-3 and con-1: G14 is NOT adopted. The Phase 1, Koide and LS runs were not made (a MapsHD run
+that had started was stopped). The remaining HS missions (snow-3, spx-1, ice-1, arc-1, con-2, snow-1) were started as
+diagnostics after the rule had failed and lost their data to a full disk; they are run in the next screen.
+Where it fails, the bump registration slips in open scenes: ARC-3 at 307 s (outdoors, median keypoint range 41-44 m,
+0.22 -> 0.77 m in 5 s) and 368 s, in the same places as BIEVR-LIO (0.14 -> 0.66 m at 307 s); CON-1 is a wide
+construction site. The 300 informed voxels lie mostly on the ground near the sensor there, and nothing holds the
+translation along it; G12's point-to-point keypoints use the far structure.

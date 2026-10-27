@@ -52,6 +52,9 @@ if [[ ! -d ${BAG} ]]; then
   "${PY}" "${S}/p1_grandtour_to_ros2.py" --imu "${BAG_IMUS}" --lidar "${LIDAR}" --range-scale "${RANGE_SCALE}" "${D}/z" \
     "${BAG}.part" | tee "${D}/convert${SUFFIX}.log"
   mv "${BAG}.part" "${BAG}"
+  # the bag holds the points now; keep only the zarr metadata (the extrinsics), so that a long Hesai mission (CON-3:
+  # 4.4 GB of points plus its bag) leaves room on the disk; the .complete markers go too, so later conversions fetch again
+  find "${D}/z" -type f ! -name '.z*' -delete 2>/dev/null || true
 fi
 # the inputs of this run, for later steps on the same data (p3_grandtour_backend.sh)
 echo "${BAG} ${LIDAR_TOPIC} ${IMU_TOPIC}" > "${O}/inputs.txt"
