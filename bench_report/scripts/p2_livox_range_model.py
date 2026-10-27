@@ -7,7 +7,9 @@ of every k-th scan in the world, point by point at its own time (deskewed by int
 cloud, thinned to a voxel grid with a surface normal per point, is the reference surface. The Livox points of every
 k-th Livox scan are placed with the same trajectory and the Livox extrinsic, and each is compared with the nearest
 Hesai surface along its own ray: d_ray = (n . (p - q)) / (n . u) for points whose ray meets the surface at less than
-60 deg from its normal. The result is binned by range and by elevation in the Livox frame.
+60 deg from its normal. The result is binned by range and by elevation in the Livox frame. For points on horizontal
+Hesai surfaces (normal within about 25 deg of the vertical) it also reports the height error, n . (p - q) with the
+normal pointing up, against the horizontal distance: a bias in the Livox elevation angles bends the ground into a bowl.
 
 Usage: p2_livox_range_model.py <mission dir with livox_points/ hesai_points/> <hesai run front_tum_0.txt (T_world_imu)>
            <hesai run extrinsics.txt> <livox run extrinsics.txt> [scan stride, default 20] [out.npz]
@@ -96,12 +98,20 @@ def main():
         n = normals[idx]
         nu = np.einsum('ij,ij->i', n, u)
         ok &= np.abs(nu) > 0.5
-        d_ray = np.einsum('ij,ij->i', n, pw - world[idx]) / np.where(np.abs(nu) > 0, nu, 1)
+        d_perp = np.einsum('ij,ij->i', n, pw - world[idx])
+        d_ray = d_perp / np.where(np.abs(nu) > 0, nu, 1)
         elev = np.degrees(np.arcsin(np.clip(xyz[:, 2] / r, -1, 1)))
-        rows.append(np.stack([r[ok], elev[ok], d_ray[ok], np.degrees(np.arccos(np.clip(np.abs(nu[ok]), 0, 1)))], 1))
+        # height error on horizontal surfaces: the normal turned to point up
+        up = np.sign(n[:, 2]) * d_perp
+        ground = (np.abs(n[:, 2]) > 0.9) & np.isfinite(dist) & (planar[idx] > 0.6)
+        rows.append(np.stack([r[ok], elev[ok], d_ray[ok], np.degrees(np.arccos(np.clip(np.abs(nu[ok]), 0, 1))),
+                              np.zeros(ok.sum())], 1))
+        rows.append(np.stack([r[ground], elev[ground], up[ground], np.zeros(ground.sum()), np.ones(ground.sum())], 1))
     R = np.concatenate(rows)
-    print(f'livox points compared: {len(R)}')
-    rng, elev, d, inc = R.T
+    G = R[R[:, 4] == 1]
+    R = R[R[:, 4] == 0]
+    print(f'livox points compared: {len(R)} along the ray, {len(G)} on horizontal surfaces')
+    rng, elev, d, inc, _ = R.T
     inlier = np.abs(d) < 0.15
     print('along-ray residual (m, + = Livox measures the range too long), median per bin:')
     print('  range    n       median    p25      p75')
@@ -124,6 +134,19 @@ def main():
     A = np.stack([rng[inlier], np.ones(inlier.sum())], 1)
     coef = np.linalg.lstsq(A, d[inlier], rcond=None)[0]
     print(f'least squares d_ray = {coef[0] * 100:+.3f} % * range {coef[1] * 1000:+.1f} mm')
+    g_rng, g_elev, g_up = G[:, 0], G[:, 1], G[:, 2]
+    keep = np.abs(g_up) < 0.15
+    print('height error on horizontal surfaces (m, + = Livox point above the Hesai surface), median per range bin:')
+    for lo, hi in ((1, 3), (3, 5), (5, 8), (8, 12), (12, 18), (18, 25), (25, 35), (35, 60)):
+        k = keep & (g_rng >= lo) & (g_rng < hi)
+        if k.sum() > 100:
+            print(f'  {lo:2d}-{hi:<2d} n {k.sum():7d}  median {np.median(g_up[k]) * 1000:+6.1f} mm   '
+                  f'median Livox elevation {np.median(g_elev[k]):+5.1f} deg')
+    k = keep & (g_rng > 3)
+    if k.sum() > 100:
+        slope = np.linalg.lstsq(np.stack([g_rng[k], np.ones(k.sum())], 1), g_up[k], rcond=None)[0]
+        print(f'  least squares height error = {np.degrees(np.arctan(slope[0])):+.3f} deg * range '
+              f'{slope[1] * 1000:+.1f} mm (an elevation-angle bias of that size bends the ground)')
     if out:
         np.savez_compressed(out, rows=R)
 
