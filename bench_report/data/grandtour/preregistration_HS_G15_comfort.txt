@@ -49,3 +49,15 @@ Fact sheet (proposed)
   with bump-image (voxel-wise height image) and point-to-point registration, Hesai XT-32 + STIM320, frontend output
   only, no loop closure, no post-processing; configuration selected on GrandTour training missions. Novel: yes.
   Real-time: yes. LiDAR: yes. IMU: yes. Camera: no. GNSS: no. External odometry: no.
+
+Record (2026-10-27, after the batch, before the zip left the VM)
+  Policy 0: the configuration file gives the G15 confirmation's arc-4 trajectory byte for byte (md5 7116957b...).
+  Test missions, one run each with HS-G15 (node time / data span), no failure, no scan dropped:
+    arc-2   91.6 s / 425 s   md5 7fb8bf97fe7f9e018eb73ede6632b1b5
+    arc-7   94.4 s / 322 s   md5 893aecd5c67009e6fb1f99563ab809ab
+    con-4  475.5 s / 743 s   md5 ab2dbca933ee6ec9a96ccedb6d9a89dc
+    eig-1  241.5 s / 430 s   md5 7bb7772570a9eab3a7838baef6a126e9
+    snow-2 158.2 s / 261 s   md5 75d71eff92bc7d34f75c912baa87e4dc
+    spx-2   67.7 s / 383 s   md5 eb9705ee8cc2dbc6afafb11929c2aff2
+  comfort_test_G15HS.zip (the six files at its root): md5 337b7ab9e02dbdc280bb294ea360b062
+  (data/grandtour/G15HS/, and a copy at the repository root for the maintainer.)
