@@ -35,7 +35,8 @@ if [[ ! -d ${BAG} ]]; then
   done
   # written as .part and renamed when complete, so that a failed conversion is never taken for a bag
   rm -rf "${BAG}.part"
-  "${PY}" "${S}/p1_grandtour_to_ros2.py" --imu stim320_imu --lidar hesai_points --time-field time "${D}/z" "${BAG}.part" \
+  "${PY}" "${S}/p1_grandtour_to_ros2.py" --imu stim320_imu --lidar hesai_points --time-field time --consume "${D}/z" \
+    "${BAG}.part" \
     | tee "${D}/convert_rival.log"
   mv "${BAG}.part" "${BAG}"
 fi

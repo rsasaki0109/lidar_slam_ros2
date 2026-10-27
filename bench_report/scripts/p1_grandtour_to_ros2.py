@@ -13,16 +13,21 @@ Reads the extracted `livox_points` and `livox_imu` zarr groups of one mission an
 seconds instead of nanoseconds); --lidar hesai_points+livox_points merges both LiDARs into one cloud per Hesai scan,
 in the Hesai frame, on /merged_points (the Livox points timed within that scan's span); --range-scale s multiplies
 every point's coordinates by s (a range-scale test); --time-field time names the per-point time field `time` instead
-of `t` (float32 seconds since the scan's first point either way; BIEVR-LIO reads `t` as Ouster's uint32 ns).
+of `t` (float32 seconds since the scan's first point either way; BIEVR-LIO reads `t` as Ouster's uint32 ns);
+--consume deletes the LiDAR group's chunk files as they are read (a single LiDAR only; the disk then holds the bag
+and the rest of the points, not both in full).
 Only the first `valid` points of every scan are used, and points at the origin or non-finite are dropped. No other
 stream of the mission is read (in particular no reference or GNSS/INS topic).
 It also prints the RKO-LIO extrinsics and the IMU-to-prism transform of the mission (see --extrinsics), with the
 chosen IMU as the base frame.
-Usage: p1_grandtour_to_ros2.py [--imu <groups>] [--lidar <group>] [--range-scale s] <mission_zarr_dir> <out_bag>
+Usage: p1_grandtour_to_ros2.py [--imu <groups>] [--lidar <group>] [--range-scale s] [--consume] <mission_zarr_dir>
+           <out_bag>
        p1_grandtour_to_ros2.py [--imu <group>] [--lidar <group>] --extrinsics <mission_zarr_dir>
            <box_base_to_prism: x y z qx qy qz qw>
 """
+import glob
 import heapq
+import os
 import sys
 
 import numpy as np
@@ -92,8 +97,19 @@ def lidar_topic(group):
     return '/merged_points' if '+' in group else f'/{group}'
 
 
-def iter_scans(z):
-    """(xyz float64, absolute time in s, intensity float32) of every scan with at least 10 usable points."""
+def iter_scans(z, consume_dir=None):
+    """(xyz float64, absolute time in s, intensity float32) of every scan with at least 10 usable points.
+
+    With consume_dir (the group's directory) every chunk file of the group is deleted once all of its scans were read,
+    so that a long mission and its bag need not be on the disk together; the group's .complete marker goes first.
+    """
+    if consume_dir:
+        try:
+            os.remove(f'{consume_dir}/.complete')
+        except FileNotFoundError:
+            pass
+        chunked = {name: (z[name].chunks[0], z[name].ndim) for name in z.array_keys()}
+        consumed = dict.fromkeys(chunked, 0)
     valid = z['valid'][:, 0]
     first = z['time'][0, :max(1, int(valid[0]))]
     to_seconds = 1e-9 if np.nanmax(first) > 1e12 else 1.0  # Livox: ns, Hesai: s
@@ -111,6 +127,17 @@ def iter_scans(z):
             if keep.sum() < 10:
                 continue
             yield xyz[keep], t[keep], intensity[j, :n][keep].astype(np.float32)
+        if consume_dir:
+            for name, (rows, ndim) in chunked.items():
+                while (consumed[name] + 1) * rows <= stop:
+                    k = consumed[name]
+                    for f in glob.glob(f'{consume_dir}/{name}/{k}' + ('.*' if ndim > 1 else '')):
+                        os.remove(f)
+                    consumed[name] += 1
+    if consume_dir:  # the last, partial chunks
+        for name in chunked:
+            for f in glob.glob(f'{consume_dir}/{name}/[0-9]*'):
+                os.remove(f)
 
 
 def merged_scans(primary, secondary, T_primary_secondary):
@@ -154,7 +181,8 @@ def extrinsics(mission, prism, group='livox_imu', lidar_group='livox_points'):
     print('T_imu_prism_quat_xyzw_xyz: ' + str([round(v, 9) for v in as_list(T_imu_prism)]))
 
 
-def convert(mission, out, groups=('livox_imu',), lidar_group='livox_points', range_scale=1.0, time_field='t'):
+def convert(mission, out, groups=('livox_imu',), lidar_group='livox_points', range_scale=1.0, time_field='t',
+            consume=False):
     import rclpy.serialization
     import rosbag2_py
     from builtin_interfaces.msg import Time
@@ -172,7 +200,7 @@ def convert(mission, out, groups=('livox_imu',), lidar_group='livox_points', ran
         T = np.linalg.inv(zarr_transform(dict(lidar.attrs))) @ zarr_transform(dict(secondary.attrs))
         scans_iter = merged_scans(lidar, secondary, T)
     else:
-        scans_iter = iter_scans(lidar)
+        scans_iter = iter_scans(lidar, f'{mission}/{lidar_groups[0]}' if consume else None)
     writer = rosbag2_py.SequentialWriter()
     writer.open(rosbag2_py.StorageOptions(uri=out, storage_id='mcap', storage_preset_profile='zstd_fast'),
                 rosbag2_py.ConverterOptions('', ''))
@@ -246,6 +274,8 @@ def convert(mission, out, groups=('livox_imu',), lidar_group='livox_points', ran
 
 def main():
     args = sys.argv[1:]
+    consume = '--consume' in args
+    args = [a for a in args if a != '--consume']
     group, lidar_group, range_scale, time_field = 'livox_imu', 'livox_points', 1.0, 't'
     while len(args) >= 2 and args[0] in ('--imu', '--lidar', '--range-scale', '--time-field'):
         if args[0] == '--imu':
@@ -260,7 +290,7 @@ def main():
     if len(args) >= 1 and args[0] == '--extrinsics':
         extrinsics(args[1], [float(v) for v in args[2:9]], group.split(',')[0], lidar_group)
     elif len(args) == 2:
-        convert(args[0], args[1], tuple(group.split(',')), lidar_group, range_scale, time_field)
+        convert(args[0], args[1], tuple(group.split(',')), lidar_group, range_scale, time_field, consume)
     else:
         print(__doc__)
         return 1

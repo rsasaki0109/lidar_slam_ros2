@@ -49,8 +49,9 @@ if [[ ! -d ${BAG} ]]; then
   done
   # written as .part and renamed when complete, so that a failed conversion is never taken for a bag
   rm -rf "${BAG}.part"
-  "${PY}" "${S}/p1_grandtour_to_ros2.py" --imu "${BAG_IMUS}" --lidar "${LIDAR}" --range-scale "${RANGE_SCALE}" "${D}/z" \
-    "${BAG}.part" | tee "${D}/convert${SUFFIX}.log"
+  CONSUME=--consume; [[ ${LIDAR} != *+* ]] || CONSUME=  # a merged cloud reads two groups side by side
+  "${PY}" "${S}/p1_grandtour_to_ros2.py" --imu "${BAG_IMUS}" --lidar "${LIDAR}" --range-scale "${RANGE_SCALE}" \
+    ${CONSUME} "${D}/z" "${BAG}.part" | tee "${D}/convert${SUFFIX}.log"
   mv "${BAG}.part" "${BAG}"
   # the bag holds the points now; keep only the zarr metadata (the extrinsics), so that a long Hesai mission (CON-3:
   # 4.4 GB of points plus its bag) leaves room on the disk; the .complete markers go too, so later conversions fetch again
