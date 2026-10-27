@@ -15,3 +15,18 @@ Variant (ws/rko_g19, G15b + the key): mg5 (5 s; one value, chosen before any run
 Missions: arc-5, arc-4, snow-3, ice-1, arc-6 (moving starts), spx-3 (static start: the trajectory must be the same as
 G15b's byte for byte). Compared with G15b (hsd_sd3 / G15b_g15b). Reported: ATE without reference spikes, jitter, and
 the re-estimated tilt from the log. A screen: a candidate it picks is judged under a rule fixed before further runs.
+
+Result (2026-10-27; ws/rko_g19, rko_lio 36ec8cd; ATE without reference spikes, m; mg5 / G15b; re-estimated tilt):
+  arc-5   0.0180 / 0.0152   16.10 deg (the IMU-based measure of 34.7: 16.2)
+  arc-4   0.0171 / 0.0178    2.66 deg (2.9)
+  snow-3  0.0266 / 0.0268    2.09 deg (2.8)
+  ice-1   0.0108 / 0.0111
+  arc-6   0.0099 / 0.0099
+  spx-3   static start: trajectory md5 ae0cfcbc... as G15b's (unchanged)
+  mean of the five moving starts 0.0165 / 0.0162.
+The estimate of the tilt is right, but the one mission where it is large gets worse, by 2.8 mm (18 %), mostly in
+height (20-s windows: z 16.9 -> 20.4 mm at 40 s, 16.7 -> 29.8 mm at 200 s); the others gain 0-0.7 mm. The Tukey
+weight of the orientation regularization was still about 0.85 with the 16-deg error (its scale is one g), so the
+tilted frame had been pulling the attitude towards the wrong vertical and the registration had been holding it.
+mg5 is not a candidate on its own (ARC-5 would break the 10 % / 2 mm tolerance). The sixth screen's mgof shows it with
+the output filter.
