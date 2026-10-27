@@ -36,6 +36,8 @@ if [[ ! -d ${BAG} ]]; then
   "${PY}" "${S}/p1_grandtour_to_ros2.py" --imu "${BAG_IMUS}" --lidar "${LIDAR}" --range-scale "${RANGE_SCALE}" "${D}/z" \
     "${BAG}" | tee "${D}/convert${SUFFIX}.log"
 fi
+# the inputs of this run, for later steps on the same data (p3_grandtour_backend.sh)
+echo "${BAG} ${LIDAR_TOPIC} ${IMU_TOPIC}" > "${O}/inputs.txt"
 # shellcheck disable=SC2086
 "${PY}" "${S}/p1_grandtour_to_ros2.py" --imu "${IMU}" --lidar "${LIDAR}" --extrinsics "${D}/z" ${PRISM} > "${O}/extrinsics.txt"
 "${PY}" - "${G_CONFIG:-${REPO}/configs/sota_v7/rko_lio_global_G12_2026-10-26.yaml}" "${O}/extrinsics.txt" "${O}/params.yaml" <<'PY'

@@ -50,11 +50,13 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <limits>
 #include <map>
 #include <memory>
 #include <sstream>
@@ -918,6 +920,32 @@ int main(int argc, char ** argv)
   node->get_parameter_or("loop_edge_robust_kernel_delta", loop_edge_robust_kernel_delta, 1.0);
   node->get_parameter_or(
     "loop_edge_robust_kernel_type", loop_edge_robust_kernel_type, std::string("huber"));
+  // Separate translation / rotation information of the adjacent edges, as the live component
+  // reads them (GraphSlamConfig): a weight that is not positive falls back to
+  // adjacent_edge_info_weight.
+  bool adjacent_edge_split_trans_rot = false;
+  double adjacent_edge_info_weight_trans = 0.0;
+  double adjacent_edge_info_weight_rot = 0.0;
+  node->get_parameter_or(
+    "adjacent_edge_info_auto_scale_split_trans_rot", adjacent_edge_split_trans_rot, false);
+  node->get_parameter_or("adjacent_edge_info_weight_trans", adjacent_edge_info_weight_trans, 0.0);
+  node->get_parameter_or("adjacent_edge_info_weight_rot", adjacent_edge_info_weight_rot, 0.0);
+  if (adjacent_edge_info_weight_trans <= 0.0) {
+    adjacent_edge_info_weight_trans = adjacent_edge_info_weight;
+  }
+  if (adjacent_edge_info_weight_rot <= 0.0) {
+    adjacent_edge_info_weight_rot = adjacent_edge_info_weight;
+  }
+
+  // Causal ("online") trajectory, trajectory_causal.tum, for benchmarks that take only what a
+  // live system could have output at each time (GrandTour COMFORT): every scan's odometry pose
+  // times the map -> odom correction of the latest pose-graph optimization finished before that
+  // scan. The graph is optimized again whenever the loop search changes the loop edges. One
+  // worker runs the loop search of every new submap and these optimizations in turn, as the live
+  // component's background thread does; a correction takes effect once the worker, started no
+  // earlier than its submap's stamp, has spent the measured wall time on them (data time).
+  bool causal_trajectory_output = false;
+  node->get_parameter_or("causal_trajectory_output", causal_trajectory_output, false);
 
   using RegistrationPlugin = lidarslam::plugins::registration::RegistrationPlugin;
   using RegistrationPluginSession =
@@ -1128,6 +1156,28 @@ int main(int argc, char ** argv)
   core.configure(descriptor_config);
   graphslam::backend_core::LoopEdgeSet edge_set;
   edge_set.configure(loop_edge_dedup_index_window < 0 ? 0 : loop_edge_dedup_index_window);
+  bool loop_edges_changed = false;
+
+  graphslam::pose_graph::AdjacentEdgeConfig adjacent_config;
+  adjacent_config.num_adjacent_pose_constraints = num_adjacent_pose_constraints;
+  adjacent_config.info_weight = adjacent_edge_info_weight;
+  adjacent_config.split_trans_rot = adjacent_edge_split_trans_rot;
+  adjacent_config.info_weight_trans = adjacent_edge_info_weight_trans;
+  adjacent_config.info_weight_rot = adjacent_edge_info_weight_rot;
+  adjacent_config.covariance_weighting.enabled = use_degeneracy_covariance_weighting;
+  adjacent_config.covariance_weighting.degenerate_information_scale = std::max(
+    0.0, std::min(1.0, degeneracy_adjacent_edge_information_scale));
+  adjacent_config.covariance_weighting.non_observable_information_scale = std::max(
+    0.0, std::min(
+      adjacent_config.covariance_weighting.degenerate_information_scale,
+      non_observable_adjacent_edge_information_scale));
+  graphslam::pose_graph::LoopEdgeConfig loop_config;
+  loop_config.info_weight = loop_edge_info_weight;
+  loop_config.constant_info_trans = std::max(0.0, loop_edge_info_constant_trans);
+  loop_config.constant_info_rot = std::max(0.0, loop_edge_info_constant_rot);
+  loop_config.robust_kernel_type = loop_edge_robust_kernel_type;
+  loop_config.robust_kernel_delta = loop_edge_robust_kernel_delta;
+  graphslam::pose_graph::ImuEdgeConfig imu_config;
 
   std::vector<SubmapRecord> records;
   bool last_position_valid = false;
@@ -1209,6 +1259,8 @@ int main(int argc, char ** argv)
           edge.fitness_score = output.proposal.fitness_score;
           if (!edge_set.upsert(edge)) {
             std::cout << "loop edge skipped as redundant or lower quality" << std::endl;
+          } else {
+            loop_edges_changed = true;
           }
         }
         next_query_idx = query_idx + 1;
@@ -1229,6 +1281,49 @@ int main(int argc, char ** argv)
   std::size_t attribution_raw_finite_points = 0U;
   std::size_t attribution_retained_points = 0U;
   std::vector<ScanAttributionRecord> attribution_scans;
+
+  // Causal output state (causal_trajectory_output): the corrections in the order the worker
+  // finished them, each with the data time from which it applies.
+  struct CausalCorrection
+  {
+    double effective_stamp_sec {0.0};
+    Eigen::Isometry3d map_from_odom {Eigen::Isometry3d::Identity()};
+  };
+  std::vector<CausalCorrection> causal_corrections;
+  std::size_t causal_applied = 0U;
+  Eigen::Isometry3d causal_map_from_odom = Eigen::Isometry3d::Identity();
+  double causal_worker_free_sec = -std::numeric_limits<double>::infinity();
+  double causal_max_lag_sec = 0.0;
+  std::size_t causal_optimizations = 0U;
+  std::ofstream causal_tum;
+  if (causal_trajectory_output) {
+    causal_tum.open(output_dir + "/trajectory_causal.tum");
+  }
+  const auto causal_correction = [&]() {
+      std::vector<graphslam::pose_graph::SubmapNode> nodes;
+      nodes.reserve(records.size());
+      for (const auto & record : records) {
+        graphslam::pose_graph::SubmapNode submap_node;
+        submap_node.pose = Eigen::Isometry3d(record.meta.pose.matrix());
+        submap_node.odometry_covariance = record.odometry_covariance;
+        nodes.push_back(submap_node);
+      }
+      std::vector<graphslam::pose_graph::LoopConstraint> constraints;
+      constraints.reserve(edge_set.edges().size());
+      for (const auto & edge : edge_set.edges()) {
+        graphslam::pose_graph::LoopConstraint constraint;
+        constraint.from = edge.pair_id.first;
+        constraint.to = edge.pair_id.second;
+        constraint.relative_pose = edge.relative_pose;
+        constraint.fitness_score = edge.fitness_score;
+        constraints.push_back(constraint);
+      }
+      const graphslam::pose_graph::OptimizationResult result =
+        graphslam::pose_graph::optimizePoseGraph(
+        nodes, constraints, {}, {}, adjacent_config, loop_config, imu_config,
+        graphslam::pose_graph::Chi2Collection::NONE, true, 10);
+      return Eigen::Isometry3d(result.poses.back() * nodes.back().pose.inverse());
+    };
 
   const auto process_pair =
     [&](const nav_msgs::msg::Odometry & odom, const sensor_msgs::msg::PointCloud2 & input_cloud) {
@@ -1260,7 +1355,7 @@ int main(int argc, char ** argv)
         position, last_position_valid, last_position, submap_distance_threshold);
       CloudPtr scan_cloud;
       Eigen::Affine3d pose_affine = Eigen::Affine3d::Identity();
-      if (decision.create || retain_dense_scans) {
+      if (decision.create || retain_dense_scans || causal_trajectory_output) {
         tf2::fromMsg(odom.pose.pose, pose_affine);
       }
       if (decision.create) {
@@ -1282,7 +1377,44 @@ int main(int argc, char ** argv)
         record.cloud = scan_cloud;
         records.push_back(record);
 
+        const auto work_start = std::chrono::steady_clock::now();
         drain_queries();
+        if (causal_trajectory_output) {
+          bool optimized = false;
+          Eigen::Isometry3d correction = Eigen::Isometry3d::Identity();
+          if (loop_edges_changed) {
+            loop_edges_changed = false;
+            correction = causal_correction();
+            optimized = true;
+            ++causal_optimizations;
+          }
+          const double work_sec = std::chrono::duration<double>(
+            std::chrono::steady_clock::now() - work_start).count();
+          causal_worker_free_sec = std::max(causal_worker_free_sec, record.stamp_sec) + work_sec;
+          causal_max_lag_sec = std::max(causal_max_lag_sec, causal_worker_free_sec - record.stamp_sec);
+          if (optimized) {
+            causal_corrections.push_back({causal_worker_free_sec, correction});
+          }
+        }
+      }
+
+      if (causal_trajectory_output) {
+        const double stamp_sec = rclcpp::Time(odom.header.stamp).seconds();
+        while (causal_applied < causal_corrections.size() &&
+          causal_corrections[causal_applied].effective_stamp_sec <= stamp_sec)
+        {
+          causal_map_from_odom = causal_corrections[causal_applied].map_from_odom;
+          ++causal_applied;
+        }
+        const Eigen::Isometry3d pose =
+          causal_map_from_odom * Eigen::Isometry3d(pose_affine.matrix());
+        const Eigen::Vector3d t = pose.translation();
+        const Eigen::Quaterniond q(pose.rotation());
+        char line[256];
+        std::snprintf(
+          line, sizeof(line), "%.9f %.9f %.9f %.9f %.9f %.9f %.9f %.9f",
+          stamp_sec, t.x(), t.y(), t.z(), q.x(), q.y(), q.z(), q.w());
+        causal_tum << line << "\n";
       }
 
       if (retain_dense_scans && !records.empty()) {
@@ -1359,6 +1491,14 @@ int main(int argc, char ** argv)
     "(%zu odom / %zu cloud messages left unpaired)",
     paired_count, records.size(), accumulated_distance, edge_set.edges().size(),
     pending_odoms.size(), pending_clouds.size());
+  if (causal_trajectory_output) {
+    causal_tum.close();
+    RCLCPP_INFO(
+      logger,
+      "Causal trajectory: %zu graph optimizations, %zu applied before the last scan, "
+      "worker at most %.3f s behind a submap's stamp",
+      causal_optimizations, causal_applied, causal_max_lag_sec);
+  }
 
   if (save_map_thickness_attribution) {
     std::vector<Eigen::Vector3d> scan_positions;
@@ -1485,23 +1625,6 @@ int main(int argc, char ** argv)
     loop_constraint.fitness_score = edge.fitness_score;
     loop_constraints.push_back(loop_constraint);
   }
-  graphslam::pose_graph::AdjacentEdgeConfig adjacent_config;
-  adjacent_config.num_adjacent_pose_constraints = num_adjacent_pose_constraints;
-  adjacent_config.info_weight = adjacent_edge_info_weight;
-  adjacent_config.covariance_weighting.enabled = use_degeneracy_covariance_weighting;
-  adjacent_config.covariance_weighting.degenerate_information_scale = std::max(
-    0.0, std::min(1.0, degeneracy_adjacent_edge_information_scale));
-  adjacent_config.covariance_weighting.non_observable_information_scale = std::max(
-    0.0, std::min(
-      adjacent_config.covariance_weighting.degenerate_information_scale,
-      non_observable_adjacent_edge_information_scale));
-  graphslam::pose_graph::LoopEdgeConfig loop_config;
-  loop_config.info_weight = loop_edge_info_weight;
-  loop_config.constant_info_trans = std::max(0.0, loop_edge_info_constant_trans);
-  loop_config.constant_info_rot = std::max(0.0, loop_edge_info_constant_rot);
-  loop_config.robust_kernel_type = loop_edge_robust_kernel_type;
-  loop_config.robust_kernel_delta = loop_edge_robust_kernel_delta;
-  graphslam::pose_graph::ImuEdgeConfig imu_config;
 
   std::vector<std::vector<Eigen::Vector3d>> local_clouds;
   if (use_plane_revisit_constraints || refine) {

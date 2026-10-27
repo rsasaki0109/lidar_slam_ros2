@@ -214,6 +214,19 @@ main item is streaming the saved map instead of holding the full cloud (chapter 
   real-time methods only; test phase until 2026-10-30 23:59 UTC). G is submitted once as
   preregistered (report chapter 31). The maintainer uploads it, because submissions need
   the maintainer's Codabench account.
+- C4, ranking work (maintainer's decision, 2026-10-27; the deadline no longer sets the
+  pace, and neither of the first two submissions goes on the public leaderboard):
+  1. **Evaluation base.** The 16 development missions, with BIEVR-LIO and FAST-LIO2 run on
+     the same Hesai XT-32 + STIM320 input (report chapter 33). BIEVR-LIO's development mean
+     (0.0237 m over 14 missions) is close to its test score (0.022 m), so the development
+     mean stands in for the leaderboard.
+  2. **Hesai first, no failures.** Hesai + STIM320 is better than the Livox rig on most
+     missions, but fails at the start and transiently, and its scan-to-scan jitter is two
+     to three times BIEVR-LIO's (`bench_report/data/grandtour/screen_hs_2026-10-27/`).
+  3. **Online loop closure with a causal output**: each pose as a live system would have
+     published it (`graph_slam_offline_runner`, `causal_trajectory_output`).
+  4. **Several missions joined by place recognition** only after the organizers confirm
+     that other missions' data may be used; until then COMFORT runs use none.
 
 ## Appendix: profile inventory
 
