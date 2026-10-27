@@ -20,6 +20,8 @@ if [[ ! -d ${BAG} ]]; then
   "${PY}" "${S}/p1_grandtour_to_ros2.py" --imu stim320_imu --lidar hesai_points --time-field time "${D}/z" "${BAG}" \
     | tee "${D}/convert_rival.log"
 fi
+# the bag holds the points now; keep only the zarr metadata (the extrinsics) so that a large mission fits on the disk
+find "${D}/z" -type f ! -name '.z*' -delete 2>/dev/null || true
 # shellcheck disable=SC2086
 "${PY}" "${S}/p1_grandtour_to_ros2.py" --imu stim320_imu --lidar hesai_points --extrinsics "${D}/z" ${PRISM} \
   > "${O}/extrinsics.txt"
