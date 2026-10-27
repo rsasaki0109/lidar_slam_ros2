@@ -1,0 +1,11 @@
+Fourth screen on the HS rig: the point-to-point terms only after the start (2026-10-27, written before any of these runs).
+
+Why: HS-G15's largest development error is SNOW-3, 0.0889 m; with the bump terms alone it is 0.0273 m. The
+point-to-point terms bring back the start failure on the open snow field (people walking around the standing robot are
+most of what the keypoints see). The test set has SNOW-2 from the same site. rko_lio 8fdafdf adds
+bump_image_point_to_point_start_distance: the point-to-point terms are added only once the registered pose has been
+that far from the first pose (latched); before, the bump terms register alone.
+Variants (HS-G15 + the key, ws/rko_g18): sd1 (1 m), sd3 (3 m).
+Missions: snow-3 (the target), pil-2, arc-1, arc-3 (start failures with G12), arc-5, con-1 (bump alone and G15 differ
+most there). Reported per run: ATE without reference spikes, jitter; compared with HS-G15 (G15hs_g15).
+A screen: a candidate it picks is judged on all 15 HS missions under a rule fixed before those runs.
