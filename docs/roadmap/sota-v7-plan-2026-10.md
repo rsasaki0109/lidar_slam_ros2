@@ -176,6 +176,14 @@ Status (2026-10-26, [report chapter 30](https://github.com/rsasaki0109/lidar_sla
 
 ### Phase 3 — Backend: loops that never hurt, and that help on long trajectories
 
+Order set by the maintainer (2026-10-27): the MID-360 scale stretch (Phase 2) first, then
+robust loops (this phase), then a multi-session mode that joins several runs of one site
+by place recognition (Scan Context, loop verification and candidate aggregation already
+exist in graph_based_slam). A wrong cross-session join breaks the whole map, so the
+robust loop machinery comes first. GrandTour has several runs per site (ARCHE 7,
+Jungfraujoch 9, Construction Halter 4); whether their total-station references share
+one frame is still to be checked.
+
 - On the short development sequences, even ground-truth loops improve APE by at most 4%
   (report chapters 19, 24, 27). Loops matter on long trajectories.
 - Register loop edges with GICP (the existing small_gicp plugin) instead of NDT. The NDT
