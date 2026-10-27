@@ -1,0 +1,16 @@
+Seventh screen on the HS rig: the output filter held until a moving start's gravity is known (2026-10-27, written
+before any of these runs, while the sixth screen still runs).
+
+Why: in the sixth screen the filter fails on ARC-5, a moving start whose world frame came out 16 deg from level:
+mgof 0.0524 m (G15b 0.0152), all of it in the first 20 s (xy 134.5 mm there, then as G15b); of 0.0269 m (max 0.228 m).
+Before the gravity is estimated again (and throughout without moving_start_gravity_window_sec) the filter's
+acceleration carries a 2.7 m/s^2 bias that its acceleration-bias state (0.05 m/s^2 prior, 1e-4 m^2/s^5 random walk)
+cannot learn, and the acceleration jumps by as much when the gravity changes. rko_lio 9461e71 keeps the output
+unfiltered after a moving start until the gravity is estimated again, and starts the filter at that pose; without
+the window it stays off for the whole run. Static starts are unchanged.
+Variants (ws/rko_g21, the files of the sixth screen with the new build):
+  of2   = G15b + the filter: on a moving start its output must now be G15b's byte for byte, on a static start the
+          sixth screen's (checked on arc-1);
+  mgof2 = G15b + moving_start_gravity_window_sec 5.0 + the filter.
+  Both on the five moving starts arc-5, arc-4, ice-1, arc-6, snow-3; of2 also on arc-1.
+Compared with G15b, mg5 and the sixth screen. A screen: a candidate gets its own rule on all 15 HS missions.
