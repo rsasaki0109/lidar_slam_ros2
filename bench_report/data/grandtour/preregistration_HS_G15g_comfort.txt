@@ -87,3 +87,19 @@ Record (2026-10-28, after the batch, before the zip left the VM)
 Maintainer's decision (2026-10-28, after the record above): submission 5 is to be uploaded (by the maintainer) as the
 next test-phase submission; submissions 3 and 4 are not to be uploaded. The reference's time lag is not reported to
 the organizers. The score is recorded here whatever it is, and no configuration is tuned on it.
+
+Test result (2026-10-28, uploaded by the maintainer to the Test Phase; recorded as returned, not public on the
+leaderboard; values in m):
+  mission        ATE        RTE        LE
+  test_average   0.042621   0.022206   0.031696
+  arc-2          0.102444   0.056890   0.036552
+  arc-7          0.053673   0.011206   0.025976
+  con-4          0.016990   0.020613   0.013395
+  eig-1          0.032618   0.015024   0.057392
+  snow-2         0.016935   0.015374   0.013373
+  spx-2          0.033067   0.014130   0.043489
+  Against submission 1 (G, Livox, 0.1179): arc-2 0.311 -> 0.102, arc-7 0.029 -> 0.054, con-4 0.154 -> 0.017,
+  eig-1 0.117 -> 0.033, snow-2 0.038 -> 0.017, spx-2 0.058 -> 0.033. The development mean (0.0174) did not carry over:
+  arc-2 and arc-7 (the ARCHE building, as dev arc-1/3/4/5/6) are far worse than on development, where HS-G15g's arc
+  missions were 0.010-0.019. On the public leaderboard (leaderboard_2026-10-28.txt) 0.0426 would rank 15th of 23;
+  con-4 (0.017) and snow-2 (0.017) are at the level of the best methods (0.016-0.018, 0.011-0.014).
