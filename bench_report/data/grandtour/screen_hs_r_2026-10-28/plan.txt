@@ -13,3 +13,16 @@ Runs: HS-G15g + output_filter_log (runs/g15glog.yaml, ws/rko_g33, offline_node m
 development missions arc-3 (stairs), arc-1, arc-4, arc-5, arc-6. Each must give HS-G15g's trajectory (hsq_g15g_c30 or
 the G15g replays). Reported: per mission the distribution of the per-scan vertical and horizontal innovation
 (registered - predicted): 99 %, 99.9 %, max, with where the largest occur. No test mission is run.
+
+Interim (2026-10-28, arc-3 and arc-1 analysed): the per-scan innovation (registered - predicted) is large in normal
+operation on these stairs: |dz| 99 % 40-50 mm, max 104 (arc-3) and 129 mm (arc-1); |dxy| max 49 and 85 mm. The
+prediction starts from the registration's own velocity, so a slip would hardly show in it. The output filter's
+innovation (IMU-driven prediction) is of the same size (|dz| max 82-122 mm). arc-3 rises 0.44 m and falls again at
+78-80 s (outside the reference): integrating the IMU alone from 77 s gives the same rise (-2.60 -> -2.16 m by 78.5 s)
+and fall, so it is real motion on the stairs, not a slip.
+Amendment (before any further run): to know whether submission 5's arc-2 jump (+0.63 m in 0.6 s at 143 s) is a slip
+at all, the test mission arc-2 is run once more with the same file plus output_filter_log (runs_test/g15glog.yaml,
+ws/rko_g33): only its sensor streams are read, as in every test run, and only our own log is analysed (the IMU's
+vertical motion against the registered one around 143 s), as with the frame tilt of the moving starts. Its trajectory
+must equal submission 5's arc-2 byte for byte. Nothing from it is submitted; whatever guard follows is set on
+development data.
