@@ -22,3 +22,18 @@ Results counted from the screens: arc-1, pil-2, eig-2, heap-1 (sixth screen, ws/
 the moving-start path, and the seventh screen's of2 gives the sixth screen's arc-1 byte for byte), arc-5, arc-4, ice-1,
 arc-6, snow-3 (seventh screen, of2). To run: arc-3, con-1, con-2, con-3, spx-1, spx-3, snow-1. If G15c is adopted, a
 COMFORT submission with it needs its own preregistration and the maintainer's decision.
+
+Result (2026-10-28; one run each, frontend only; ATE without reference spikes, m; G15b in brackets):
+  1. heap-1 0.0238 (0.0241), arc-3 0.0190 (0.0197), arc-4 0.0178 (0.0178), arc-6 0.0099 (0.0099), con-1 0.0247
+     (0.0249), eig-2 0.0256 (0.0265), snow-3 0.0268 (0.0268), spx-1 0.0198 (0.0198), spx-3 0.0077 (0.0087), ice-1
+     0.0111 (0.0111), arc-1 0.0120 (0.0149), arc-5 0.0152 (0.0152), con-2 0.0208 (0.0213), pil-2 0.0262 (0.0279),
+     con-3 0.0150 (0.0152); mean 0.0184 (0.0189); no mission worse than G15b. snow-1 0.3757 (0.3757). Criterion 1
+     holds. (The container restarted once during the runs: con-1's run had not started, its directory was removed and
+     the batch resumed with it; spx-3 and spx-1 were complete.)
+  2. Node time / mission span, s: spx-3 31 / 214, spx-1 52 / 374, con-1 243 / 388, con-2 171 / 384, arc-3 246 / 713,
+     con-3 208 / 796, snow-1 71 / 172, arc-1 183 / 433, pil-2 192 / 407, eig-2 129 / 348, heap-1 143 / 290, arc-5
+     113 / 391, arc-4 90 / 397, ice-1 36 / 251, arc-6 60 / 349, snow-3 89 / 232. Criterion 2 holds.
+  3. The moving starts arc-5, arc-4, ice-1, arc-6, snow-3 (seventh screen) and snow-1 give G15b's trajectories byte
+     for byte; the six other runs here are static starts. Criterion 3 holds.
+G15c is adopted as the GrandTour HS configuration (configs/sota_v7/rko_lio_grandtour_hs_G15c_2026-10-27.yaml). A
+submission with it needs its own preregistration and the maintainer's decision.
