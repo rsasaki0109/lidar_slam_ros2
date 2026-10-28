@@ -64,3 +64,22 @@ Fact sheet (proposed)
   a walking start, and a causal IMU-driven output position filter, Hesai XT-32 + STIM320, frontend output only, no
   loop closure, no post-processing; configuration selected on GrandTour training missions. Novel: yes. Real-time: yes.
   LiDAR: yes. IMU: yes. Camera: no. GNSS: no. External odometry: no.
+
+Record (2026-10-28, after the batch, before the zip left the VM)
+  Policy 0: the configuration file (md5 8a285bdb...) gives the G15g check run's spx-3 trajectory byte for byte
+  (front_tum md5 ed2b2199...). The test batch ran only after that check (one script: the check, then the batch), with
+  no other job on the machine.
+  Test missions, one run each with HS-G15g (node time / mission span), no registration failure; as in every run, only
+  the bag's last LiDAR frames, after the STIM320 stream ends, are dropped (72-76 per mission); the pose counts and
+  first stamps equal submissions 3's and 4's:
+    arc-2    89.8 s / 425 s   static start   md5 9a0fc4dafb09b1eb57b96a73e982400d
+    arc-7    95.3 s / 322 s   static start   md5 eccd9cd41e19d7e51a641f77bcf8f698
+    con-4   429.1 s / 743 s   static start   md5 a56e42d9eec1a67789b745e70044da47
+    eig-1   230.8 s / 430 s   static start   md5 582adc1108dff29dee91d47b277ca4d4
+    snow-2  136.4 s / 261 s   moving start   md5 f677fdde53103a3f9025ddc4a00288d1   (gravity window 2.12 deg; 18
+                                                                                       standing intervals held)
+    spx-2    73.7 s / 383 s   moving start   md5 cfc2bc1455ec2d5233ada3c2524213a2   (gravity window 2.42 deg; 4
+                                                                                       standing intervals held)
+  comfort_test_G15gHS.zip (the six files at its root): md5 b90f978a0762d506286293998b7fadcd
+  (data/grandtour/G15gHS/, and a copy at the repository root for the maintainer.)
+  Only the sensor streams of the test missions were read, and only by the pipeline; no test reference was opened.
