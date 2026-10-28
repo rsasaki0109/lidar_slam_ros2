@@ -24,3 +24,15 @@ among those within 0.1 mm of it the simplest (sigma 0.02 first, then alpha 0.5, 
 shape before marginal). It is a candidate only if its tuning mean is at least 0.1 mm below HS-G15g's; then it is
 written into rko_lio and judged under a rule fixed before the held-out half (spx-3, spx-1, arc-1, con-2, con-3, ice-1,
 arc-6) is replayed.
+
+Result (2026-10-28; tuning half only, as planned; grid.csv):
+  The eight logged runs give HS-G15g's trajectories (the G15g replays of filter_sweep_2026-10-28/ to 0.5 um).
+  Mean ATE over the tuning half, mm: HS-G15g 20.78; the best adaptive settings are shape with sigma 0.03 (20.78 with
+  alpha 0.5 or 1, either limit pair), then shape with sigma 0.02 (20.80-20.81), marginal sigma 0.03 0.5 [0.25, 4]
+  (20.82); the simplest within 0.1 mm of the best is scalar 0.02 0.5 [0.25, 4] at 20.83. None is 0.1 mm below
+  HS-G15g: no candidate, and the held-out half was not replayed. The remaining seven logged runs were stopped (spx-1's
+  partial run removed).
+Reading: the registration's own Hessian does not tell the filter which scans to trust less. What is left after the
+filter is mostly slow and shared by every method (common_error_2026-10-28.txt); the measurement weighting acts on the
+band below 1 s, which the filter has already reduced to 2-4 mm. rko_lio eebe6e4 keeps the option
+(output_filter_measurement_noise, default "fixed"), unused.
