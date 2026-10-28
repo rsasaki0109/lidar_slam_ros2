@@ -1,0 +1,12 @@
+Diagnostic: why the re-estimated gravity costs ARC-5's height (2026-10-28, written before these runs; adopts nothing).
+
+In the fifth screen the gravity of a moving start was estimated correctly (ARC-5 16.10 deg, the IMU-based measure
+16.2), yet ARC-5's ATE grew 0.0152 -> 0.0180 m, mostly in height. Hypothesis: with the right gravity the orientation
+regularization (min_beta 200: the attitude is pulled so that the predicted gravity matches the IMU's specific force
+less the body-acceleration filter's estimate) acts as intended, and on this legged robot that measured gravity is
+noisy enough to tilt the attitude and so the height; in the 16-deg frame it was pulling towards a wrong vertical
+that the registration held, so it did less. (G12's first screen: min_beta 1e9 helped ARC-5, 0.0554 -> 0.0346 m.)
+Variants (ws/rko_g21): nograv = G15b + min_beta 1e9; mg5nograv = G15b + moving_start_gravity_window_sec 5.0 + min_beta
+1e9. Mission: arc-5; arc-4 and snow-3 (the other moving starts with a few degrees of tilt) if arc-5 supports it.
+Compared with G15b 0.0152 and mg5 0.0180 (arc-5). If mg5nograv is not worse than nograv, the regularization explains
+the loss; a candidate that follows from this gets its own screen and rule.
