@@ -14,3 +14,14 @@ Variants (ws/rko_g23; HS-G15c + start_standstill_radius 1.0 + start_standstill_h
 Missions: snow-3, ice-1, arc-6, arc-5, arc-4 (moving starts), heap-1, pil-2, arc-1, arc-3 (static). Compared with
 HS-G15c and the eighth screen's ss. A screen: a candidate it picks is judged on all 15 HS missions under a rule fixed
 before those runs.
+
+Result (2026-10-28, stopped after arc-5; ws/rko_g23; ATE without reference spikes, m; G15c / ss / h0 / ha):
+  snow-3  0.0268 / 0.0170 / 0.0205 / 0.0168
+  ice-1   0.0111 / 0.0146 / 0.0119 / 0.0117
+  arc-6   0.0099 / 0.0126 / 0.0114 / 0.0137   (the loss is in the first 5 s, while the robot stands)
+  arc-5   0.0152 / 0.0166 / 0.0607 / 0.0239   (h0: the held position walks 0.59 m in 4 s)
+Not using the per-interval bias removes most of ICE-1's loss. But the hold took the IMU-predicted pose for a held
+scan: with the biases kept and the frame still tilted by the moving start (ARC-5: 16 deg), that prediction carries
+2.7 m/s^2 of misplaced gravity, and with the velocity reset each interval the position walked off by about 1.4 cm a
+scan; the per-interval bias had hidden this by absorbing the tilt. rko_lio 5e99906 makes the hold keep the
+position (the attitude follows the gyro); the screen was stopped and goes on as the eleventh with that build.
