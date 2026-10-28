@@ -1,0 +1,24 @@
+GrandTour HS configuration G15g (fixed 2026-10-28 after the setting was picked on the tuning half of
+filter_sweep_2026-10-28/plan.txt and before any held-out mission was replayed or any run with the file was made).
+
+G15g = HS-G15f (configs/sota_v7/rko_lio_grandtour_hs_G15f_2026-10-28.yaml) with output_filter_acceleration_noise 0.003
+(was 0.001) and output_filter_bias_noise 1e-5 (was 1e-4); output_filter_position_sigma stays 0.02
+(confirm_G15g_2026-10-28/g15g.yaml; ws/rko_g30). Only the output filter changes: the registration, the map and the
+moving-start handling are G15f's. A configuration for the HS rig of GrandTour only, like G15f.
+
+Why: replayed on the eight tuning missions (heap-1, pil-2, con-1, eig-2, arc-3, snow-3, arc-5, arc-4) the setting
+lowers the mean ATE from 21.01 to 20.78 mm, on every one of the eight (0.1-0.5 mm).
+
+The results are the replays of filter_sweep_2026-10-28/ (rko_lio's own OutputPositionFilter on the logged inputs of
+G15f's runs; the run's own setting reproduces each run's output to 1 um). Adopt G15g in place of G15f if all hold:
+  1. Real runs with the file (ws/rko_g30) on spx-3 (a static start) and arc-6 (a moving start) give the replayed
+     positions to 1 um (the TUM precision); otherwise every mission is run with the file and judged on those runs.
+  2. Held-out half (spx-3, spx-1, arc-1, con-2, con-3, ice-1, arc-6): the mean ATE is below G15f's on the same
+     missions (the logged runs, which give G15f's trajectories byte for byte).
+  3. All 15 HS development missions: mean below G15f's 0.0177 m, and no mission worse than G15f by more than 10 % and
+     more than 2 mm at once. (The second stage of decision_rule_G15d.txt would need four runs per configuration; the
+     output filter does not change the registration, so a mission outside the tolerance here fails outright.)
+  4. Real-time: the filter's cost does not depend on its noise settings; the node times of the runs of criterion 1
+     are reported and must stay below the mission spans.
+If G15g is adopted, a COMFORT submission with it needs its own preregistration and the maintainer's decision (the
+maintainer decided on 2026-10-28 to prepare submission 5 with G15f or its improvement once this sweep is decided).

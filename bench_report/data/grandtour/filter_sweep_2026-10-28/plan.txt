@@ -22,3 +22,12 @@ The setting with the lowest mean ATE (without reference spikes) there; among tho
 nearest to the current setting (fewest grid steps). The other seven (spx-3, spx-1, arc-1, con-2, con-3 static;
 ice-1, arc-6 moving) are reported as held out (spx-3 was seen in the test above).
 A setting it picks is judged as a configuration under a rule fixed before any run with it.
+
+Selection (2026-10-28, on the tuning half only; no held-out mission had been replayed: grid.csv then held the eight
+tuning missions, 480 rows; p1_grandtour_output_filter_select.py):
+  mean ATE over the tuning half, mm: current 0.02 / 0.001 / 1e-4  21.01; best 0.03 / 0.01 / 1e-5  20.69; within
+  0.1 mm of it and nearest to the current setting: 0.02 / 0.003 / 1e-5 (two grid steps)  20.78 -> picked.
+  per mission, current -> picked: heap-1 23.8 -> 23.3, pil-2 26.2 -> 26.1, con-1 24.7 -> 24.4, eig-2 25.6 -> 25.3,
+  arc-3 19.0 -> 18.8, snow-3 14.3 -> 14.0, arc-5 16.5 -> 16.3, arc-4 18.1 -> 18.0.
+  The ten best settings all have the lower bias noise (1e-5) or a higher acceleration noise: a filter that lets the
+  acceleration bias wander less and the motion more.
