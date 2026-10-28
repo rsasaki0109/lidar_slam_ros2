@@ -14,3 +14,8 @@ Missions: lv and lvh on the moving starts snow-3, arc-5, arc-4, ice-1, arc-6; lv
 pil-2, heap-1 (there lvh is the eighth screen's ss: the levelling acts only after a moving start). Compared with
 HS-G15c and the eighth screen. Reported: ATE without reference spikes, jitter, the tilt levelled (log). A screen: a
 candidate it picks is judged on all 15 HS missions under a rule fixed before those runs.
+Amendment (2026-10-28, after the snow-3 runs, before any other result): lv's snow-3 is 0.0411 m and lvh's 0.0250 m
+(G15c 0.0268, the eighth screen's ss 0.0170). With the hold, the levelling leaves the output frame within 0.3-0.7 deg
+of gravity (2.8 before), but lvh's 1-10-s band doubles (ss 5.9 -> 12.2 mm). The prototype filter on ss's trajectory
+adds little there (5.9 -> 7.7 mm), so the restarted maps may have changed the registration itself: lvhnof (lvh with
+the output filter off) is added on snow-3 (extra/).
