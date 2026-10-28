@@ -10,3 +10,12 @@ Variants (ws/rko_g21): nograv = G15b + min_beta 1e9; mg5nograv = G15b + moving_s
 1e9. Mission: arc-5; arc-4 and snow-3 (the other moving starts with a few degrees of tilt) if arc-5 supports it.
 Compared with G15b 0.0152 and mg5 0.0180 (arc-5). If mg5nograv is not worse than nograv, the regularization explains
 the loss; a candidate that follows from this gets its own screen and rule.
+
+Result (2026-10-28; ws/rko_g21; arc-5, ATE without reference spikes, m): G15b 0.0152, mg5 0.0180, nograv 0.0192,
+mg5nograv 0.0205. The regularization helps in both frames, so it does not explain the loss; without it the right
+gravity is still worse. The difference is almost all in the 200-220 s window, the first after a 120-s stretch with no
+reference (80-200 s, indoors): it is how far the height drifted there (z 16.7 mm for G15b, 29.8 / 33.3 / 39.1 for the
+others). ARC-5 moves by several mm with any small change (G12 0.0554, bump alone 0.0120), so one mission cannot settle
+the re-estimated gravity. The test's two moving starts are tilted by only about 2.1 deg (SNOW-2) and 2.3 deg (SPX-2)
+(the output's frame against the STIM320's specific force, no reference read), like ARC-4 and SNOW-3 here, where mgof2
+gained 0.7-1.2 mm. Not pursued further for now: the start of SNOW-3 costs far more (screen_hs_h_2026-10-28).

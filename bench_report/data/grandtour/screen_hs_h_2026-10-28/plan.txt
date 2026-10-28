@@ -1,0 +1,19 @@
+Eighth screen on the HS rig: hold the start while the robot stands (2026-10-28, written before any of these runs).
+
+Why: HS-G15c's SNOW-3 error sits in its first seconds. Second by second, the prism moves 6-8 cm in the first 8 s (the
+robot shifts on the spot), but the estimate wanders 15-20 cm and comes back once the robot walks (FAST-LIO2 stays
+within 2 cm). Without the first 9 s the ATE is 15.0 mm instead of 26.8 (FAST-LIO2 16.1, BIEVR-LIO 15.7, which has the
+same fault: 36.9 with them). Around a robot standing on a flat snow field the people walking past are what the
+registration follows (31.7). The test mission SNOW-2 is at the same site and also starts on the spot (moving start).
+rko_lio already has the start-standstill handling (31.7, rko_lio 400fc3c, default off): within start_standstill_radius
+of the start, an interval whose IMU shows no rotation and no shaking re-estimates the biases and holds the velocity at
+zero; with start_standstill_hold the pose is kept too (the scan is not registered, nor added to the map). On G12 (31.7)
+the hold took SNOW-3 0.1161 -> 0.0442 m but broke ARC-3 at its stairs (3.96 m); HS-G15c is far more robust on ARC-3
+(0.0190), so it is tried again on it.
+Variants (ws/rko_g21; HS-G15c + start_standstill_radius 1.0 + start_standstill_hold true; values as in 31.7, not tuned):
+  ss  = the above;
+  ssm = the above + map_update_min_translation 0.1 (no map update before the sensor has moved 0.1 m since the last).
+Missions: snow-3 (the target), arc-5, arc-4, ice-1, arc-6 (moving starts), arc-3 (the earlier break), arc-1, pil-2,
+heap-1 (static starts with start transients). Compared with HS-G15c. Reported: ATE without reference spikes, jitter,
+the standstill interval count from the log. A screen: a candidate it picks is judged on all 15 HS missions under a rule
+fixed before those runs.
