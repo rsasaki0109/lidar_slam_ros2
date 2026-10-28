@@ -1,0 +1,31 @@
+GrandTour HS configuration G15f (fixed 2026-10-28 before any run with its file; every per-mission result it would
+count is already known, see "What this rule can and cannot show").
+
+G15f = HS-G15c (configs/sota_v7/rko_lio_grandtour_hs_G15c_2026-10-27.yaml) + start_standstill_radius 1.0 +
+start_standstill_moving_start_only true + start_standstill_hold true + start_standstill_hold_radius 0.05 +
+start_standstill_bias none + moving_start_gravity_window_sec 5 + moving_start_gravity_output_only true (rko_lio 4af4b6e,
+ws/rko_g30, offline_node md5 4e742f0b...; confirm_G15f_2026-10-28/g15f.yaml). After a static start nothing changes:
+the run is G15c's. After a moving start: while the robot stands within 1 m of its start, a scan's registered position
+is clamped to 5 cm around where it first stood (and not added to the map), the biases stay at zero, the gravity is
+estimated again from 5 s of motion for the output filter only, and the output filter runs from then on. It is G15e
+(decision_rule_G15e.txt, not adopted) without the parts that act on static starts: on static starts those were a wash
+and cost con-2 2.1 mm on four-run means, while the moving-start part carried the clear gain. A configuration for the
+HS rig of GrandTour only, like G15c. Two of the six test missions (SNOW-2, SPX-2) start moving.
+
+Adopt G15f as the GrandTour HS configuration in place of G15c if all of these hold (frontend only):
+  1. Byte identity, run with ws/rko_g30: on the static starts con-2 and spx-3 the file gives G15c's trajectories
+     (G15c_g15c, md5 e7a05702... and f2661df9...); on the moving starts snow-3 and snow-1 it gives G15e's (hso_mgo5's
+     snow-3, md5 91bd18f0...; G15e_g15e's snow-1, md5 83c41af8...; on moving starts G15e and G15f take the same
+     branches: no bias update, the same hold and window). If any differs, every mission is run with the file and
+     judged on its own runs under criteria 2-4.
+  2. The 15 HS development missions of decision_rule_G15b.txt, one run each (by criterion 1: G15c's ten static starts
+     and the fifteenth screen's mgo5 on the five moving starts): mean below G15c's 0.0184 m. snow-1 is reported only.
+  3. No mission worse than G15c by more than 10 % and more than 2 mm at once, in two stages as in
+     decision_rule_G15d.txt.
+  4. Every run real-time (node time below the mission span).
+What this rule can and cannot show: by construction G15f's static starts are G15c's, and its moving starts are the
+fifteenth screen's mgo5 runs (G15c 0.0268 / 0.0152 / 0.0178 / 0.0111 / 0.0099 against mgo5 0.0143 / 0.0165 / 0.0181 /
+0.0115 / 0.0100 on snow-3 / arc-5 / arc-4 / ice-1 / arc-6), all five of which also served to choose the moving-start
+part (screens 8-15). Criteria 2-4 are therefore known to hold if criterion 1 does: the rule checks that the file does
+what it says, not that the moving-start part generalizes. There is no development mission left to test that; the
+test missions SNOW-2 and SPX-2 are the first independent evidence, and only if the maintainer uploads a submission.
