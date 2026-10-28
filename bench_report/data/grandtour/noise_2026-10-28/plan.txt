@@ -1,0 +1,12 @@
+Run-to-run spread of the ATE under numerically neutral changes (2026-10-28, written before these runs; a diagnostic
+that adopts nothing).
+
+Why: ARC-5 moves by 1-4 mm with every start variant tried (0.0152 G15c; 0.0156, 0.0166, 0.0173, 0.0180, 0.0196 with
+others), mostly through the height drift over its 120-s stretch without reference, and the thirteenth screen's r5is
+breaks the 10 % / 2 mm tolerance there by 0.1 mm (0.0173). The runs are deterministic (repeated runs give the same md5),
+but the TBB thread count changes the order of the floating-point sums in the registration, so it perturbs a run
+without changing what it computes. The spread over max_num_threads 1, 2, 3 (the default 0 uses all four cores) is
+a measure of how much of a mission's difference is chaos rather than method.
+Runs (ws/rko_g26, whose behaviour with G15c's file is G15c's): arc-5 with G15c and with r5is at max_num_threads 1, 2,
+3; arc-3 with G15c at max_num_threads 1, 2, 3. Reported: ATE without reference spikes, with the default runs (G15c
+arc-5 0.0152, arc-3 0.0190; r5is arc-5 0.0173).

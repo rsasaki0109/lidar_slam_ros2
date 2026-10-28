@@ -10,3 +10,13 @@ Variant (ws/rko_g26): r5is = HS-G15c + start_standstill_radius 1.0 + start_stand
 0.05 + start_standstill_bias interval + start_standstill_bias_static_only. On the static starts it is r5i (checked byte
 for byte on heap-1); the moving starts run anew: snow-3, arc-5, ice-1, arc-6, arc-4.
 If it holds up, it is judged as G15d on all 15 HS missions under a rule fixed before those runs.
+
+Result (2026-10-28; ws/rko_g26, rko_lio 6b0a460; ATE without reference spikes, m; G15c / r5is):
+  snow-3  0.0268 / 0.0156      heap-1  0.0238 / 0.0205 (r5i's file byte for byte: c57f1a45...)
+  arc-5   0.0152 / 0.0173      pil-2   0.0262 / 0.0251 (r5i)
+  ice-1   0.0111 / 0.0113      arc-1   0.0120 / 0.0117 (r5i)
+  arc-6   0.0099 / 0.0101      arc-3   0.0190 / 0.0203 (r5i)
+  arc-4   0.0178 / 0.0179      mean    0.0180 / 0.0166
+Leaving the biases alone after a moving start repairs ICE-1 (r5i 0.0144 -> 0.0113) and keeps SNOW-3's gain (0.0156,
+the best so far, FAST-LIO2 0.0166). Only ARC-5 stays outside the tolerance, by 0.1 mm (+2.1 mm, 14 %); its spread
+under numerically neutral changes is measured next (noise_2026-10-28/).
