@@ -1,0 +1,20 @@
+Fifteenth screen on the HS rig: the output filter after a moving start (2026-10-28, written before any of these
+runs).
+
+Why: the output filter (G15c) halves the error below 1 s on static starts (2.2-4.8 mm there), but after a moving
+start it stays off, because its IMU prediction needs the gravity direction and the walking initialization tilts the
+frame (ARC-5 16 deg, ARC-4 2.9, SNOW-3 2.8, ICE-1 1.5). On the five moving starts the band below 1 s is 4.1-8.9 mm
+against BIEVR-LIO's 2.4-5.5 (p1_grandtour_bands.py on G15c's runs). Two of the six test missions start moving
+(SNOW-2, SPX-2). Re-estimating the gravity for the whole LIO (moving_start_gravity_window_sec, fifth screen) changed
+the registration (ARC-5 0.0152 -> 0.0180, within the spread later measured, noise_2026-10-28/). rko_lio fbdbd1d adds
+moving_start_gravity_output_only: the window's estimate goes into the filter's world acceleration only; the
+registration keeps the initial gravity, so the registered trajectory is the one without the window (unit test), and
+the filter starts once the estimate is there (1 s + the window + 0.5 s after the initialization). Tests 116/116.
+Variants (ws/rko_g28, offline_node md5 a971ee4e...; on top of G15d, which after a moving start is r5is):
+  mgo2 = G15d + moving_start_gravity_window_sec 2 + moving_start_gravity_output_only;
+  mgo5 = the same with a 5-s window (the fifth screen's window).
+Missions: the moving starts snow-3, arc-5, arc-4, ice-1, arc-6. Compared with r5is (thirteenth screen, hsm_r5is: the
+same registration) and G15c. A static start is not touched by the option (no window without a moving start).
+Reported: ATE without reference spikes, the three bands, the tilt estimated (log). A screen: a candidate it picks is
+judged under a rule fixed before further runs; with only five development missions starting moving, that rule will
+have to count these runs and add the noise check of noise_2026-10-28/ (four stopping thresholds) on them.
