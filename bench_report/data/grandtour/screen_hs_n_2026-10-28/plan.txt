@@ -19,3 +19,7 @@ ice-1 (a moving start: after a moving start G15d updates no bias, so both varian
 byte, hsm_r5is/ice-1, md5 20690a28...). Compared with G15c and G15d. Reported: ATE without reference
 spikes, jitter. A screen: a candidate it picks is judged on all 15 HS missions under a rule fixed before the runs on
 the remaining missions (con-1, eig-2, spx-1, con-2, con-3, and snow-1 reported only).
+Amendment (2026-10-28, after G15d's confirmation, before any run of these variants on con-3): con-3 is added. G15d
+lost 11 mm there (0.0261 against 0.0150) with its output 8 cm from G15c's for 500 s, so the registration itself
+changed, not only the output filter; its initialization took a gyro bias of 9 mrad/s about z, which the standing
+intervals then replaced. Whether the gyro-only update is safe there is a question for the screen, not the rule.
