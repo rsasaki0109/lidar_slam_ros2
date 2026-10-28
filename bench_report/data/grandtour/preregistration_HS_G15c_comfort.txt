@@ -57,3 +57,19 @@ Fact sheet (proposed)
   filter, Hesai XT-32 + STIM320, frontend output only, no loop closure, no post-processing; configuration selected on
   GrandTour training missions. Novel: yes. Real-time: yes. LiDAR: yes. IMU: yes. Camera: no. GNSS: no. External
   odometry: no.
+
+Record (2026-10-28, after the batch, before the zip left the VM)
+  Policy 0: the configuration file gives the G15c confirmation's spx-3 trajectory byte for byte (front_tum md5
+  26e7144c...). The test batch ran only after that check (one script: the check, then the batch).
+  Test missions, one run each with HS-G15c (node time / mission span), no registration failure; as in every run, only
+  the bag's last LiDAR frames, after the STIM320 stream ends, are dropped (about 71-75 per mission); the pose counts
+  and first stamps equal submission 3's:
+    arc-2    81.4 s / 425 s   static start   md5 872ec1db6151567d9a00f0e8ff689be0
+    arc-7    86.8 s / 322 s   static start   md5 31f2d02169720c3ebb19106e47d324bd
+    con-4   393.4 s / 743 s   static start   md5 40bc69660ef656b176e35fd812fdf495
+    eig-1   206.8 s / 430 s   static start   md5 c4c70c455cf813b74d497aa6c171f7e8
+    snow-2  127.9 s / 261 s   moving start   md5 5ddd805215753182c6e3daa00cd339b2   (output filter off)
+    spx-2    67.2 s / 383 s   moving start   md5 4302b7a94fd76ddd4cf4ac4635d7e794   (output filter off)
+  comfort_test_G15cHS.zip (the six files at its root): md5 dc8b7273ae8ea20dc735694022fa6c49
+  (data/grandtour/G15cHS/, and a copy at the repository root for the maintainer.)
+  Only the sensor streams of the test missions were read, and only by the pipeline; no test reference was opened.
