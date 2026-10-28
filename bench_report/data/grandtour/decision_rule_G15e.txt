@@ -1,0 +1,38 @@
+GrandTour HS configuration G15e (fixed 2026-10-28 before any G15e run other than those of the fourteenth and
+fifteenth HS screens, screen_hs_n_2026-10-28/ and screen_hs_o_2026-10-28/, whose results are known and count with
+these runs).
+
+G15e = HS-G15c (configs/sota_v7/rko_lio_grandtour_hs_G15c_2026-10-27.yaml) + start_standstill_radius 1.0 +
+start_standstill_hold true + start_standstill_hold_radius 0.05 + start_standstill_bias interval +
+start_standstill_bias_static_only true + start_standstill_accel_bias false + moving_start_gravity_window_sec 5 +
+moving_start_gravity_output_only true (rko_lio fbdbd1d, ws/rko_g28, offline_node md5 a971ee4e...;
+confirm_G15e_2026-10-28/g15e.yaml). In words: while the robot stands within 1 m of its start, a scan's registered
+position is clamped to 5 cm around where it first stood (and the clamped scan is not added to the map); after a
+static start each standing interval sets the gyro bias (the accelerometer bias stays as the initialization set it);
+after a moving start the biases stay at zero, the gravity is estimated again from 5 s of motion for the output filter
+only (the registration keeps the initial gravity), and the output filter runs from then on. It is G15d (rejected,
+decision_rule_G15d.txt) without the standing intervals' accelerometer bias and with the output filter after moving
+starts. A configuration for the HS rig of GrandTour only, like G15c.
+
+Why: the fourteenth screen's r5ig keeps G15d's gains on static starts (heap-1 0.0238 -> 0.0204) without its
+failures (spx-3 0.0088, con-3 0.0153; G15d 0.0390, 0.0261), and the fifteenth screen's mgo5 adds the output filter on
+moving starts (snow-3 0.0156 -> 0.0143, arc-5 0.0173 -> 0.0165; G15c 0.0268, 0.0152) with the registration
+untouched. On the eleven screened missions the mean is 0.0156 against G15c's 0.0168.
+
+Adopt G15e as the GrandTour HS configuration in place of G15c if all of these hold (frontend only):
+  1. The 15 HS development missions of decision_rule_G15b.txt, one run each: mean below G15c's 0.0184 m. snow-1 is
+     run and reported only.
+  2. No mission worse than G15c by more than 10 % and more than 2 mm at once, in two stages as in
+     decision_rule_G15d.txt: a mission outside the tolerance on the single runs is run three more times with each
+     configuration (convergence_criterion 2.5e-5, 3.5e-5, 4.0e-5 in place of 3.0e-5) and judged again on the means of
+     the four runs of each; it fails only if it is outside the tolerance on those means as well (arc-5's G15c runs of
+     noise_2026-10-28/ count).
+  3. Every run real-time (node time below the mission span).
+  4. The file, run with ws/rko_g28, gives the screens' trajectories byte for byte on spx-3 (hsn_r5ig, a static start,
+     md5 6025dcc4...) and ice-1 (hso_mgo5, a moving start, md5 70800fc3...): the screens ran these options with
+     ws/rko_g27 (r5ig) and with G15d's options plus the window (mgo5). Otherwise the screens' results are not counted
+     and every mission is run with the file.
+Results counted from the screens: static starts spx-3, heap-1, pil-2, arc-1, arc-3, con-3 (r5ig); moving starts
+snow-3, arc-5, arc-4, ice-1, arc-6 (mgo5). To run: the two checks of criterion 4, con-1, eig-2, spx-1, con-2 (static
+starts) and snow-1 (reported only). If G15e is adopted, a COMFORT submission with it needs its own preregistration
+and the maintainer's decision; submission 4 (HS-G15c) is prepared and not uploaded.
