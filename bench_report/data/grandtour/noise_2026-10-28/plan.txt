@@ -10,3 +10,8 @@ a measure of how much of a mission's difference is chaos rather than method.
 Runs (ws/rko_g26, whose behaviour with G15c's file is G15c's): arc-5 with G15c and with r5is at max_num_threads 1, 2,
 3; arc-3 with G15c at max_num_threads 1, 2, 3. Reported: ATE without reference spikes, with the default runs (G15c
 arc-5 0.0152, arc-3 0.0190; r5is arc-5 0.0173).
+Amendment (2026-10-28, after the first run): the thread count is not a perturbation: G15c on arc-5 with
+max_num_threads 1 gives the default run's file byte for byte (md5 5991b7bb...; threads/g15c_t1.yaml); the other
+thread runs were stopped and removed. The perturbation is now the ICP convergence threshold (convergence_criterion
+3.0e-5 in both files) at 2.5e-5, 3.5e-5 and 4.0e-5: it changes when the iterations stop, not what they minimise.
+Runs: arc-5 with G15c and r5is at the three values; arc-3 with G15c at the three values.

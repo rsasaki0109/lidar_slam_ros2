@@ -1,4 +1,4 @@
-# HS-G15c with max_num_threads 2 (noise_2026-10-28/plan.txt)
+# HS-G15c with convergence_criterion 2.5e-05 (noise_2026-10-28/plan.txt)
 /**:
   ros__parameters:
     deskew: true
@@ -11,7 +11,7 @@
     reset_on_registration_failure: false
     relocalize_after_scan_gap: false
     max_iterations: 50
-    convergence_criterion: 3.0e-05
+    convergence_criterion: 2.5e-05
     icp_keypoint_voxel_multiplier: 2.25
     publisher_queue_depth: 128
     initialization_max_gyro_rad_s: 0.02
@@ -32,4 +32,3 @@
     output_filter_position_sigma: 0.02
     output_filter_acceleration_noise: 0.001
     output_filter_bias_noise: 0.0001
-    max_num_threads: 2
