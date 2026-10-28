@@ -50,7 +50,7 @@ if [[ ! -d ${BAG} ]]; then
   done
   # written as .part and renamed when complete, so that a failed conversion is never taken for a bag
   rm -rf "${BAG}.part"
-  CONSUME=--consume; [[ ${LIDAR} != *+* ]] || CONSUME=  # a merged cloud reads two groups side by side
+  CONSUME=--consume  # a merged cloud consumes both groups, each read forward in time
   "${PY}" "${S}/p1_grandtour_to_ros2.py" --imu "${BAG_IMUS}" --lidar "${LIDAR}" --range-scale "${RANGE_SCALE}" \
     ${CONSUME} "${D}/z" "${BAG}.part" | tee "${D}/convert${SUFFIX}.log"
   mv "${BAG}.part" "${BAG}"

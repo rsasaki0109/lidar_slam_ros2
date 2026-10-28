@@ -14,8 +14,8 @@ seconds instead of nanoseconds); --lidar hesai_points+livox_points merges both L
 in the Hesai frame, on /merged_points (the Livox points timed within that scan's span); --range-scale s multiplies
 every point's coordinates by s (a range-scale test); --time-field time names the per-point time field `time` instead
 of `t` (float32 seconds since the scan's first point either way; BIEVR-LIO reads `t` as Ouster's uint32 ns);
---consume deletes the LiDAR group's chunk files as they are read (a single LiDAR only; the disk then holds the bag
-and the rest of the points, not both in full).
+--consume deletes the LiDAR group's chunk files as they are read (both groups of a merge, each read forward in time;
+the disk then holds the bag and the rest of the points, not both in full).
 Only the first `valid` points of every scan are used, and points at the origin or non-finite are dropped. No other
 stream of the mission is read (in particular no reference or GNSS/INS topic).
 It also prints the RKO-LIO extrinsics and the IMU-to-prism transform of the mission (see --extrinsics), with the
@@ -140,13 +140,14 @@ def iter_scans(z, consume_dir=None):
                 os.remove(f)
 
 
-def merged_scans(primary, secondary, T_primary_secondary):
-    """Primary scans with the secondary LiDAR's points of the same time span added, in the primary frame."""
+def merged_scans(primary, secondary, T_primary_secondary, consume_dirs=(None, None)):
+    """Primary scans with the secondary LiDAR's points of the same time span added, in the primary frame.
+    consume_dirs: the two groups' directories for iter_scans' consume_dir (each group is read forward only)."""
     R, p = T_primary_secondary[:3, :3], T_primary_secondary[:3, 3]
     pending = []  # secondary (xyz, t, intensity) not yet assigned
-    source = iter_scans(secondary)
+    source = iter_scans(secondary, consume_dirs[1])
     exhausted = False
-    for xyz, t, inten in iter_scans(primary):
+    for xyz, t, inten in iter_scans(primary, consume_dirs[0]):
         lo, hi = t.min(), t.max()
         while not exhausted and (not pending or pending[-1][1].max() < hi):
             try:
@@ -198,7 +199,7 @@ def convert(mission, out, groups=('livox_imu',), lidar_group='livox_points', ran
     if len(lidar_groups) == 2:
         secondary = zarr.open(f'{mission}/{lidar_groups[1]}', mode='r')
         T = np.linalg.inv(zarr_transform(dict(lidar.attrs))) @ zarr_transform(dict(secondary.attrs))
-        scans_iter = merged_scans(lidar, secondary, T)
+        scans_iter = merged_scans(lidar, secondary, T, tuple(f'{mission}/{g}' if consume else None for g in lidar_groups))
     else:
         scans_iter = iter_scans(lidar, f'{mission}/{lidar_groups[0]}' if consume else None)
     writer = rosbag2_py.SequentialWriter()
