@@ -69,3 +69,29 @@ Fix: rko_lio d40d3b9 leaves a part within its limit bit for bit and moves only a
 near the origin, which the old helper fails). Build ws/rko_g35 (offline_node md5 2a97ab3c...). The step-2 rule above
 stands unchanged with this build: the same file guard/g15gi.yaml, the test diagnostic guard_test/g15gilog.yaml, labels
 hsrh_g15gi and hsrh_g15gilog. The fix makes the code do what the rule describes; no setting changed.
+
+Result (2026-10-28; ws/rko_g35, rko_lio d40d3b9; the test diagnostic, GT-free: only our own outputs and logs):
+  arc-2 (hsrh_g15gilog): the trajectory is submission 5's byte for byte up to 142.9 s. The limits bound 2 scans:
+  142.9 s (+510 -> +250 mm) and 143.1 s (-250 mm: the prediction, carried by the bounded step's velocity, overshoots).
+  The next scans register at the same height as before (IMU position 1.73-1.76 m at 143.5-144.5 s against 1.72-1.74 m
+  in submission 5); from 145 s on the two runs differ by 0-10 mm in height (37 mm at 250 s). The guard bounds the step
+  but the height does not then follow the IMU: the diagnostic does not show what the guard was made for.
+  Reading of the event (GT-free; our own outputs of arc-2 and arc-7, the development reference of arc-3): the step is
+  most likely the registration coming back from a height drift built up on the stairs, not a slip.
+  - After the step the upper floor lies 2.54 m above the floor the climb started from (-0.41 -> 2.13 m, prism). The
+    floor spacing in the ARCHE building is 2.53 m on the development reference (arc-3 dwells at 0.13 and 2.66 m) and
+    in our own test arc-7 (climb 0.37 -> 2.90 m). Without the step it would be about 2.0 m.
+  - The later descent (2.10 -> -0.35 m at 320-360 s, no step) ends at the level the climb started from (-0.39 against
+    -0.41 m).
+  - In the 12 s before the step the height sank from 1.87 to 1.60 m at places the later passes (180-200 s) show as
+    floor at 2.13 m.
+  The IMU check of step 1 (142.0-144.5 s) showed only that the robot did not move vertically during the step, which
+  holds either way. Integrating the IMU over longer windows drifts by 0.1 m/s within seconds (attitude errors leak
+  gravity) and cannot tell where the drift built up.
+  The development runs were stopped after the diagnostic (only arc-3 had begun; removed): G15gi is withdrawn, not
+  judged. Its premise, a slip kept by the map, does not hold for the one event it was made for, and bounding a
+  correction would only delay it. rko_lio keeps the option (registration_innovation_limit_xy / _z, default 0: off).
+  What arc-2 needs instead is to keep the height during the climb (about 100-130 s). There the registration's height
+  is weakly constrained: the marginal z std from the logged Hessians is 11-14 (arbitrary units) against 1.0-1.5 on
+  the floor after. Development arc-3 and arc-1 reach the same values on their stairs without drifting. Not addressed
+  here.
