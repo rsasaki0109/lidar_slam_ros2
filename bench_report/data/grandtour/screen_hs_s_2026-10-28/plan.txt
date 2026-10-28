@@ -1,0 +1,36 @@
+Nineteenth screen on the HS rig: why the Hesai registration comes up short on the test's arc-2 stairs (2026-10-28,
+written before any of these runs). TEST-INFORMED: it starts from submission 5's test result and runs the test's
+arc-2 again (sensor streams only; our own outputs only, GT-free, as in screen_hs_r_2026-10-28/). Any COMFORT
+submission from it is the maintainer's decision and is stated as test-informed.
+
+What is known (GT-free):
+- Development: the height change across every reference gap with stairs (out of the total station's view) is kept by
+  HS-G15g within 8 mm: arc-3 +2.37 / +2.56 / -4.86 m (G15g error +8 / +3 / +4 mm), eig-2 +1.75 / +7.26 (+8 / -5),
+  con-3 +0.54 / -0.89 (-4 / -2), pil-2 -0.82 (+5), spx-1 -0.66 (0). Older settings miss them by up to 0.46 m (bump
+  point-to-point weight 0: -376 mm on arc-3's first climb; BIEVR-LIO -144 / +98 / +157 mm). (climb_err below.)
+- The test's arc-2, our own outputs, height relative to the floor the climb starts from (median over 80-100 s):
+    run (rig)                    125-140 s   160-240 s   270-280 s
+    G, submission 1 (Livox)        +2.52       +2.52       +4.25
+    LS, submission 2 (Livox)       +2.46       +2.48       +4.23
+    HS-G15, submission 3 (Hesai)   +2.26       +2.02       +3.60
+    HS-G15c / G15g, subm. 4 / 5    +2.21       +2.55       +3.99   (the step at 142.9 s in between)
+    the void guard run (Hesai)     +2.23       +2.10       +3.53
+  The floor spacing of the building is 2.53 m (development arc-3 reference; our test arc-7). Both Livox runs climb
+  2.46-2.52 m at once; every Hesai run is 0.27-0.32 m short at the top of the stairs, and only the step brings
+  G15c / G15g to 2.55. The Livox runs scored badly on arc-2 overall (0.311 / 0.336) for other reasons (submission 1
+  and 2 were poor everywhere), so this is about the stairs only.
+
+Question: which part of the Hesai registration loses the height on these stairs. One change each on HS-G15g (rko_lio
+d40d3b9, ws/rko_g35; the innovation limits stay off):
+  hs/nb    bump_image_registration false (the bump image's height terms out);
+  hs/v15   voxel_size 0.15 (finer map and keypoints than the 0.17-m risers; 0.25 now);
+  hs/cs0   close_scene_max_median_range 0 (no close-scene settings: correspondence distance, localizability boost);
+  hls/g15g the same file on the Hesai + Livox merged cloud;
+  ls/g15g  the same file on the Livox cloud.
+Runs: the test's arc-2 (GT-free; labels hss_*), and the development arc-3 (its three hidden stair passages and its
+ATE). Reported per run: on arc-2 the heights above, the largest vertical speed over 0.3 s, the end level; on arc-3 the
+height errors across the three gaps (climb_err) and the ATE without reference spikes; node time.
+Reading, fixed now: a variant "keeps the arc-2 stairs" if it climbs 2.40-2.65 m by 125-140 s and has no vertical
+speed above 1 m/s over 0.3 s. A variant that keeps them and whose arc-3 gap errors stay within 50 mm becomes a
+candidate for a rule on all the development data (the 15 HS missions, tolerance and mean as decision_rule_G15g.txt).
+Nothing here is adopted from arc-2 alone.
