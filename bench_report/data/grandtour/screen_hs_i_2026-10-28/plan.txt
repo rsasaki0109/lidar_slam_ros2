@@ -19,3 +19,20 @@ Amendment (2026-10-28, after the snow-3 runs, before any other result): lv's sno
 of gravity (2.8 before), but lvh's 1-10-s band doubles (ss 5.9 -> 12.2 mm). The prototype filter on ss's trajectory
 adds little there (5.9 -> 7.7 mm), so the restarted maps may have changed the registration itself: lvhnof (lvh with
 the output filter off) is added on snow-3 (extra/), and on ice-1 after its lv / lvh results (0.0186 / 0.0187, G15c 0.0111; levelled by 0.58 deg).
+
+Result (2026-10-28; ws/rko_g22, rko_lio d0e9027; ATE without reference spikes, m):
+  mission  G15c    lv      lvh     lvhnof  (ss, eighth screen)   levelled by
+  snow-3   0.0268  0.0411  0.0250  0.0154  (0.0170)              2.67 / 2.62 deg (lv / lvh)
+  ice-1    0.0111  0.0186  0.0187  0.0145  (0.0146)              0.58 deg (lvh)
+  arc-6    0.0099  0.0139  0.0124          (0.0126)
+  arc-5    0.0152  0.0253  0.0217          (0.0166)
+  arc-4    0.0178  0.0174  0.0198          (0.0178)
+  static starts (lv = the standstill bias update without the hold): heap-1 0.0228 (G15c 0.0238, ss 0.0210), pil-2
+  0.0258 (0.0262, 0.0250), arc-1 0.0119 (0.0120, 0.0115), arc-3 0.0198 (0.0190, 0.0195).
+The levelling works as a levelling (snow-3's output frame within 0.3-0.7 deg of gravity with lvh, 2.8 deg before),
+and with the hold the levelled registration is the best SNOW-3 so far (lvhnof 0.0154). But the output filter, which
+the levelling switches on after a moving start, costs SNOW-3 9.6 mm and ICE-1 4.2 mm (lvh against lvhnof): after the
+levelling the per-interval standstill bias update keeps feeding it the standing robot's sway. Without the hold, the
+levelling loses everywhere (the maps restarted around a standing robot with people walking past). ICE-1 and ARC-6
+stay behind G15c with or without the levelling (lvhnof ice-1 0.0145 like ss's 0.0146): the hold or the bias update,
+not the tilt. The tenth screen (start_standstill_bias none / average) separates them.
