@@ -55,3 +55,17 @@ that it helps rests on the arc-2 diagnostic (guard_test/: the same file plus out
 GT-free: is the slip bounded, and does the height then follow the IMU), not on any score. A COMFORT submission with
 it would be a change made after seeing the test result of submission 5; whether to make one is the maintainer's
 decision, stated as such.
+
+Amendment (2026-10-28, after the first guard run, before any development mission was judged): the diagnostic run on
+the test's arc-2 (ws/rko_g34, rko_lio 82da285, label hsrg_g15gilog) reported 54 bounded scans, yet its logged
+innovations reach the limit only once (192.5 s, -250 mm), and its trajectory leaves submission 5's already at 0.3 s.
+The cause is in the helper: clamp_innovation returned predicted + (registered - predicted) for every scan, which
+rounds off the registered value where the two differ by more than a factor of two (coordinates near the origin);
+such a scan was counted as bounded and kept out of the map. 53 of the 54 were such rounding cases. That run therefore
+does not show the guard: it went apart from 0.3 s on through those map gaps, and the slip at 142.9 s did not happen in
+it at all (largest innovation near it +211 mm at 144.8 s), so it says nothing about whether the guard catches the
+slip. It is void, as is the partial development run it was followed by (arc-3, stopped before its registration).
+Fix: rko_lio d40d3b9 leaves a part within its limit bit for bit and moves only a part beyond it (a test with values
+near the origin, which the old helper fails). Build ws/rko_g35 (offline_node md5 2a97ab3c...). The step-2 rule above
+stands unchanged with this build: the same file guard/g15gi.yaml, the test diagnostic guard_test/g15gilog.yaml, labels
+hsrh_g15gi and hsrh_g15gilog. The fix makes the code do what the rule describes; no setting changed.
