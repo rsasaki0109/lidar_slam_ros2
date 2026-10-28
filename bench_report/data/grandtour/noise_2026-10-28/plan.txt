@@ -15,3 +15,14 @@ max_num_threads 1 gives the default run's file byte for byte (md5 5991b7bb...; t
 thread runs were stopped and removed. The perturbation is now the ICP convergence threshold (convergence_criterion
 3.0e-5 in both files) at 2.5e-5, 3.5e-5 and 4.0e-5: it changes when the iterations stop, not what they minimise.
 Runs: arc-5 with G15c and r5is at the three values; arc-3 with G15c at the three values.
+
+Result (2026-10-28; ws/rko_g26; ATE without reference spikes, m; convergence_criterion 3.0e-5 (default run) / 2.5e-5 /
+3.5e-5 / 4.0e-5, and the four-run mean):
+  arc-5  G15c  0.0152 / 0.0163 / 0.0185 / 0.0180   mean 0.0170
+  arc-5  r5is  0.0173 / 0.0156 / 0.0179 / 0.0174   mean 0.0171
+  arc-3  G15c  0.0190 / 0.0217 / 0.0209 / 0.0208   mean 0.0206
+A neutral change of the stopping threshold moves a mission by up to 3.3 mm (arc-5 G15c 0.0152 -> 0.0185) and 2.7 mm
+(arc-3 G15c 0.0190 -> 0.0217): as much as most of the differences the screens judged. On arc-5 the default run is
+G15c's best of four and r5is's third; their means differ by 0.1 mm, so r5is's single-run loss there (+2.1 mm) is
+chaos, not method. G15c's default runs on these two missions sit at the low end of their spread, which also lowers
+G15c's reference mean (0.0184) a little against any later variant judged on single runs.
