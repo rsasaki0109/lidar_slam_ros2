@@ -23,3 +23,15 @@ Amendment (2026-10-28, after G15d's confirmation, before any run of these varian
 lost 11 mm there (0.0261 against 0.0150) with its output 8 cm from G15c's for 500 s, so the registration itself
 changed, not only the output filter; its initialization took a gyro bias of 9 mrad/s about z, which the standing
 intervals then replaced. Whether the gyro-only update is safe there is a question for the screen, not the rule.
+
+Result (2026-10-28; ws/rko_g27, rko_lio d15e900; ATE without reference spikes, m; G15c / G15d (r5is, r5i) / r5ig /
+r5n):
+  spx-3   0.0077 / 0.0390 / 0.0088 / 0.0076      arc-3   0.0190 / 0.0203 / 0.0208 / 0.0195
+  heap-1  0.0238 / 0.0205 / 0.0204 / 0.0235      con-3   0.0150 / 0.0261 / 0.0153 / 0.0139
+  pil-2   0.0262 / 0.0251 / 0.0250 / 0.0259      ice-1   0.0111 / 0.0113 / 0.0113 / 0.0113 (both r5is's file
+  arc-1   0.0120 / 0.0117 / 0.0113 / 0.0118              byte for byte, md5 20690a28...: moving start untouched)
+  mean of the six static starts  0.0173 / 0.0238 / 0.0169 / 0.0170
+Setting the gyro bias only removes G15d's two failures (spx-3 0.0390 -> 0.0088, con-3 0.0261 -> 0.0153) and keeps
+its gain on heap-1 (0.0205 -> 0.0204), so the accelerometer bias was what broke them. Without any bias update (r5n)
+heap-1's gain is gone (0.0235). Between r5ig and r5n the differences elsewhere (spx-3 +1.2, arc-3 +1.3, con-3 +1.4
+mm for r5ig) are of the size of the noise (noise_2026-10-28/); r5ig is the candidate, for heap-1.
