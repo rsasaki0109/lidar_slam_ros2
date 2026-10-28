@@ -83,3 +83,7 @@ Record (2026-10-28, after the batch, before the zip left the VM)
   comfort_test_G15gHS.zip (the six files at its root): md5 b90f978a0762d506286293998b7fadcd
   (data/grandtour/G15gHS/, and a copy at the repository root for the maintainer.)
   Only the sensor streams of the test missions were read, and only by the pipeline; no test reference was opened.
+
+Maintainer's decision (2026-10-28, after the record above): submission 5 is to be uploaded (by the maintainer) as the
+next test-phase submission; submissions 3 and 4 are not to be uploaded. The reference's time lag is not reported to
+the organizers. The score is recorded here whatever it is, and no configuration is tuned on it.
