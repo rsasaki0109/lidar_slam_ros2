@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 # Height error across the reference gaps where the height changes (stairs out of the total station's view):
 # for each run, the estimate is fitted to the reference (rigid; points more than 1 m off, the spikes, left out),
-# then for each gap with
-# |dz_ref| > 0.5 m the change of the height error across the gap (mean over 2 s at each edge) is printed, in mm.
+# then for each gap with |dz_ref| > 0.5 m the change of the height error across the gap (mean over 2 s at each edge) is printed, in mm.
 # For development missions only (reads the reference). Chapter 35.
 # Usage: p1_grandtour_climb_err.py <mission>[,<mission>...] [label glob]  (runs at /home/user/bench/grandtour/<label>/<mission>/)
 import sys, glob, numpy as np, zarr
