@@ -26,3 +26,32 @@ ws/rko_g33): only its sensor streams are read, as in every test run, and only ou
 vertical motion against the registered one around 143 s), as with the frame tilt of the moving starts. Its trajectory
 must equal submission 5's arc-2 byte for byte. Nothing from it is submitted; whatever guard follows is set on
 development data.
+
+Step 1 result (2026-10-28; ws/rko_g33; the five runs give HS-G15g's trajectories: arc-5, arc-4, arc-6 byte for byte
+with hsq_g15g_c30, arc-3 and arc-1 to 0.5 um with the G15g replays). Per-scan innovation, mm:
+  mission  |dz| 99 % / 99.9 % / max     |dxy| 99 % / 99.9 % / max
+  arc-3    39.8 / 67.8 / 103.5          25.1 / 38.5 / 49.2
+  arc-1    50.4 / 91.5 / 128.6          26.7 / 40.5 / 85.2
+  arc-5    48.3 / 90.4 / 111.2          29.6 / 47.4 / 56.2
+  arc-4    26.1 / 43.4 / 48.3           20.3 / 26.0 / 30.5
+  arc-6    11.2 / 17.4 / 24.1           13.4 / 16.7 / 26.3
+Test arc-2, the diagnostic run (its trajectory equals submission 5's byte for byte, md5 9a0fc4da...): at 142.9 s
+the registration moves the scan +509.7 mm up from its prediction in one scan, then -344 and -206 mm as the predicted
+velocity catches up; integrating the IMU alone from 141.5-142.5 s keeps the height at 1.11-1.21 m while the
+registration stays at 1.71-1.84 m afterwards. A slip of the registration, kept by the map.
+
+Step 2 (fixed before any of its runs): G15gi = HS-G15g + registration_innovation_limit_xy 0.25 m and _z 0.25 m (rko_lio
+82da285, ws/rko_g34; guard/g15gi.yaml): about twice the largest innovation of the five ARCHE development missions
+(129 mm vertical, 85 mm horizontal). The value was set knowing the arc-2 slip (510 mm); any limit from 0.13 to 0.5 m
+would catch it, and 0.25 m is the round value at twice the development maximum, not fitted to it.
+Runs: G15gi on the 15 HS development missions and snow-1; each run reports how many scans the limits bounded.
+Adopt G15gi as the GrandTour HS configuration in place of HS-G15g if all hold:
+  1. Every development mission either is HS-G15g's trajectory byte for byte (no scan bounded) or, where scans were
+     bounded, is not worse than HS-G15g's by more than 10 % and 2 mm at once (two stages as decision_rule_G15d.txt);
+     the mean over the 15 is not above HS-G15g's 0.0174 m.
+  2. Every run real-time.
+What it can and cannot show: on development data the guard can only be shown harmless (it was not needed there);
+that it helps rests on the arc-2 diagnostic (guard_test/: the same file plus output_filter_log on the test's arc-2,
+GT-free: is the slip bounded, and does the height then follow the IMU), not on any score. A COMFORT submission with
+it would be a change made after seeing the test result of submission 5; whether to make one is the maintainer's
+decision, stated as such.
