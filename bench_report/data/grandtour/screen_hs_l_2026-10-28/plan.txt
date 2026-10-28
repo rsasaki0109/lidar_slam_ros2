@@ -1,0 +1,13 @@
+Twelfth screen on the HS rig: the start hold within a radius (2026-10-28, written before any of these runs).
+
+Why: in the eleventh screen every bias variant of the position-keeping hold gains on SNOW-3 and on average but loses
+ARC-6's first 5 s (+2.2 to +2.7 mm): there the robot shifts 3-5 cm while it stands and the registration, which follows
+that within 1 cm indoors, is frozen by the hold; on SNOW-3 the registration wanders 15-20 cm with the people around the
+robot. rko_lio 07d57b8 adds start_standstill_hold_radius: the standing scan is registered and its position kept within
+that radius of where the robot started standing (not added to the map); tests 113/113.
+Variants (ws/rko_g25; HS-G15c + start_standstill_radius 1.0 + start_standstill_hold + start_standstill_hold_radius
+0.05; the radius set between the sway and the wander seen, not tuned on ATE):
+  r5i = start_standstill_bias interval; r5a = start_standstill_bias average.
+Missions: as the eleventh screen (snow-3, arc-5, ice-1, arc-6, arc-4, heap-1, pil-2, arc-1, arc-3). Compared with HS-G15c
+and the eleventh screen. A screen: a candidate it picks is judged on all 15 HS missions under a rule fixed before
+those runs.
