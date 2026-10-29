@@ -160,6 +160,7 @@ GraphSlamApplicationConfig makeGraphSlamApplicationConfig(const GraphSlamConfig 
   result.ndt_resolution = config.ndt_resolution;
   result.ndt_num_threads = config.ndt_num_threads;
   result.gicp_max_correspondence_distance = config.gicp_max_correspondence_distance;
+  result.gicp_transformation_epsilon = config.gicp_transformation_epsilon;
   result.voxel_leaf_size = config.voxel_leaf_size;
   result.loop_search_query_stride = config.loop_search_query_stride_;
   result.loop_edge_dedup_index_window = config.loop_edge_dedup_index_window_;

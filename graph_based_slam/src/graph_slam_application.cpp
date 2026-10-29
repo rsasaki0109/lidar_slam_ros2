@@ -64,7 +64,7 @@ public:
     }
     registration = backend_core::makeLoopRegistration(
       config.registration_method, config.ndt_resolution, config.ndt_num_threads,
-      config.gicp_max_correspondence_distance);
+      config.gicp_max_correspondence_distance, config.gicp_transformation_epsilon);
     if (!registration) {
       throw std::invalid_argument("unknown registration_method: " + config.registration_method);
     }

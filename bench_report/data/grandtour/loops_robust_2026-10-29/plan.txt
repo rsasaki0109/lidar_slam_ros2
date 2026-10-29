@@ -49,3 +49,10 @@ frontend's error for the same pairs, the causal ATE against the frontend's.
 Reading: a variant registers "as accurately as the frontend" if the median error of its scored loop edges is at
 most the frontend's median for the same pairs and none of them is above 0.1 m. Such a variant goes on to the next
 items (information from the registration's Hessian, a robust solve); none is adopted from this step.
+
+Amendment (2026-10-29, before any run with it): the GICP variants made no loop edge, because the registration never
+reported convergence: PCL's GICP requires the transformation to change by less than 1e-8 between iterations within
+100 of them, and with the debug log every candidate on spx-1 is "rejected because registration did not converge".
+graph_based_slam now takes gicp_transformation_epsilon (default 1e-8, as before). Added variants, run once the
+current ones are done (on a rebuild of ws/slam_rl): gicp1e5 (GICP, 1.0 m, epsilon 1e-5) and gicp05e5 (0.5 m, 1e-5).
+The reading is unchanged.

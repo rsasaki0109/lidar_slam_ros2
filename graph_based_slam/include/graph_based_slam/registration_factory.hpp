@@ -54,7 +54,7 @@ namespace backend_core
 inline pcl::Registration<pcl::PointXYZI, pcl::PointXYZI>::Ptr
 makeLoopRegistration(
   const std::string & method, double ndt_resolution, int ndt_num_threads,
-  double gicp_max_correspondence_distance = 30.0)
+  double gicp_max_correspondence_distance = 30.0, double gicp_transformation_epsilon = 1e-8)
 {
   if (method == "NDT") {
     auto ndt = pcl::make_shared<
@@ -71,7 +71,7 @@ makeLoopRegistration(
       pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>>();
     gicp->setMaxCorrespondenceDistance(gicp_max_correspondence_distance);
     gicp->setMaximumIterations(100);
-    gicp->setTransformationEpsilon(1e-8);
+    gicp->setTransformationEpsilon(gicp_transformation_epsilon);
     gicp->setEuclideanFitnessEpsilon(1e-6);
     gicp->setRANSACIterations(0);
     return gicp;
@@ -83,13 +83,14 @@ makeLoopRegistration(
 // Kept separate so the numeric defaults exactly match the historical PCL
 // construction that the plugin API documents.
 inline pcl::Registration<pcl::PointXYZI, pcl::PointXYZI>::Ptr
-makeLegacyGicpRegistration(double max_correspondence_distance = 30.0)
+makeLegacyGicpRegistration(
+  double max_correspondence_distance = 30.0, double transformation_epsilon = 1e-8)
 {
   auto gicp = pcl::make_shared<
     pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>>();
   gicp->setMaxCorrespondenceDistance(max_correspondence_distance);
   gicp->setMaximumIterations(100);
-  gicp->setTransformationEpsilon(1e-8);
+  gicp->setTransformationEpsilon(transformation_epsilon);
   gicp->setEuclideanFitnessEpsilon(1e-6);
   gicp->setRANSACIterations(0);
   return gicp;
