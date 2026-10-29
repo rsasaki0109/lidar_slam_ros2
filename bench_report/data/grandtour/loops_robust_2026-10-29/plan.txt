@@ -140,3 +140,45 @@ way: rl2_ndt2 against its re-runs rl2_ndt2chk and rl2_ndt2sg, 3-7 poses, up to 1
 byte-identical loop edges and optimized trajectories. The check is therefore read on loop_edges.csv and
 trajectory_optimized.tum, which it passes, and the runs go ahead. Run-to-run variation of the causal ATE is below 0.1 mm
 here, small against the readings' 1 mm.
+
+Results, small_gicp (2026-10-29; sgicp1 / sgicp05 on ws/slam_sg, lidar_slam_ros2 ebb82ee; the NDT 2 m preset on that
+runner gives rl2_ndt2's loop edges on spx-1 byte for byte). Scores with the interpolated reference (corrected tool);
+with the nearest sample (old tool) in brackets. Loop error and frontend error for the same pairs, mm:
+  variant      edges scored  loop median / max   >0.1 m  frontend median  loop better  causal ATE - frontend, mm    mean
+  ndt2          30    19     26.0 / 1366 [32.7]    1       17.2 [27.9]     3/19 [6/19]   +6.6 -0.7 +3.0 +1.0 +1.6 +1.8  +2.22
+  ndt1          31    20     19.1 / 1395 [26.2]    1       17.4 [28.1]     8/20 [11/20]  +5.0 -0.5 +1.1 -0.3 +2.0 +0.0  +1.22
+  ndt05         31    19     20.7 / 1077 [22.7]    1       17.6 [21.6]     4/19 [9/19]   +1.7 -0.5 +1.5 -0.1 +3.1 +1.4  +1.18
+  sgicp1        30    19     18.6 /  881 [22.5]    1       17.2 [27.9]     6/19 [12/19]  +5.0 +0.1 +1.6 +0.3 +0.4 -0.2  +1.20
+  sgicp05       30    18     17.4 /   40 [21.8]    0       16.2 [28.1]     6/18 [10/18]  -1.3 +0.2 +0.8 +0.3 +0.3 +0.0  +0.05
+  ndt1_dcs      (ndt1's edges)                                                           +0.4 -0.5 +1.6 -0.3 +1.3 -0.3  +0.37
+  ndt05_dcs     (ndt05's edges)                                                          +1.2 -0.5 +1.4 -0.1 +1.8 -0.3  +0.58
+  sgicp1_dcs    (sgicp1's edges)                                                         -0.9 +0.1 +1.1 +0.3 +0.4 +0.0  +0.17
+  sgicp05_dcs   (sgicp05's edges)                                                        -1.3 +0.2 +1.2 +0.0 +0.3 +0.1  +0.08
+  (missions in the order spx-1 heap-1 arc-1 pil-2 con-2 con-3; frontend ATE 19.6 23.3 11.7 26.1 20.7 14.1 mm)
+Reading. Step 2: with the corrected scores no variant meets it; sgicp05 comes closest (no edge above 0.1 m, the
+largest 40 mm, but a median 1.2 mm above the frontend's for the same pairs). With the old scores sgicp05 met it (21.8
+against 28.1 mm): the old tool's timing error, the same size as the edges' own, had hidden that the loops are only
+about as accurate as this frontend over the same stretch (16-17 mm; part of that is the reference itself: its time
+lag is not applied). Step 3: no variant helps; sgicp05 (huber) is the closest, with every mission within 1 mm of the
+frontend and the mean 0.05 mm above it. small_gicp's GICP removes what NDT costs (its causal output is never more than
+0.8 mm worse at 0.5 m) and at 0.5 m makes no gross loop on these inputs; at 1.0 m it keeps spx-1's gross loop 3-43
+(0.88 m, fitness 0.95), which DCS then takes out (+5.0 -> -0.9 mm).
+
+Results, amendment 3 (2026-10-29; ws/slam_hi, lidar_slam_ros2 31d2694; the loop edges are sgicp05's, unchanged):
+  variant          causal ATE - frontend, mm (spx-1 heap-1 arc-1 pil-2 con-2 con-3)   mean
+  sgicp05_hi       -0.7 +0.0 +2.6 +0.1 +0.0 +0.3                                      +0.38
+  sgicp05_hi_dcs   -0.7 +0.0 +2.6 +0.0 +0.0 -0.1                                      +0.30
+  (constant information, for comparison: sgicp05 -1.3 +0.2 +0.8 +0.3 +0.3 +0.0, +0.05; sgicp05_dcs +0.08)
+Reading: neither helps (arc-1 +2.6 mm), and both are worse than the same loops with the constant information. The
+Hessian's shape does point roughly the right way (p3_grandtour_loop_info_check.py, 18 scored edges: the predicted
+sigma along the weakest direction is 1.86 times the strongest's, in the median; the RMS error along them is 15.7 and
+10.6 mm, a ratio of 1.48), but the predicted sigmas (0.7-1.3 mm, unscaled) are 10-20 times smaller than the errors and
+the anisotropy is mild, so the shape adds little and moves weight onto directions where these loops are no better.
+Not adopted; loop_edge_info_from_registration stays off.
+
+Conclusion of the GrandTour part: with this frontend (about 2 cm) the loops can at best not hurt. small_gicp's GICP at
+0.5 m is the first backend setting here that makes no mission more than 1 mm worse (at most +0.8 mm, mean +0.05);
+it does not help because its loops are no more accurate than the frontend over the same stretch. Nothing is adopted.
+Next: the other development data, where drift is larger and the NDT 2 m backend was adopted (MapsHD 8, Oxford, HILTI
+exp04; chapter 25: geometric mean 0.0358 m against the frontend's 0.0348 m): whether small_gicp at 0.5 m (with and
+without DCS) does not hurt there and helps; a plan with its reading is written before those runs.
