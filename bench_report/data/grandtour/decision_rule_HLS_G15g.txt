@@ -24,3 +24,26 @@ pil-2 0.0261, con-1 0.0244, eig-2 0.0253, arc-3 0.0188, snow-3 0.0140, arc-5 0.0
 spx-1 0.0196, arc-1 0.0117, con-2 0.0207, con-3 0.0141, ice-1 0.0110, arc-6 0.0097).
 What it can show: on development data, that the merged cloud does no harm (the Hesai alone keeps every development
 staircase within 8 mm); that it helps on the test stairs rests on the GT-free arc-2 diagnostic only.
+
+Result (2026-10-29; ws/rko_g35; ATE without reference spikes, m; arc-3 is screen 19's hssm_g15g, the rest hlsr_g15g;
+con-3's merged bag was written to /dev/shm: on the disk the 8088-scan bag was cut short when the disk filled):
+  mission  HS-G15g  HLS-G15g             mission  HS-G15g  HLS-G15g
+  heap-1   0.0233   0.0247 (+1.4 mm)     spx-3    0.0075   0.0082 (+0.7)
+  pil-2    0.0261   0.0281 (+2.0)        spx-1    0.0196   0.0206 (+1.0)
+  con-1    0.0244   0.0255 (+1.1)        arc-1    0.0117   0.0121 (+0.4)
+  eig-2    0.0253   0.0225 (-2.8)        con-2    0.0207   0.0276 (+6.9, +33 %: outside)
+  arc-3    0.0188   0.0228 (+4.0, +21 %: outside)   con-3  0.0141  0.0132 (-0.9)
+  snow-3   0.0140   0.0150 (+1.0)        ice-1    0.0110   0.0117 (+0.7)
+  arc-5    0.0163   0.0127 (-3.6)        arc-6    0.0097   0.0096 (-0.1)
+  arc-4    0.0180   0.0134 (-4.6)
+  mean of 15: HS-G15g 0.0174, HLS-G15g 0.0178. snow-1 (reported only): 0.3766.
+  1. Mean 0.0178 > 0.0174: criterion 1 does not hold.
+  2. arc-3 and con-2 are outside on the single runs. Their second stage was begun and stopped once criterion 1 had
+     failed (it cannot change the outcome; the partial arc-3 run removed).
+  3. Stair passages, mm: arc-3 -12 / +34 / 0, eig-2 +19 / -10, con-3 +2 / -8, pil-2 +8, spx-1 +12: all within 50.
+  4. Node time / span, s: heap-1 219 / 290 (the closest), pil-2 275 / 407, arc-3 357 / 648, con-3 281 / 796; all
+     real-time.
+HLS-G15g is not adopted: on the development data it is 0.4 mm worse on average, mostly con-2 and arc-3, while it
+gains on arc-4, arc-5 and eig-2. HS-G15g stays the GrandTour configuration. What speaks for HLS-G15g is only the
+GT-free test arc-2 diagnostic (the stairs kept, 2.49 m against 2.21 m); a submission with it would be test-informed
+and against this rule, and is the maintainer's decision alone.
