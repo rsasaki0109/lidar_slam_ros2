@@ -18,3 +18,27 @@ rest labelled hlsn10_g15g. Prefer it to HLS-G15g if all hold:
   4. every run real-time;
   5. the test's arc-2 stairs kept (done in screen 21: +2.48 m by 125-140 s, largest vertical speed 0.76 m/s).
 HLS-G15g's values: decision_rule_HLS_G15g.txt. HS-G15g's are reported alongside.
+
+Result (2026-10-29; ws/rko_g35; ATE without reference spikes, m; data in /dev/shm):
+  mission  HS-G15g  HLS-G15g  HLSn10-G15g (against HLS-G15g)    mission  HS-G15g  HLS-G15g  HLSn10-G15g
+  heap-1   0.0233   0.0247    0.0235 (-1.2 mm)                   spx-3    0.0075   0.0082    0.0079 (-0.3)
+  pil-2    0.0261   0.0281    0.0264 (-1.7)                      spx-1    0.0196   0.0206    0.0214 (+0.8)
+  con-1    0.0244   0.0255    0.0244 (-1.1)                      arc-1    0.0117   0.0121    0.0116 (-0.5)
+  eig-2    0.0253   0.0225    0.0248 (+2.3, +10 %: outside)      con-2    0.0207   0.0276    0.0213 (-6.3)
+  arc-3    0.0188   0.0228    0.0220 (-0.8)                      con-3    0.0141   0.0132    0.0127 (-0.5)
+  snow-3   0.0140   0.0150    0.0145 (-0.5)                      ice-1    0.0110   0.0117    0.0110 (-0.7)
+  arc-5    0.0163   0.0127    0.0126 (-0.1)                      arc-6    0.0097   0.0096    0.0093 (-0.3)
+  arc-4    0.0180   0.0134    0.0127 (-0.7)
+  mean of 15: HS-G15g 0.01737, HLS-G15g 0.01785, HLSn10-G15g 0.01707. snow-1 (reported only): 0.3763.
+  1. 0.01707 < 0.01785: holds (and below HS-G15g's 0.01737 as well).
+  2. eig-2 outside on the single runs; second stage (confirm_HLSn10_G15g_2026-10-29/stage2/, convergence 2.5 / 3.5 /
+     4.0e-5): HLS-G15g 0.0223 0.0223 0.0222 (with the single run 0.0225: four-run mean 0.02233), HLSn10-G15g 0.0246
+     0.0245 0.0248 (with 0.0248: 0.02468). +2.35 mm, +10.5 %: outside on the four-run means as well. Does not hold.
+  3. Stair passages, mm: arc-3 -14 / +30 / +4, eig-2 +7 / -17, con-3 -3 / -8, pil-2 +6, spx-1 +8: all within 50.
+  4. Node time / span, s: heap-1 261 / 290 (the closest), pil-2 348 / 407, arc-1 329 / 433, con-3 363 / 796: holds.
+  5. Kept (screen 21).
+HLSn10-G15g is not preferred to HLS-G15g: better on the mean and on 12 of 15 missions, but eig-2 loses 2.35 mm on
+four runs each, a real loss (the four runs of each lie within 0.3 mm), not run-to-run noise. Submission 6 stays the
+last prepared submission.
+Reading: the Livox points beyond 10 m are what HLS-G15g lost on con-2 (and a little everywhere), and what it gained
+on eig-2 (the long, open descent, where the far Livox points add vertical structure the Hesai lacks).
