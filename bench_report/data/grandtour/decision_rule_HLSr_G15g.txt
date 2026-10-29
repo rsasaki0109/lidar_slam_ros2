@@ -25,3 +25,12 @@ snow-1 is run and reported only. Reported besides: the test's arc-2 run first, G
 start floor at 125-140 / 160-240 / 270-280 s, the largest vertical speed over 0.3 s), which must keep the stairs as
 HLS-G15g does (2.40-2.65 m by 125-140 s, no vertical speed above 1 m/s); otherwise the development runs are not made.
 HLS-G15g's values (decision_rule_HLS_G15g.txt) are reported alongside.
+
+Result (2026-10-29, ws/rko_g35): the test's arc-2 keeps the stairs (125-140 s +2.49 m, 160-240 s +2.52, 270-280 s
++4.15; largest vertical speed 0.75 m/s; 9.7 mm RMS from HLS-G15g). Development, the two missions where HLS-G15g lost
+most, run first: con-2 0.0286 (HLS-G15g 0.0276, HS-G15g 0.0207), arc-3 0.0232 (0.0228, 0.0188). The calibration does
+not recover what the merge costs there; both are outside, and with the other thirteen at HS-G15g's values the mean
+would already be 0.0182. HLSr-G15g is withdrawn, the remaining runs stopped (pil-2's partial run removed).
+On con-2 the merge's loss is spread over the whole mission (horizontal 14 -> 21-22 mm), not one event; the Livox
+points at long range are the likely cause (chapter 33.2: the Livox-Hesai residual along the ray spreads with range,
+IQR about +-10 mm up to 8 m, -16 to +32 mm at 12-18 m, -11 to +52 mm at 25-35 m).
