@@ -1,0 +1,20 @@
+HLSn10-G15g: HLS-G15g with only the Livox points within 10 m of the Livox in the merge (fixed 2026-10-29, after
+screen_hs_u_2026-10-29/ and before any other run with it).
+TEST-INFORMED, like HLS-G15g (submission 6), whose refinement it is. It is not judged against HS-G15g (screen 21 has
+already shown that its arc-3 stays above HS-G15g's), but against the configuration submitted last, HLS-G15g: whether
+it would be the better submission. It does not become the project's GrandTour configuration (HS-G15g stays that);
+a submission with it is the maintainer's decision.
+
+Configuration: the HS-G15g file unchanged (screen_hs_u_2026-10-29/runs/g15g.yaml has its parameters), rko_lio d40d3b9
+(ws/rko_g35), LIDAR=hesai_points+livox_points SECONDARY_MAX_RANGE=10 IMU=stim320_imu (lidar_slam_ros2 a66e277 or
+later), data in /dev/shm.
+Runs: the 15 HS development missions and snow-1 (reported only); con-2 and arc-3 are screen 21's (hsun10_g15g), the
+rest labelled hlsn10_g15g. Prefer it to HLS-G15g if all hold:
+  1. mean ATE (without reference spikes) of the 15 below HLS-G15g's (0.2677 / 15 = 0.01785 m);
+  2. no mission worse than HLS-G15g by more than 10 % and more than 2 mm at once, two stages as
+     decision_rule_G15d.txt (for a mission outside on the single runs, three more runs of both with convergence
+     2.5 / 3.5 / 4.0e-5 and the four-run means);
+  3. every stair passage hidden from the reference within 50 mm;
+  4. every run real-time;
+  5. the test's arc-2 stairs kept (done in screen 21: +2.48 m by 125-140 s, largest vertical speed 0.76 m/s).
+HLS-G15g's values: decision_rule_HLS_G15g.txt. HS-G15g's are reported alongside.

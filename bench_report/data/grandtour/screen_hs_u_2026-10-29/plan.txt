@@ -14,3 +14,15 @@ Selection, fixed now: a variant passes if it keeps the arc-2 stairs (2.40-2.65 m
 125-140 s, no vertical speed above 1 m/s over 0.3 s) and its con-2 + arc-3 ATE sum is at most HS-G15g's + 2 mm
 (0.0395 + 0.0020 m). Of passing variants the one with the lower sum is taken (a tie within 0.5 mm: n10, more of the
 Livox). It is then judged on all the development data under a rule written before those runs.
+
+Result (2026-10-29; ws/rko_g35; data in /dev/shm; the container restarted during n5's arc-3, which was run again):
+  variant  arc-2 (GT-free) 125-140 / 160-240 / 270-280 s, max |vz|   con-2    arc-3    sum      arc-3 passages (mm)
+  HS-G15g  +2.21 / +2.55 / +3.99, 1.59 m/s (the step)               0.0207   0.0188   0.0395   +8 +3 +4
+  HLS-G15g +2.49 / +2.52 / +4.13, 0.75                              0.0276   0.0228   0.0504   -12 +34 0
+  n5       +2.45 / +2.50 / +4.10, 0.78                              0.0210   0.0232   0.0442   -12 +32 +8
+  n10      +2.48 / +2.52 / +4.18, 0.76                              0.0213   0.0220   0.0433   -14 +30 +4
+  Node time: n5 con-2 180 s, arc-3 379 s; n10 270 s, 389 s (spans 384 s, 648 s).
+  Both keep the arc-2 stairs, and both take back most of con-2's loss (the far Livox points were its cause), but
+  arc-3 stays 3-4 mm above HS-G15g: neither sum is within 0.0415. By the selection fixed above there is no candidate
+  against HS-G15g. Against HLS-G15g (submission 6) n10 is better on both missions; that is a different question,
+  posed with its own rule (decision_rule_HLSn10_G15g.txt) before any further run.
