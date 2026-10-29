@@ -48,6 +48,8 @@ struct GraphSlamConfig
   double voxel_leaf_size {0.2};
   double ndt_resolution {5.0};
   int ndt_num_threads {0};
+  // GICP loop registration: largest point-to-point distance taken as a correspondence (m).
+  double gicp_max_correspondence_distance {30.0};
   double threshold_loop_closure_score_ {1.0};
   double scan_context_loop_closure_score_threshold_ {-1.0};
   double distance_loop_closure_ {20.0};

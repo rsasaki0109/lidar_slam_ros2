@@ -52,7 +52,9 @@ namespace backend_core
 
 // Returns nullptr for an unknown method; the caller decides how to fail.
 inline pcl::Registration<pcl::PointXYZI, pcl::PointXYZI>::Ptr
-makeLoopRegistration(const std::string & method, double ndt_resolution, int ndt_num_threads)
+makeLoopRegistration(
+  const std::string & method, double ndt_resolution, int ndt_num_threads,
+  double gicp_max_correspondence_distance = 30.0)
 {
   if (method == "NDT") {
     auto ndt = pcl::make_shared<
@@ -67,7 +69,7 @@ makeLoopRegistration(const std::string & method, double ndt_resolution, int ndt_
   if (method == "GICP") {
     auto gicp = pcl::make_shared<
       pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>>();
-    gicp->setMaxCorrespondenceDistance(30);
+    gicp->setMaxCorrespondenceDistance(gicp_max_correspondence_distance);
     gicp->setMaximumIterations(100);
     gicp->setTransformationEpsilon(1e-8);
     gicp->setEuclideanFitnessEpsilon(1e-6);
@@ -81,11 +83,11 @@ makeLoopRegistration(const std::string & method, double ndt_resolution, int ndt_
 // Kept separate so the numeric defaults exactly match the historical PCL
 // construction that the plugin API documents.
 inline pcl::Registration<pcl::PointXYZI, pcl::PointXYZI>::Ptr
-makeLegacyGicpRegistration()
+makeLegacyGicpRegistration(double max_correspondence_distance = 30.0)
 {
   auto gicp = pcl::make_shared<
     pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>>();
-  gicp->setMaxCorrespondenceDistance(30);
+  gicp->setMaxCorrespondenceDistance(max_correspondence_distance);
   gicp->setMaximumIterations(100);
   gicp->setTransformationEpsilon(1e-8);
   gicp->setEuclideanFitnessEpsilon(1e-6);

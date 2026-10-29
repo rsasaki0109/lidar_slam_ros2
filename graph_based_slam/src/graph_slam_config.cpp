@@ -55,6 +55,7 @@ GraphSlamConfig loadGraphSlamConfig(rclcpp::Node & node)
   LOAD(voxel_leaf_size, "voxel_leaf_size");
   LOAD(ndt_resolution, "ndt_resolution");
   LOAD(ndt_num_threads, "ndt_num_threads");
+  LOAD(gicp_max_correspondence_distance, "gicp_max_correspondence_distance");
   LOAD(threshold_loop_closure_score_, "threshold_loop_closure_score");
   LOAD(scan_context_loop_closure_score_threshold_, "scan_context_loop_closure_score_threshold");
   LOAD(distance_loop_closure_, "distance_loop_closure");
@@ -508,6 +509,7 @@ std::vector<std::string> validateGraphSlamConfig(const GraphSlamConfig & config)
 
   positive(config.voxel_leaf_size, "voxel_leaf_size");
   positive(config.ndt_resolution, "ndt_resolution");
+  positive(config.gicp_max_correspondence_distance, "gicp_max_correspondence_distance");
   positive(config.map_grid_size_x_, "map_grid_size_x");
   positive(config.map_grid_size_y_, "map_grid_size_y");
   positive(config.map_leaf_size_, "map_leaf_size");

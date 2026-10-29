@@ -63,7 +63,8 @@ public:
       throw std::invalid_argument("voxel_leaf_size must be positive");
     }
     registration = backend_core::makeLoopRegistration(
-      config.registration_method, config.ndt_resolution, config.ndt_num_threads);
+      config.registration_method, config.ndt_resolution, config.ndt_num_threads,
+      config.gicp_max_correspondence_distance);
     if (!registration) {
       throw std::invalid_argument("unknown registration_method: " + config.registration_method);
     }

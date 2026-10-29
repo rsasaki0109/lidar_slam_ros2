@@ -52,6 +52,7 @@ struct GraphSlamApplicationConfig
   std::string registration_method {"NDT"};
   double ndt_resolution {3.0};
   int ndt_num_threads {0};
+  double gicp_max_correspondence_distance {30.0};
   double voxel_leaf_size {0.2};
   int loop_search_query_stride {1};
   int loop_edge_dedup_index_window {8};

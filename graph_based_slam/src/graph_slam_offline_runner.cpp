@@ -324,12 +324,15 @@ int main(int argc, char ** argv)
   std::string registration_method;
   double ndt_resolution;
   int ndt_num_threads;
+  double gicp_max_correspondence_distance;
   double voxel_leaf_size;
   double submap_distance_threshold;
   bool debug_flag;
   node->get_parameter_or("registration_method", registration_method, std::string("NDT"));
   node->get_parameter_or("ndt_resolution", ndt_resolution, 5.0);
   node->get_parameter_or("ndt_num_threads", ndt_num_threads, 0);
+  node->get_parameter_or(
+    "gicp_max_correspondence_distance", gicp_max_correspondence_distance, 30.0);
   node->get_parameter_or("voxel_leaf_size", voxel_leaf_size, 0.2);
   node->get_parameter_or("submap_distance_threshold", submap_distance_threshold, 1.5);
   node->get_parameter_or("debug_flag", debug_flag, false);
@@ -1064,7 +1067,8 @@ int main(int argc, char ** argv)
     // bridge into the common session boundary.  The host namespace is
     // intentional: this path must never reinterpret a built-in as a
     // pluginlib class or silently fall back to NDT.
-    legacy_registration = graphslam::backend_core::makeLegacyGicpRegistration();
+    legacy_registration =
+      graphslam::backend_core::makeLegacyGicpRegistration(gicp_max_correspondence_distance);
     if (!legacy_registration) {
       RCLCPP_ERROR(logger, "backend GICP legacy construction failed; no fallback is allowed");
       rclcpp::shutdown();

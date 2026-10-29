@@ -28,3 +28,24 @@ with the current frontend HS-G15g (ws/rko_g35; the trajectory must equal HS-G15g
 registration variants can be run offline on the same input. Step 2: variants (NDT 2 / 1 / 0.5 m cells, GICP with a
 correspondence distance a parameter instead of 30 m), each scored with the tool above; a plan with its reading is
 written before those runs.
+
+Step 1 (2026-10-29): the backend inputs are recorded with HS-G15g (ws/rko_g35, label rl_g15g, KEEP_BACKEND_INPUT=1;
+spx-1's is 249 MB) and the walk20 backend run on each as the baseline. spx-1's loops repeat the old ones: 3-43 again
+1.37 m off (fitness 0.75), 39-78 33 mm (frontend 5 mm).
+
+Step 2 plan (fixed before its runs). graph_based_slam now takes gicp_max_correspondence_distance (default 30 m, the
+old fixed value; lidar_slam_ros2, this commit), built into its own workspace on top of ws/slam_dev so the baseline
+runner is not touched. Offline runs of graph_slam_offline_runner on the six recorded inputs, the walk20 preset with
+one change each:
+  ndt2    the preset (NDT 2 m cells), the baseline;
+  ndt1    ndt_resolution 1.0;
+  ndt05   ndt_resolution 0.5;
+  gicp1   registration_method GICP, gicp_max_correspondence_distance 1.0;
+  gicp05  the same with 0.5.
+The initial guess of every loop registration is the frontend's relative pose, which is within a few centimetres of
+the truth here, so a short correspondence distance should not cost convergence.
+Reported per variant: loop edges found and scored, the median and largest loop error, how many above 0.1 m, the
+frontend's error for the same pairs, the causal ATE against the frontend's.
+Reading: a variant registers "as accurately as the frontend" if the median error of its scored loop edges is at
+most the frontend's median for the same pairs and none of them is above 0.1 m. Such a variant goes on to the next
+items (information from the registration's Hessian, a robust solve); none is adopted from this step.

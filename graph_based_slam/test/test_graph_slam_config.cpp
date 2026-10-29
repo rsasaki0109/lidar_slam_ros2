@@ -82,6 +82,7 @@ TEST_F(GraphSlamConfigTest, LoaderAppliesRosOverridesAndDeclaresCompleteSurface)
   rclcpp::NodeOptions options;
   options.parameter_overrides({
       rclcpp::Parameter("registration_method", "GICP"),
+      rclcpp::Parameter("gicp_max_correspondence_distance", 1.5),
       rclcpp::Parameter("voxel_leaf_size", 0.4),
       rclcpp::Parameter("use_gnss", true),
       rclcpp::Parameter("gnss_topic", "/fix/filtered"),
@@ -97,6 +98,7 @@ TEST_F(GraphSlamConfigTest, LoaderAppliesRosOverridesAndDeclaresCompleteSurface)
   const auto config = graphslam::loadGraphSlamConfig(*node);
 
   EXPECT_EQ(config.registration_method, "GICP");
+  EXPECT_DOUBLE_EQ(config.gicp_max_correspondence_distance, 1.5);
   EXPECT_DOUBLE_EQ(config.voxel_leaf_size, 0.4);
   EXPECT_TRUE(config.use_gnss_);
   EXPECT_EQ(config.gnss_topic_, "/fix/filtered");
