@@ -59,5 +59,5 @@ Result (2026-10-28/29; ws/rko_g35):
     ls/g15g    0.0260  +12  -17  +58   109 s
   By the reading fixed above, hls/g15g (the HS-G15g file on the merged cloud) keeps the arc-2 stairs and its arc-3
   passages stay within 50 mm: it is the candidate, judged under decision_rule_HLS_G15g.txt. ls/g15g misses the third
-  passage by 58 mm and is not. Its arc-3 ATE is 4.0 mm (21 %) above HS-G15g's, outside the tolerance on a single run;
-  the rule's second stage decides.
+  passage by 58 mm and is not. hls/g15g's arc-3 ATE is 4.0 mm (21 %) above HS-G15g's, outside the tolerance on a
+  single run; the rule's second stage decides.
