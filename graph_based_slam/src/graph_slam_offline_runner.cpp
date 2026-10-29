@@ -1064,25 +1064,34 @@ int main(int argc, char ** argv)
       registration_plugin_session->libraryPath().c_str(),
       registration_plugin_session->pluginManifestPath().empty() ? "<host>" :
       registration_plugin_session->pluginManifestPath().c_str());
-  } else if (registration_method == "GICP") {
+  } else if (registration_method == "GICP" || registration_method == "SMALL_GICP") {
     // Preserve the historical PCL construction/configuration, then adopt the
     // bridge into the common session boundary.  The host namespace is
     // intentional: this path must never reinterpret a built-in as a
-    // pluginlib class or silently fall back to NDT.
-    legacy_registration =
+    // pluginlib class or silently fall back to NDT.  SMALL_GICP takes the
+    // same bridge around small_gicp's PCL registration (when built with it).
+    const bool small_gicp = registration_method == "SMALL_GICP";
+    const std::string class_id = small_gicp ?
+      "lidarslam_builtin/BackendSmallGicp" : "lidarslam_builtin/LegacyBackendGicp";
+    legacy_registration = small_gicp ?
+      graphslam::backend_core::makeLoopRegistration(
+      registration_method, ndt_resolution, ndt_num_threads,
+      gicp_max_correspondence_distance, gicp_transformation_epsilon) :
       graphslam::backend_core::makeLegacyGicpRegistration(
       gicp_max_correspondence_distance, gicp_transformation_epsilon);
     if (!legacy_registration) {
-      RCLCPP_ERROR(logger, "backend GICP legacy construction failed; no fallback is allowed");
+      RCLCPP_ERROR(
+        logger, "backend %s construction failed (SMALL_GICP needs a build with small_gicp); "
+        "no fallback is allowed", registration_method.c_str());
       rclcpp::shutdown();
       return 1;
     }
     legacy_registration_bridge =
       std::make_shared<graphslam::backend_registration::PclRegistrationAdapter>(
-      *legacy_registration, "lidarslam_builtin/LegacyBackendGicp");
+      *legacy_registration, class_id);
     const std::shared_ptr<RegistrationPlugin> candidate_owner = legacy_registration_bridge;
     lidarslam::plugins::registration::shell::LoadRequest request;
-    request.class_id = "lidarslam_builtin/LegacyBackendGicp";
+    request.class_id = class_id;
     request.capabilities.require_initial_guess = true;
     request.capabilities.require_aligned_source = true;
     request.capabilities.require_target_policy = true;
@@ -1144,8 +1153,8 @@ int main(int argc, char ** argv)
       registration_plugin_session->metadata().license.c_str());
   } else {
     RCLCPP_ERROR(
-      logger, "invalid registration_method='%s'; backend supports only NDT and GICP "
-      "with no fallback", registration_method.c_str());
+      logger, "invalid registration_method='%s'; backend supports only NDT, GICP and "
+      "SMALL_GICP with no fallback", registration_method.c_str());
     rclcpp::shutdown();
     return 1;
   }

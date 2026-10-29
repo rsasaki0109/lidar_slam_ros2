@@ -76,6 +76,7 @@ if(NOT g2o_FOUND)
   endif()
 endif()
 find_package(OpenMP)
+find_package(small_gicp QUIET)
 
 option(
   GRAPH_BASED_SLAM_ENABLE_3D_BBS
@@ -138,6 +139,14 @@ target_link_libraries(
   g2o::solver_eigen
   g2o::stuff
 )
+# registration_method SMALL_GICP (loop registration with small_gicp) when small_gicp is found.
+if(small_gicp_FOUND)
+  target_compile_definitions(graph_slam_application PUBLIC GRAPH_BASED_SLAM_HAVE_SMALL_GICP)
+  target_link_libraries(graph_slam_application small_gicp::small_gicp)
+  message(STATUS "small_gicp found; backend registration_method SMALL_GICP enabled")
+else()
+  message(STATUS "small_gicp not found; backend registration_method SMALL_GICP disabled")
+endif()
 
 add_library(graph_slam_map_point STATIC
   src/map_point.cpp

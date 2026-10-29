@@ -77,3 +77,24 @@ do not change; what is judged is the causal output.
 Reading: the backend "helps" on these missions if its mean causal ATE over the six is below the frontend's and no
 mission is worse than the frontend by more than 1 mm. A variant that helps is then checked on the other development
 data (MapsHD, Oxford, HILTI exp04 in chapters 25-27) before anything is adopted.
+
+Step 2 result, PCL GICP at epsilon 1e-5 (2026-10-29; ws/slam_rl rebuilt with 75bbc6a, its ndt2 loop edges on spx-1
+byte for byte the old ones): gicp1e5 1 edge on the six missions, gicp05e5 3; they are the edges of the 1e-8 runs
+(the same pairs, fitness and translation), and each loop translation equals the frontend's relative translation (loop
+error = frontend error: 26.4 mm; 36.7, 25.5, 29.3 mm), so the causal output is the frontend's. The epsilon was not
+the cause: PCL's GICP (pclomp, BFGS) leaves the initial guess as it is; on the other candidates the solver breaks
+off (an exception ends the iteration, so convergence is never set). Not pursued further.
+
+Amendment 2 (2026-10-29, before any run with it): small_gicp's GICP (Gauss-Newton, koide3/small_gicp fa0cfc9, built
+into ws/small_gicp) as the loop registration. graph_based_slam takes registration_method SMALL_GICP when built with
+small_gicp (lidar_slam_ros2, this commit): small_gicp::RegistrationPCL with type GICP, gicp_max_correspondence_distance,
+100 iterations, gicp_transformation_epsilon as its step tolerance in translation (m) and rotation (rad), and
+ndt_num_threads as its thread count (the preset's 1: a fixed reduction order). Built on top of ws/slam_dev into its
+own tree (ws/slam_sg) so the running step 3 is not touched. Variants, the walk20 preset with:
+  sgicp1    registration_method SMALL_GICP, gicp_max_correspondence_distance 1.0, gicp_transformation_epsilon 1e-4;
+  sgicp05   the same with 0.5.
+Step 2's reading applies (median loop error at most the frontend's for the same pairs, none above 0.1 m). If a
+variant finds loops, it is also run with step 3's DCS kernel (loop_edge_robust_kernel_type dcs, delta 1.0:
+sgicp1_dcs / sgicp05_dcs), read by step 3's reading.
+Check before those runs: the sg build's runner with the preset (NDT 2 m) gives rl2_ndt2's loop edges on spx-1 byte for
+byte.

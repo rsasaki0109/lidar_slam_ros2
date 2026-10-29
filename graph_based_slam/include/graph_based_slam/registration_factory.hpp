@@ -45,6 +45,11 @@
 #include <pclomp/ndt_omp_impl.hpp>
 #include <pclomp/voxel_grid_covariance_omp_impl.hpp>
 
+#ifdef GRAPH_BASED_SLAM_HAVE_SMALL_GICP
+#include <small_gicp/pcl/pcl_registration.hpp>  // NOLINT(build/include_order)
+#include <small_gicp/pcl/pcl_registration_impl.hpp>  // NOLINT(build/include_order)
+#endif
+
 namespace graphslam
 {
 namespace backend_core
@@ -76,6 +81,22 @@ makeLoopRegistration(
     gicp->setRANSACIterations(0);
     return gicp;
   }
+#ifdef GRAPH_BASED_SLAM_HAVE_SMALL_GICP
+  // small_gicp's GICP (Gauss-Newton). Its epsilon is a step size: it stops when an update moves
+  // less than gicp_transformation_epsilon in translation (m) and in rotation (rad); an
+  // alignment that has not stopped within 100 iterations is reported as not converged.
+  // ndt_num_threads is its thread count as for NDT (one thread: a fixed reduction order).
+  if (method == "SMALL_GICP") {
+    auto gicp = pcl::make_shared<small_gicp::RegistrationPCL<pcl::PointXYZI, pcl::PointXYZI>>();
+    gicp->setRegistrationType("GICP");
+    gicp->setMaxCorrespondenceDistance(gicp_max_correspondence_distance);
+    gicp->setMaximumIterations(100);
+    gicp->setTransformationEpsilon(gicp_transformation_epsilon);
+    gicp->setRotationEpsilon(gicp_transformation_epsilon);
+    if (ndt_num_threads > 0) {gicp->setNumThreads(ndt_num_threads);}
+    return gicp;
+  }
+#endif
   return nullptr;
 }
 

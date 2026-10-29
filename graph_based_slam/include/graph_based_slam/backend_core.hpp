@@ -754,9 +754,11 @@ public:
         if (debug) {
           std::snprintf(
             log_buffer, sizeof(log_buffer),
-            "Rejected loop candidate %d -> %d because registration did not converge",
+            "Rejected loop candidate %d -> %d because registration did not converge "
+            "(failure %d, converged %d: %s)",
             candidate.index,
-            latest_idx);
+            latest_idx, static_cast<int>(alignment_result.failure),
+            alignment_result.converged ? 1 : 0, alignment_result.diagnostics.detail.c_str());
           output.logs.push_back({true, std::string(log_buffer)});
         }
         continue;
