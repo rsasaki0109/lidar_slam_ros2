@@ -56,3 +56,24 @@ reported convergence: PCL's GICP requires the transformation to change by less t
 graph_based_slam now takes gicp_transformation_epsilon (default 1e-8, as before). Added variants, run once the
 current ones are done (on a rebuild of ws/slam_rl): gicp1e5 (GICP, 1.0 m, epsilon 1e-5) and gicp05e5 (0.5 m, 1e-5).
 The reading is unchanged.
+
+Step 2 result, NDT (2026-10-29; ws/slam_rl, lidar_slam_ros2 9100c1d; the rebuilt runner gives the old runner's ndt2
+loop edges byte for byte on spx-1; six missions):
+  variant  edges scored  loop error median / max  >0.1 m  frontend median  loop better  causal ATE - frontend, mm
+  ndt2      30    19       32.7 / 1366 mm           1       27.9 mm          6/19      spx-1 +6.6 heap-1 -0.7 arc-1 +3.0 pil-2 +1.0 con-2 +1.6 con-3 +1.8
+  ndt1      31    20       26.2 / 1395              1       28.1            11/20      +5.0 -0.5 +1.1 -0.3 +2.0 +0.0
+  ndt05     31    19       22.7 / 1076              1       21.6             9/19      +1.7 -0.5 +1.5 -0.1 +3.1 +1.4
+  (frontend ATE, mm: spx-1 19.6, heap-1 23.3, arc-1 11.7, pil-2 26.1, con-2 20.7, con-3 14.1)
+  Finer cells bring the median down to the frontend's level, but every variant keeps one gross loop on spx-1
+  (1.1-1.4 m, fitness 0.75-0.90). None meets the reading. GICP at epsilon 1e-8 made almost no loop (it never
+  converged): see the amendment above.
+
+Step 3 plan (fixed before its runs): the robust solve the backend already has. loop_edge_robust_kernel_type dcs
+(Dynamic Covariance Scaling, Agarwal et al. 2013) with loop_edge_robust_kernel_delta 1.0 (the default Phi) instead of
+the preset's huber. With the preset's constant loop information (translation 200, rotation 1e5), a loop 1.37 m off
+has chi2 about 375 and DCS scales it by 2 Phi / (Phi + chi2), about 0.005; a loop 3 cm off (chi2 about 0.2) keeps
+its full weight. Variants: ndt1_dcs and ndt05_dcs (and gicp1e5_dcs if gicp1e5 finds loops). The loop measurements
+do not change; what is judged is the causal output.
+Reading: the backend "helps" on these missions if its mean causal ATE over the six is below the frontend's and no
+mission is worse than the frontend by more than 1 mm. A variant that helps is then checked on the other development
+data (MapsHD, Oxford, HILTI exp04 in chapters 25-27) before anything is adopted.
