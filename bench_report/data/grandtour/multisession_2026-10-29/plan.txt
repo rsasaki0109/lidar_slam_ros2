@@ -1,0 +1,94 @@
+Phase 3, multi-session (SOTA v7 roadmap, docs/roadmap/sota-v7-plan-2026-10.md): join several runs of one site by
+place recognition (2026-10-29). Development missions only; nothing here is for COMFORT.
+
+Why GrandTour: it has several runs per site, and the total-station references of some share one frame, so a join can
+be scored against the truth. Evidence (reference prism positions, no LiDAR): con-1 and con-2 (recorded 7 minutes apart)
+walk the same corridors in the same reference coordinates (74 % of con-1's points within 0.5 m of con-2's path, median
+0.23 m); arc-5 and arc-6 (14 minutes apart) the same (75 %, 0.15 m). Other pairs do not overlap in reference
+coordinates (different areas or a different station set-up); they are not used as positive pairs.
+
+Step 1 (this plan): a prototype (bench_report/scripts/p3_multisession_join.py, Python with small_gicp's wheel 1.0.1) that
+finds the transform between two sessions' odometry frames with no prior, and refuses to join when it should not.
+Inputs: each session's backend input (HS-G15g frontend's odometry and deskewed Hesai scans, thinned to 0.1 m; con-2's
+from rl_g15g, con-1 / arc-5 / arc-6 recorded with the same frontend, label ms_g15g).
+Truth: each session's frontend trajectory (at the prism) fitted to its reference (SE(3), spikes left out);
+T_A<-B = T_ref<-A^-1 T_ref<-B. Before any join is scored, the truth is checked with the LiDAR data: B's keyframe maps put
+into A's frame with it must lie on A's maps (median distance to A's nearest map, at places A has seen within 3 m).
+Method, all values fixed here before any run:
+  keyframes every 2.0 m of travel; a keyframe's map = the scans within +-1.0 s, in a frame at the keyframe's position
+    with its yaw only (gravity-aligned; the odometry frame is), voxel 0.2 m, within 40 m;
+  Scan Context (20 rings, 60 sectors, 30 m, cell = highest point + 2 m above the keyframe, at least 0); for each B
+    keyframe the 3 A keyframes with the smallest Scan Context distance (best column shift), kept if the distance is at
+    most 0.4;
+  registration: small_gicp GICP, voxel 0.25 m, from the Scan Context yaw (translation 0), maximum correspondence
+    distance 2.0, then 1.0, then 0.5 m;
+  a match is accepted if at least 60 % of B's points have one of A's within 0.3 m after the registration;
+  two matches agree if their session transforms move both matches' B keyframes to within 0.3 m of each other and differ
+    by at most 1.0 deg; the largest set of mutually agreeing matches is found exactly (maximum clique);
+  the join is accepted if that set has at least 3 matches whose B keyframes are at least 5 m apart from one another;
+    its transform is the set's medoid (the member closest to the others).
+Join error: the RMS, over B's trajectory, of the distance between B's positions moved by the estimated and by the true
+transform.
+Pairs: con-1 <- con-2 and arc-5 <- arc-6 (same frame; a join is expected); con-2 <- arc-6 and arc-5 <- con-1 (different
+sites; a join would be wrong).
+Reading: the prototype works if both same-site pairs are joined with an error of at most 0.10 m and neither
+different-site pair is joined. Reported besides: candidates, accepted matches, how many of them are right (within 0.3 m
+of the truth at their B keyframe), the largest agreeing set, run time. If it works, step 2 builds the same join into
+graph_based_slam (inter-session edges in one pose graph) with its own plan.
+
+Step 1 result (2026-10-29). Implementation fix before the result was read: the code took the 3 places 5 m apart
+greedily (best inlier fraction first), not "at least 3 such places exist" as the plan says; on arc-5 <- arc-6 the
+greedy pick found 2 where 4 exist, so the pair was reported as not joined. The search is now exact (stopping once 3 are
+found: finding the largest such subset takes exponential time on a long overlap). With it:
+  pair                 keyframes A/B  candidates  accepted (right)  largest set (right)  joined  join error
+  con-1 <- con-2        124 / 125      375         291 (257)         257 (257)            yes     9.6 mm, 0.031 deg
+  arc-5 <- arc-6         78 / 43       129         107 (107)         107 (107)            yes     10.1 mm, 0.136 deg
+  con-2 <- arc-6        125 / 43         2           0                 0                  no      -
+  arc-5 <- con-1         78 / 124      187           0                 0                  no      -
+  Truth checked with the LiDAR maps: B's maps put into A's frame with it lie 0.085 m (con) and 0.079 m (arc) from A's
+  nearest map in the median (0.2-m maps), so the references do share a frame. Load 15-50 s, matching 4-140 s per pair.
+Reading: met (both same-site pairs joined within 0.10 m, neither different-site pair joined).
+But the margin is thin. On con-1 <- con-2, 34 accepted matches are wrong (2-33 m off), and 11 of them agree with one
+another: a transform 8.31 m off, supported at 9 places of con-2 along 14 m of one corridor (the site's repeated
+structure; the wrong matches cluster at 8.3 and 5.9 m). It contains 3 places 5 m apart, so on a pair whose true
+overlap were missing it would be accepted as the join. The different-site pairs were easy negatives (no match
+accepted at all).
+Diagnosis of a whole-map check (on con-1 <- con-2, after the result): with a transform, every B keyframe that lands
+within 3 m of an A keyframe is scored by the share of its points with one of A's (those A keyframes' maps) within 0.3 m.
+The truth and the join: 109 places, median 0.99, 0 % of places below 0.5. The wrong set's transform: 72 places,
+median 0.61, 31 % below 0.5.
+
+Step 1b plan (fixed 2026-10-29 before any run with it). The join is accepted only if its transform also passes the
+whole-map check: at least 5 B keyframes land within 3 m of an A keyframe, and at most 10 % of them have less than 50 %
+of their points within 0.3 m of A's. If the largest agreeing set fails it, the largest set among the remaining
+accepted matches is tried, up to 3 sets in all; if none passes, there is no join. Everything else is as in step 1.
+The thresholds (5 places, 10 %, 50 %) were chosen from the diagnosis above on con-1 <- con-2, so that pair is
+development data for them. Checked on:
+  same-site, the reverse directions: con-2 <- con-1, arc-6 <- arc-5 (B sides not used for the thresholds);
+  same-site, arc-4 with arc-5 both ways, if the truth check with the LiDAR maps puts arc-4's maps within 0.15 m of
+    arc-5's (median); otherwise they are reported only;
+  adversarial: each same-site pair with its right matches removed before the agreement step (the truth is used only to
+    delete them, never in the decision), as if the sessions overlapped only where the site repeats itself;
+  different-site: con-2 <- arc-6, arc-5 <- con-1 again.
+Reading: every same-site pair joined within 0.10 m, and no adversarial or different-site pair joined.
+
+Step 1b result (2026-10-29; ms_join_b/, the same prototype with the whole-map check):
+  pair                  accepted (right)  sets tried: size, places, share below 0.5, median  joined  join error
+  con-1 <- con-2         291 (257)        257, 109, 0.00, 0.99                              yes     9.6 mm, 0.031 deg
+  arc-5 <- arc-6         107 (107)        107, 43, 0.00, 0.97                               yes     10.1 mm, 0.136 deg
+  con-2 <- con-1         319 (268)        268, 119, 0.00, 0.98                              yes     11.3 mm, 0.031 deg
+  arc-6 <- arc-5          61 (61)          61, 30, 0.00, 0.95                               yes     26.5 mm, 0.141 deg
+  adversarial (right matches removed):
+  con-1 <- con-2          34 (0)          11, 72, 0.31, 0.61 / 7, 80, 0.18, 0.64 / 4, 81, 0.16, 0.65   no
+  con-2 <- con-1          51 (0)           9, 77, 0.23, 0.63 / 8, 91, 0.20, 0.65            no
+  arc-5 <- arc-6, arc-6 <- arc-5: no wrong match accepted                                   no
+  different-site: con-2 <- arc-6, arc-5 <- con-1: no match accepted                         no
+  arc-4 with arc-5 (reported only): the truth check puts arc-4's maps 1.29 m (arc-5 <- arc-4) and 3.78 m
+  (arc-4 <- arc-5) from arc-5's, so their references do not share a frame (a different station set-up); no match is
+  accepted either way (67 and 92 candidates), no join.
+Reading: met (every same-site pair joined within 0.10 m; no adversarial or different-site pair joined).
+Limits: the thresholds of the whole-map check come from con-1 <- con-2, and only the Construction site produced wrong
+agreeing sets, so the check has been seen working on that site's repeated structure only (the wrong sets' share below
+0.5 is 0.16-0.31 against 0.10; the right joins' 0.00). Two sites, two station set-ups.
+Next (step 2): the join in graph_based_slam, so that a second session's pose graph is attached to the first one's with
+inter-session edges and optimized as one, with its own plan.
