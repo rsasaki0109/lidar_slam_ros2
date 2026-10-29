@@ -98,3 +98,45 @@ variant finds loops, it is also run with step 3's DCS kernel (loop_edge_robust_k
 sgicp1_dcs / sgicp05_dcs), read by step 3's reading.
 Check before those runs: the sg build's runner with the preset (NDT 2 m) gives rl2_ndt2's loop edges on spx-1 byte for
 byte.
+
+Step 3 result, NDT with DCS (2026-10-29; ws/slam_rl, 75bbc6a; the loop edges are those of ndt1 / ndt05, unchanged):
+  variant       causal ATE - frontend, mm (spx-1 heap-1 arc-1 pil-2 con-2 con-3)   mean
+  ndt1_dcs      +0.4 -0.5 +1.6 -0.3 +1.3 -0.3                                      +0.37
+  ndt05_dcs     +1.2 -0.5 +1.4 -0.1 +1.8 -0.3                                      +0.58
+  (huber, step 2: ndt1 +5.0 -0.5 +1.1 -0.3 +2.0 +0.0, mean +1.22; ndt05 +1.7 -0.5 +1.5 -0.1 +3.1 +1.4, mean +1.18)
+  DCS takes out most of what spx-1's gross loop cost (+5.0 -> +0.4 mm), but the NDT loops are not accurate enough for
+  the rest: arc-1 and con-2 stay more than 1 mm worse than the frontend and the mean is above it. Neither helps by
+  the reading.
+
+Tool correction (2026-10-29, after the step 2 and 3 runs; it changes no run, only the scoring): the reference was
+taken at the sample nearest each submap stamp. It is sampled at about 23 Hz (43 ms median, 85 ms at the 90th
+percentile) and the robot walks at 0.6-0.9 m/s, so each end carried up to 2-4 cm of timing error, as large as the
+errors being measured. p3_grandtour_loop_errors.py now interpolates the reference linearly between the two samples
+around the stamp (none if they are more than 0.2 s apart). Every variant is re-scored with it (loops.csv); the old
+scores are kept beside them (loops_nearest.csv). The readings are applied to the corrected scores, and both are
+reported. (The reference time lag is still not applied.)
+
+Amendment 3 (2026-10-29, before any run with it): the roadmap's second item, loop information from the registration's
+Hessian. graph_based_slam takes loop_edge_info_from_registration (default false; lidar_slam_ros2, the commit after
+ebb82ee): with the constant loop information set, a loop edge whose registration reports a Hessian (SMALL_GICP:
+small_gicp's Gauss-Newton Hessian, passed as its inverse in the registration's covariance) gets that Hessian, moved to
+the edge's relative pose, as the shape of its information: in g2o's order, the translation block and the rotation
+block are each scaled so that their mean eigenvalue is the constant (200, 1e5). The weight stays the constants'; what
+changes is which directions the edge constrains and how they couple. Each edge's information is also written to
+loop_edge_information.csv. Built into ws/slam_hi on top of ws/slam_dev.
+Variants (the registration is sgicp05's, the one of step 2 without a gross loop; chosen after its result):
+  sgicp05_hi      sgicp05 with loop_edge_info_from_registration true;
+  sgicp05_hi_dcs  the same with step 3's DCS kernel (dcs, delta 1.0).
+Reading: step 3's (the backend helps if its mean causal ATE over the six is below the frontend's and no mission is
+worse than it by more than 1 mm); reported beside sgicp05 and sgicp05_dcs, which differ only in the information.
+Check before those runs: ws/slam_hi's runner with loop_edge_info_from_registration false gives rl2_sgicp05's
+loop_edges.csv and trajectory_causal.tum on spx-1 byte for byte.
+Check result (2026-10-29): ws/slam_hi's runner gives rl2_sgicp05's loop_edges.csv and trajectory_optimized.tum on
+spx-1 byte for byte, but not its trajectory_causal.tum (6 of 3743 poses differ, by 1.8 mm at most, 0.04 mm RMS). The
+check was ill-posed: the causal output is not reproducible by design. A correction takes effect after the measured
+wall time of the loop search and optimization (graph_slam_offline_runner, causal_trajectory_output), so the poses
+around each correction move with the machine's load. The same runner run twice on the same input differs the same
+way: rl2_ndt2 against its re-runs rl2_ndt2chk and rl2_ndt2sg, 3-7 poses, up to 15 mm, 0.10-0.27 mm RMS, with
+byte-identical loop edges and optimized trajectories. The check is therefore read on loop_edges.csv and
+trajectory_optimized.tum, which it passes, and the runs go ahead. Run-to-run variation of the causal ATE is below 0.1 mm
+here, small against the readings' 1 mm.

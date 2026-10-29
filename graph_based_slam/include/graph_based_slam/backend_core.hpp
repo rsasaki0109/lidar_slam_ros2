@@ -60,6 +60,7 @@
 #include <lidarslam_plugin_interfaces/registration.hpp>
 
 #include "graph_based_slam/candidate_aggregator.hpp"
+#include "graph_based_slam/loop_edge_information.hpp"
 #include "graph_based_slam/loop_edge_set.hpp"
 #include "graph_based_slam/loop_verifier.hpp"
 #include "graph_based_slam/scan_context.hpp"
@@ -120,6 +121,10 @@ struct LoopEdgeProposal
   std::pair<int, int> pair_id{-1, -1};
   Eigen::Isometry3d relative_pose{Eigen::Isometry3d::Identity()};
   double fitness_score{0.0};
+  // Information of relative_pose exp([w; v]) from the registration's
+  // Hessian, when the registration reports a covariance.
+  bool registration_information_valid{false};
+  Eigen::Matrix<double, 6, 6> registration_information{Eigen::Matrix<double, 6, 6>::Zero()};
 };
 
 struct LoopSearchOutput
@@ -806,6 +811,9 @@ public:
       candidate_result.three_d_bbs_score_percentage = three_d_bbs_score_percentage;
       candidate_result.three_d_bbs_elapsed_msec = three_d_bbs_elapsed_msec;
       candidate_result.final_transformation = final_transformation;
+      candidate_result.registration_covariance_valid =
+        alignment_result.diagnostics.covariance_valid;
+      candidate_result.registration_covariance = alignment_result.diagnostics.covariance;
 
       selection.considerConverged(candidate_result);
 
@@ -937,6 +945,15 @@ public:
     output.proposal.relative_pose = loop_verifier::composeLoopRelativePose(
       submaps[best_candidate.index].pose, latest_affine, best_candidate.final_transformation);
     output.proposal.fitness_score = best_candidate.fitness_score;
+    loop_information::Matrix6d registration_hessian;
+    if (best_candidate.registration_covariance_valid &&
+      loop_information::invertPositiveDefinite(
+        best_candidate.registration_covariance, &registration_hessian))
+    {
+      output.proposal.registration_information_valid = true;
+      output.proposal.registration_information = loop_information::relativePoseInformation(
+        Eigen::Isometry3d(latest_affine.matrix()), registration_hessian);
+    }
 
     output.logs.push_back({false, "---"});
     std::ostringstream adjustment_line;

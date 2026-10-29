@@ -160,6 +160,9 @@ std::vector<LoopSearchEvent> GraphSlamApplication::processSubmaps(
         edge.pair_id = event.search_output.proposal.pair_id;
         edge.relative_pose = event.search_output.proposal.relative_pose;
         edge.fitness_score = event.search_output.proposal.fitness_score;
+        edge.registration_information_valid =
+          event.search_output.proposal.registration_information_valid;
+        edge.registration_information = event.search_output.proposal.registration_information;
         event.graph_changed = engine_->loop_edges.upsert(edge);
       }
     }
@@ -205,6 +208,8 @@ std::vector<pose_graph::LoopConstraint> loopConstraintsForPrefix(
     constraint.to = edge.pair_id.second;
     constraint.relative_pose = edge.relative_pose;
     constraint.fitness_score = edge.fitness_score;
+    constraint.registration_information_valid = edge.registration_information_valid;
+    constraint.registration_information = edge.registration_information;
     constraints.push_back(constraint);
   }
   return constraints;

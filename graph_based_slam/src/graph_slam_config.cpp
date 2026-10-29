@@ -100,6 +100,7 @@ GraphSlamConfig loadGraphSlamConfig(rclcpp::Node & node)
   LOAD(loop_edge_info_weight_, "loop_edge_info_weight");
   LOAD(loop_edge_info_constant_trans_, "loop_edge_info_constant_trans");
   LOAD(loop_edge_info_constant_rot_, "loop_edge_info_constant_rot");
+  LOAD(loop_edge_info_from_registration_, "loop_edge_info_from_registration");
   LOAD(loop_edge_robust_kernel_delta_, "loop_edge_robust_kernel_delta");
   LOAD(loop_edge_robust_kernel_type_, "loop_edge_robust_kernel_type");
   LOAD(use_scan_context_, "use_scan_context");

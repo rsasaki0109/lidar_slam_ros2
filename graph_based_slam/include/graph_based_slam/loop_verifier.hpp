@@ -92,6 +92,10 @@ struct LoopCandidateResult
   double three_d_bbs_score_percentage {0.0};
   double three_d_bbs_elapsed_msec {0.0};
   Eigen::Matrix4f final_transformation {Eigen::Matrix4f::Identity()};
+  // The registration's covariance when it reports one (small_gicp: the
+  // inverse Gauss-Newton Hessian for final_transformation exp([w; v])).
+  bool registration_covariance_valid {false};
+  Eigen::Matrix<double, 6, 6> registration_covariance {Eigen::Matrix<double, 6, 6>::Zero()};
 };
 
 inline const char * sourceName(LoopCandidate::Source source)

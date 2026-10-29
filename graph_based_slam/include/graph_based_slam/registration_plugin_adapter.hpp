@@ -37,6 +37,12 @@
 
 #include <lidarslam_plugin_interfaces/registration.hpp>
 
+#ifdef GRAPH_BASED_SLAM_HAVE_SMALL_GICP
+#include <small_gicp/pcl/pcl_registration.hpp>  // NOLINT(build/include_order)
+
+#include "graph_based_slam/loop_edge_information.hpp"
+#endif
+
 namespace graphslam
 {
 namespace backend_registration
@@ -102,6 +108,11 @@ public:
     .setTargetPolicy(TargetPolicy::kAcceptHostPrepared)
     .setCorrespondenceMetric(CorrespondenceMetric::kSquareRootFitnessProxy)
     .setThreadModel(ThreadModel::kSerializedOwner);
+#ifdef GRAPH_BASED_SLAM_HAVE_SMALL_GICP
+    if (smallGicp() != nullptr) {
+      capabilities.add(Capability::kCovariance);
+    }
+#endif
     return capabilities;
   }
 
@@ -198,6 +209,15 @@ public:
         return result;
       }
       result.aligned_source.reset(new PointCloud(aligned));
+#ifdef GRAPH_BASED_SLAM_HAVE_SMALL_GICP
+      // small_gicp's Gauss-Newton Hessian at the solution is for a right
+      // perturbation T exp([w; v]) of final_transformation (rotation first);
+      // the covariance is its inverse, in that tangent.
+      if (const auto * small_gicp = smallGicp()) {
+        result.diagnostics.covariance_valid = loop_information::invertPositiveDefinite(
+          small_gicp->getFinalHessian(), &result.diagnostics.covariance);
+      }
+#endif
       result.failure = FailureCode::kNone;
       return result;
     } catch (const std::exception & exception) {
@@ -217,6 +237,14 @@ public:
   }
 
 private:
+#ifdef GRAPH_BASED_SLAM_HAVE_SMALL_GICP
+  const small_gicp::RegistrationPCL<pcl::PointXYZI, pcl::PointXYZI> * smallGicp() const
+  {
+    return dynamic_cast<const small_gicp::RegistrationPCL<pcl::PointXYZI, pcl::PointXYZI> *>(
+      registration_);
+  }
+#endif
+
   static void setError(std::string * error, const std::string & message)
   {
     if (error != nullptr) {

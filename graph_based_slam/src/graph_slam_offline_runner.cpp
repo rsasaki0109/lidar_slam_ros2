@@ -922,6 +922,9 @@ int main(int argc, char ** argv)
   double loop_edge_info_constant_rot;
   node->get_parameter_or("loop_edge_info_constant_trans", loop_edge_info_constant_trans, 0.0);
   node->get_parameter_or("loop_edge_info_constant_rot", loop_edge_info_constant_rot, 0.0);
+  bool loop_edge_info_from_registration;
+  node->get_parameter_or(
+    "loop_edge_info_from_registration", loop_edge_info_from_registration, false);
   node->get_parameter_or("loop_edge_robust_kernel_delta", loop_edge_robust_kernel_delta, 1.0);
   node->get_parameter_or(
     "loop_edge_robust_kernel_type", loop_edge_robust_kernel_type, std::string("huber"));
@@ -1191,6 +1194,7 @@ int main(int argc, char ** argv)
   loop_config.info_weight = loop_edge_info_weight;
   loop_config.constant_info_trans = std::max(0.0, loop_edge_info_constant_trans);
   loop_config.constant_info_rot = std::max(0.0, loop_edge_info_constant_rot);
+  loop_config.information_from_registration = loop_edge_info_from_registration;
   loop_config.robust_kernel_type = loop_edge_robust_kernel_type;
   loop_config.robust_kernel_delta = loop_edge_robust_kernel_delta;
   graphslam::pose_graph::ImuEdgeConfig imu_config;
@@ -1273,6 +1277,8 @@ int main(int argc, char ** argv)
           edge.pair_id = output.proposal.pair_id;
           edge.relative_pose = output.proposal.relative_pose;
           edge.fitness_score = output.proposal.fitness_score;
+          edge.registration_information_valid = output.proposal.registration_information_valid;
+          edge.registration_information = output.proposal.registration_information;
           if (!edge_set.upsert(edge)) {
             std::cout << "loop edge skipped as redundant or lower quality" << std::endl;
           } else {
@@ -1332,6 +1338,8 @@ int main(int argc, char ** argv)
         constraint.to = edge.pair_id.second;
         constraint.relative_pose = edge.relative_pose;
         constraint.fitness_score = edge.fitness_score;
+        constraint.registration_information_valid = edge.registration_information_valid;
+        constraint.registration_information = edge.registration_information;
         constraints.push_back(constraint);
       }
       const graphslam::pose_graph::OptimizationResult result =
@@ -1639,6 +1647,8 @@ int main(int argc, char ** argv)
     loop_constraint.to = edge.pair_id.second;
     loop_constraint.relative_pose = edge.relative_pose;
     loop_constraint.fitness_score = edge.fitness_score;
+    loop_constraint.registration_information_valid = edge.registration_information_valid;
+    loop_constraint.registration_information = edge.registration_information;
     loop_constraints.push_back(loop_constraint);
   }
 
@@ -2235,6 +2245,28 @@ int main(int argc, char ** argv)
         edge.pair_id.first, edge.pair_id.second, edge.fitness_score,
         t.x(), t.y(), t.z(), q.x(), q.y(), q.z(), q.w());
       csv << line << "\n";
+    }
+  }
+  // Diagnostic beside it, when a loop registration reported a Hessian: each
+  // edge's information of relative_pose exp([w; v]) (row-major 6x6), from
+  // the registration whether or not loop_edge_info_from_registration uses it.
+  if (std::any_of(
+      edge_set.edges().begin(), edge_set.edges().end(),
+      [](const graphslam::backend_core::LoopEdgeSet::Edge & edge) {
+        return edge.registration_information_valid;
+      }))
+  {
+    std::ofstream csv(output_dir + "/loop_edge_information.csv");
+    csv << "from,to,valid,information_w_v_row_major_36\n";
+    char value[32];
+    for (const auto & edge : edge_set.edges()) {
+      csv << edge.pair_id.first << "," << edge.pair_id.second << "," <<
+        (edge.registration_information_valid ? 1 : 0);
+      for (int k = 0; k < 36; ++k) {
+        std::snprintf(value, sizeof(value), ",%.17g", edge.registration_information(k / 6, k % 6));
+        csv << value;
+      }
+      csv << "\n";
     }
   }
   {

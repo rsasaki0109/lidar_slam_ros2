@@ -4,6 +4,7 @@ Summary of loop registration variants on GrandTour development missions (Phase 3
 loop edges found and scored (p3_grandtour_loop_errors.py rows in <run>/loops.csv), the median and largest loop error,
 how many are above 0.1 m, the frontend's error for the same pairs, and the causal ATE against the frontend's.
 Usage: p3_grandtour_loop_summary.py <frontend label> <variant label> ... -- <mission> ...
+LOOPS=loops_nearest.csv reads the scores with the nearest reference sample (the tool before 2026-10-29's correction).
 """
 import csv
 import os
@@ -33,7 +34,7 @@ def main():
     for v in variants:
         rows, ates = [], []
         for m in missions:
-            p = f'{B}/{v}/{m}/loops.csv'
+            p = f'{B}/{v}/{m}/{os.environ.get("LOOPS", "loops.csv")}'
             if os.path.exists(p):
                 rows += [r for r in csv.reader(open(p)) if r]
             t = f'{B}/{v}/{m}/{m}_causal.tum'
