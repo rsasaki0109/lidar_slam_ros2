@@ -80,3 +80,21 @@ Record (2026-10-29, after the batch, before the zip left the VM)
   142.9 s), eig-1 21 mm, spx-2 9, arc-7 6, snow-2 4, con-4 4 mm. The largest vertical speed over 0.3 s is 0.81 m/s
   (con-4); arc-2's 1.59 m/s step is gone (0.75 m/s). arc-7, the other weak test mission, hardly changes.
   Only the sensor streams of the test missions were read, and only by the pipeline; no test reference was opened.
+
+Maintainer's decision (2026-10-29): submission 6 is uploaded (by the maintainer) as the next test-phase submission,
+on the developer's recommendation.
+
+Test result (2026-10-29, uploaded by the maintainer to the Test Phase; recorded as returned; values in m):
+  mission        ATE        RTE        LE
+  test_average   0.029927   0.015029   0.026607
+  arc-2          0.026134   0.013434   0.009679
+  arc-7          0.053034   0.011578   0.024453
+  con-4          0.017105   0.020898   0.010169
+  eig-1          0.033203   0.014781   0.055501
+  snow-2         0.018282   0.015226   0.014784
+  spx-2          0.031802   0.014259   0.045054
+  Against submission 5 (HS-G15g, 0.042621): arc-2 0.1024 -> 0.0261 (the stairs), arc-7 0.0537 -> 0.0530, con-4
+  0.0170 -> 0.0171, eig-1 0.0326 -> 0.0332, snow-2 0.0169 -> 0.0183, spx-2 0.0331 -> 0.0318. RTE 0.0222 -> 0.0150,
+  LE 0.0317 -> 0.0266. As the GT-free comparison said, only arc-2 moves much; the other five move by 0.1-1.4 mm, the
+  size the development data showed. On the public leaderboard of 2026-10-28 (leaderboard_2026-10-28.txt) 0.0299 would
+  rank 10th of 23 (between Pelorus 0.028 and DALI 0.031). Nothing is tuned on these scores.
