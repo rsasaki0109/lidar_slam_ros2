@@ -34,3 +34,30 @@ Reading, fixed now: a variant "keeps the arc-2 stairs" if it climbs 2.40-2.65 m 
 speed above 1 m/s over 0.3 s. A variant that keeps them and whose arc-3 gap errors stay within 50 mm becomes a
 candidate for a rule on all the development data (the 15 HS missions, tolerance and mean as decision_rule_G15g.txt).
 Nothing here is adopted from arc-2 alone.
+
+Result (2026-10-28/29; ws/rko_g35):
+  test arc-2 (GT-free), height above the climb's start floor, m:
+    run              125-140 s   160-240 s   270-280 s   largest |vz| over 0.3 s
+    HS-G15g (subm. 5)  +2.21       +2.55       +3.99       1.59 m/s at 142.8 s (the step)
+    hs/nb              +2.19       +2.50       +3.64       1.43 m/s at 325.0 s
+    hs/v15             +2.20       +2.26       +3.64       0.59
+    hs/cs0             +2.20       +1.87       +3.32       1.71 m/s at 325.0 s
+    hls/g15g (merged)  +2.49       +2.52       +4.13       0.75
+    ls/g15g (Livox)    +2.47       +2.47       +4.20       0.77
+  Every Hesai-only variant is 0.33 m short at the top of the stairs whatever the bump terms, the voxel size or the
+  close-scene settings: the cause is what the Hesai sees there, not one of these settings. The merged and the Livox
+  clouds keep the stairs (2.47-2.49 m at once, no step). The merged conversion now consumes both LiDAR groups as it
+  reads them (lidar_slam_ros2 05f06bc; the first merged arc-3 conversion ran out of disk); it gives the same arc-2
+  trajectory byte for byte (md5 d6ffd99b...).
+  development arc-3 (ATE without reference spikes; height error across the three hidden stair passages, mm; node
+  time for the 648-s mission):
+    HS-G15g    0.0188   +8   +3   +4    (hsr_g15glog)
+    hs/nb      0.1260   -8  +14  -26    91 s
+    hs/v15     0.0964  +42 -243 +239   308 s
+    hs/cs0     0.0193  +11   -5   +5   239 s
+    hls/g15g   0.0228  -12  +34   -0   357 s
+    ls/g15g    0.0260  +12  -17  +58   109 s
+  By the reading fixed above, hls/g15g (the HS-G15g file on the merged cloud) keeps the arc-2 stairs and its arc-3
+  passages stay within 50 mm: it is the candidate, judged under decision_rule_HLS_G15g.txt. ls/g15g misses the third
+  passage by 58 mm and is not. Its arc-3 ATE is 4.0 mm (21 %) above HS-G15g's, outside the tolerance on a single run;
+  the rule's second stage decides.
