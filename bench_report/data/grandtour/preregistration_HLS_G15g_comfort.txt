@@ -57,3 +57,26 @@ Fact sheet (proposed)
   merged per scan + STIM320; frontend output only, no loop closure, no post-processing. The LiDAR choice was revised
   after a test-phase result (arc-2). Novel: yes. Real-time: yes. LiDAR: yes. IMU: yes. Camera: no. GNSS: no.
   External odometry: no.
+
+Record (2026-10-29, after the batch, before the zip left the VM)
+  Policy 0: the configuration file (md5 8a285bdb...) on spx-3 with DATA_ROOT=/dev/shm/gt_batch gives the development
+  run's trajectory byte for byte (front_tum md5 6daccfad...). The test batch ran only after that check (one script:
+  the check, then the batch), with no other job on the machine.
+  Test missions, one run each with HLS-G15g (node time / mission span), no registration failure; as in every run,
+  only the bag's last LiDAR frames, after the STIM320 stream ends, are dropped (72-76 per mission); the pose counts
+  and first stamps equal submission 5's:
+    arc-2   113.9 s / 425 s   static start   md5 d6ffd99b57f910c056963ea6ab3912eb  (= screen 19's run, front_tum
+                                                                                    0b8704d8...)
+    arc-7   120.1 s / 322 s   static start   md5 7f3c227ec609c92e5de48bbf7bcbc479
+    con-4   559.9 s / 743 s   static start   md5 077b20800db3e8d96f3c1b554b658676
+    eig-1   303.4 s / 430 s   static start   md5 7ec5fa5f5b6bacb17a662d4174496190
+    snow-2  174.3 s / 261 s   moving start   md5 63fca7228789192885546f0cee18745b  (gravity window 2.07 deg; 18
+                                                                                      standing intervals held)
+    spx-2    95.5 s / 383 s   moving start   md5 85664cf814fee209f275a296b72cfaf5  (gravity window 2.38 deg; 4
+                                                                                      standing intervals held)
+  comfort_test_G15gHLS.zip (the six files at its root): md5 3ab6e17b453a4e70d2b29d822209f72a
+  (data/grandtour/G15gHLS/, and a copy at the repository root for the maintainer.)
+  GT-free against submission 5 (rigidly aligned to it): arc-2 differs by 79 mm RMS (538 mm at most: the climb before
+  142.9 s), eig-1 21 mm, spx-2 9, arc-7 6, snow-2 4, con-4 4 mm. The largest vertical speed over 0.3 s is 0.81 m/s
+  (con-4); arc-2's 1.59 m/s step is gone (0.75 m/s). arc-7, the other weak test mission, hardly changes.
+  Only the sensor streams of the test missions were read, and only by the pipeline; no test reference was opened.
