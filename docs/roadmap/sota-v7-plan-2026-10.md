@@ -192,6 +192,23 @@ one frame is still to be checked.
   fitness does not predict accuracy).
 - Replace the hand-set loop rejection thresholds with a robust solve (GNC or switchable
   constraints).
+- **Status (2026-10-29, report chapters 36-38):**
+  - Loop registration with small_gicp's GICP at a 0.5 m correspondence distance
+    (`registration_method: SMALL_GICP`).
+    - It is the first setting that does not hurt: on GrandTour no mission is more than 0.8 mm worse; on MapsHD,
+      Oxford and exp04 no sequence is more than 2.7 % worse.
+    - The adopted NDT 2 m makes two garages 16-22 % worse.
+    - It does not help either: its loops are no more accurate than the frontend over the same stretch.
+  - DCS (Phi 1) removes the gross loops on GrandTour but makes Oxford 24 % worse.
+  - Loop information shaped by the registration Hessian (`loop_edge_info_from_registration`) does not help.
+  - Nothing is adopted into the presets.
+  - Multi-session: `graph_slam_multisession_join` (`docs/architecture/multisession-join.md`) joins two sessions of one
+    site by place recognition, with no prior.
+    - It joins all four same-site directions of two GrandTour sites within 1-3 cm.
+    - In the joined map, the second session is within 5 mm of its single-session ATE.
+    - It refuses different-site pairs and the stress tests.
+    - The whole-map check's margin against a site's repeated structure is thin (13 % against a 10 % limit), so it
+      needs more sites before unattended use.
 
 ### Phase 4 — Resources
 

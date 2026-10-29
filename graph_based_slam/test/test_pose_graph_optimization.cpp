@@ -567,6 +567,29 @@ Eigen::Isometry3d pose(double yaw, double pitch, const Eigen::Vector3d & t)
   return g;
 }
 
+TEST(PoseGraphOptimization, NoAdjacentEdgeAcrossASessionStart)
+{
+  // two sessions of three submaps, joined by one loop edge: the adjacent edges stay inside each
+  std::vector<SubmapNode> nodes(6);
+  for (int i = 0; i < 6; ++i) {
+    nodes[i].pose.translation() = Eigen::Vector3d(i, 0.0, 0.0);
+  }
+  nodes[3].session_start = true;
+  LoopConstraint join;
+  join.from = 2;
+  join.to = 3;
+  join.relative_pose.translation() = Eigen::Vector3d(1.0, 0.0, 0.0);
+  AdjacentEdgeConfig adjacent;
+  adjacent.num_adjacent_pose_constraints = 5;
+  const auto joined = optimizePoseGraph(
+    nodes, {join}, {}, {}, adjacent, LoopEdgeConfig{}, ImuEdgeConfig{}, Chi2Collection::UNIFIED);
+  EXPECT_EQ(joined.adjacent_chi2.size(), 6U);  // (0,1) (0,2) (1,2) and (3,4) (3,5) (4,5)
+  nodes[3].session_start = false;
+  const auto single = optimizePoseGraph(
+    nodes, {join}, {}, {}, adjacent, LoopEdgeConfig{}, ImuEdgeConfig{}, Chi2Collection::UNIFIED);
+  EXPECT_EQ(single.adjacent_chi2.size(), 15U);
+}
+
 TEST(LoopEdgeInformation, RegistrationHessianMovesToTheEdgeAndItsInverse)
 {
   // A positive definite Hessian of the registration T exp(delta).
@@ -589,7 +612,8 @@ TEST(LoopEdgeInformation, RegistrationHessianMovesToTheEdgeAndItsInverse)
     for (int i = 0; i < 6; ++i) {
       delta(i) = 1e-6 * std::cos(3.0 * k + i);
     }
-    const Eigen::Isometry3d moved = candidate.inverse() * registration * perturbation(delta) * latest;
+    const Eigen::Isometry3d moved = candidate.inverse() * registration * perturbation(delta) *
+      latest;
     // The registration's cost of delta equals the edge's cost of its own tangent, both ways round.
     const Eigen::Matrix<double, 6, 1> e = tangent(relative.inverse() * moved);
     const Eigen::Matrix<double, 6, 1> e_inverse = tangent(relative * moved.inverse());
@@ -606,7 +630,8 @@ TEST(LoopEdgeInformation, ShapedInformationKeepsTheConstantsMeanInG2oOrder)
   information.diagonal() << 4.0, 8.0, 12.0, 1.0, 2.0, 3.0;
   const Eigen::Matrix<double, 6, 6> shaped =
     loop_information::g2oShapedInformation(information, 200.0, 1e5);
-  // g2o order [t; q.vec], q.vec = w / 2: translation 1:2:3, rotation 4:8:12 (times 4), each scaled to the mean.
+  // g2o order [t; q.vec], q.vec = w / 2: translation 1:2:3, rotation 4:8:12 (times 4), each
+  // scaled to the mean.
   Eigen::Matrix<double, 6, 1> expected;
   expected << 100.0, 200.0, 300.0, 0.5e5, 1e5, 1.5e5;
   EXPECT_TRUE(shaped.diagonal().isApprox(expected));

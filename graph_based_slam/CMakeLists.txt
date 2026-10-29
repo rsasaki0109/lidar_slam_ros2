@@ -1084,12 +1084,39 @@ target_link_libraries(graph_slam_offline_runner
   g2o::stuff
 )
 
+# Multi-session join (several sessions of one site in one pose graph): needs small_gicp.
+if(small_gicp_FOUND)
+  add_executable(graph_slam_multisession_join src/graph_slam_multisession_join.cpp)
+  target_compile_features(graph_slam_multisession_join PRIVATE cxx_std_17)
+  target_include_directories(graph_slam_multisession_join PRIVATE include ${PCL_INCLUDE_DIRS})
+  ament_target_dependencies(graph_slam_multisession_join
+    rclcpp rosbag2_cpp pcl_conversions nav_msgs sensor_msgs)
+  target_link_libraries(graph_slam_multisession_join
+    graph_slam_application
+    small_gicp::small_gicp
+    ${PCL_LIBRARIES}
+    g2o::core
+    g2o::types_slam3d
+    g2o::solver_eigen
+    g2o::stuff
+  )
+  install(TARGETS graph_slam_multisession_join DESTINATION lib/${PROJECT_NAME})
+endif()
+
 include_directories(
   include
   ${PCL_INCLUDE_DIRS}
 )
 
 if(BUILD_TESTING)
+  if(small_gicp_FOUND)
+    ament_add_gtest(test_multisession_join test/test_multisession_join.cpp TIMEOUT 300)
+    if(TARGET test_multisession_join)
+      target_compile_features(test_multisession_join PRIVATE cxx_std_17)
+      target_include_directories(test_multisession_join PRIVATE include ${EIGEN3_INCLUDE_DIR})
+      target_link_libraries(test_multisession_join small_gicp::small_gicp ${PCL_LIBRARIES})
+    endif()
+  endif()
   ament_add_gtest(
     test_graph_slam_composition
     test/test_graph_slam_composition.cpp

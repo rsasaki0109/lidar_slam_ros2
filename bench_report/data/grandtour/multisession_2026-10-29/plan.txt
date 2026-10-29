@@ -92,3 +92,54 @@ agreeing sets, so the check has been seen working on that site's repeated struct
 0.5 is 0.16-0.31 against 0.10; the right joins' 0.00). Two sites, two station set-ups.
 Next (step 2): the join in graph_based_slam, so that a second session's pose graph is attached to the first one's with
 inter-session edges and optimized as one, with its own plan.
+
+Step 2 plan (fixed 2026-10-29 before any run with it): the join in graph_based_slam.
+What is built (lidar_slam_ros2):
+  - graph_based_slam/include/graph_based_slam/multisession_join.hpp: the step 1b method in C++ (Scan Context from the
+    existing ScanContext class with the cloud raised 2 m, small_gicp's C++ registration, exact maximum clique, the
+    spread and whole-map checks; every value as in step 1b). Only with small_gicp in the build.
+  - pose_graph::SubmapNode gets session_start: no adjacent edge reaches back across it (default false: unchanged).
+  - graph_slam_multisession_join, an offline executable: for each session, its backend input bag and the output of
+    graph_slam_offline_runner on it (trajectory_raw.tum, loop_edges.csv). The runner's submaps are the keyframes (a
+    keyframe map = the scans within +-1.0 s of the submap's stamp, as in step 1). Every session is joined to the first;
+    the joined ones go into one pose graph: each session's odometry chain (its raw submap poses, the first session's as
+    they are, the others' moved by their join), its own loop edges, and one inter-session edge per B submap of the
+    accepted set (the best match there), with the loop edges' constant information and robust kernel; the first
+    submap fixed. Writes each session's optimized submap poses in the first session's frame, the join report and the
+    inter-session edges. A test hook (debug_exclude_transform) drops the matches that agree with a given transform, for
+    the stress test only.
+  - unit tests: a synthetic join with a known transform; a repeated structure whose wrong set the whole-map check
+    rejects; no adjacent edge across a session start.
+Runs: the runner (walking preset with SMALL_GICP 0.5 m, the loop registration that did not hurt in chapters 36-37) on
+each of con-1, con-2, arc-5, arc-6; then the join tool on the pairs of step 1b: con-1 + con-2 and arc-5 + arc-6 both
+ways, con-2 + arc-6, arc-5 + con-1, and the four same-site pairs with the true transform excluded.
+Scored (development references): the join error as in step 1 (B's raw trajectory moved by the join against the truth);
+then each session's optimized submap poses densified onto its frontend trajectory, at the prism, and session A's
+fitted to its reference (SE(3)); session B's ATE is taken with that same fit (one frame for the joined map) and set
+against B's single-session ATE (the runner's own optimized trajectory, fitted to B's reference alone).
+Reading:
+  1. the same decisions as step 1b: the four same-site directions joined within 0.10 m; the two different-site pairs
+     and the four stress tests not joined;
+  2. the joined map is consistent: for every joined pair, B's ATE in A's frame at most 0.02 m above B's single-session
+     ATE, and A's ATE at most 0.005 m above A's single-session ATE.
+
+Step 2 result (2026-10-29; lidar_slam_ros2 graph_slam_multisession_join, ws/slam_hi with small_gicp fa0cfc9; each
+session's runner run: walking preset, SMALL_GICP 0.5 m; ms_join2/). Runner submaps as keyframes: con-1 163, con-2 167,
+arc-5 / arc-6 fewer (step 1 had 124 / 125 at 2 m). ATE without reference spikes, mm.
+  pair             candidates accepted  set (places, below 0.5)  join error       single A / B   joint A / B in A's frame
+  con-1 + con-2      499       402      356 (144, 0.00)            11.5 mm 0.035d   24.4 / 20.7    23.9 / 22.7 (+2.0)
+  con-2 + con-1      489       438      369 (157, 0.00)            12.5 mm 0.035d   20.7 / 24.4    20.8 / 24.3 (-0.1)
+  arc-5 + arc-6      171       151      151 (57, 0.00)             11.3 mm 0.151d   16.1 /  9.7    16.1 / 14.6 (+4.9)
+  arc-6 + arc-5      138        92       92 (39, 0.00)             29.1 mm 0.167d    9.7 / 16.1     9.7 / 20.2 (+4.1)
+  con-2 + arc-6        1         0      -                          not joined
+  arc-5 + con-1      257         0      -                          not joined
+  stress (the true transform's matches excluded):
+  con-1 + con-2      499        46      15 (96, 0.30) / 8 (108, 0.19) / 5 (108, 0.13): none passes, not joined
+  con-2 + con-1      489        69      16 (118, 0.19) / 15 (104, 0.24) / 9 (106, 0.15): none passes, not joined
+  arc-5 + arc-6, arc-6 + arc-5: no other match accepted, not joined
+  Time: 105-186 s for a Construction pair, 12-21 s for an ARCHE pair (reading both bags included).
+Reading: 1 met (the same decisions as step 1b, the same-site joins within 0.03 m); 2 met (B in A's frame at most
+4.9 mm above its single-session ATE, A at most 0.1 mm above; con-1's even 0.5 mm better).
+The margin of the whole-map check is thin on one wrong set: the third set tried in stress con-1 + con-2 has 13 % of its
+places below 0.5 against the 10 % limit (the right joins: 0 %). A site with fewer unique structures than the
+Construction site could pass a wrong set; the check needs more sites before the tool is used unattended.

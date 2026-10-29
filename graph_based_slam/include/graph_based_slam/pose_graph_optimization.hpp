@@ -73,6 +73,9 @@ struct SubmapNode
 {
   Eigen::Isometry3d pose {Eigen::Isometry3d::Identity()};
   std::array<double, 36> odometry_covariance {};
+  // The first submap of another session (multi-session graphs): no adjacent edge reaches back
+  // across it, since the sessions share no odometry.
+  bool session_start {false};
 };
 
 struct LoopConstraint
@@ -228,7 +231,9 @@ inline OptimizationResult optimizePoseGraph(
 
   const int submaps_size = static_cast<int>(submaps.size());
   std::vector<g2o::EdgeSE3 *> adjacent_edges;
+  int session_first = 0;
   for (int i = 0; i < submaps_size; i++) {
+    if (submaps[i].session_start) {session_first = i;}
     const Eigen::Isometry3d & pose = submaps[i].pose;
 
     g2o::VertexSE3 * vertex_se3 = new g2o::VertexSE3();
@@ -237,8 +242,9 @@ inline OptimizationResult optimizePoseGraph(
     if (i == 0 && fix_first_vertex) {vertex_se3->setFixed(true);}
     optimizer.addVertex(vertex_se3);
 
-    if (i > 0) {
-      const int start_idx = std::max(0, i - adjacent_cfg.num_adjacent_pose_constraints);
+    if (i > session_first) {
+      const int start_idx =
+        std::max(session_first, i - adjacent_cfg.num_adjacent_pose_constraints);
       for (int pre_idx = start_idx; pre_idx < i; pre_idx++) {
         const Eigen::Isometry3d & pre_pose = submaps[pre_idx].pose;
         Eigen::Isometry3d relative_pose = pre_pose.inverse() * pose;

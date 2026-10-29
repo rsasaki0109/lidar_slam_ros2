@@ -1,0 +1,477 @@
+// Copyright 2026 Sasaki
+// All rights reserved.
+//
+// Software License Agreement (BSD 2-Clause Simplified License)
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions
+// are met:
+//
+//  * Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+//  * Redistributions in binary form must reproduce the above
+//    copyright notice, this list of conditions and the following disclaimer
+//    in the documentation and/or other materials provided with the
+//    distribution.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+// FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+// COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+// INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+// CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+// LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+// ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+
+#ifndef GRAPH_BASED_SLAM__MULTISESSION_JOIN_HPP_
+#define GRAPH_BASED_SLAM__MULTISESSION_JOIN_HPP_
+
+// Joining two sessions of one site by place recognition, with no prior on their relative pose
+// (bench_report/data/grandtour/multisession_2026-10-29/plan.txt, steps 1b and 2):
+//   Scan Context candidates between keyframe maps; small_gicp GICP from the Scan Context yaw; a
+//   match is kept if most of B's points land on A's; the largest set of matches that agree on one
+//   session transform (exact maximum clique) is the join if it spans several places and if the
+//   transform also holds over the whole map (B's keyframes that land near A's keyframes must lie on
+//   A's maps). A site's repeated structure makes wrong matches that agree with one another; the
+//   whole-map check is what rejects them. Needs small_gicp.
+
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <limits>
+#include <memory>
+#include <set>
+#include <utility>
+#include <vector>
+
+#include <Eigen/Core>  // NOLINT(build/include_order)
+#include <Eigen/Geometry>  // NOLINT(build/include_order)
+#include <pcl/point_cloud.h>  // NOLINT(build/include_order)
+#include <pcl/point_types.h>  // NOLINT(build/include_order)
+#include <small_gicp/ann/kdtree_omp.hpp>  // NOLINT(build/include_order)
+#include <small_gicp/points/eigen.hpp>  // NOLINT(build/include_order)
+#include <small_gicp/points/point_cloud.hpp>  // NOLINT(build/include_order)
+#include <small_gicp/registration/registration_helper.hpp>  // NOLINT(build/include_order)
+
+#include "graph_based_slam/scan_context.hpp"
+
+namespace graphslam
+{
+namespace multisession
+{
+
+struct JoinConfig
+{
+  double sc_range_m {30.0};
+  // Scan Context keeps the highest point of a cell, from 0: the map is raised by this much first.
+  double sc_z_offset_m {2.0};
+  int sc_candidates {3};
+  double sc_max_distance {0.4};
+  double registration_voxel_m {0.25};
+  std::vector<double> registration_distances_m {2.0, 1.0, 0.5};
+  int registration_max_iterations {30};
+  double inlier_distance_m {0.3};
+  double min_inlier_fraction {0.6};
+  double agree_m {0.3};
+  double agree_deg {1.0};
+  int min_set {3};
+  double min_spread_m {5.0};
+  double place_radius_m {3.0};
+  double place_min_fraction {0.5};
+  int min_places {5};
+  double max_bad_share {0.10};
+  int max_sets {3};
+  int num_threads {4};
+};
+
+// A keyframe: its gravity-aligned frame in the session's odometry frame (position and yaw) and
+// its map in that frame.
+struct Keyframe
+{
+  int id {-1};
+  Eigen::Isometry3d frame {Eigen::Isometry3d::Identity()};
+  std::vector<Eigen::Vector3f> points;
+};
+
+struct Match
+{
+  int a {-1};  // index into A's keyframes
+  int b {-1};  // index into B's keyframes
+  double sc_distance {1.0};
+  double inlier_fraction {0.0};
+  Eigen::Isometry3d relative {Eigen::Isometry3d::Identity()};  // T_{frame a <- frame b}
+  Eigen::Isometry3d session {Eigen::Isometry3d::Identity()};  // T_{A <- B}
+};
+
+struct SetAttempt
+{
+  int size {0};
+  int places {0};
+  double share_below {1.0};
+  double median {0.0};
+  bool passed {false};
+};
+
+struct JoinResult
+{
+  bool joined {false};
+  Eigen::Isometry3d transform {Eigen::Isometry3d::Identity()};  // T_{A <- B}
+  int candidates {0};
+  std::vector<Match> accepted;
+  std::vector<int> set;  // indices into accepted: the joined set
+  std::vector<SetAttempt> attempts;
+};
+
+inline Eigen::Isometry3d gravityAlignedFrame(const Eigen::Isometry3d & pose)
+{
+  const Eigen::Matrix3d r = pose.rotation();
+  const double yaw = std::atan2(r(1, 0), r(0, 0));
+  Eigen::Isometry3d frame = Eigen::Isometry3d::Identity();
+  frame.linear() = Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()).toRotationMatrix();
+  frame.translation() = pose.translation();
+  return frame;
+}
+
+inline double rotationDeg(const Eigen::Matrix3d & r)
+{
+  const double c = std::max(-1.0, std::min(1.0, (r.trace() - 1.0) / 2.0));
+  return std::acos(c) * 180.0 / M_PI;
+}
+
+// Bron-Kerbosch with pivoting; with stop_at > 0 it returns once a clique of that size is found.
+inline std::vector<int> maxClique(const std::vector<std::set<int>> & adj, int stop_at = 0)
+{
+  std::vector<int> best;
+  std::function<void(std::vector<int> &, std::set<int>, std::set<int>)> bk =
+    [&](std::vector<int> & r, std::set<int> p, std::set<int> x) {
+      if (stop_at > 0 && static_cast<int>(best.size()) >= stop_at) {
+        return;
+      }
+      if ((p.empty() && x.empty()) || (stop_at > 0 && static_cast<int>(r.size()) >= stop_at)) {
+        if (r.size() > best.size()) {
+          best = r;
+        }
+        return;
+      }
+      if (r.size() + p.size() <= best.size()) {
+        return;
+      }
+      int pivot = -1;
+      std::size_t pivot_degree = 0;
+      for (const std::set<int> * s : {&p, &x}) {
+        for (int u : *s) {
+          std::size_t d = 0;
+          for (int v : adj[u]) {
+            d += p.count(v);
+          }
+          if (pivot < 0 || d > pivot_degree) {
+            pivot = u;
+            pivot_degree = d;
+          }
+        }
+      }
+      std::vector<int> candidates;
+      for (int v : p) {
+        if (!adj[pivot].count(v)) {
+          candidates.push_back(v);
+        }
+      }
+      for (int v : candidates) {
+        std::set<int> p2, x2;
+        for (int w : adj[v]) {
+          if (p.count(w)) {p2.insert(w);}
+          if (x.count(w)) {x2.insert(w);}
+        }
+        r.push_back(v);
+        bk(r, p2, x2);
+        r.pop_back();
+        p.erase(v);
+        x.insert(v);
+      }
+    };
+  std::vector<int> r;
+  std::set<int> p;
+  for (int i = 0; i < static_cast<int>(adj.size()); ++i) {
+    p.insert(i);
+  }
+  bk(r, p, {});
+  return best;
+}
+
+namespace detail
+{
+
+inline ScanContext::Descriptor scanContext(const Keyframe & keyframe, const JoinConfig & config)
+{
+  pcl::PointCloud<pcl::PointXYZI>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZI>);
+  cloud->reserve(keyframe.points.size());
+  for (const auto & p : keyframe.points) {
+    pcl::PointXYZI q;
+    q.x = p.x();
+    q.y = p.y();
+    q.z = p.z() + static_cast<float>(config.sc_z_offset_m);
+    q.intensity = 0.0F;
+    cloud->push_back(q);
+  }
+  return ScanContext::computeDescriptor(cloud, config.sc_range_m);
+}
+
+struct Prepared
+{
+  small_gicp::PointCloud::Ptr cloud;
+  std::shared_ptr<small_gicp::KdTree<small_gicp::PointCloud>> tree;
+};
+
+inline Prepared prepare(const Keyframe & keyframe, const JoinConfig & config)
+{
+  auto pre = small_gicp::preprocess_points(
+    keyframe.points, config.registration_voxel_m, 10, config.num_threads);
+  return {pre.first, pre.second};
+}
+
+// Moving B's keyframe positions by two session transforms: the larger distance between them.
+inline double disagreement(
+  const Match & m, const Match & n, const std::vector<Keyframe> & b)
+{
+  double worst = 0.0;
+  for (const Match * k : {&m, &n}) {
+    const Eigen::Vector3d p = b[k->b].frame.translation();
+    worst = std::max(worst, (m.session * p - n.session * p).norm());
+  }
+  return worst;
+}
+
+}  // namespace detail
+
+// The whole-map check of a session transform: B's keyframes that land within place_radius_m of
+// one of A's, and the share of them with less than place_min_fraction of their points within
+// inlier_distance_m of those A keyframes' maps.
+inline SetAttempt wholeMapCheck(
+  const std::vector<Keyframe> & a, const std::vector<Keyframe> & b,
+  const Eigen::Isometry3d & session, const JoinConfig & config)
+{
+  SetAttempt out;
+  std::vector<double> fractions;
+  const double max_sq = config.inlier_distance_m * config.inlier_distance_m;
+  for (const Keyframe & kb : b) {
+    const Eigen::Isometry3d g = session * kb.frame;
+    std::vector<Eigen::Vector3f> near_points;
+    for (const Keyframe & ka : a) {
+      if ((ka.frame.translation() - g.translation()).norm() > config.place_radius_m) {
+        continue;
+      }
+      for (const auto & p : ka.points) {
+        near_points.push_back((ka.frame * p.cast<double>()).cast<float>());
+      }
+    }
+    if (near_points.empty() || kb.points.empty()) {
+      continue;
+    }
+    auto target = std::make_shared<small_gicp::PointCloud>(near_points);
+    small_gicp::KdTree<small_gicp::PointCloud> tree(
+      target, small_gicp::KdTreeBuilderOMP(config.num_threads));
+    std::size_t inside = 0;
+    for (const auto & p : kb.points) {
+      const Eigen::Vector3d q = g * p.cast<double>();
+      std::size_t index = 0;
+      double sq = 0.0;
+      if (tree.nearest_neighbor_search(Eigen::Vector4d(q.x(), q.y(), q.z(), 1.0), &index, &sq) &&
+        sq < max_sq)
+      {
+        ++inside;
+      }
+    }
+    fractions.push_back(static_cast<double>(inside) / static_cast<double>(kb.points.size()));
+  }
+  out.places = static_cast<int>(fractions.size());
+  if (fractions.empty()) {
+    return out;
+  }
+  const double below = static_cast<double>(std::count_if(
+      fractions.begin(), fractions.end(),
+      [&](double f) {return f < config.place_min_fraction;}));
+  out.share_below = below / static_cast<double>(fractions.size());
+  std::nth_element(fractions.begin(), fractions.begin() + fractions.size() / 2, fractions.end());
+  out.median = fractions[fractions.size() / 2];
+  out.passed = out.places >= config.min_places && out.share_below <= config.max_bad_share;
+  return out;
+}
+
+// Joins session B to session A. exclude (optional) drops matches before the agreement step; it
+// is a test hook (the stress test of the plan), not part of the method.
+inline JoinResult joinSessions(
+  const std::vector<Keyframe> & a, const std::vector<Keyframe> & b, const JoinConfig & config,
+  const std::function<bool(const Match &)> & exclude = nullptr)
+{
+  JoinResult result;
+  if (a.empty() || b.empty()) {
+    return result;
+  }
+  std::vector<ScanContext::Descriptor> a_sc;
+  a_sc.reserve(a.size());
+  for (const Keyframe & k : a) {
+    a_sc.push_back(detail::scanContext(k, config));
+  }
+  std::vector<std::unique_ptr<detail::Prepared>> a_pre(a.size());
+  const double inlier_sq = config.inlier_distance_m * config.inlier_distance_m;
+
+  for (int bi = 0; bi < static_cast<int>(b.size()); ++bi) {
+    if (b[bi].points.empty()) {
+      continue;
+    }
+    const ScanContext::Descriptor query = detail::scanContext(b[bi], config);
+    std::vector<std::pair<double, int>> ranked;  // (distance, a index), with the shift kept apart
+    std::vector<int> shifts(a.size(), 0);
+    for (int ai = 0; ai < static_cast<int>(a.size()); ++ai) {
+      const auto aligned = ScanContext::distanceWithAlignment(query, a_sc[ai]);
+      ranked.emplace_back(aligned.distance, ai);
+      shifts[ai] = aligned.shift;
+    }
+    const int keep = std::min<int>(config.sc_candidates, static_cast<int>(ranked.size()));
+    std::partial_sort(ranked.begin(), ranked.begin() + keep, ranked.end());
+    detail::Prepared source;
+    bool source_ready = false;
+    for (int r = 0; r < keep; ++r) {
+      const double distance = ranked[r].first;
+      const int ai = ranked[r].second;
+      if (distance > config.sc_max_distance || a[ai].points.empty()) {
+        continue;
+      }
+      ++result.candidates;
+      if (!source_ready) {
+        source = detail::prepare(b[bi], config);
+        source_ready = true;
+      }
+      if (!a_pre[ai]) {
+        a_pre[ai] = std::make_unique<detail::Prepared>(detail::prepare(a[ai], config));
+      }
+      const detail::Prepared & target = *a_pre[ai];
+      // B's azimuth theta is seen in A at theta + shift * sector width.
+      const double yaw = shifts[ai] * 2.0 * M_PI / ScanContext::NUM_SECTORS;
+      Eigen::Isometry3d t = Eigen::Isometry3d::Identity();
+      t.linear() = Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()).toRotationMatrix();
+      for (double max_distance : config.registration_distances_m) {
+        small_gicp::RegistrationSetting setting;
+        setting.type = small_gicp::RegistrationSetting::GICP;
+        setting.max_correspondence_distance = max_distance;
+        setting.num_threads = config.num_threads;
+        setting.max_iterations = config.registration_max_iterations;
+        t = small_gicp::align(*target.cloud, *source.cloud, *target.tree, t,
+              setting).T_target_source;
+      }
+      std::size_t inside = 0;
+      for (std::size_t i = 0; i < source.cloud->size(); ++i) {
+        std::size_t index = 0;
+        double sq = 0.0;
+        const Eigen::Vector4d q = t.matrix() * source.cloud->point(i);
+        if (target.tree->nearest_neighbor_search(q, &index, &sq) && sq < inlier_sq) {
+          ++inside;
+        }
+      }
+      Match m;
+      m.a = ai;
+      m.b = bi;
+      m.sc_distance = distance;
+      m.inlier_fraction = source.cloud->size() > 0 ?
+        static_cast<double>(inside) / static_cast<double>(source.cloud->size()) : 0.0;
+      m.relative = t;
+      m.session = a[ai].frame * t * b[bi].frame.inverse();
+      if (m.inlier_fraction >= config.min_inlier_fraction && !(exclude && exclude(m))) {
+        result.accepted.push_back(m);
+      }
+    }
+  }
+
+  const int n = static_cast<int>(result.accepted.size());
+  std::vector<std::set<int>> adj(n);
+  for (int i = 0; i < n; ++i) {
+    for (int j = i + 1; j < n; ++j) {
+      const Match & m = result.accepted[i];
+      const Match & k = result.accepted[j];
+      if (detail::disagreement(m, k, b) <= config.agree_m &&
+        rotationDeg(m.session.rotation().transpose() * k.session.rotation()) <= config.agree_deg)
+      {
+        adj[i].insert(j);
+        adj[j].insert(i);
+      }
+    }
+  }
+  std::set<int> remaining;
+  for (int i = 0; i < n; ++i) {
+    remaining.insert(i);
+  }
+  for (int attempt = 0; attempt < config.max_sets && !remaining.empty(); ++attempt) {
+    std::vector<int> ids(remaining.begin(), remaining.end());
+    std::vector<int> local(n, -1);
+    for (int k = 0; k < static_cast<int>(ids.size()); ++k) {
+      local[ids[k]] = k;
+    }
+    std::vector<std::set<int>> sub(ids.size());
+    for (int k = 0; k < static_cast<int>(ids.size()); ++k) {
+      for (int v : adj[ids[k]]) {
+        if (local[v] >= 0) {
+          sub[k].insert(local[v]);
+        }
+      }
+    }
+    std::vector<int> clique;
+    for (int k : maxClique(sub)) {
+      clique.push_back(ids[k]);
+    }
+    // the set's distinct B keyframes: at least min_set of them all min_spread_m apart?
+    std::vector<int> places;
+    for (int i : clique) {
+      if (std::find(places.begin(), places.end(), result.accepted[i].b) == places.end()) {
+        places.push_back(result.accepted[i].b);
+      }
+    }
+    std::vector<std::set<int>> far(places.size());
+    for (std::size_t i = 0; i < places.size(); ++i) {
+      for (std::size_t j = 0; j < places.size(); ++j) {
+        if (i != j &&
+          (b[places[i]].frame.translation() - b[places[j]].frame.translation()).norm() >=
+          config.min_spread_m)
+        {
+          far[i].insert(static_cast<int>(j));
+        }
+      }
+    }
+    if (static_cast<int>(maxClique(far, config.min_set).size()) < config.min_set) {
+      break;
+    }
+    int medoid = clique.front();
+    double best = std::numeric_limits<double>::max();
+    for (int i : clique) {
+      double sum = 0.0;
+      for (int j : clique) {
+        sum += detail::disagreement(result.accepted[i], result.accepted[j], b);
+      }
+      if (sum < best) {
+        best = sum;
+        medoid = i;
+      }
+    }
+    SetAttempt check = wholeMapCheck(a, b, result.accepted[medoid].session, config);
+    check.size = static_cast<int>(clique.size());
+    result.attempts.push_back(check);
+    if (check.passed) {
+      result.joined = true;
+      result.transform = result.accepted[medoid].session;
+      result.set = clique;
+      break;
+    }
+    for (int i : clique) {
+      remaining.erase(i);
+    }
+  }
+  return result;
+}
+
+}  // namespace multisession
+}  // namespace graphslam
+
+#endif  // GRAPH_BASED_SLAM__MULTISESSION_JOIN_HPP_

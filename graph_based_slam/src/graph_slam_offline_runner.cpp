@@ -1415,7 +1415,8 @@ int main(int argc, char ** argv)
           const double work_sec = std::chrono::duration<double>(
             std::chrono::steady_clock::now() - work_start).count();
           causal_worker_free_sec = std::max(causal_worker_free_sec, record.stamp_sec) + work_sec;
-          causal_max_lag_sec = std::max(causal_max_lag_sec, causal_worker_free_sec - record.stamp_sec);
+          const double lag_sec = causal_worker_free_sec - record.stamp_sec;
+          causal_max_lag_sec = std::max(causal_max_lag_sec, lag_sec);
           if (optimized) {
             causal_corrections.push_back({causal_worker_free_sec, correction});
           }
