@@ -13,17 +13,18 @@
 # (<data>/bag_a+b) so that several IMU choices share one conversion; IMU must be one of them. LIDAR=hesai_points takes
 # the Hesai XT-32 instead of the Livox MID-360 (hesai_points+livox_points merges both), RANGE_SCALE=s scales the points
 # (rig-input tests), SECONDARY_RANGE_SCALE=s the second LiDAR's points of a merge only (the MID-360 range calibration
-# 0.9985 of chapter 32). DATA_ROOT (default /home/user/data/grandtour) holds the downloaded and converted data.
+# 0.9985 of chapter 32), SECONDARY_MAX_RANGE=r keeps only its points within r m of it. DATA_ROOT (default /home/user/data/grandtour) holds the downloaded and converted data.
 # Outputs go to /home/user/bench/grandtour/<label>/<short_name>/.
 set -euo pipefail
 folder=$1; short=$2; label=$3; ws=${4:-/home/user/ws/rko_g12}
 REPO=/home/user/lidar_slam_ros2; S=${REPO}/bench_report/scripts; PY=/home/user/mapshd/venv/bin/python
 D=${DATA_ROOT:-/home/user/data/grandtour}/${short}; O=/home/user/bench/grandtour/${label}/${short}
 IMU=${IMU:-livox_imu}; BAG_IMUS=${BAG_IMUS:-${IMU}}; LIDAR=${LIDAR:-livox_points}; RANGE_SCALE=${RANGE_SCALE:-1}
-SECONDARY_RANGE_SCALE=${SECONDARY_RANGE_SCALE:-1}
+SECONDARY_RANGE_SCALE=${SECONDARY_RANGE_SCALE:-1}; SECONDARY_MAX_RANGE=${SECONDARY_MAX_RANGE:-0}
 SUFFIX=; [[ ${BAG_IMUS} == livox_imu ]] || SUFFIX=_${BAG_IMUS//,/+}
 [[ ${LIDAR} == livox_points ]] || SUFFIX=${SUFFIX}_${LIDAR}; [[ ${RANGE_SCALE} == 1 ]] || SUFFIX=${SUFFIX}_rs${RANGE_SCALE}
 [[ ${SECONDARY_RANGE_SCALE} == 1 ]] || SUFFIX=${SUFFIX}_srs${SECONDARY_RANGE_SCALE}
+[[ ${SECONDARY_MAX_RANGE} == 0 ]] || SUFFIX=${SUFFIX}_smr${SECONDARY_MAX_RANGE}
 BAG=${D}/bag${SUFFIX}
 IMU_TOPIC=/livox/imu; [[ ${IMU} == livox_imu ]] || IMU_TOPIC=/${IMU}
 LIDAR_TOPIC=/livox/points; [[ ${LIDAR} == livox_points ]] || LIDAR_TOPIC=/${LIDAR}; [[ ${LIDAR} != *+* ]] || LIDAR_TOPIC=/merged_points
@@ -55,7 +56,7 @@ if [[ ! -d ${BAG} ]]; then
   rm -rf "${BAG}.part"
   CONSUME=--consume  # a merged cloud consumes both groups, each read forward in time
   "${PY}" "${S}/p1_grandtour_to_ros2.py" --imu "${BAG_IMUS}" --lidar "${LIDAR}" --range-scale "${RANGE_SCALE}" \
-    --secondary-range-scale "${SECONDARY_RANGE_SCALE}" \
+    --secondary-range-scale "${SECONDARY_RANGE_SCALE}" --secondary-max-range "${SECONDARY_MAX_RANGE}" \
     ${CONSUME} "${D}/z" "${BAG}.part" | tee "${D}/convert${SUFFIX}.log"
   mv "${BAG}.part" "${BAG}"
   # the bag holds the points now; keep only the zarr metadata (the extrinsics), so that a long Hesai mission (CON-3:

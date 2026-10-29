@@ -1,0 +1,16 @@
+Twenty-first screen: the merged cloud with the Livox points kept only near the Livox (2026-10-29, written before any
+of these runs). TEST-INFORMED as HLS-G15g (the merge came from the test's arc-2).
+
+Why: HLS-G15g keeps the test's arc-2 stairs but loses on development con-2 (+6.9 mm, spread over the whole mission)
+and arc-3 (+4.0 mm); the Livox range calibration does not recover them (decision_rule_HLSr_G15g.txt). Chapter 33.2
+measured the Livox-Hesai residual along the ray: IQR about +-10 mm up to 8 m, -16 to +32 mm at 12-18 m, -11 to
++52 mm at 25-35 m. On stairs the Livox's wide view near the robot is what helps; far away it adds a noisier copy of
+what the Hesai sees. p1_grandtour_to_ros2.py --secondary-max-range r keeps only the Livox points within r m of the
+Livox (lidar_slam_ros2, this commit); with r = 0 the merge is HLS-G15g's.
+Variants (HS-G15g file unchanged, runs/g15g.yaml has its parameters; ws/rko_g35; LIDAR=hesai_points+livox_points;
+data in /dev/shm): n5 = SECONDARY_MAX_RANGE 5, n10 = 10.
+Runs: the test's arc-2 (GT-free) and development con-2 and arc-3 (labels hsun5_g15g, hsun10_g15g).
+Selection, fixed now: a variant passes if it keeps the arc-2 stairs (2.40-2.65 m above the climb's start floor by
+125-140 s, no vertical speed above 1 m/s over 0.3 s) and its con-2 + arc-3 ATE sum is at most HS-G15g's + 2 mm
+(0.0395 + 0.0020 m). Of passing variants the one with the lower sum is taken (a tie within 0.5 mm: n10, more of the
+Livox). It is then judged on all the development data under a rule written before those runs.
