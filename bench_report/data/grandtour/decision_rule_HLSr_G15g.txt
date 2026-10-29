@@ -1,0 +1,27 @@
+HLSr-G15g: HLS-G15g with the GrandTour Livox range calibration applied to the Livox points of the merge (fixed
+2026-10-29, before any run with it).
+
+Why: chapter 32 (decision_rule_range_scale_2026-10-27.txt, GT-free, 2026-10-27) found the MID-360's ranges 0.15 %
+longer than the Hesai's and took 0.9985 as the GrandTour rig calibration of the Livox. HLS-G15g
+(decision_rule_HLS_G15g.txt) merged the Livox points without it, so its two LiDARs disagree by 0.15 % of the range
+(1.5 cm at 10 m) inside every cloud. That is an omission, not a new setting; the value is the one fixed before any
+test result. Whether it is what costs HLS-G15g on con-2 (+6.9 mm) and arc-3 (+4.0 mm) is not known.
+TEST-INFORMED as HLS-G15g is (the merged cloud came from the test's arc-2); a COMFORT submission with it is the
+maintainer's decision.
+
+Configuration: the HS-G15g file unchanged (md5 8a285bdb...; confirm_HLSr_G15g_2026-10-29/runs/g15g.yaml has the same
+parameters), rko_lio d40d3b9 (ws/rko_g35), LIDAR=hesai_points+livox_points SECONDARY_RANGE_SCALE=0.9985
+IMU=stim320_imu (p1_grandtour_to_ros2.py --secondary-range-scale: every Livox point scaled by 0.9985 in the Livox
+frame before it is moved into the Hesai frame; the Hesai points unchanged). Data under /dev/shm (DATA_ROOT).
+
+Adopt HLSr-G15g as the GrandTour configuration in place of HS-G15g if all hold on the 15 HS development missions:
+  1. mean ATE (without reference spikes), one run each, not above HS-G15g's 0.0174 m;
+  2. no mission worse than HS-G15g by more than 10 % and more than 2 mm at once, two stages as
+     decision_rule_G15d.txt (four-run means with convergence 2.5 / 3.5 / 4.0e-5 for a mission outside on the
+     single runs);
+  3. every stair passage hidden from the reference within 50 mm (p1_grandtour_climb_err.py);
+  4. every run real-time.
+snow-1 is run and reported only. Reported besides: the test's arc-2 run first, GT-free (heights above the climb's
+start floor at 125-140 / 160-240 / 270-280 s, the largest vertical speed over 0.3 s), which must keep the stairs as
+HLS-G15g does (2.40-2.65 m by 125-140 s, no vertical speed above 1 m/s); otherwise the development runs are not made.
+HLS-G15g's values (decision_rule_HLS_G15g.txt) are reported alongside.
