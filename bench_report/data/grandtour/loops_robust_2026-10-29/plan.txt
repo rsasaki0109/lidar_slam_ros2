@@ -1,0 +1,30 @@
+Phase 3 (SOTA v7 roadmap, docs/roadmap/sota-v7-plan-2026-10.md): robust loops, on GrandTour development missions
+(2026-10-29). Not for COMFORT: the deadline work is closed with submission 6. Development data only.
+
+Why GrandTour: its development missions have a reference (the prism's position), revisits, and a frontend (HS-G15g)
+of about 2 cm, so a loop must be better than that to help. The roadmap's three items are: loop registrations as
+accurate as the frontend (GICP instead of NDT), loop information from the registration's Hessian instead of a
+constant or the fitness, and a robust solve instead of hand-set rejection gates.
+
+Tool: scripts/p3_grandtour_loop_errors.py. Each loop edge's translation is compared, in its first submap's frame,
+with the reference's relative position of the two submaps (the reference prism positions fitted to the frontend,
+the lever removed with the frontend's attitude); the frontend's own relative translation is scored the same way.
+Edges whose stamps are more than 0.2 s from a reference sample are left unscored.
+
+Baseline (baseline_ndt2_errors.csv; the runs of loops_2026-10-27/: HS-G15 frontend, walking backend preset, NDT 2 m
+cells, loops after 60 m (walk60) or 20 m (walk20) of travel):
+  walk20: 19 edges, 12 scored; loop error median 29.8 mm, max 1334 mm, 2 above 0.1 m; the frontend's relative error
+          for the same pairs median 19.1 mm, max 50 mm; the loop is better than the frontend on 5 of 12.
+  walk60: 16 edges, 13 scored; loop error median 32.8 mm, max 1334 mm, 3 above 0.1 m; frontend median 28.2 mm,
+          max 40 mm; the loop is better on 5 of 13.
+  The gross errors: spx-1 3-43 (1.33 m, fitness 0.77) and 3-73 (1.21 m, 0.47), con-3 18-70 (0.10 m). The drift gate
+  (0.5 m + 2 % of the travel between the submaps) lets a 1.33-m error through after 64 m of travel; this frontend
+  drifts 2-5 cm there. These edges are why spx-1's causal output was worse (0.0188 -> 0.0263 m).
+Reading: the NDT loop edges are no more accurate than the frontend they should correct, and the gate does not stop the
+gross ones. Both items of the roadmap show here directly.
+
+Step 1 (next): record the backend input of six missions with revisits (arc-1, con-3, heap-1, pil-2, spx-1, con-2)
+with the current frontend HS-G15g (ws/rko_g35; the trajectory must equal HS-G15g's byte for byte), so that loop
+registration variants can be run offline on the same input. Step 2: variants (NDT 2 / 1 / 0.5 m cells, GICP with a
+correspondence distance a parameter instead of 30 m), each scored with the tool above; a plan with its reading is
+written before those runs.
