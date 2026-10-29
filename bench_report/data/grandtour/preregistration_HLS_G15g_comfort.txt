@@ -1,0 +1,59 @@
+GrandTour COMFORT Localization Benchmark, test phase, submission 6 (prepared): preregistration (fixed 2026-10-29 before
+any test mission other than arc-2 is run with it).
+
+TEST-INFORMED, AND AGAINST ITS DEVELOPMENT RULE. This configuration was found by looking at submission 5's test result
+(arc-2 0.102) and running the test's arc-2 again (sensor streams only, our own outputs only, GT-free:
+screen_hs_s_2026-10-28/plan.txt). On the development data it did not meet its own rule (decision_rule_HLS_G15g.txt:
+mean 0.0178 against HS-G15g's 0.0174), so it is not the project's GrandTour configuration; HS-G15g stays that.
+The maintainer, shown both, left the choice to the developer's recommendation (2026-10-29), which was to prepare it:
+the arc-2 failure has a physical cause that every Hesai-only setting shares, the merged cloud removes it, and the
+development cost (0.4 mm on the mean of 15, within the run-to-run spread of single missions) is small against it.
+Whether and when it is uploaded is the maintainer's decision.
+
+What is submitted
+  The frontend (RKO-LIO) alone with the HS-G15g file, unchanged, on the merged LiDAR cloud (HLS-G15g):
+    configs/sota_v7/rko_lio_grandtour_hs_G15g_2026-10-28.yaml   md5 8a285bdb261089b3c6e66ac8c957110d
+    rko_lio d40d3b9 (branch claude/jolly-gauss-dliz8l), ws/rko_g35 offline_node md5 2a97ab3cece71d4bb20929f22519aae2
+    (with this file it runs as rko_lio 4af4b6e of submission 5: the options added since are off by default)
+  Rig inputs (HLS): the Hesai XT-32 and the Livox MID-360 point clouds merged into one cloud per Hesai scan (the
+  Livox points timed within the scan's span, moved into the Hesai frame by the export's `transform` attributes;
+  p1_grandtour_to_ros2.py --lidar hesai_points+livox_points, lidar_slam_ros2 05f06bc or later), and the STIM320 IMU;
+  the STIM320 frame is the base frame; T_world_prism(t) = T_world_stim320(t) T_stim320_prism as in submissions 1-5.
+  Category: LiDAR + IMU (no camera, GNSS or external odometry). Real-time: yes (node time below the mission span on
+  every development mission; the closest heap-1 219 / 290 s).
+
+Why (GT-free on the test's arc-2; development missions with their references):
+  Test arc-2, height above the floor the climb starts from, at 125-140 s (the floor spacing of the building is
+  2.53 m on the development arc-3 reference): every Hesai-only run 2.19-2.26 m, whatever the bump terms, the voxel
+  size or the close-scene settings; submission 5 reaches the right floor only by a 0.5-m step at 142.9 s. The merged
+  cloud 2.49 m and the Livox cloud 2.47 m, without a step.
+  Development, ATE without reference spikes (decision_rule_HLS_G15g.txt): HS-G15g 0.0174, HLS-G15g 0.0178; better on
+  arc-4 (-4.6 mm), arc-5 (-3.6), eig-2 (-2.8); worse on con-2 (+6.9), arc-3 (+4.0), pil-2 (+2.0); every stair
+  passage hidden from the reference within 50 mm.
+
+What is read for a test mission
+  hesai_points.tar, livox_points.tar and stim320_imu.tar of the mission's Hugging Face folder (and the zarr
+  attributes in them). Test missions: arc-2 2024-11-18-13-22-14, arc-7 2024-11-18-17-31-36, con-4
+  2024-12-09-11-53-11, eig-1 2024-11-03-13-51-43, snow-2 2024-11-03-07-57-34, spx-2 2024-11-02-17-18-32.
+
+Policy
+  0. Before the test runs, the configuration file is run on one development mission (spx-3) with the batch's data
+     location (DATA_ROOT=/dev/shm/gt_batch: a long mission's merged bag does not fit on the disk) and must give the
+     trajectory of the development run hlsr_g15g/spx-3 byte for byte (front_tum md5
+     6daccfadc07535a32ed1979ec429ebe2); otherwise nothing is run.
+  1. The six test trajectories are produced in one batch (p1_grandtour_batch.sh, LIDAR=hesai_points+livox_points
+     IMU=stim320_imu, G_CONFIG the file above, WS=ws/rko_g35, DATA_ROOT=/dev/shm/gt_batch), with no other job on the
+     machine, and packed into one zip; the md5 of every file is recorded here before the zip leaves the VM. arc-2
+     must equal the diagnostic run of screen 19 (hssm_g15g, front_tum md5 0b8704d8cb47f348b36392e9031cdd7c).
+  2. If the maintainer uploads it, it is uploaded once, and the scores are recorded whatever they are. Nothing is
+     tuned on them.
+  3. A pipeline failure is fixed and recorded; a poor trajectory because of the configuration or the rig is submitted
+     as is.
+
+Fact sheet (proposed)
+  Method name: lidar_slam_ros2 (RKO-LIO frontend, GrandTour configuration HLS-G15g). Description: LiDAR-inertial
+  odometry with bump-image (voxel-wise height image) and point-to-point registration, a start hold for a robot
+  standing after a walking start, and a causal IMU-driven output position filter; Hesai XT-32 and Livox MID-360
+  merged per scan + STIM320; frontend output only, no loop closure, no post-processing. The LiDAR choice was revised
+  after a test-phase result (arc-2). Novel: yes. Real-time: yes. LiDAR: yes. IMU: yes. Camera: no. GNSS: no.
+  External odometry: no.
