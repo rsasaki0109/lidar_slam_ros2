@@ -55,7 +55,15 @@ runner's parameter names, so the params file of the single-session runs can be r
    Otherwise the next largest set is tried, up to 3 sets. A site's repeated structure (columns at
    a fixed spacing along a hall) makes wrong matches that agree with each other. This check is what
    rejects them.
-6. The joined sessions form one graph: each session's odometry chain (no adjacent edge across a
+6. Two refusals guard against places that repeat themselves:
+   - **Ambiguity.** Every set that meets the spread criterion is checked, up to 3. If two of them pass with
+     transforms that differ (1.0 m RMS over the session's keyframes, or 2 deg), there is no join. A symmetric
+     room fits turned by 180 deg as well as it fits as it is.
+   - **Self-similarity.** After a set passes, each session is joined to itself by the same method, with the
+     matches near the identity left out (10 Scan Context candidates per keyframe; the 10 keyframes on either
+     side are skipped). If either session joins itself, there is no join. Its place repeats itself, so a join to
+     it cannot be told apart from a wrong one. This roughly ten-folds the time of a join that passes.
+7. The joined sessions form one graph: each session's odometry chain (no adjacent edge across a
    session start, `SubmapNode::session_start`), its own loop edges, and one inter-session edge per
    joined place, optimized with the first submap fixed.
 
@@ -77,7 +85,18 @@ runner's parameter names, so the params file of the single-session runs can be r
 | different sites (2 pairs) | not joined | |
 | the true matches removed (4 runs) | not joined | |
 
-Limits: two sites and two total-station set-ups. The whole-map thresholds come from one of
-these pairs, and its margin on the Construction site's wrong sets is thin (13 % of places against
-the 10 % limit). Validate on more sites before unattended use. The `debug_exclude_transform`
-parameter is a stress-test hook only.
+Safety on more sites (report 38.5): 16 sessions were each split in two (`debug_split_gap_s`).
+They come from GrandTour, MapsHD rooms, a corridor and garages, exp04 and Oxford. Every right match
+was removed (`debug_exclude_transform`), so any join would be wrong.
+
+- Without the two refusals, a symmetric room joined 20.7 m off: the room turned by 180 deg.
+- With them there was no wrong join in any run.
+- Two right joins were lost: one was ambiguous, the other had a self-similar half.
+
+Limits:
+
+- When only one session sees a symmetry (two identical rooms, each walked by a different session),
+  neither rule can refuse the join.
+- The whole-map thresholds come from the Construction pair.
+
+`debug_exclude_transform` and `debug_split_gap_s` are test hooks only.

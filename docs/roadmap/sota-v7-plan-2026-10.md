@@ -207,8 +207,9 @@ one frame is still to be checked.
     - It joins all four same-site directions of two GrandTour sites within 1-3 cm.
     - In the joined map, the second session is within 5 mm of its single-session ATE.
     - It refuses different-site pairs and the stress tests.
-    - The whole-map check's margin against a site's repeated structure is thin (13 % against a 10 % limit), so it
-      needs more sites before unattended use.
+    - On 16 more sessions split in two (rooms, corridor, garages, exp04, Oxford), a symmetric room joined 20.7 m
+      off (turned by 180 deg). Two refusals (ambiguous hypotheses, self-similar sessions) removed every wrong join,
+      at the cost of two right joins and ten times the run time when a join passes.
 
 ### Phase 4 — Resources
 

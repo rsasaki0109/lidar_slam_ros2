@@ -178,6 +178,27 @@ TEST(MultisessionJoin, WholeMapCheckRejectsAShiftAlongRepeatedStructure)
   EXPECT_GT(shifted.share_below, 0.1);
 }
 
+TEST(MultisessionJoin, RefusesASiteThatLooksTheSameTurnedHalfway)
+{
+  // Every building has a twin turned by 180 deg about the origin: the site fits itself turned
+  // halfway round, so a join to it cannot be told from a wrong one and must be refused.
+  std::mt19937 rng(9);
+  std::vector<Eigen::Vector3d> site = boxes(rng, 40, -40.0, 40.0, 4.0, 25.0);
+  const std::size_t n = site.size();
+  for (std::size_t i = 0; i < n; ++i) {
+    site.emplace_back(-site[i].x(), -site[i].y(), site[i].z());
+  }
+  ground(&site, -40.0, 40.0, 25.0);
+  const Eigen::Isometry3d world_to_b = planar(6.0, -4.0, 0.0, 0.7);
+  const auto a = walk(site, -20.0, 20.0, 0.0, 0.0, Eigen::Isometry3d::Identity());
+  const auto b = walk(site, -16.0, 24.0, 1.0, 0.2, world_to_b);
+  multisession::JoinConfig config;
+  config.num_threads = 2;
+  const auto result = multisession::joinSessions(a, b, config);
+  EXPECT_FALSE(result.joined);
+  EXPECT_TRUE(result.ambiguous || !result.self_similar.empty());
+}
+
 TEST(MultisessionJoin, MaxCliqueStopsOnceLargeEnough)
 {
   // a 4-clique {0, 1, 2, 3} and a separate edge {4, 5}

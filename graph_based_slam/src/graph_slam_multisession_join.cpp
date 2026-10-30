@@ -285,10 +285,15 @@ int main(int argc, char ** argv)
   node->get_parameter_or("output_dir", output_dir, std::string("multisession"));
   node->get_parameter_or("offline_odom_topic", odom_topic, std::string("/rko_lio/odometry"));
   node->get_parameter_or("offline_cloud_topic", cloud_topic, std::string("/rko_lio/frame"));
-  if (bags.size() < 2 || bags.size() != runs.size()) {
+  // Test only: one session split in two at its middle, with split_gap_s left out between the
+  // halves; the second half is joined to the first (the truth is the identity).
+  double split_gap_s;
+  node->get_parameter_or("debug_split_gap_s", split_gap_s, -1.0);
+  const std::size_t min_sessions = split_gap_s >= 0.0 ? 1U : 2U;
+  if (bags.size() < min_sessions || bags.size() != runs.size()) {
     RCLCPP_ERROR(
-      logger, "need at least two sessions: session_bag_paths and session_backend_dirs, the same "
-      "number of each");
+      logger, "need at least two sessions (one with debug_split_gap_s): session_bag_paths and "
+      "session_backend_dirs, the same number of each");
     rclcpp::shutdown();
     return 1;
   }
@@ -358,7 +363,62 @@ int main(int argc, char ** argv)
     return 1;
   }
 
+  std::function<bool(const graphslam::multisession::Match &)> exclude = nullptr;
+  auto make_exclude = [&](const std::vector<graphslam::multisession::Keyframe> & b) {
+      Eigen::Isometry3d t = Eigen::Isometry3d::Identity();
+      for (int i = 0; i < 12; ++i) {
+        t.matrix()(i / 4, i % 4) = exclude_values[i];
+      }
+      return std::function<bool(const graphslam::multisession::Match &)>(
+        [t, b, exclude_radius_m](const graphslam::multisession::Match & m) {
+          const Eigen::Vector3d p = b[m.b].frame.translation();
+          return (m.session * p - t * p).norm() <= exclude_radius_m;
+        });
+    };
+
   std::ofstream report(output_dir + "/join_report.yaml");
+  if (split_gap_s >= 0.0) {
+    const auto & all = sessions[0];
+    const double middle = 0.5 * (all.stamps.front() + all.stamps.back());
+    std::vector<graphslam::multisession::Keyframe> a, b;
+    for (std::size_t k = 0; k < all.keyframes.size(); ++k) {
+      if (all.stamps[k] < middle - 0.5 * split_gap_s) {
+        a.push_back(all.keyframes[k]);
+      } else if (all.stamps[k] > middle + 0.5 * split_gap_s) {
+        b.push_back(all.keyframes[k]);
+      }
+    }
+    if (exclude_values.size() == 12) {
+      exclude = make_exclude(b);
+    }
+    const auto result = graphslam::multisession::joinSessions(a, b, join, exclude);
+    double sq = 0.0;
+    for (const auto & k : b) {
+      const Eigen::Vector3d p = k.frame.translation();
+      sq += (result.transform * p - p).squaredNorm();
+    }
+    report << "split:\n  gap_s: " << split_gap_s << "\n  keyframes_a: " << a.size() <<
+      "\n  keyframes_b: " << b.size() << "\n  candidates: " << result.candidates <<
+      "\n  accepted: " << result.accepted.size() << "\n  excluded_by_debug_hook: " <<
+      (exclude ? "true" : "false") << "\n  joined: " << (result.joined ? "true" : "false") <<
+      "\n  ambiguous: " << (result.ambiguous ? "true" : "false") << "\n  self_similar: '" <<
+      result.self_similar << "'\n  sets_tried:\n";
+    for (const auto & t : result.attempts) {
+      report << "    - {size: " << t.size << ", places: " << t.places << ", share_below: " <<
+        t.share_below << ", median: " << t.median << ", passed: " <<
+        (t.passed ? "true" : "false") << "}\n";
+    }
+    if (result.joined) {
+      report << "  transform: " << matrixRow(result.transform) << "\n  error_to_identity_rms_m: " <<
+        std::sqrt(sq / std::max<std::size_t>(1, b.size())) << "\n";
+    }
+    RCLCPP_INFO(
+      logger, "split session: %zu + %zu keyframes, %d candidates, %zu accepted, %zu sets tried, %s",
+      a.size(), b.size(), result.candidates, result.accepted.size(), result.attempts.size(),
+      result.joined ? "joined" : "not joined");
+    rclcpp::shutdown();
+    return 0;
+  }
   std::ofstream edges_csv(output_dir + "/inter_session_edges.csv");
   edges_csv << "session,submap_a,submap_b,inlier_fraction,tx,ty,tz,qx,qy,qz,qw\n";
   report << "sessions:\n";
@@ -368,23 +428,17 @@ int main(int argc, char ** argv)
   std::vector<Eigen::Isometry3d> placement(sessions.size(), Eigen::Isometry3d::Identity());
   for (std::size_t s = 0; s < sessions.size(); ++s) {
     if (s > 0) {
-      std::function<bool(const graphslam::multisession::Match &)> exclude = nullptr;
+      exclude = nullptr;
       if (s == 1 && exclude_values.size() == 12) {
-        Eigen::Isometry3d t = Eigen::Isometry3d::Identity();
-        for (int i = 0; i < 12; ++i) {
-          t.matrix()(i / 4, i % 4) = exclude_values[i];
-        }
-        const auto & b = sessions[s].keyframes;
-        exclude = [t, b, exclude_radius_m](const graphslam::multisession::Match & m) {
-            const Eigen::Vector3d p = b[m.b].frame.translation();
-            return (m.session * p - t * p).norm() <= exclude_radius_m;
-          };
+        exclude = make_exclude(sessions[s].keyframes);
       }
       const auto result = graphslam::multisession::joinSessions(
         sessions[0].keyframes, sessions[s].keyframes, join, exclude);
       report << "  - session: " << s << "\n    joined: " << (result.joined ? "true" : "false") <<
         "\n    candidates: " << result.candidates << "\n    accepted: " << result.accepted.size() <<
-        "\n    excluded_by_debug_hook: " << (exclude ? "true" : "false") << "\n    sets_tried:\n";
+        "\n    excluded_by_debug_hook: " << (exclude ? "true" : "false") << "\n    ambiguous: " <<
+        (result.ambiguous ? "true" : "false") << "\n    self_similar: '" << result.self_similar <<
+        "'\n    sets_tried:\n";
       for (const auto & a : result.attempts) {
         report << "      - {size: " << a.size << ", places: " << a.places << ", share_below: " <<
           a.share_below << ", median: " << a.median << ", passed: " <<

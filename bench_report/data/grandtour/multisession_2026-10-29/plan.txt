@@ -143,3 +143,77 @@ Reading: 1 met (the same decisions as step 1b, the same-site joins within 0.03 m
 The margin of the whole-map check is thin on one wrong set: the third set tried in stress con-1 + con-2 has 13 % of its
 places below 0.5 against the 10 % limit (the right joins: 0 %). A site with fewer unique structures than the
 Construction site could pass a wrong set; the check needs more sites before the tool is used unattended.
+
+Step 3 plan (fixed 2026-10-29 before any run with it): the whole-map check's safety on more sites.
+Why: the check rejected every wrong set so far, but on one of them with 13 % of places below 0.5 against the 10 %
+limit, and only one site (Construction) produced wrong sets. Other GrandTour sites have no second session in the same
+reference frame, so the test is made from single sessions instead.
+Split sessions: graph_slam_multisession_join with one session and debug_split_gap_s 30 (lidar_slam_ros2, this
+commit): the session's keyframes (the runner's submaps) before its middle minus 15 s are A, those after the middle
+plus 15 s are B, and B is joined to A. A and B share one odometry frame, so the true transform is the identity (up to
+the frontend's drift, a few cm). For every session two runs:
+  positive: as is; reported: joined or not, and the join error (RMS over B's keyframes of the distance the transform
+    moves them; the identity is the truth);
+  stress: with debug_exclude_transform the identity (radius 0.3 m), so every match left is wrong (2 m or more off on
+    the sites so far); the sessions overlap only where the site repeats itself or looks alike.
+Sessions: the GrandTour development missions with backend inputs on disk or recorded for this (HS-G15g frontend):
+con-1, con-2, arc-4, arc-5, arc-6, arc-3 (a multi-floor building: floors and stairs that look alike), heap-1, pil-2;
+MapsHD (the 8 trials: rooms, a long corridor, three underground garages with rows of columns), HILTI exp04 (a
+construction site indoors) and Oxford Keble 05, with the Phase 1 frontend G12 as in chapter 37. The runner (walking
+preset) gives the submaps.
+Reading: the check is safe on these sites if no stress run is joined. Reported besides: every wrong set that reaches
+the whole-map check (at least 3 places 5 m apart) with its share of places below 0.5, and the smallest such share (the
+margin against the 10 % limit); the positive runs' joins and errors. If a stress run is joined, the check is not safe
+as it is, and a stronger one gets its own plan before any change.
+
+Step 4 plan (fixed 2026-10-30 before any run with it; written while step 3's last sessions ran, after its
+calibration-room 1 stress run joined 20.7 m off: the room fits itself turned by 180 deg about its centre, 70 matches at
+102 places, 0 % of places below 0.5, median 0.94).
+Two refusals added to the join (multisession_join.hpp; on by default):
+  ambiguity: every set that meets the spread criterion is checked, up to 3 (not only until one passes); if two pass
+    with transforms that move B's keyframes apart by more than 1.0 m (RMS) or turn by more than 2 deg, no join;
+  self-similarity: after a passing set, each session is joined to itself by the same method with the matches within
+    1.0 m of the identity left out (10 Scan Context candidates per keyframe, the 10 keyframes either side skipped);
+    if either joins itself, no join (its place repeats itself, so a join to it cannot be told from a wrong one).
+  A unit test: a synthetic site whose buildings each have a twin turned 180 deg about the origin is refused.
+Both refusals can only turn a join into no join, so the runs of steps 2 and 3 that were not joined stay so; the runs
+that were joined are run again with the new build: step 2's four same-site pairs, its stress runs, and step 3's joined
+positive and stress runs (with their backend inputs recorded again where they were deleted).
+Reading: (a) no wrong join in any run (joined more than 0.3 m RMS from the truth, the identity for split sessions; any
+join in a stress run); (b) step 2's four same-site joins are kept, within 0.10 m. Reported besides: the joins lost
+against steps 2 and 3 and why, and the time the self-joins add.
+
+Step 3 result (2026-10-30; step3_results.csv: name, mode, keyframes A+B, candidates, accepted, joined, error to the
+identity, sets tried as size/places/share below 0.5/passed). 16 sessions, a positive and a stress run each.
+  stress runs: 15 not joined; calibration-room 1 JOINED 20.7 m off: 70 wrong matches agree on the room turned by 180 deg
+    about its centre (1.07, 0.84), and the whole-map check passes it (102 places, 0 % below 0.5, median 0.94).
+    Other wrong sets that reached the check failed it: calibration-room 2 (25 matches, 14.7 % below), underground
+    garage 1 (13, 16.7 %). Everywhere else the wrong matches (0-97 accepted; most in the garages, rows of columns) never
+    formed a set spread over 3 places.
+  positive runs: joined on con-1 7.9 mm, con-2 9.5, arc-4 4.1, arc-5 3.3, arc-6 2.5, calibration-room 1 1.6, Oxford
+    9.0, pil-2 14.9 (error to the identity, RMS over B's keyframes); not joined on calibration-room 2 (its largest set
+    is the wrong one above; the right matches are too few), flat-room, long-corridor (3 keyframes in A), outdoor-urk,
+    the three garages (the halves hardly revisit), exp04 (one candidate), heap-1, arc-3 (its right set, 19 matches,
+    fails the check with 30 % of places below 0.5: floors 2.5 m apart fall within the check's 3-m radius).
+    On calibration-room 1 the right set (113) was larger than the turned one (70); the join was right by that margin
+    only. On con-2 the right set passed with 9.1 % of places below 0.5, against the 10 % limit.
+Reading: NOT met. The whole-map check is not safe on a room that is symmetric: the turned room fits as well as the
+room. Step 4 (planned above, before these last results were read) adds the two refusals.
+
+Step 4 result (2026-10-30; the two refusals, lidar_slam_ros2 this commit; step4_pair_results.log,
+step4_split_results.csv):
+  step 2's pairs: con-1 + con-2, con-2 + con-1, arc-5 + arc-6, arc-6 + arc-5 joined as before (11.5, 12.5, 11.3, 29.1
+    mm; the same transforms, neither ambiguous nor self-similar; the wrong sets behind the right one fail the check);
+    their stress runs not joined.
+  step 3's joined split runs: con-2 9.5 mm, arc-4 4.1, arc-5 3.3, arc-6 2.5, Oxford 9.0, pil-2 14.9 joined as before;
+    con-1 refused (its first half is self-similar: within half the session the site's repeated structure passes the
+    check); calibration-room 1 refused (ambiguous: the right set, 113, and the room turned by 180 deg, 70, both pass);
+    calibration-room 1 stress refused (its first half is self-similar), the wrong join of step 3 is gone. Every other
+    stress run not joined.
+Reading: (a) met, no wrong join in any run; (b) met, step 2's four joins kept within 0.03 m.
+Lost against step 3: two right joins (con-1's halves, calibration-room 1's halves), refused rather than risked.
+Time: a join that passes now runs the two self-joins (10 candidates per keyframe): 129 -> 1376 s on a Construction
+pair, 13 -> 227 s on an ARCHE pair; a join that does not pass costs what it did.
+Remaining limits: a session that does not see its own symmetry (two identical rooms, each walked by one session only)
+cannot be refused by either rule; no data here has that case. The self-joins make the tool ten times slower when it
+joins.

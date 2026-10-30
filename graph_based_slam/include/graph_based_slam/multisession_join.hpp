@@ -45,6 +45,7 @@
 #include <limits>
 #include <memory>
 #include <set>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -85,6 +86,18 @@ struct JoinConfig
   int min_places {5};
   double max_bad_share {0.10};
   int max_sets {3};
+  // Refuse when two of the sets tried pass the whole-map check with transforms that differ (a
+  // symmetric room fits turned by 180 deg as well as it fits as it is).
+  bool refuse_ambiguous {true};
+  double ambiguity_m {1.0};
+  double ambiguity_deg {2.0};
+  // Refuse when either session joins itself under a transform other than the identity (its
+  // place repeats itself, so no join to it can be told apart from a wrong one).
+  bool refuse_self_similar {true};
+  // In the self-join: Scan Context candidates per keyframe, and keyframes this close in the
+  // sequence left out (a keyframe and its neighbours always match themselves).
+  int self_candidates {10};
+  int self_skip_neighbors {10};
   int num_threads {4};
 };
 
@@ -124,6 +137,10 @@ struct JoinResult
   std::vector<Match> accepted;
   std::vector<int> set;  // indices into accepted: the joined set
   std::vector<SetAttempt> attempts;
+  // A set passed, but the join was refused: two passing sets disagree, or a session is
+  // self-similar ("a" or "b").
+  bool ambiguous {false};
+  std::string self_similar;
 };
 
 inline Eigen::Isometry3d gravityAlignedFrame(const Eigen::Isometry3d & pose)
@@ -301,11 +318,16 @@ inline SetAttempt wholeMapCheck(
   return out;
 }
 
+inline bool differentTransforms(
+  const Eigen::Isometry3d & s, const Eigen::Isometry3d & t, const std::vector<Keyframe> & b,
+  const JoinConfig & config);
+inline bool selfSimilar(const std::vector<Keyframe> & s, const JoinConfig & config);
+
 // Joins session B to session A. exclude (optional) drops matches before the agreement step; it
 // is a test hook (the stress test of the plan), not part of the method.
 inline JoinResult joinSessions(
   const std::vector<Keyframe> & a, const std::vector<Keyframe> & b, const JoinConfig & config,
-  const std::function<bool(const Match &)> & exclude = nullptr)
+  const std::function<bool(const Match &)> & exclude = nullptr, bool self_join = false)
 {
   JoinResult result;
   if (a.empty() || b.empty()) {
@@ -327,11 +349,15 @@ inline JoinResult joinSessions(
     std::vector<std::pair<double, int>> ranked;  // (distance, a index), with the shift kept apart
     std::vector<int> shifts(a.size(), 0);
     for (int ai = 0; ai < static_cast<int>(a.size()); ++ai) {
+      if (self_join && std::abs(ai - bi) <= config.self_skip_neighbors) {
+        continue;
+      }
       const auto aligned = ScanContext::distanceWithAlignment(query, a_sc[ai]);
       ranked.emplace_back(aligned.distance, ai);
       shifts[ai] = aligned.shift;
     }
-    const int keep = std::min<int>(config.sc_candidates, static_cast<int>(ranked.size()));
+    const int keep = std::min<int>(
+      self_join ? config.self_candidates : config.sc_candidates, static_cast<int>(ranked.size()));
     std::partial_sort(ranked.begin(), ranked.begin() + keep, ranked.end());
     detail::Prepared source;
     bool source_ready = false;
@@ -459,16 +485,69 @@ inline JoinResult joinSessions(
     check.size = static_cast<int>(clique.size());
     result.attempts.push_back(check);
     if (check.passed) {
-      result.joined = true;
-      result.transform = result.accepted[medoid].session;
-      result.set = clique;
-      break;
+      if (!result.joined) {
+        result.joined = true;
+        result.transform = result.accepted[medoid].session;
+        result.set = clique;
+        if (!config.refuse_ambiguous) {
+          break;
+        }
+      } else {
+        const Eigen::Isometry3d & other = result.accepted[medoid].session;
+        if (differentTransforms(result.transform, other, b, config)) {
+          result.ambiguous = true;
+        }
+      }
     }
     for (int i : clique) {
       remaining.erase(i);
     }
   }
+  if (result.ambiguous) {
+    result.joined = false;
+  }
+  if (result.joined && config.refuse_self_similar) {
+    if (selfSimilar(a, config)) {
+      result.self_similar = "a";
+    } else if (selfSimilar(b, config)) {
+      result.self_similar = "b";
+    }
+    if (!result.self_similar.empty()) {
+      result.joined = false;
+    }
+  }
   return result;
+}
+
+// Two transforms of B differ if they move B's keyframes apart by more than ambiguity_m (RMS) or
+// turn by more than ambiguity_deg.
+inline bool differentTransforms(
+  const Eigen::Isometry3d & s, const Eigen::Isometry3d & t, const std::vector<Keyframe> & b,
+  const JoinConfig & config)
+{
+  double sq = 0.0;
+  for (const Keyframe & k : b) {
+    const Eigen::Vector3d p = k.frame.translation();
+    sq += (s * p - t * p).squaredNorm();
+  }
+  const double rms = std::sqrt(sq / static_cast<double>(std::max<std::size_t>(1, b.size())));
+  return rms > config.ambiguity_m ||
+         rotationDeg(s.rotation().transpose() * t.rotation()) > config.ambiguity_deg;
+}
+
+// A session is self-similar if it joins itself, with the matches near the identity left out,
+// under the same method (without these two refusals).
+inline bool selfSimilar(const std::vector<Keyframe> & s, const JoinConfig & config)
+{
+  JoinConfig inner = config;
+  inner.refuse_ambiguous = false;
+  inner.refuse_self_similar = false;
+  const double radius = config.ambiguity_m;
+  return joinSessions(
+    s, s, inner, [&s, radius](const Match & m) {
+      const Eigen::Vector3d p = s[m.b].frame.translation();
+      return (m.session * p - p).norm() <= radius;
+    }, true).joined;
 }
 
 }  // namespace multisession

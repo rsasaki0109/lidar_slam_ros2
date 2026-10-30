@@ -76,7 +76,8 @@ def main():
     report = yaml.safe_load(open(f'{join_dir}/join_report.yaml'))
     session = next(s for s in report['sessions'] if s['session'] == 1)
     out = {'join': join_dir, 'joined': bool(session['joined']), 'candidates': session['candidates'],
-           'accepted': session['accepted'], 'sets_tried': session['sets_tried']}
+           'accepted': session['accepted'], 'sets_tried': session['sets_tried'],
+           'ambiguous': bool(session.get('ambiguous')), 'self_similar': session.get('self_similar') or ''}
     front_a = f'{a_dir}/run/front_0/front_tum_0.txt'
     front_b = f'{b_dir}/run/front_0/front_tum_0.txt'
     with tempfile.TemporaryDirectory() as tmp:
