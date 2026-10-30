@@ -37,6 +37,10 @@ graph_slam_multisession_join --ros-args \
 The pose graph settings (adjacent and loop edge information, robust kernel) are read under the
 runner's parameter names, so the params file of the single-session runs can be reused.
 
+`multisession_num_threads` (4) sets how many candidates are registered at once. Each registration
+runs on one thread, so the outputs are the same for any number of threads (byte-identical on 4 and
+1 threads, report 38.6).
+
 ## Method
 
 1. The runner's submaps are the keyframes. A keyframe's map is the scans within
@@ -62,7 +66,11 @@ runner's parameter names, so the params file of the single-session runs can be r
    - **Self-similarity.** After a set passes, each session is joined to itself by the same method, with the
      matches near the identity left out (10 Scan Context candidates per keyframe; the 10 keyframes on either
      side are skipped). If either session joins itself, there is no join. Its place repeats itself, so a join to
-     it cannot be told apart from a wrong one. This roughly ten-folds the time of a join that passes.
+     it cannot be told apart from a wrong one. In the self-join, a candidate is not refined after the first stage
+     if less than 0.48 of its points lie within 1.0 m of the other keyframe's (`self_gate_fraction`). It could not
+     be accepted anyway. Each session is checked once per run, however many sessions it is joined to. A join that
+     passes still takes about ten times as long as one that does not: 821 s against 73 s on the Construction pair
+     (report 38.6).
 7. The joined sessions form one graph: each session's odometry chain (no adjacent edge across a
    session start, `SubmapNode::session_start`), its own loop edges, and one inter-session edge per
    joined place, optimized with the first submap fixed.

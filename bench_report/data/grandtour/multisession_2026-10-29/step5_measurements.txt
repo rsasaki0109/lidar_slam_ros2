@@ -1,0 +1,164 @@
+Step 5 measurements before the change (step 4's build; plan.txt step 5).
+1. Profile, arc-5 + arc-6, timers added to multisession_join.hpp (seconds; self=0 the join, self=1 the two self-joins).
+   4 threads per registration (ms_join5/prof_arc5_arc6, 285 s):
+     PROF self=0 sc_desc 0.14
+     PROF self=0 sc_dist 1.64
+     PROF self=0 prepare 0.32
+     PROF self=0 align 1.86
+     PROF self=0 inlier 0.18
+     PROF self=0 clique 0.03
+     PROF self=0 wholemap 0.89
+     PROF self=0 total 5.05
+     PROF self=1 sc_desc 0.39
+     PROF self=1 sc_dist 3.28
+     PROF self=1 prepare 3.16
+     PROF self=1 align 196.53
+     PROF self=1 inlier 7.87
+     PROF self=1 clique 0.00
+     PROF self=1 wholemap 0.00
+     PROF self=1 total 211.24
+   1 thread per registration (ms_join5/prof1_arc5_arc6, 650 s):
+     PROF self=0 sc_desc 0.20
+     PROF self=0 sc_dist 1.70
+     PROF self=0 prepare 0.63
+     PROF self=0 align 4.42
+     PROF self=0 inlier 0.18
+     PROF self=0 clique 0.04
+     PROF self=0 wholemap 1.63
+     PROF self=0 total 8.80
+     PROF self=1 sc_desc 0.32
+     PROF self=1 sc_dist 3.13
+     PROF self=1 prepare 6.64
+     PROF self=1 align 615.03
+     PROF self=1 inlier 7.73
+     PROF self=1 clique 0.00
+     PROF self=1 wholemap 0.00
+     PROF self=1 total 632.86
+2. Per candidate (a diagnostic build logging each registration's stages: iterations, convergence, time, and after
+   the first stage the share of B's points within 0.3 / 1.0 / 2.0 m of A's; analysed by a scratch script).
+   diag_arc5_arc6:
+     self=0: 171 candidates, 151 with inlier>=0.6 (0 excluded), time 1.8 s (stages [1.1 0.3 0.3]), accepted 1.3 s, rejected 0.5 s
+       accepted: iterations mean [4.4 0.5 0.6], at max [0. 0. 0.], converged [1. 1. 1.], ms/cand 9, npts 3832
+         after stage 1 f0.3: min/1/5/50/95/max [0.561 0.598 0.663 0.862 0.952 0.965]
+         after stage 1 f1.0: min/1/5/50/95/max [0.766 0.825 0.867 0.973 0.999 1.   ]
+         after stage 1 f2.0: min/1/5/50/95/max [0.904 0.94  0.968 1.    1.    1.   ]
+       rejected: iterations mean [10.   5.2  6.7], at max [0. 0. 0.], converged [0.95 0.95 1.  ], ms/cand 24, npts 3882
+         after stage 1 f0.3: min/1/5/50/95/max [0.18  0.196 0.259 0.452 0.59  0.595]
+         after stage 1 f1.0: min/1/5/50/95/max [0.475 0.497 0.587 0.802 0.937 0.94 ]
+         after stage 1 f2.0: min/1/5/50/95/max [0.626 0.667 0.832 0.962 1.    1.   ]
+       rejected final inlier: pct 50/90/99/max [0.421 0.581 0.594 0.595]
+     self=1: 1133 candidates, 624 with inlier>=0.6 (624 excluded), time 295.7 s (stages [121.9  86.2  87.7]), accepted 16.4 s, rejected 279.3 s
+       accepted: iterations mean [3.9 0.8 0.7], at max [0. 0. 0.], converged [1. 1. 1.], ms/cand 26, npts 4038
+         after stage 1 f0.3: min/1/5/50/95/max [0.597 0.604 0.626 0.784 0.95  0.98 ]
+         after stage 1 f1.0: min/1/5/50/95/max [0.756 0.787 0.826 0.933 0.998 1.   ]
+         after stage 1 f2.0: min/1/5/50/95/max [0.838 0.896 0.931 0.99  1.    1.   ]
+       rejected: iterations mean [18.1 12.2 11.9], at max [0. 0. 0.], converged [0.67 0.81 0.75], ms/cand 549, npts 13898
+         after stage 1 f0.3: min/1/5/50/95/max [0.041 0.053 0.119 0.274 0.57  0.601]
+         after stage 1 f1.0: min/1/5/50/95/max [0.106 0.176 0.287 0.565 0.816 0.896]
+         after stage 1 f2.0: min/1/5/50/95/max [0.174 0.254 0.422 0.763 0.96  0.998]
+       rejected final inlier: pct 50/90/99/max [0.293 0.545 0.592 0.6  ]
+     gate after stage 1 (skip stages 2-3 when f < g): self-join time saved, accepted lost
+       f1.0 < 0.3: gated 43/1133, saved 42.8 of 295.7 s, accepted lost 0 (not excluded 0); main join accepted lost 0
+       f1.0 < 0.4: gated 125/1133, saved 121.3 of 295.7 s, accepted lost 0 (not excluded 0); main join accepted lost 0
+       f1.0 < 0.5: gated 192/1133, saved 141.1 of 295.7 s, accepted lost 0 (not excluded 0); main join accepted lost 0
+       f1.0 < 0.6: gated 280/1133, saved 150.9 of 295.7 s, accepted lost 0 (not excluded 0); main join accepted lost 0
+       f1.0 < 0.7: gated 369/1133, saved 158.2 of 295.7 s, accepted lost 0 (not excluded 0); main join accepted lost 0
+       f2.0 < 0.3: gated 11/1133, saved 7.1 of 295.7 s, accepted lost 0 (not excluded 0); main join accepted lost 0
+       f2.0 < 0.4: gated 19/1133, saved 13.8 of 295.7 s, accepted lost 0 (not excluded 0); main join accepted lost 0
+       f2.0 < 0.5: gated 108/1133, saved 110.0 of 295.7 s, accepted lost 0 (not excluded 0); main join accepted lost 0
+       f2.0 < 0.6: gated 153/1133, saved 130.6 of 295.7 s, accepted lost 0 (not excluded 0); main join accepted lost 0
+       f2.0 < 0.7: gated 211/1133, saved 143.1 of 295.7 s, accepted lost 0 (not excluded 0); main join accepted lost 0
+       f0.3 < 0.3: gated 281/1133, saved 153.0 of 295.7 s, accepted lost 0 (not excluded 0); main join accepted lost 0
+       f0.3 < 0.4: gated 365/1133, saved 161.3 of 295.7 s, accepted lost 0 (not excluded 0); main join accepted lost 0
+       f0.3 < 0.5: gated 426/1133, saved 165.3 of 295.7 s, accepted lost 0 (not excluded 0); main join accepted lost 0
+       f0.3 < 0.6: gated 511/1133, saved 167.0 of 295.7 s, accepted lost 3 (not excluded 0); main join accepted lost 2
+       f0.3 < 0.7: gated 650/1133, saved 168.8 of 295.7 s, accepted lost 141 (not excluded 0); main join accepted lost 17
+     self-join pairs 1129, with the mirror also a candidate 984
+     self-join candidates with >8000 source points: 160, time 230.6 s
+   diag_con1_con2:
+     self=0: 499 candidates, 402 with inlier>=0.6 (0 excluded), time 60.3 s (stages [28.8 17.  14.6]), accepted 25.7 s, rejected 34.6 s
+       accepted: iterations mean [4.8 1.5 0.8], at max [0. 0. 0.], converged [0.97 0.99 1.  ], ms/cand 64, npts 24391
+         after stage 1 f0.3: min/1/5/50/95/max [0.314 0.425 0.622 0.858 0.935 0.961]
+         after stage 1 f1.0: min/1/5/50/95/max [0.69  0.742 0.819 0.962 0.994 0.998]
+         after stage 1 f2.0: min/1/5/50/95/max [0.808 0.836 0.896 0.99  1.    1.   ]
+       rejected: iterations mean [17.3 14.6 14.1], at max [0. 0. 0.], converged [0.65 0.78 0.71], ms/cand 357, npts 22364
+         after stage 1 f0.3: min/1/5/50/95/max [0.154 0.226 0.259 0.458 0.588 0.601]
+         after stage 1 f1.0: min/1/5/50/95/max [0.344 0.379 0.437 0.706 0.82  0.843]
+         after stage 1 f2.0: min/1/5/50/95/max [0.455 0.566 0.611 0.814 0.928 0.941]
+       rejected final inlier: pct 50/90/99/max [0.458 0.58  0.597 0.599]
+     self=1: 2998 candidates, 801 with inlier>=0.6 (410 excluded), time 1213.4 s (stages [531.  350.4 332. ]), accepted 97.5 s, rejected 1116.0 s
+       accepted: iterations mean [9.5 4.8 4.2], at max [0. 0. 0.], converged [0.91 0.94 0.94], ms/cand 122, npts 22381
+         after stage 1 f0.3: min/1/5/50/95/max [0.429 0.516 0.604 0.694 0.836 0.925]
+         after stage 1 f1.0: min/1/5/50/95/max [0.681 0.721 0.746 0.836 0.941 0.995]
+         after stage 1 f2.0: min/1/5/50/95/max [0.782 0.797 0.82  0.916 0.978 1.   ]
+       rejected: iterations mean [18.9 13.5 13.7], at max [0. 0. 0.], converged [0.66 0.8  0.78], ms/cand 508, npts 26231
+         after stage 1 f0.3: min/1/5/50/95/max [0.09  0.127 0.164 0.362 0.568 0.602]
+         after stage 1 f1.0: min/1/5/50/95/max [0.321 0.347 0.386 0.56  0.764 0.845]
+         after stage 1 f2.0: min/1/5/50/95/max [0.425 0.476 0.527 0.686 0.885 0.957]
+       rejected final inlier: pct 50/90/99/max [0.363 0.548 0.594 0.6  ]
+     gate after stage 1 (skip stages 2-3 when f < g): self-join time saved, accepted lost
+       f1.0 < 0.3: gated 0/2998, saved 0.0 of 1213.4 s, accepted lost 0 (not excluded 0); main join accepted lost 0
+       f1.0 < 0.4: gated 194/2998, saved 73.7 of 1213.4 s, accepted lost 0 (not excluded 0); main join accepted lost 0
+       f1.0 < 0.5: gated 807/2998, saved 294.8 of 1213.4 s, accepted lost 0 (not excluded 0); main join accepted lost 0
+       f1.0 < 0.6: gated 1312/2998, saved 473.1 of 1213.4 s, accepted lost 0 (not excluded 0); main join accepted lost 0
+       f1.0 < 0.7: gated 1786/2998, saved 576.3 of 1213.4 s, accepted lost 4 (not excluded 1); main join accepted lost 2
+       f2.0 < 0.3: gated 0/2998, saved 0.0 of 1213.4 s, accepted lost 0 (not excluded 0); main join accepted lost 0
+       f2.0 < 0.4: gated 0/2998, saved 0.0 of 1213.4 s, accepted lost 0 (not excluded 0); main join accepted lost 0
+       f2.0 < 0.5: gated 50/2998, saved 16.9 of 1213.4 s, accepted lost 0 (not excluded 0); main join accepted lost 0
+       f2.0 < 0.6: gated 533/2998, saved 189.9 of 1213.4 s, accepted lost 0 (not excluded 0); main join accepted lost 0
+       f2.0 < 0.7: gated 1170/2998, saved 418.1 of 1213.4 s, accepted lost 0 (not excluded 0); main join accepted lost 0
+       f0.3 < 0.3: gated 913/2998, saved 314.6 of 1213.4 s, accepted lost 0 (not excluded 0); main join accepted lost 0
+       f0.3 < 0.4: gated 1286/2998, saved 469.8 of 1213.4 s, accepted lost 0 (not excluded 0); main join accepted lost 4
+       f0.3 < 0.5: gated 1737/2998, saved 581.0 of 1213.4 s, accepted lost 8 (not excluded 3); main join accepted lost 9
+       f0.3 < 0.6: gated 2226/2998, saved 641.4 of 1213.4 s, accepted lost 30 (not excluded 23); main join accepted lost 14
+       f0.3 < 0.7: gated 2620/2998, saved 671.6 of 1213.4 s, accepted lost 423 (not excluded 328); main join accepted lost 37
+     self-join pairs 2687, with the mirror also a candidate 1262
+     self-join candidates with >8000 source points: 2988, time 1207.6 s
+   split_diag/con-1_positive:
+     self=0: 202 candidates, 44 with inlier>=0.6 (0 excluded), time 90.3 s (stages [39.5 25.3 25.4]), accepted 4.5 s, rejected 85.7 s
+       accepted: iterations mean [5.5 1.8 1.2], at max [0. 0. 0.], converged [0.95 1.   1.  ], ms/cand 103, npts 29947
+         after stage 1 f0.3: min/1/5/50/95/max [0.462 0.52  0.599 0.711 0.887 0.904]
+         after stage 1 f1.0: min/1/5/50/95/max [0.706 0.741 0.793 0.858 0.982 0.992]
+         after stage 1 f2.0: min/1/5/50/95/max [0.858 0.861 0.881 0.934 0.996 1.   ]
+       rejected: iterations mean [18.1 12.5 13.2], at max [0. 0. 0.], converged [0.65 0.85 0.8 ], ms/cand 543, npts 27176
+         after stage 1 f0.3: min/1/5/50/95/max [0.119 0.126 0.148 0.259 0.56  0.594]
+         after stage 1 f1.0: min/1/5/50/95/max [0.336 0.346 0.386 0.501 0.743 0.844]
+         after stage 1 f2.0: min/1/5/50/95/max [0.453 0.462 0.542 0.654 0.874 0.923]
+       rejected final inlier: pct 50/90/99/max [0.268 0.55  0.592 0.597]
+     self=1: 533 candidates, 259 with inlier>=0.6 (49 excluded), time 181.5 s (stages [78.  51.1 52.4]), accepted 41.0 s, rejected 140.5 s
+       accepted: iterations mean [12.8  8.   7.4], at max [0. 0. 0.], converged [0.85 0.88 0.88], ms/cand 158, npts 19603
+         after stage 1 f0.3: min/1/5/50/95/max [0.598 0.599 0.609 0.668 0.781 0.811]
+         after stage 1 f1.0: min/1/5/50/95/max [0.716 0.726 0.75  0.813 0.887 0.901]
+         after stage 1 f2.0: min/1/5/50/95/max [0.782 0.799 0.816 0.909 0.963 0.975]
+       rejected: iterations mean [19.5 12.8 14.1], at max [0. 0. 0.], converged [0.68 0.85 0.78], ms/cand 513, npts 24490
+         after stage 1 f0.3: min/1/5/50/95/max [0.15  0.182 0.208 0.371 0.588 0.602]
+         after stage 1 f1.0: min/1/5/50/95/max [0.307 0.334 0.396 0.564 0.749 0.827]
+         after stage 1 f2.0: min/1/5/50/95/max [0.402 0.456 0.525 0.669 0.878 0.942]
+       rejected final inlier: pct 50/90/99/max [0.376 0.571 0.597 0.599]
+     gate after stage 1 (skip stages 2-3 when f < g): self-join time saved, accepted lost
+       f1.0 < 0.3: gated 0/533, saved 0.0 of 181.5 s, accepted lost 0 (not excluded 0); main join accepted lost 0
+       f1.0 < 0.4: gated 15/533, saved 6.9 of 181.5 s, accepted lost 0 (not excluded 0); main join accepted lost 0
+       f1.0 < 0.5: gated 70/533, saved 29.0 of 181.5 s, accepted lost 0 (not excluded 0); main join accepted lost 0
+       f1.0 < 0.6: gated 172/533, saved 64.2 of 181.5 s, accepted lost 0 (not excluded 0); main join accepted lost 0
+       f1.0 < 0.7: gated 226/533, saved 76.1 of 181.5 s, accepted lost 0 (not excluded 0); main join accepted lost 0
+       f2.0 < 0.3: gated 0/533, saved 0.0 of 181.5 s, accepted lost 0 (not excluded 0); main join accepted lost 0
+       f2.0 < 0.4: gated 0/533, saved 0.0 of 181.5 s, accepted lost 0 (not excluded 0); main join accepted lost 0
+       f2.0 < 0.5: gated 9/533, saved 4.6 of 181.5 s, accepted lost 0 (not excluded 0); main join accepted lost 0
+       f2.0 < 0.6: gated 56/533, saved 22.0 of 181.5 s, accepted lost 0 (not excluded 0); main join accepted lost 0
+       f2.0 < 0.7: gated 165/533, saved 60.6 of 181.5 s, accepted lost 0 (not excluded 0); main join accepted lost 0
+       f0.3 < 0.3: gated 72/533, saved 29.6 of 181.5 s, accepted lost 0 (not excluded 0); main join accepted lost 0
+       f0.3 < 0.4: gated 164/533, saved 61.9 of 181.5 s, accepted lost 0 (not excluded 0); main join accepted lost 0
+       f0.3 < 0.5: gated 209/533, saved 73.7 of 181.5 s, accepted lost 0 (not excluded 0); main join accepted lost 1
+       f0.3 < 0.6: gated 277/533, saved 81.8 of 181.5 s, accepted lost 4 (not excluded 4); main join accepted lost 3
+       f0.3 < 0.7: gated 450/533, saved 99.2 of 181.5 s, accepted lost 176 (not excluded 165); main join accepted lost 20
+     self-join pairs 533, with the mirror also a candidate 294
+     self-join candidates with >8000 source points: 523, time 180.3 s
+3. The gate threshold rule (plan.txt):
+   diag_arc5_arc6.log: self=0 accepted 151, min f1.0 after stage 1 0.766 (not excluded only: 0.766)
+   diag_arc5_arc6.log: self=1 accepted 624, min f1.0 after stage 1 0.756 (not excluded only: nan)
+   diag_con1_con2.log: self=0 accepted 402, min f1.0 after stage 1 0.690 (not excluded only: 0.690)
+   diag_con1_con2.log: self=1 accepted 801, min f1.0 after stage 1 0.681 (not excluded only: 0.697)
+   split_diag/con-1_positive.log: self=0 accepted 44, min f1.0 after stage 1 0.706 (not excluded only: 0.706)
+   split_diag/con-1_positive.log: self=1 accepted 259, min f1.0 after stage 1 0.716 (not excluded only: 0.716)
+   split_diag/con-1_stress.log: self=0 accepted 44, min f1.0 after stage 1 0.706 (not excluded only: 0.706)
+   minimum over all accepted candidates 0.681; threshold by the rule 0.481

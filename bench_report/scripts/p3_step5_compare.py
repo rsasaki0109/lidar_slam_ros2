@@ -16,6 +16,7 @@ from p3_multisession_join import rot_deg  # noqa: E402
 
 
 def read(path):
+    """Session 1's (or the split's) decision, transform (4x4 or None) and split block (or None)."""
     r = yaml.safe_load(open(f'{path}/join_report.yaml'))
     if 'split' in r:
         s, key = r['split'], 'transform'
@@ -35,6 +36,7 @@ def read(path):
 
 
 def main():
+    """Compare one join of step 5 with step 4."""
     name, d4, d5, runner = sys.argv[1:5]
     dec4, t4, split = read(d4)
     dec5, t5, _ = read(d5)

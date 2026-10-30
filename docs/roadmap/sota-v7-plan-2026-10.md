@@ -210,6 +210,12 @@ one frame is still to be checked.
     - On 16 more sessions split in two (rooms, corridor, garages, exp04, Oxford), a symmetric room joined 20.7 m
       off (turned by 180 deg). Two refusals (ambiguous hypotheses, self-similar sessions) removed every wrong join,
       at the cost of two right joins and ten times the run time when a join passes.
+    - The self-similarity check was then sped up with the same decisions on every run:
+      - a per-session cache;
+      - parallel single-thread registrations, so the output is the same for any number of threads;
+      - a gate on hopeless self-join candidates.
+      A Construction pair that joins now takes 821 s instead of 1,364 s, still about 11 times a join that does not
+      pass.
 
 ### Phase 4 — Resources
 

@@ -260,3 +260,30 @@ Reading:
 Not expected: a join that passes stays several times slower than one that does not. The time is the registration of
 wrong candidates, which only fewer or cheaper registrations reduce, and the self-join's candidates are kept (fewer
 would make the check less sensitive).
+
+Step 5 result (2026-10-30; lidar_slam_ros2 8188a03 with the threshold of 53055e9; step5_measurements.txt (before the
+change), step5_compare.csv, step5_times.csv, step5_runs.log, step5_split_results.csv, step5_not_passing_times.log).
+  5a (gate off), arc-5 + arc-6: the outputs on 4 and 1 threads are byte-identical (join_report.yaml,
+    inter_session_edges.csv, both trajectories); joined as in step 4, the transform 0.10 mm from step 4's. 221 -> 158 s
+    on 4 threads (632 s on 1).
+  5b (gate 0.48): all 20 runs have step 4's decision. The four pairs, and the splits of con-2, arc-4, arc-5, arc-6,
+    Oxford and pil-2 joined; con-1's split refused (self-similar a); calibration-room 1's split refused (ambiguous; its
+    stress run self-similar a); every other stress run not joined. Every joined transform within 0.77 mm of step 4's:
+    0.77 mm on arc-6 + arc-5, where one of 92 matches near the 0.6 inlier limit drops out with the new order of sums
+    (join error 29.3 against 29.1 mm); the rest within 0.45 mm. The joint maps as in step 2 (B in A's frame +2.0 /
+    -0.1 / +4.9 / +4.1 mm). The inputs recorded again (calibration-room 1, Oxford, pil-2) gave runner outputs
+    byte-identical to step 4's.
+Reading: 5a met; 5b met, so the gate is on by default (self_gate_fraction 0.48).
+Time (from the logs, without reading the first bag; step 4 -> step 5):
+  joins that pass: con-1 + con-2 1364 -> 821 s, con-2 + con-1 1359 -> 820, arc-5 + arc-6 221 -> 76, arc-6 + arc-5
+    222 -> 86; splits con-1 301 -> 204, con-2 565 -> 366, arc-4 55 -> 32, arc-5 57 -> 44, Oxford 853 -> 686, pil-2
+    369 -> 216.
+  joins that do not pass (no self-join): stress con-1 + con-2 130 -> 73 s, arc-5 + arc-6 6 -> 4; the splits' stress
+    runs 0.5-0.9 times.
+  So a passing join takes 0.6 times as long on Construction (0.35 on ARCHE), but it is still about 11 times a join that
+  does not pass (821 against 73 s), as before: the parallel registration speeds up the main join too. What is left
+  is the first stage of the self-joins' wrong candidates (the gate skips the finer stages of a quarter of con's).
+Seen besides: in stress con-1 + con-2 (not joined, as in step 4) the third set tried in step 4 (5 matches, 13 % of
+places below 0.5; the thin margin of step 2) is no longer reached: with the registrations' last bits changed, the
+matches left after the first two sets no longer span 3 places 5 m apart. The plan's "the other runs cannot change"
+holds for the gate, not for 5a's order of sums; no decision changed.
