@@ -1,0 +1,45 @@
+== (a) arc5_arc6: byte-identical to step 5
+con-1,positive,map,40+46+46,joined p1 map[0] 0.0075,not joined,200
+  step 7:
+    part 1: transform to the identity 0.0075 m, to the loop-closed reference 0.0083 m (reference vs identity 0.0048 m); the optimized joint graph to the reference 0.0052 m
+  step 8:
+    part 1: transform to the identity 0.0075 m, to the loop-closed reference 0.0083 m (reference vs identity 0.0048 m); the optimized joint graph to the reference 0.0052 m
+con-2,positive,map,47+40+47,joined p1 map[0] 0.0058,not joined,196
+  step 7:
+    part 1: transform to the identity 0.0058 m, to the loop-closed reference 0.0056 m (reference vs identity 0.0053 m); the optimized joint graph to the reference 0.0065 m
+  step 8:
+    part 1: transform to the identity 0.0058 m, to the loop-closed reference 0.0056 m (reference vs identity 0.0053 m); the optimized joint graph to the reference 0.0065 m
+arc-4,positive,map,36+12+34,not joined,joined p1 map[0] 0.0044,42
+  step 7:
+    part 2: transform to the identity 0.0044 m, to the loop-closed reference 0.0153 m (reference vs identity 0.0133 m); the optimized joint graph to the reference 0.0156 m
+  step 8:
+    part 2: transform to the identity 0.0044 m, to the loop-closed reference 0.0153 m (reference vs identity 0.0133 m); the optimized joint graph to the reference 0.0156 m
+arc-5,positive,map,24+34+22,not joined,joined p1 map[0] 0.0032,12
+  step 7:
+    part 2: transform to the identity 0.0032 m, to the loop-closed reference 0.0198 m (reference vs identity 0.0213 m); the optimized joint graph to the reference 0.0190 m
+  step 8:
+    part 2: transform to the identity 0.0032 m, to the loop-closed reference 0.0198 m (reference vs identity 0.0213 m); the optimized joint graph to the reference 0.0190 m
+arc-6,positive,map,12+17+19,joined p1 map[0] 0.0037,joined p1 map[0 1] 0.0036,4
+  step 7:
+    part 1: transform to the identity 0.0037 m, to the loop-closed reference 0.0028 m (reference vs identity 0.0036 m); the optimized joint graph to the reference 0.0032 m
+    part 2: transform to the identity 0.0051 m, to the loop-closed reference 0.0055 m (reference vs identity 0.0075 m); the optimized joint graph to the reference 0.0073 m
+  step 8:
+    part 1: transform to the identity 0.0037 m, to the loop-closed reference 0.0028 m (reference vs identity 0.0036 m); the optimized joint graph to the reference 0.0032 m
+    part 2: transform to the identity 0.0036 m, to the loop-closed reference 0.0072 m (reference vs identity 0.0075 m); the optimized joint graph to the reference 0.0073 m
+oxford: input as in step 7
+oxford,positive,map,123+132+146,joined p2 map[0 2] 0.0763,joined p1 map[0] 0.0735,249
+  step 7:
+    part 1: transform to the identity 0.1539 m, to the loop-closed reference 0.1279 m (reference vs identity 0.0381 m); the optimized joint graph to the reference 0.0353 m
+    part 2: transform to the identity 0.0735 m, to the loop-closed reference 0.0451 m (reference vs identity 0.0375 m); the optimized joint graph to the reference 0.0238 m
+  step 8:
+    part 1: transform to the identity 0.0763 m, to the loop-closed reference 0.0637 m (reference vs identity 0.0381 m); the optimized joint graph to the reference 0.0357 m
+    part 2: transform to the identity 0.0735 m, to the loop-closed reference 0.0451 m (reference vs identity 0.0375 m); the optimized joint graph to the reference 0.0239 m
+pil-2: input as in step 7
+pil-2,positive,map,43+41+55,joined p2 map[0 2] 0.0149,joined p1 map[0] 0.0160,91
+  step 7:
+    part 1: transform to the identity 0.0074 m, to the loop-closed reference 0.0107 m (reference vs identity 0.0071 m); the optimized joint graph to the reference 0.0167 m
+    part 2: transform to the identity 0.0160 m, to the loop-closed reference 0.0094 m (reference vs identity 0.0093 m); the optimized joint graph to the reference 0.0124 m
+  step 8:
+    part 1: transform to the identity 0.0149 m, to the loop-closed reference 0.0146 m (reference vs identity 0.0071 m); the optimized joint graph to the reference 0.0168 m
+    part 2: transform to the identity 0.0160 m, to the loop-closed reference 0.0094 m (reference vs identity 0.0093 m); the optimized joint graph to the reference 0.0125 m
+QUEUE79_DONE

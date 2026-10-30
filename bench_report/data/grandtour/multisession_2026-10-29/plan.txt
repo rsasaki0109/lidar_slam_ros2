@@ -408,3 +408,17 @@ Reading:
       than in step 7.
   Decision: the re-optimization stays on by default if (a) and (b) hold; otherwise it is off by default and the
   differences are reported. Expected, not a reading: Oxford part 1's transform closer to the reference than 0.128 m.
+
+Step 8 result (2026-10-30; lidar_slam_ros2 5ee48ba; step8_runs.log, step8_split3_results.csv).
+  (a) arc-5 + arc-6 byte-identical to step 5.
+  (b) the seven sessions join the same parts as in step 7, with no wrong join. Against the loop-closed reference
+      (transform of the join; the optimized joint graph), step 7 -> step 8:
+        Oxford part 1 (joined to the map of parts 0 and 2):  0.128 -> 0.064 m;  graph 0.0353 -> 0.0357 m
+        pil-2 part 1 (the same way):                          0.011 -> 0.015 m;  graph 0.0167 -> 0.0168 m
+        arc-6 part 2 (joined to the map of parts 0 and 1):  0.0055 -> 0.0072 m;  graph 0.0073 -> 0.0073 m
+        the other joined parts (joined to part 0 alone, before any optimization): unchanged.
+Reading: met (no transform more than 5 mm further off: +3.9 mm on pil-2 part 1, +1.7 mm on arc-6 part 2), so the
+re-optimization stays on by default.
+What it changes: the join's transform, which places the session before the final optimization and is what later
+sessions match against. Oxford's part 1 halves its error. The final optimized map does not change (within 0.4 mm):
+the inter-session edges had already corrected the placement in step 7.

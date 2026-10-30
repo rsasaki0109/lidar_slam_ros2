@@ -113,7 +113,9 @@ runs on one thread, so the outputs are the same for any number of threads (byte-
    default; `first` joins every session to the first one only). The whole-map check runs over
    that map. Every session in the map was checked for self-similarity when it joined, so only the
    new session is checked. Sessions that do not join are tried again after the map has grown,
-   until it stops growing.
+   until it stops growing. After each join, while sessions are left to join, the graph so far is
+   optimized and the map places its keyframes at their optimized submap poses
+   (`multisession_reoptimize_map`, default on; report 38.9).
 8. The joined sessions form one graph: each session's odometry chain (no adjacent edge across a
    session start, `SubmapNode::session_start`), its own loop edges, and one inter-session edge per
    joined place, to the map keyframe's own session. It is optimized with the first submap fixed.
@@ -156,6 +158,8 @@ were each cut into three parts. Each part was joined as a session, and the truth
 - There was no wrong join in 72 runs, with or without the right matches.
 - A part joined through the map inherits the placement error of the map's sessions: Oxford's
   transform was 0.13 m off the loop-closed reference. The joint optimization brings it to 0.035 m.
+  With the map optimized after each join, the transform is 0.064 m off. The final map does not
+  change.
 
 Limits:
 

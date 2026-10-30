@@ -1,0 +1,7 @@
+con-1,positive,map,40+46+46,joined p1 map[0] 0.0075,not joined,200
+con-2,positive,map,47+40+47,joined p1 map[0] 0.0058,not joined,196
+arc-4,positive,map,36+12+34,not joined,joined p1 map[0] 0.0044,42
+arc-5,positive,map,24+34+22,not joined,joined p1 map[0] 0.0032,12
+arc-6,positive,map,12+17+19,joined p1 map[0] 0.0037,joined p1 map[0 1] 0.0036,4
+oxford,positive,map,123+132+146,joined p2 map[0 2] 0.0763,joined p1 map[0] 0.0735,249
+pil-2,positive,map,43+41+55,joined p2 map[0 2] 0.0149,joined p1 map[0] 0.0160,91

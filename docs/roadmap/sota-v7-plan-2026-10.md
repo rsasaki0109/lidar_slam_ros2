@@ -225,6 +225,8 @@ one frame is still to be checked.
       to the first.
       - On 18 sessions cut into 3 parts each, 10 parts join instead of 8.
       - There were no wrong joins in 72 runs.
+      - After each join the map is optimized before the next one, so later sessions match against the optimized
+        map. Oxford's join error to the loop-closed reference halves (0.128 -> 0.064 m); the final map is unchanged.
 
 ### Phase 4 — Resources
 
