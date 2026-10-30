@@ -204,3 +204,21 @@ Reading:
   - Oxford, in both pairs: B's save (from the frontend's end to the save's response) at most 15 s longer than A's.
   Decision: kept if all three hold. Reported besides: the held size the save logs, VmHWM per process, the pipeline sum,
   the time to the save's response, exp04's.
+Step 4 result (2026-10-30; graph_based_slam 59355c9, A = 4a69722's library; step4_runs.log): met.
+  - A first start of the runs was stopped during its first run (an A run): the change had been built without zstd
+    (zstd_vendor's target is zstd::zstd, which the CMake change did not look for). Fixed in 59355c9 before any B run;
+    all eight runs then started over.
+  - Every output of all eight runs byte-identical to step R, the frontend's trajectory too.
+  - Oxford, the backend's largest RSS while the frontend runs: 512 -> 437 and 499 -> 427 MiB (-75, -72; at least 50
+    needed).
+  - Oxford, the save: 45.8 -> 51.0 and 46.1 -> 52.7 s (+5.2, +6.6; at most 15 needed).
+  The compression stays. Besides:
+  - Held size the save logs: Oxford 198.8 MiB for 293.5 MiB of packed scans (0.677); exp04 15.0 for 20.7 MiB (0.728).
+  - Oxford VmHWM (A -> B, two pairs): backend 668 -> 595 and 649 -> 566 MiB; frontend 474 -> 480 and 446 -> 453;
+    pipeline sum 1,210 -> 1,143 and 1,163 -> 1,087 MiB. Time to the save's response 267.0 -> 266.4 and 270.0 -> 278.3 s.
+  - exp04 backend VmHWM 213, 210, 205, 189 MiB (A1 B1 A2 B2). exp04 A1 ran while a unit test compiled on the machine
+    (its sum counts the compiler's 849 MiB, its frontend took 108 s against 22 s); its outputs are byte-identical, its
+    time and sum are not used.
+  - The plan said the save reads every submap 16 times on Oxford; it is 15 (the counting pass and 14 passes).
+  - Oxford's frontend took 215-226 s in these runs, against 485 s in the ratio run of the same boot: the machine's speed
+    changes even within a boot, which the pairs absorb.

@@ -250,8 +250,12 @@ Status (2026-10-30, report chapter 39):
 - Step 3, not adopted: the offline launch's LiDAR queue at 10 frames (rko_lio's default is 50).
   Outputs were byte-identical and the frontend about 75 MiB smaller on average on Oxford, but
   both runs missed the planned 379 MiB (381 and 386 MiB).
-- Next: lossless compression of the stored scans (about 70 MiB more on Oxford, estimated from
-  GrandTour scans), the PCD cache as the default, the frontend (about 450 MiB).
+- Step 4: the running backend keeps each packed scan compressed (fields in planes, bytes
+  shuffled, zstd level 1; outputs byte-identical). Oxford's scans take 198.8 instead of 293.5
+  MiB. In two pairs of alternating runs on one boot, the backend while the frontend runs: 512 ->
+  437 and 499 -> 427 MiB; its peak: 668 -> 595 and 649 -> 566 MiB; the save 5-7 s longer.
+- Next: the frontend (446-480 MiB on Oxford, now the largest process while running), what the
+  save adds to the backend (about 130-140 MiB), the PCD cache as the default.
 
 ### Phase 5 — Blind evaluation and publication
 
