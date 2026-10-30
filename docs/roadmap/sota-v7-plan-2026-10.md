@@ -221,6 +221,10 @@ one frame is still to be checked.
       - A new run joined to a stored map: 573 s (only the new run's self-join).
       - A re-run with both stored: 75 s, as fast as a join that does not pass.
       - The outputs are byte-identical to computing the check.
+    - With more than two sessions, each session is joined to the map of the sessions joined before it, not only
+      to the first.
+      - On 18 sessions cut into 3 parts each, 10 parts join instead of 8.
+      - There were no wrong joins in 72 runs.
 
 ### Phase 4 — Resources
 

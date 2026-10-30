@@ -362,3 +362,27 @@ Reading:
   "first"; otherwise "first" becomes the default and the difference is reported.
 Reported besides: the parts joined in each way, the parts that join only through the map (the map held part 1 when
 they joined), their errors, and the times.
+
+Step 7 result (2026-10-30; lidar_slam_ros2 d89f778; step7_runs.log, step7_split3_results.csv, step7_summary.txt).
+  (a) con-1 + con-2, con-2 + con-1, arc-5 + arc-6, arc-6 + arc-5: byte-identical to step 5 (as defined).
+  (b) 72 runs, no wrong join: no stress run joined anything; the largest error of a joined part is 0.154 m (Oxford
+      part 1, below).
+  Parts joined (positive runs): 10 with the map, 8 with the first part; no session joins fewer with the map.
+    Joined only with the map: Oxford part 1 and pil-2 part 1. Neither overlaps part 0 enough; both joined on the second
+      try, to the map of parts 0 and 2 (error to the identity 0.154 and 0.007 m).
+    Joined to a map that held part 1: arc-6 part 2 (5.1 mm; with the first part only 5.6 mm).
+    The others joined the same way in both: con-1, con-2 part 1 (7.5, 5.8 mm); arc-4, arc-5 part 2 (4.4, 3.2 mm);
+      Oxford part 2 (73.5 mm), pil-2 part 2 (16.0 mm).
+    No part of calibration-room 1 joined: its parts are shorter than the halves of steps 3-5.
+  Decision: (a) and (b) hold and the map never joins fewer parts, so "map" stays the default.
+Seen besides (without ground truth; p3_split3_loopcheck.py): the identity is the truth only up to the frontend's drift
+between the parts, so each joined part was also compared with the runner's own loop-closed trajectory of the whole
+session (each part's raw submaps fitted to it place the part relative to part 0).
+  Oxford part 1 (only with the map): the join's transform is 0.128 m from that reference (0.154 m from the identity,
+    the reference itself 0.038 m from it). The join is a rigid transform from a map whose part 2 was placed 0.045 m off.
+    After the joint optimization its submaps are 0.035 m from the reference (part 2: 0.024 m with the map, 0.026 m
+    with the first part).
+  Everywhere else the joins are within 3-20 mm of the reference, the joint optimization within 3-19 mm.
+Time: a part's first positive run includes its self-joins (stored for the later runs), so the four runs of a session
+are not comparable with each other; the stress runs (no self-join) take the same with the map and with the first part
+(Oxford 161 / 158 s, con-1 114 / 111 s).

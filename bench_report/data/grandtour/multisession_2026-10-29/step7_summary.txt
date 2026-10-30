@@ -1,0 +1,60 @@
+session                       parts        map: part 1 / part 2                       first: part 1 / part 2
+con-1                         40+46+46     joined p1 map[0] 0.0075 / not joined       joined p1 map[0] 0.0075 / not joined
+con-2                         47+40+47     joined p1 map[0] 0.0058 / not joined       joined p1 map[0] 0.0058 / not joined
+arc-4                         36+12+34     not joined / joined p1 map[0] 0.0044       not joined / joined p1 map[0] 0.0044
+arc-5                         24+34+22     not joined / joined p1 map[0] 0.0032       not joined / joined p1 map[0] 0.0032
+arc-6                         12+17+19     joined p1 map[0] 0.0037 / joined p1 map[0 1] 0.0051joined p1 map[0] 0.0037 / joined p1 map[0] 0.0056
+calibration-room_trial-1      36+56+65     not joined / not joined                    not joined / not joined
+calibration-room_trial-2      9+14+23      not joined / not joined                    not joined / not joined
+flat-room_trial-1             4+12+15      not joined / not joined                    not joined / not joined
+long-corridor_trial-1         1+3+11       not joined / not joined                    not joined / not joined
+outdoor-urk_trial-1           24+30+37     not joined / not joined                    not joined / not joined
+underground-garage_trial-1    7+33+43      not joined / not joined                    not joined / not joined
+underground-garage_trial-2    26+42+53     not joined / not joined                    not joined / not joined
+underground-garage_trial-3    11+29+39     not joined / not joined                    not joined / not joined
+exp04                         7+1+8        not joined / not joined                    not joined / not joined
+oxford                        123+132+146  joined p2 map[0 2] 0.1539 / joined p1 map[0] 0.0735not joined / joined p1 map[0] 0.0735
+arc-3                         65+35+75     not joined / not joined                    not joined / not joined
+heap-1                        26+14+36     not joined / not joined                    not joined / not joined
+pil-2                         43+41+55     joined p2 map[0 2] 0.0074 / joined p1 map[0] 0.0160not joined / joined p1 map[0] 0.0160
+parts joined: map 10, first 8
+joined with the map but not with the first part, and joined to a map of more than part 0:
+  arc-6 part 2: map joined p1 map[0 1] 0.0051; first joined p1 map[0] 0.0056
+  oxford part 1: only with the map: joined p2 map[0 2] 0.1539
+  pil-2 part 1: only with the map: joined p2 map[0 2] 0.0074
+wrong joins: 0
+sessions where the map joins fewer parts than first: none
+decision (with (a) met): map stays the default
+Loop-closed reference check (p3_split3_loopcheck.py): each joined part against the runner's own loop-closed trajectory of the whole session.
+con-1 map:
+  part 1: transform to the identity 0.0075 m, to the loop-closed reference 0.0083 m (reference vs identity 0.0048 m); the optimized joint graph to the reference 0.0052 m
+con-1 first:
+  part 1: transform to the identity 0.0075 m, to the loop-closed reference 0.0083 m (reference vs identity 0.0048 m); the optimized joint graph to the reference 0.0052 m
+con-2 map:
+  part 1: transform to the identity 0.0058 m, to the loop-closed reference 0.0056 m (reference vs identity 0.0053 m); the optimized joint graph to the reference 0.0065 m
+con-2 first:
+  part 1: transform to the identity 0.0058 m, to the loop-closed reference 0.0056 m (reference vs identity 0.0053 m); the optimized joint graph to the reference 0.0065 m
+arc-4 map:
+  part 2: transform to the identity 0.0044 m, to the loop-closed reference 0.0153 m (reference vs identity 0.0133 m); the optimized joint graph to the reference 0.0156 m
+arc-4 first:
+  part 2: transform to the identity 0.0044 m, to the loop-closed reference 0.0153 m (reference vs identity 0.0133 m); the optimized joint graph to the reference 0.0156 m
+arc-5 map:
+  part 2: transform to the identity 0.0032 m, to the loop-closed reference 0.0198 m (reference vs identity 0.0213 m); the optimized joint graph to the reference 0.0190 m
+arc-5 first:
+  part 2: transform to the identity 0.0032 m, to the loop-closed reference 0.0198 m (reference vs identity 0.0213 m); the optimized joint graph to the reference 0.0190 m
+arc-6 map:
+  part 1: transform to the identity 0.0037 m, to the loop-closed reference 0.0028 m (reference vs identity 0.0036 m); the optimized joint graph to the reference 0.0032 m
+  part 2: transform to the identity 0.0051 m, to the loop-closed reference 0.0055 m (reference vs identity 0.0075 m); the optimized joint graph to the reference 0.0073 m
+arc-6 first:
+  part 1: transform to the identity 0.0037 m, to the loop-closed reference 0.0028 m (reference vs identity 0.0036 m); the optimized joint graph to the reference 0.0041 m
+  part 2: transform to the identity 0.0056 m, to the loop-closed reference 0.0060 m (reference vs identity 0.0075 m); the optimized joint graph to the reference 0.0086 m
+oxford map:
+  part 1: transform to the identity 0.1539 m, to the loop-closed reference 0.1279 m (reference vs identity 0.0381 m); the optimized joint graph to the reference 0.0353 m
+  part 2: transform to the identity 0.0735 m, to the loop-closed reference 0.0451 m (reference vs identity 0.0375 m); the optimized joint graph to the reference 0.0238 m
+oxford first:
+  part 2: transform to the identity 0.0735 m, to the loop-closed reference 0.0451 m (reference vs identity 0.0375 m); the optimized joint graph to the reference 0.0255 m
+pil-2 map:
+  part 1: transform to the identity 0.0074 m, to the loop-closed reference 0.0107 m (reference vs identity 0.0071 m); the optimized joint graph to the reference 0.0167 m
+  part 2: transform to the identity 0.0160 m, to the loop-closed reference 0.0094 m (reference vs identity 0.0093 m); the optimized joint graph to the reference 0.0124 m
+pil-2 first:
+  part 2: transform to the identity 0.0160 m, to the loop-closed reference 0.0094 m (reference vs identity 0.0093 m); the optimized joint graph to the reference 0.0131 m

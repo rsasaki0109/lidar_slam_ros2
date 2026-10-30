@@ -108,15 +108,24 @@ runs on one thread, so the outputs are the same for any number of threads (byte-
      be accepted anyway. Each session is checked once per run, however many sessions it is joined to. A join that
      passes still takes about ten times as long as one that does not: 821 s against 73 s on the Construction pair
      (report 38.6).
-7. The joined sessions form one graph: each session's odometry chain (no adjacent edge across a
+7. With more than two sessions, each session is joined to the map: the sessions joined before
+   it, their keyframes placed in the first session's frame (`multisession_join_to: map`, the
+   default; `first` joins every session to the first one only). The whole-map check runs over
+   that map. Every session in the map was checked for self-similarity when it joined, so only the
+   new session is checked. Sessions that do not join are tried again after the map has grown,
+   until it stops growing.
+8. The joined sessions form one graph: each session's odometry chain (no adjacent edge across a
    session start, `SubmapNode::session_start`), its own loop edges, and one inter-session edge per
-   joined place, optimized with the first submap fixed.
+   joined place, to the map keyframe's own session. It is optimized with the first submap fixed.
 
 ## Outputs (`output_dir`)
 
 - `join_report.yaml`: per session, joined or not, candidates, accepted matches, every set tried
-  with its whole-map check, and the transform to the reference session.
-- `inter_session_edges.csv`: the inter-session edges (submaps and relative pose).
+  with its whole-map check, and the transform to the reference session. `map_joins` gives each
+  session's tries, the pass it joined in, and the map's sessions at its last try. `self_similarity`
+  gives each session's fingerprint and how its self-similarity was known.
+- `inter_session_edges.csv`: the inter-session edges (the session, the map keyframe's session
+  `map_session`, both submaps, the relative pose).
 - `trajectory_session<i>.tum`: each joined session's optimized submap poses in the reference
   session's frame. Densify them onto the frontend trajectory with
   `scripts/densify_corrected_trajectory.py`.
@@ -138,10 +147,19 @@ was removed (`debug_exclude_transform`), so any join would be wrong.
 - With them there was no wrong join in any run.
 - Two right joins were lost: one was ambiguous, the other had a self-similar half.
 
+Joining to the map (report 38.8): there is no three-run set with a shared reference, so 18 sessions
+were each cut into three parts. Each part was joined as a session, and the truth is the identity.
+- Joining to the map joins 10 parts. Joining to the first part only joins 8.
+- Two parts join only with the map, on a second try, once the third part is in the map (Oxford,
+  pil-2).
+- There was no wrong join in 72 runs, with or without the right matches.
+- A part joined through the map inherits the placement error of the map's sessions: Oxford's
+  transform was 0.13 m off the loop-closed reference. The joint optimization brings it to 0.035 m.
+
 Limits:
 
 - When only one session sees a symmetry (two identical rooms, each walked by a different session),
   neither rule can refuse the join.
 - The whole-map thresholds come from the Construction pair.
 
-`debug_exclude_transform` and `debug_split_gap_s` are test hooks only.
+`debug_exclude_transform`, `debug_split_gap_s` and `debug_split_parts` are test hooks only.
