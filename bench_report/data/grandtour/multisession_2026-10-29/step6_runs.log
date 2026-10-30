@@ -1,0 +1,50 @@
+== map_con1: 407 s wall, 380 s from the first session read
+   session 0: fingerprint a3852d5851ed02cf, self-similarity checked
+   self_similarity:
+     - {session: 0, fingerprint: a3852d5851ed02cf, check: checked, self_similar: false}
+== con1_con2: 589 s wall, 573 s from the first session read
+   session 1: 167 submaps, 4 loop edges
+   session 0: fingerprint a3852d5851ed02cf, self-similarity stored
+   session 1: fingerprint b12540f691fe82b6, self-similarity not checked yet
+   session 1: 499 candidates, 402 accepted, 3 sets tried, joined
+   self_similarity:
+     - {session: 0, fingerprint: a3852d5851ed02cf, check: stored, self_similar: false}
+     - {session: 1, fingerprint: b12540f691fe82b6, check: checked, self_similar: false}
+   con1_con2: outputs byte-identical to step 5 (the report apart from the self_similarity block)
+== con2_con1: 88 s wall, 75 s from the first session read
+   session 1: 163 submaps, 4 loop edges
+   session 0: fingerprint b12540f691fe82b6, self-similarity stored
+   session 1: fingerprint a3852d5851ed02cf, self-similarity stored
+   session 1: 489 candidates, 438 accepted, 3 sets tried, joined
+   self_similarity:
+     - {session: 0, fingerprint: b12540f691fe82b6, check: stored, self_similar: false}
+     - {session: 1, fingerprint: a3852d5851ed02cf, check: stored, self_similar: false}
+   con2_con1: outputs byte-identical to step 5 (the report apart from the self_similarity block)
+== map_arc5: 114 s wall, 73 s from the first session read
+   session 0: fingerprint 471d9e8b257d0b2d, self-similarity checked
+   self_similarity:
+     - {session: 0, fingerprint: 471d9e8b257d0b2d, check: checked, self_similar: false}
+== arc5_arc6: 39 s wall, 33 s from the first session read
+   session 1: 57 submaps, 1 loop edges
+   session 0: fingerprint 471d9e8b257d0b2d, self-similarity stored
+   session 1: fingerprint 68c3c1cfe8db94f1, self-similarity not checked yet
+   session 1: 171 candidates, 151 accepted, 1 sets tried, joined
+   self_similarity:
+     - {session: 0, fingerprint: 471d9e8b257d0b2d, check: stored, self_similar: false}
+     - {session: 1, fingerprint: 68c3c1cfe8db94f1, check: checked, self_similar: false}
+   arc5_arc6: outputs byte-identical to step 5 (the report apart from the self_similarity block)
+== arc6_arc5: 14 s wall, 12 s from the first session read
+   session 1: 103 submaps, 2 loop edges
+   session 0: fingerprint 68c3c1cfe8db94f1, self-similarity stored
+   session 1: fingerprint 471d9e8b257d0b2d, self-similarity stored
+   session 1: 138 candidates, 91 accepted, 1 sets tried, joined
+   self_similarity:
+     - {session: 0, fingerprint: 68c3c1cfe8db94f1, check: stored, self_similar: false}
+     - {session: 1, fingerprint: 471d9e8b257d0b2d, check: stored, self_similar: false}
+   arc6_arc5: outputs byte-identical to step 5 (the report apart from the self_similarity block)
+stored:
+   self_similarity_471d9e8b257d0b2d.yaml: self_similar: false session_backend_dir: '/home/user/bench/grandtour/ms_run/arc-5/backend' 
+   self_similarity_68c3c1cfe8db94f1.yaml: self_similar: false session_backend_dir: '/home/user/bench/grandtour/ms_run/arc-6/backend' 
+   self_similarity_a3852d5851ed02cf.yaml: self_similar: false session_backend_dir: '/home/user/bench/grandtour/ms_run/con-1/backend' 
+   self_similarity_b12540f691fe82b6.yaml: self_similar: false session_backend_dir: '/home/user/bench/grandtour/ms_run/con-2/backend' 
+QUEUE77_DONE

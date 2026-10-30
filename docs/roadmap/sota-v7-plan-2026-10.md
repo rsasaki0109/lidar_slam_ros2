@@ -216,6 +216,11 @@ one frame is still to be checked.
       - a gate on hopeless self-join candidates.
       A Construction pair that joins now takes 821 s instead of 1,364 s, still about 11 times a join that does not
       pass.
+    - Each session's self-similarity can be stored under a fingerprint of its keyframes and settings
+      (`multisession_cache_dir`), so a stored map is checked once.
+      - A new run joined to a stored map: 573 s (only the new run's self-join).
+      - A re-run with both stored: 75 s, as fast as a join that does not pass.
+      - The outputs are byte-identical to computing the check.
 
 ### Phase 4 — Resources
 

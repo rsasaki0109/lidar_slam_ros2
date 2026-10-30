@@ -313,3 +313,18 @@ Reading:
   If (a) or (b) fails, the stored results are not to be used until the cause is fixed.
   Time reported: preparing a map (one self-join), a new run joined to a stored map (expected: the join plus one
   self-join), and a re-run with both stored (expected: about the join alone, step 5: 73 s on con).
+
+Step 6 result (2026-10-30; lidar_slam_ros2 cd4a968; step6_runs.log; times from the logs, from the first session read).
+  (a) con-1 + con-2, con-2 + con-1, arc-5 + arc-6, arc-6 + arc-5: inter_session_edges.csv, both trajectories and
+      join_report.yaml (apart from the self_similarity block) byte-identical to step 5's.
+  (b) the stored results are step 5's (none of the four sessions self-similar). Fingerprints the same in every run:
+      con-1 a3852d5851ed02cf (3 runs), con-2 b12540f691fe82b6 (2), arc-5 471d9e8b257d0b2d (3), arc-6 68c3c1cfe8db94f1 (2).
+Reading: met; the stored results can be used.
+Time (step 5, both self-joins in the join -> step 6):
+  preparing a map (its self-join, once): con-1 380 s, arc-5 73 s;
+  a new run joined to the stored map (the new run's self-join only): con-1 + con-2 821 -> 573 s, arc-5 + arc-6
+    76 -> 33 s;
+  a re-run with both stored (no self-join): con-2 + con-1 820 -> 75 s, arc-6 + arc-5 86 -> 12 s, as a join that does
+    not pass (73 s on con).
+  A new run still pays its own self-join (con-2's: about 500 s, 7.8 times the join alone on con). It does not depend
+  on the map either, so it can run when the run is processed (the precheck), before any join.

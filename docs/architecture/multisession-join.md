@@ -37,6 +37,43 @@ graph_slam_multisession_join --ros-args \
 The pose graph settings (adjacent and loop edge information, robust kernel) are read under the
 runner's parameter names, so the params file of the single-session runs can be reused.
 
+### Joining a new run to a stored map
+
+A session's self-similarity (method step 6) depends only on the session and the settings. With
+`multisession_cache_dir`, the tool stores each session's result in that directory under the session's
+fingerprint (`self_similarity_<fingerprint>.yaml`). Later runs use the stored result instead of a new
+self-join. The fingerprint covers the keyframes (ids, frames, maps) and every setting of the check
+except the number of threads. A changed session or setting therefore gets a new check, never a stale
+result.
+
+```bash
+# once, when the map is made: check its self-similarity (one session is enough with the precheck)
+graph_slam_multisession_join --ros-args --params-file <params> \
+  -p "session_bag_paths:=['/data/map/backend_input']" -p "session_backend_dirs:=['/out/map']" \
+  -p multisession_cache_dir:=/out/self_similarity -p multisession_precheck_self_similarity:=true \
+  -p output_dir:=/out/map_check
+# each new run: only the new run's self-similarity is checked
+graph_slam_multisession_join --ros-args --params-file <params> \
+  -p "session_bag_paths:=['/data/map/backend_input','/data/run7/backend_input']" \
+  -p "session_backend_dirs:=['/out/map','/out/run7']" \
+  -p multisession_cache_dir:=/out/self_similarity -p output_dir:=/out/map_run7
+```
+
+`join_report.yaml` ends with a `self_similarity` block. For each session it gives the fingerprint and
+how the result was known: `stored`, `checked` (in this run, and then stored) or `none` (not needed).
+
+Measured on the Construction pair (report 38.7). The outputs are byte-identical to computing the
+check in the join.
+
+| Run | Time |
+|---|---:|
+| Preparing the map (con-1) | 380 s |
+| New run (con-2) joined to the stored map | 573 s (821 s without stored results) |
+| Both stored | 75 s (73 s for a join that does not pass) |
+
+A new run's self-join does not depend on the map either. Running the precheck when the run is
+processed takes it out of the join.
+
 `multisession_num_threads` (4) sets how many candidates are registered at once. Each registration
 runs on one thread, so the outputs are the same for any number of threads (byte-identical on 4 and
 1 threads, report 38.6).
