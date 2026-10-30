@@ -43,10 +43,13 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <functional>
+#include <iomanip>
 #include <limits>
 #include <memory>
 #include <set>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -641,6 +644,56 @@ inline bool selfSimilar(SessionCache & s, const JoinConfig & config)
       }, true).joined ? 1 : 0;
   }
   return s.self_similar == 1;
+}
+
+// A fingerprint of a session for its self-similarity check. It covers the keyframes (their ids,
+// frames and maps) and every setting of the check except the number of threads, which does not
+// change the result. Equal fingerprints give the same result, so a stored result can be used
+// instead of a new self-join (plan.txt, step 6). Raise kSelfSimilarityVersion when the method
+// changes in a way the settings do not show.
+constexpr std::uint32_t kSelfSimilarityVersion = 1;
+
+inline std::string sessionFingerprint(
+  const std::vector<Keyframe> & session, const JoinConfig & config)
+{
+  std::uint64_t h = 14695981039346656037ULL;  // FNV-1a, 64 bit
+  auto add = [&h](const void * data, std::size_t size) {
+      const auto * bytes = static_cast<const unsigned char *>(data);
+      for (std::size_t i = 0; i < size; ++i) {
+        h = (h ^ bytes[i]) * 1099511628211ULL;
+      }
+    };
+  auto value = [&add](auto v) {add(&v, sizeof(v));};
+  value(kSelfSimilarityVersion);
+  for (double v : {config.sc_range_m, config.sc_z_offset_m, config.sc_max_distance,
+      config.registration_voxel_m, config.inlier_distance_m, config.min_inlier_fraction,
+      config.agree_m, config.agree_deg, config.min_spread_m, config.place_radius_m,
+      config.place_min_fraction, config.max_bad_share, config.ambiguity_m, config.ambiguity_deg,
+      config.self_gate_fraction, config.self_gate_distance_m})
+  {
+    value(v);
+  }
+  for (int v : {config.sc_candidates, config.registration_max_iterations, config.min_set,
+      config.min_places, config.max_sets, config.self_candidates, config.self_skip_neighbors})
+  {
+    value(v);
+  }
+  value(config.registration_distances_m.size());
+  for (double v : config.registration_distances_m) {
+    value(v);
+  }
+  value(session.size());
+  for (const Keyframe & k : session) {
+    value(k.id);
+    add(k.frame.matrix().data(), 16 * sizeof(double));
+    value(k.points.size());
+    for (const auto & p : k.points) {
+      add(p.data(), 3 * sizeof(float));
+    }
+  }
+  std::ostringstream out;
+  out << std::hex << std::setw(16) << std::setfill('0') << h;
+  return out.str();
 }
 
 // The same for two sessions without caches of their own.

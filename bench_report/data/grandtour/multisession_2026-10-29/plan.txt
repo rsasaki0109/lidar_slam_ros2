@@ -287,3 +287,29 @@ Seen besides: in stress con-1 + con-2 (not joined, as in step 4) the third set t
 places below 0.5; the thin margin of step 2) is no longer reached: with the registrations' last bits changed, the
 matches left after the first two sets no longer span 3 places 5 m apart. The plan's "the other runs cannot change"
 holds for the gate, not for 5a's order of sums; no decision changed.
+
+Step 6 plan (fixed 2026-10-30 before any run with it): join a new run to a stored map, with the map's self-similarity
+stored.
+Why: a join that passes spends most of its time in the two self-joins (step 5: 821 s against 73 s on the Construction
+pair). A session's self-similarity depends only on the session and the settings, so a stored map needs checking once.
+Change (lidar_slam_ros2, this commit):
+  sessionFingerprint (multisession_join.hpp): FNV-1a over the keyframes (ids, frames, maps) and every setting of the
+    check except the number of threads (step 5 showed it does not change the result), with a method version;
+  graph_slam_multisession_join: with multisession_cache_dir, each session's self-similarity is stored there under its
+    fingerprint (self_similarity_<fingerprint>.yaml) and a stored one is used instead of the self-join;
+    multisession_precheck_self_similarity checks every session first (one session is then enough: preparing a map).
+    join_report.yaml lists each session's fingerprint and how its self-similarity was known (stored, checked, none).
+Runs (step 5's inputs; the cache directory new and empty at the start; this commit's build):
+  1. con-1 alone with the precheck (the map);
+  2. con-1 + con-2 (the map and a new run: con-1 stored, con-2 checked and stored);
+  3. con-2 + con-1 (both stored);
+  4. the same for ARCHE: arc-5 alone with the precheck, arc-5 + arc-6, arc-6 + arc-5.
+Reading:
+  (a) runs 2-3 and their ARCHE counterparts give outputs byte-identical to step 5's same joins
+      (inter_session_edges.csv, trajectory_session0/1.tum, and join_report.yaml apart from the new self_similarity
+      block);
+  (b) the stored results are the ones step 5 computed (none of con-1, con-2, arc-5, arc-6 is self-similar), and each
+      session's fingerprint is the same in every run that reads it.
+  If (a) or (b) fails, the stored results are not to be used until the cause is fixed.
+  Time reported: preparing a map (one self-join), a new run joined to a stored map (expected: the join plus one
+  self-join), and a re-run with both stored (expected: about the join alone, step 5: 73 s on con).

@@ -162,6 +162,56 @@ TEST(MultisessionJoin, GivesTheSameResultOnAnyNumberOfThreads)
   EXPECT_TRUE(results[0].transform.matrix() == results[1].transform.matrix());
 }
 
+TEST(MultisessionJoin, FingerprintCoversTheKeyframesAndSettingsButNotTheThreads)
+{
+  std::mt19937 rng(7);
+  std::vector<Eigen::Vector3d> site = boxes(rng, 20, -20.0, 40.0, 4.0, 25.0);
+  auto session = walk(site, 0.0, 20.0, 0.0, 0.0, Eigen::Isometry3d::Identity());
+  multisession::JoinConfig config;
+  const std::string base = multisession::sessionFingerprint(session, config);
+  EXPECT_EQ(base.size(), 16U);
+  EXPECT_EQ(multisession::sessionFingerprint(session, config), base);
+  multisession::JoinConfig threads = config;
+  threads.num_threads = 1;
+  EXPECT_EQ(multisession::sessionFingerprint(session, threads), base);
+  multisession::JoinConfig other = config;
+  other.ambiguity_m = 1.5;
+  EXPECT_NE(multisession::sessionFingerprint(session, other), base);
+  other = config;
+  other.registration_distances_m.push_back(0.25);
+  EXPECT_NE(multisession::sessionFingerprint(session, other), base);
+  session[1].points[0].x() += 0.001F;
+  EXPECT_NE(multisession::sessionFingerprint(session, config), base);
+}
+
+TEST(MultisessionJoin, UsesAStoredSelfSimilarityInsteadOfTheSelfJoin)
+{
+  std::mt19937 rng(7);
+  std::vector<Eigen::Vector3d> site = boxes(rng, 60, -20.0, 80.0, 4.0, 25.0);
+  ground(&site, -20.0, 80.0, 25.0);
+  const auto a = walk(site, 0.0, 40.0, 0.0, 0.0, Eigen::Isometry3d::Identity());
+  const auto b = walk(site, 10.0, 50.0, 1.0, 0.3, planar(15.0, -7.0, 0.4, 1.0));
+  multisession::JoinConfig config;
+  config.num_threads = 2;
+  multisession::SessionCache checked_a(a, config), checked_b(b, config);
+  const auto checked = multisession::joinSessions(checked_a, checked_b, config);
+  ASSERT_TRUE(checked.joined);
+  // both stored as not self-similar: the same join, without the self-joins
+  multisession::SessionCache stored_a(a, config), stored_b(b, config);
+  stored_a.self_similar = checked_a.self_similar;
+  stored_b.self_similar = checked_b.self_similar;
+  const auto stored = multisession::joinSessions(stored_a, stored_b, config);
+  ASSERT_TRUE(stored.joined);
+  EXPECT_TRUE(stored.transform.matrix() == checked.transform.matrix());
+  // A stored as self-similar: refused
+  multisession::SessionCache similar_a(a, config), plain_b(b, config);
+  similar_a.self_similar = 1;
+  const auto refused = multisession::joinSessions(similar_a, plain_b, config);
+  EXPECT_FALSE(refused.joined);
+  EXPECT_EQ(refused.self_similar, "a");
+  EXPECT_EQ(plain_b.self_similar, -1);  // B's self-join was not needed
+}
+
 TEST(MultisessionJoin, DoesNotJoinTwoDifferentSites)
 {
   std::mt19937 rng_a(11), rng_b(12);

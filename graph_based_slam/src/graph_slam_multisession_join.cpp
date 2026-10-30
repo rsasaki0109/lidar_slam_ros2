@@ -36,7 +36,9 @@
 // (multisession_join.hpp); the joined ones form one graph: each session's odometry chain, its own
 // loop edges, and one inter-session edge per joined place, optimized with the first submap fixed.
 // Writes, in output_dir: join_report.yaml, inter_session_edges.csv and, per joined session i,
-// trajectory_session<i>.tum (its optimized submap poses in the first session's frame).
+// trajectory_session<i>.tum (its optimized submap poses in the first session's frame). With
+// multisession_cache_dir, each session's self-similarity is stored there under its fingerprint
+// and used instead of its self-join in later runs (a stored map is checked once; step 6).
 
 #include <pcl/point_cloud.h>  // NOLINT(build/include_order)
 #include <pcl/point_types.h>  // NOLINT(build/include_order)
@@ -255,6 +257,37 @@ void writePoses(
   }
 }
 
+// The self-similarity stored in dir for a session fingerprint: 1 or 0, or -1 if none is stored.
+int readSelfSimilarity(const std::string & dir, const std::string & fingerprint)
+{
+  std::ifstream in(dir + "/self_similarity_" + fingerprint + ".yaml");
+  std::string line;
+  while (std::getline(in, line)) {
+    if (line == "self_similar: true") {
+      return 1;
+    }
+    if (line == "self_similar: false") {
+      return 0;
+    }
+  }
+  return -1;
+}
+
+void writeSelfSimilarity(
+  const std::string & dir, const std::string & fingerprint, bool self_similar,
+  std::size_t keyframes, const std::string & bag, const std::string & run)
+{
+  std::filesystem::create_directories(dir);
+  const std::string path = dir + "/self_similarity_" + fingerprint + ".yaml";
+  {
+    std::ofstream out(path + ".tmp");
+    out << "fingerprint: " << fingerprint << "\nself_similar: " <<
+      (self_similar ? "true" : "false") << "\nkeyframes: " << keyframes << "\n";
+    out << "session_bag_path: '" << bag << "'\nsession_backend_dir: '" << run << "'\n";
+  }
+  std::filesystem::rename(path + ".tmp", path);
+}
+
 std::string matrixRow(const Eigen::Isometry3d & t)
 {
   std::ostringstream out;
@@ -289,11 +322,19 @@ int main(int argc, char ** argv)
   // halves; the second half is joined to the first (the truth is the identity).
   double split_gap_s;
   node->get_parameter_or("debug_split_gap_s", split_gap_s, -1.0);
-  const std::size_t min_sessions = split_gap_s >= 0.0 ? 1U : 2U;
+  // A session's self-similarity is stored in cache_dir under its fingerprint and used instead of
+  // its self-join next time. With precheck every session is checked first (a map to be joined
+  // later: one session is enough then).
+  std::string cache_dir;
+  bool precheck = false;
+  node->get_parameter_or("multisession_cache_dir", cache_dir, std::string());
+  node->get_parameter_or("multisession_precheck_self_similarity", precheck, false);
+  const std::size_t min_sessions = split_gap_s >= 0.0 || precheck ? 1U : 2U;
   if (bags.size() < min_sessions || bags.size() != runs.size()) {
     RCLCPP_ERROR(
-      logger, "need at least two sessions (one with debug_split_gap_s): session_bag_paths and "
-      "session_backend_dirs, the same number of each");
+      logger, "need at least two sessions (one with debug_split_gap_s or "
+      "multisession_precheck_self_similarity): session_bag_paths and session_backend_dirs, the "
+      "same number of each");
     rclcpp::shutdown();
     return 1;
   }
@@ -429,16 +470,46 @@ int main(int argc, char ** argv)
   std::vector<graphslam::pose_graph::LoopConstraint> constraints;
   std::vector<int> offsets(sessions.size(), -1);
   std::vector<Eigen::Isometry3d> placement(sessions.size(), Eigen::Isometry3d::Identity());
-  // session 0's work (Scan Context, small_gicp clouds, self-similarity) is shared by every join
-  graphslam::multisession::SessionCache cache_0(sessions[0].keyframes, join);
+  // Each session's work (Scan Context, small_gicp clouds, self-similarity) is kept for its joins;
+  // session 0's is shared by every join. A stored self-similarity replaces the self-join.
+  std::vector<std::unique_ptr<graphslam::multisession::SessionCache>> caches;
+  std::vector<std::string> fingerprints, checks;
+  auto release = [&caches](std::size_t s) {  // session 0's clouds are used by every join
+      if (s > 0) {
+        caches[s]->prepared.assign(caches[s]->prepared.size(), nullptr);
+      }
+    };
+  for (std::size_t s = 0; s < sessions.size(); ++s) {
+    caches.push_back(
+      std::make_unique<graphslam::multisession::SessionCache>(sessions[s].keyframes, join));
+    fingerprints.push_back(
+      graphslam::multisession::sessionFingerprint(sessions[s].keyframes, join));
+    checks.push_back("none");
+    if (!cache_dir.empty()) {
+      const int stored = readSelfSimilarity(cache_dir, fingerprints[s]);
+      if (stored >= 0) {
+        caches[s]->self_similar = stored;
+        checks[s] = "stored";
+      }
+    }
+    if (precheck && caches[s]->self_similar < 0) {
+      graphslam::multisession::selfSimilar(*caches[s], join);
+      release(s);
+    }
+    RCLCPP_INFO(
+      logger, "session %zu: fingerprint %s, self-similarity %s", s, fingerprints[s].c_str(),
+      caches[s]->self_similar < 0 ? "not checked yet" :
+      (checks[s] == "stored" ? "stored" : "checked"));
+  }
   for (std::size_t s = 0; s < sessions.size(); ++s) {
     if (s > 0) {
       exclude = nullptr;
       if (s == 1 && exclude_values.size() == 12) {
         exclude = make_exclude(sessions[s].keyframes);
       }
-      graphslam::multisession::SessionCache cache_s(sessions[s].keyframes, join);
-      const auto result = graphslam::multisession::joinSessions(cache_0, cache_s, join, exclude);
+      const auto result = graphslam::multisession::joinSessions(
+        *caches[0], *caches[s], join, exclude);
+      release(s);
       report << "  - session: " << s << "\n    joined: " << (result.joined ? "true" : "false") <<
         "\n    candidates: " << result.candidates << "\n    accepted: " << result.accepted.size() <<
         "\n    excluded_by_debug_hook: " << (exclude ? "true" : "false") << "\n    ambiguous: " <<
@@ -502,6 +573,24 @@ int main(int argc, char ** argv)
       c.to += offsets[s];
       constraints.push_back(c);
     }
+  }
+  // every session's self-similarity: stored, checked in this run (then stored), or not needed
+  report << "self_similarity:\n";
+  for (std::size_t s = 0; s < sessions.size(); ++s) {
+    const int result = caches[s]->self_similar;
+    if (result >= 0 && checks[s] == "none") {
+      checks[s] = "checked";
+      if (!cache_dir.empty()) {
+        writeSelfSimilarity(
+          cache_dir, fingerprints[s], result == 1, sessions[s].keyframes.size(), bags[s], runs[s]);
+      }
+    }
+    report << "  - {session: " << s << ", fingerprint: " << fingerprints[s] << ", check: " <<
+      checks[s];
+    if (result >= 0) {
+      report << ", self_similar: " << (result == 1 ? "true" : "false");
+    }
+    report << "}\n";
   }
   const auto optimized = graphslam::pose_graph::optimizePoseGraph(
     nodes, constraints, {}, {}, adjacent, loop, graphslam::pose_graph::ImuEdgeConfig{},
