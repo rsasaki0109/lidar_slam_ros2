@@ -185,3 +185,22 @@ Step 3 result (2026-10-30; lidarslam 7e92807 in ws/slam_dev; step3_runs.log, ste
   stays). Besides: exp04's frontend 276 and 284 MiB (with 50 frames, seven runs 351-370). Each process's peak with 10
   frames, against step 2's two runs: Oxford backend 685 and 668 MiB (666, 654), exp04 backend 204 and 211 (196, 195).
   Pipeline sum, Oxford 1,134 and 1,121 MiB (1,162, 1,209), exp04 547 and 562 (632, 621).
+Step 4 plan (fixed 2026-10-30 before any run with it): the running backend's packed scans kept compressed.
+Found first (no change to the pipeline): every tenth deskewed scan of one default Oxford run (19.5 M points, sampled from
+/rko_lio/frame; outputs byte-identical to step R) compresses to 0.675 of the packed size with the values of each field
+in a plane, their bytes shuffled and zstd level 1 (GrandTour con-1: 0.761). On Oxford's 293 MiB of packed scans that is
+about 95 MiB less. Decompressing (zstd and unshuffling) runs at about 860 MB/s here; the map save reads every submap 16
+times on Oxford (a counting pass and 15 z-layer passes), about 6 s more.
+The machine restarted at 17:11 (after step 3). Since then Oxford's frontend takes 485 s against 350-390 s before, with the
+same output, so these runs are compared only with each other: step 2's backend (graph_based_slam 4a69722, its library
+kept aside) as the baseline A and the change as B, alternating within this boot: exp04 A B A B, then Oxford A B A B.
+Change: GraphStateStore keeps a packed cloud (pointcloud_conversion::isPackedForPointXYZI) compressed
+(cloud_compression::StoredCloud); the backend decompresses it where it loads a submap cloud. zstd comes from zstd_vendor;
+built without it, nothing is compressed. Other clouds (the map_array input) are kept as they are. The map save logs the
+size the clouds are held in.
+Reading:
+  - every output of every run byte-identical to step R, the frontend's trajectory too;
+  - Oxford, in both pairs: B's backend largest RSS while the frontend runs at least 50 MiB below A's;
+  - Oxford, in both pairs: B's save (from the frontend's end to the save's response) at most 15 s longer than A's.
+  Decision: kept if all three hold. Reported besides: the held size the save logs, VmHWM per process, the pipeline sum,
+  the time to the save's response, exp04's.
