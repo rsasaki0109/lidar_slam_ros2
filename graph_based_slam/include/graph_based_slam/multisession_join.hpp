@@ -105,7 +105,7 @@ struct JoinConfig
   // a share at most min_inlier_fraction and a distance at least inlier_distance_m it is then
   // rejected. Most self-join candidates are wrong, and they take most of its time (plan.txt,
   // step 5). 0: off.
-  double self_gate_fraction {0.5};
+  double self_gate_fraction {0.48};
   double self_gate_distance_m {1.0};
   int num_threads {4};
 };

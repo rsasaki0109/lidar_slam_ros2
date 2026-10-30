@@ -236,11 +236,15 @@ Two changes (multisession_join.hpp, this commit):
     threads. A registration's sums now run in another order than with 4 threads, so transforms change in the last bits.
   5b, a gate in the self-join only (self_gate_fraction): after the first stage, a candidate with less than 0.5 of B's
     points within 1.0 m of A's is not refined further. Then less than 0.5 of them lie within 0.3 m, so it is rejected
-    (0.5 <= min_inlier_fraction 0.6, 1.0 m >= inlier_distance_m 0.3). Expected: about half of the self-join's time.
+    (0.5 <= min_inlier_fraction 0.6, 1.0 m >= inlier_distance_m 0.3; the threshold rule below set 0.48). Expected: about half of the self-join's time.
     The main join is unchanged: its candidates are mostly right, and steps 2-4 keep their decisions without re-runs.
     Threshold rule, applied before the confirmation runs: if the diagnostics of con-1 + con-2 or con-1's split
     (running) show an accepted candidate with less than 0.7 within 1.0 m after the first stage, the threshold becomes
     that minimum less 0.2.
+    Applied (2026-10-30, before the confirmation runs): the smallest share among the accepted candidates (inlier
+    fraction 0.6 or more, main and self-joins) is 0.681 (con-1 + con-2, a self-join candidate near the identity; arc
+    0.756, con-1's split 0.706), so the threshold is 0.48 (0.681 less 0.2, rounded down). With it the con-1 + con-2
+    self-joins would skip the finer stages of about 800 of 2998 candidates, about 290 of 1213 s; arc's 141 of 296 s.
 Runs:
   5a (gate off): arc-5 + arc-6 with 4 threads and with 1 thread.
   5b (5a with the gate): every step 4 run in which a set passed, so that a self-join ran: the four same-site pairs of
