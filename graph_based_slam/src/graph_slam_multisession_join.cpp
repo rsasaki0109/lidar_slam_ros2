@@ -370,6 +370,11 @@ int main(int argc, char ** argv)
   // has grown.
   std::string join_to;
   node->get_parameter_or("multisession_join_to", join_to, std::string("map"));
+  // After each join, while sessions are left to join, optimize the graph so far and place the map's
+  // keyframes at their optimized submap poses (step 8); otherwise each session is placed by its
+  // join's transform alone.
+  bool reoptimize = true;
+  node->get_parameter_or("multisession_reoptimize_map", reoptimize, true);
   std::string cache_dir;
   bool precheck = false;
   node->get_parameter_or("multisession_cache_dir", cache_dir, std::string());
@@ -584,6 +589,7 @@ int main(int argc, char ** argv)
   std::vector<std::vector<int>> tried_with(n);  // the map's sessions at each session's last try
   std::vector<int> tries(n, 0), pass_joined(n, 0);
   std::vector<bool> excluded(n, false);
+  std::vector<std::vector<Eigen::Isometry3d>> map_pose(n);  // optimized submap poses, if any
   bool grew = true;
   for (int pass = 1; grew && (pass == 1 || join_to == "map"); ++pass) {
     grew = false;
@@ -605,8 +611,11 @@ int main(int argc, char ** argv)
       std::unique_ptr<graphslam::multisession::SessionCache> joined_map;
       if (members.size() > 1) {
         for (const auto & o : origin) {
-          map_keyframes.push_back(sessions[o.first].keyframes[o.second]);
-          map_keyframes.back().frame = placement[o.first] * map_keyframes.back().frame;
+          const Session & member = sessions[o.first];
+          map_keyframes.push_back(member.keyframes[o.second]);
+          auto & frame = map_keyframes.back().frame;
+          frame = map_pose[o.first].empty() ? placement[o.first] * frame :
+            map_pose[o.first][o.second] * member.raw[o.second].inverse() * frame;
         }
         joined_map = std::make_unique<graphslam::multisession::SessionCache>(map_keyframes, join);
         // Every session in the map was checked when it joined: none is self-similar.
@@ -671,6 +680,16 @@ int main(int argc, char ** argv)
           q.z() << "," << q.w() << "\n";
       }
       add_session(s);
+      if (reoptimize && join_to == "map" && map_sessions.size() < n) {
+        const auto current = graphslam::pose_graph::optimizePoseGraph(
+          nodes, constraints, {}, {}, adjacent, loop, graphslam::pose_graph::ImuEdgeConfig{},
+          graphslam::pose_graph::Chi2Collection::NONE, true, 10);
+        for (int j : map_sessions) {
+          map_pose[j].assign(
+            current.poses.begin() + offsets[j],
+            current.poses.begin() + offsets[j] + sessions[j].raw.size());
+        }
+      }
     }
   }
   report << "  - session: 0\n    joined: true\n";

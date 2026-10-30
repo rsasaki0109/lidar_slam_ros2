@@ -386,3 +386,25 @@ session (each part's raw submaps fitted to it place the part relative to part 0)
 Time: a part's first positive run includes its self-joins (stored for the later runs), so the four runs of a session
 are not comparable with each other; the stress runs (no self-join) take the same with the map and with the first part
 (Oxford 161 / 158 s, con-1 114 / 111 s).
+
+Step 8 plan (fixed 2026-10-30 before any run with it): optimize the map after each join before the next one.
+Why: in step 7 a session joined to the map was placed by its join's transform alone, and the next session matched
+against those placements. Oxford's part 2 was placed 0.045 m off the loop-closed reference, and part 1, joined to the
+map of parts 0 and 2, inherited it (its transform 0.128 m from the reference; 0.035 m only after the final
+optimization).
+Change (graph_slam_multisession_join, this commit; multisession_reoptimize_map, default on): after each join, while
+sessions are left to join, the graph so far (odometry chains, the sessions' own loop edges, inter-session edges) is
+optimized, and the map places each keyframe at its submap's optimized pose. The final optimization is unchanged. With
+two sessions nothing is left to join after the first join, so nothing changes; nor where the map never holds two
+sessions (no session joined), which covers every stress run of step 7.
+Runs (this commit's build):
+  (a) arc-5 + arc-6 (byte-identical to step 5 as in step 7);
+  (b) step 7's positive runs with the map on the seven sessions whose map held two parts at a later try: con-1, con-2,
+      arc-4, arc-5, arc-6, Oxford, pil-2 (Oxford and pil-2 recorded again; step 7's stored self-similarity used).
+Reading:
+  (a) byte-identical;
+  (b) no wrong join (every joined part within 0.3 m of the identity), the same parts joined as in step 7 or more, and
+      against the loop-closed reference (p3_split3_loopcheck.py) no joined part's transform more than 5 mm further off
+      than in step 7.
+  Decision: the re-optimization stays on by default if (a) and (b) hold; otherwise it is off by default and the
+  differences are reported. Expected, not a reading: Oxford part 1's transform closer to the reference than 0.128 m.
