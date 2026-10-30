@@ -240,8 +240,10 @@ Status (2026-10-30, report chapter 39):
   the values agree within 3.8e-5 m.
   - Oxford's backend peak: 1,358 -> 758 MiB (984 -> 339 MiB with the PCD cache).
   - The pipeline sum: 1,885 -> 1,270 MiB (1,500 -> 882 MiB with the PCD cache).
-- The pipeline's outputs differ from run to run (three trajectories in four Oxford runs, with the
-  frontend identical), which matters for Phase 5's reproducibility.
+- The pipeline's outputs differed from run to run (three trajectories in four Oxford runs, with the
+  frontend identical): the offline node published before graph_based_slam had subscribed, and the
+  map started one or two scans late. The launch file now makes the offline node wait by default
+  (`wait_for_backend`). Repeated default runs give byte-identical outputs (exp04 and Oxford).
 - Next: the running backend (submap clouds), the frontend (about 450 MiB).
 
 ### Phase 5 — Blind evaluation and publication

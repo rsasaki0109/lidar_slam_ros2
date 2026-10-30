@@ -112,3 +112,6 @@ for its subscribers, the three exp04 runs give the same bytes (trajectory a4748f
 edbeeac4, loop edges 895f277e, map 6a4d5c3c, tiles 28e129c6; the trajectory of chapter 16's baseline). The wait ends
 0.02-0.18 s after graph_based_slam starts. So the launch file now makes the offline node wait by default
 (wait_for_backend, this commit); runs B follow.
+Step R, runs B result (2026-10-30; lidarslam b0f93b8 rebuilt into ws/slam_dev; the default launch, no wait setting):
+met. exp04 twice and Oxford twice, every output byte-identical to runs A (the offline node logs that it waited). The
+default wait stays. Since chapter 18 the measurements passed the barrier themselves; the default launch did not wait.
