@@ -150,3 +150,26 @@ Step 2 result (2026-10-30; graph_based_slam 4a69722 in ws/slam_dev; step2_runs.l
   - exp04 backend VmHWM 196 and 195 MiB (step R runs B 196 and 199). Its 1.8 M points are 7 MiB smaller.
   - Times are not compared: the machine restarted between step R (last run 13:42) and these runs (booted 13:50). The
     frontend, unchanged and with the same output, took 357-388 s here against 311-341 s in step R.
+Step 3 plan (fixed 2026-10-30 before any run with it): the offline launch's LiDAR queue at 10 frames.
+Found first (no new run): report 16.5 measured async.max_lidar_buffer_size 10 (rko_lio's default is 50) in the
+pipeline: the frontend 92 MiB less on Oxford, outputs with the same md5 on exp04, MID-360 and Oxford. The default was
+left because a live node drops the oldest frame when registration falls 10 frames behind. rko_lio_slam.launch.py
+starts only the offline node. There, the bag reader stops at 9 queued frames while registration can run. It reads on
+only while the oldest frame waits for IMU data, and a frame is dropped then only if 11 frames are read before the IMU
+sample past the oldest frame's last point. The setting has no other use.
+Change: rko_lio_slam.launch.py gives the offline node async.max_lidar_buffer_size 10 (launch argument
+max_lidar_buffer_size, default 10). A rko_param_file that sets it still wins.
+Checks:
+  - Bag order (no run): on every bag at hand with LiDAR and IMU (exp04, Oxford, Koide 4, MapsHD 8), for each LiDAR
+    frame, the LiDAR frames read from it until the first IMU sample past its end. The end is taken as the header stamp
+    + 0.2 s, later than these 10 Hz sensors' last point; a later end only makes the count larger. Frames with no IMU
+    sample past their end (the bag's last ones) are left out: they are never registered with either queue size.
+  - Runs (ws/slam_dev with the launch file rebuilt, rko_lio ws/rko_g35, mem_baseline.sh with the default launch as in
+    step 2): exp04 twice, Oxford twice.
+Reading:
+  - bag order: at most 9 frames on every bag (a drop needs 11);
+  - every output byte-identical to step 2 (the hashes of step R), the frontend's trajectory too, and no "Dropping oldest
+    pending frame" in the logs;
+  - in both Oxford runs, the frontend's VmHWM is at least 50 MiB below the lowest of the seven Oxford runs of steps R
+    and 2 (429 MiB), so at most 379 MiB.
+  Decision: kept if all three hold. Reported besides: the backend's VmHWM, the pipeline sum, exp04's frontend.
