@@ -257,6 +257,42 @@ void writePoses(
   }
 }
 
+// Test only: one session cut into parts of equal duration, with gap_s left out between them. Each
+// part becomes a session: its submaps, odometry, own loop edges and keyframe maps.
+std::vector<Session> splitSession(Session all, int parts, double gap_s)
+{
+  std::vector<Session> out(parts);
+  const double t0 = all.stamps.front();
+  const double part_s = (all.stamps.back() - t0) / parts;
+  std::vector<int> part_of(all.stamps.size(), -1), local(all.stamps.size(), -1);
+  for (std::size_t k = 0; k < all.stamps.size(); ++k) {
+    const double t = all.stamps[k] - t0;
+    const int p = std::min(parts - 1, static_cast<int>(t / part_s));
+    if ((p > 0 && t - p * part_s <= 0.5 * gap_s) ||
+      (p < parts - 1 && (p + 1) * part_s - t <= 0.5 * gap_s))
+    {
+      continue;
+    }
+    Session & part = out[p];
+    part_of[k] = p;
+    local[k] = static_cast<int>(part.stamps.size());
+    part.stamps.push_back(all.stamps[k]);
+    part.raw.push_back(all.raw[k]);
+    part.covariance.push_back(all.covariance[k]);
+    part.keyframes.push_back(std::move(all.keyframes[k]));
+    part.keyframes.back().id = local[k];
+  }
+  for (auto c : all.loops) {
+    if (part_of[c.from] >= 0 && part_of[c.from] == part_of[c.to]) {
+      const int p = part_of[c.from];
+      c.from = local[c.from];
+      c.to = local[c.to];
+      out[p].loops.push_back(c);
+    }
+  }
+  return out;
+}
+
 // The self-similarity stored in dir for a session fingerprint: 1 or 0, or -1 if none is stored.
 int readSelfSimilarity(const std::string & dir, const std::string & fingerprint)
 {
@@ -325,6 +361,15 @@ int main(int argc, char ** argv)
   // A session's self-similarity is stored in cache_dir under its fingerprint and used instead of
   // its self-join next time. With precheck every session is checked first (a map to be joined
   // later: one session is enough then).
+  // Test only, with debug_split_gap_s: 3 or more parts become sessions of their own and are joined
+  // like sessions (2 parts: the second half is joined to the first, as in steps 3-5).
+  int split_parts;
+  node->get_parameter_or("debug_split_parts", split_parts, 2);
+  // "map": each session is joined to every session joined before it (the map; step 7); "first":
+  // to the first session only (steps 2-6). Sessions that do not join are tried again once the map
+  // has grown.
+  std::string join_to;
+  node->get_parameter_or("multisession_join_to", join_to, std::string("map"));
   std::string cache_dir;
   bool precheck = false;
   node->get_parameter_or("multisession_cache_dir", cache_dir, std::string());
@@ -406,21 +451,37 @@ int main(int argc, char ** argv)
     return 1;
   }
 
+  const bool parts_as_sessions = split_gap_s >= 0.0 && split_parts >= 3;
+  if (parts_as_sessions) {
+    sessions = splitSession(std::move(sessions[0]), split_parts, split_gap_s);
+    for (int p = 0; p < split_parts; ++p) {
+      RCLCPP_INFO(
+        logger, "part %d: %zu submaps, %zu loop edges", p, sessions[p].raw.size(),
+        sessions[p].loops.size());
+    }
+    bags.assign(split_parts, bags[0]);
+    runs.assign(split_parts, runs[0]);
+  }
+
   std::function<bool(const graphslam::multisession::Match &)> exclude = nullptr;
   auto make_exclude = [&](const std::vector<graphslam::multisession::Keyframe> & b) {
       Eigen::Isometry3d t = Eigen::Isometry3d::Identity();
       for (int i = 0; i < 12; ++i) {
         t.matrix()(i / 4, i % 4) = exclude_values[i];
       }
+      std::vector<Eigen::Vector3d> positions;
+      for (const auto & k : b) {
+        positions.push_back(k.frame.translation());
+      }
       return std::function<bool(const graphslam::multisession::Match &)>(
-        [t, b, exclude_radius_m](const graphslam::multisession::Match & m) {
-          const Eigen::Vector3d p = b[m.b].frame.translation();
+        [t, positions, exclude_radius_m](const graphslam::multisession::Match & m) {
+          const Eigen::Vector3d & p = positions[m.b];
           return (m.session * p - t * p).norm() <= exclude_radius_m;
         });
     };
 
   std::ofstream report(output_dir + "/join_report.yaml");
-  if (split_gap_s >= 0.0) {
+  if (split_gap_s >= 0.0 && !parts_as_sessions) {
     const auto & all = sessions[0];
     const double middle = 0.5 * (all.stamps.front() + all.stamps.back());
     std::vector<graphslam::multisession::Keyframe> a, b;
@@ -464,7 +525,7 @@ int main(int argc, char ** argv)
     return 0;
   }
   std::ofstream edges_csv(output_dir + "/inter_session_edges.csv");
-  edges_csv << "session,submap_a,submap_b,inlier_fraction,tx,ty,tz,qx,qy,qz,qw\n";
+  edges_csv << "session,map_session,submap_a,submap_b,inlier_fraction,tx,ty,tz,qx,qy,qz,qw\n";
   report << "sessions:\n";
   std::vector<graphslam::pose_graph::SubmapNode> nodes;
   std::vector<graphslam::pose_graph::LoopConstraint> constraints;
@@ -501,36 +562,89 @@ int main(int argc, char ** argv)
       caches[s]->self_similar < 0 ? "not checked yet" :
       (checks[s] == "stored" ? "stored" : "checked"));
   }
-  for (std::size_t s = 0; s < sessions.size(); ++s) {
-    if (s > 0) {
+  auto add_session = [&](std::size_t s) {
+      offsets[s] = static_cast<int>(nodes.size());
+      for (std::size_t k = 0; k < sessions[s].raw.size(); ++k) {
+        graphslam::pose_graph::SubmapNode node_k;
+        node_k.pose = placement[s] * sessions[s].raw[k];
+        node_k.odometry_covariance = sessions[s].covariance[k];
+        node_k.session_start = (s > 0 && k == 0);
+        nodes.push_back(node_k);
+      }
+      for (auto c : sessions[s].loops) {
+        c.from += offsets[s];
+        c.to += offsets[s];
+        constraints.push_back(c);
+      }
+    };
+  add_session(0);
+  const std::size_t n = sessions.size();
+  std::vector<int> map_sessions {0};  // the sessions joined so far, in order
+  std::vector<graphslam::multisession::JoinResult> results(n);
+  std::vector<std::vector<int>> tried_with(n);  // the map's sessions at each session's last try
+  std::vector<int> tries(n, 0), pass_joined(n, 0);
+  std::vector<bool> excluded(n, false);
+  bool grew = true;
+  for (int pass = 1; grew && (pass == 1 || join_to == "map"); ++pass) {
+    grew = false;
+    for (std::size_t s = 1; s < n; ++s) {
+      if (offsets[s] >= 0 || (pass > 1 && tried_with[s] == map_sessions)) {
+        continue;
+      }
+      // The map: the keyframes of its sessions in session 0's frame, each moved by its session's
+      // placement (a keyframe's map stays in its own frame). origin: (session, keyframe).
+      const std::vector<int> members = join_to == "map" ? map_sessions : std::vector<int>{0};
+      std::vector<graphslam::multisession::Keyframe> map_keyframes;
+      std::vector<std::pair<int, int>> origin;
+      for (int j : members) {
+        for (std::size_t k = 0; k < sessions[j].keyframes.size(); ++k) {
+          origin.emplace_back(j, static_cast<int>(k));
+        }
+      }
+      graphslam::multisession::SessionCache * map_cache = caches[0].get();
+      std::unique_ptr<graphslam::multisession::SessionCache> joined_map;
+      if (members.size() > 1) {
+        for (const auto & o : origin) {
+          map_keyframes.push_back(sessions[o.first].keyframes[o.second]);
+          map_keyframes.back().frame = placement[o.first] * map_keyframes.back().frame;
+        }
+        joined_map = std::make_unique<graphslam::multisession::SessionCache>(map_keyframes, join);
+        // Every session in the map was checked when it joined: none is self-similar.
+        joined_map->self_similar = 0;
+        for (int j : members) {
+          joined_map->self_similar = std::max(
+            joined_map->self_similar,
+            graphslam::multisession::selfSimilar(*caches[j], join) ? 1 : 0);
+        }
+        map_cache = joined_map.get();
+      }
       exclude = nullptr;
-      if (s == 1 && exclude_values.size() == 12) {
+      if ((s == 1 || parts_as_sessions) && exclude_values.size() == 12) {
         exclude = make_exclude(sessions[s].keyframes);
       }
-      const auto result = graphslam::multisession::joinSessions(
-        *caches[0], *caches[s], join, exclude);
+      excluded[s] = exclude != nullptr;
+      results[s] = graphslam::multisession::joinSessions(*map_cache, *caches[s], join, exclude);
+      tried_with[s] = members;
+      ++tries[s];
       release(s);
-      report << "  - session: " << s << "\n    joined: " << (result.joined ? "true" : "false") <<
-        "\n    candidates: " << result.candidates << "\n    accepted: " << result.accepted.size() <<
-        "\n    excluded_by_debug_hook: " << (exclude ? "true" : "false") << "\n    ambiguous: " <<
-        (result.ambiguous ? "true" : "false") << "\n    self_similar: '" << result.self_similar <<
-        "'\n    sets_tried:\n";
-      for (const auto & a : result.attempts) {
-        report << "      - {size: " << a.size << ", places: " << a.places << ", share_below: " <<
-          a.share_below << ", median: " << a.median << ", passed: " <<
-          (a.passed ? "true" : "false") <<
-          "}\n";
+      const auto & result = results[s];
+      std::string with;
+      for (int j : members) {
+        with += (with.empty() ? "" : ", ") + std::to_string(j);
       }
       RCLCPP_INFO(
-        logger, "session %zu: %d candidates, %zu accepted, %zu sets tried, %s", s,
-        result.candidates, result.accepted.size(), result.attempts.size(),
-        result.joined ? "joined" : "not joined");
+        logger, "session %zu: %d candidates, %zu accepted, %zu sets tried, %s (pass %d, map of "
+        "sessions %s)", s, result.candidates, result.accepted.size(), result.attempts.size(),
+        result.joined ? "joined" : "not joined", pass, with.c_str());
       if (!result.joined) {
         continue;
       }
-      report << "    transform_to_session_0: " << matrixRow(result.transform) << "\n";
       placement[s] = result.transform;
-      // one inter-session edge per joined place of B: its best match
+      pass_joined[s] = pass;
+      map_sessions.push_back(static_cast<int>(s));
+      grew = true;
+      offsets[s] = static_cast<int>(nodes.size());  // its nodes follow its inter-session edges
+      // one inter-session edge per joined place of the session: its best match
       std::map<int, const graphslam::multisession::Match *> best;
       for (int i : result.set) {
         const auto & m = result.accepted[i];
@@ -538,41 +652,64 @@ int main(int argc, char ** argv)
           best[m.b] = &m;
         }
       }
-      offsets[s] = static_cast<int>(nodes.size());
       for (const auto & entry : best) {
         const auto & m = *entry.second;
-        const auto & ka = sessions[0].keyframes[m.a];
+        const int j = origin[m.a].first;
+        const auto & ka = sessions[j].keyframes[origin[m.a].second];  // in its own frame
         const auto & kb = sessions[s].keyframes[m.b];
         graphslam::pose_graph::LoopConstraint c;
-        c.from = offsets[0] + ka.id;
+        c.from = offsets[j] + ka.id;
         c.to = offsets[s] + kb.id;
-        c.relative_pose = sessions[0].raw[ka.id].inverse() * ka.frame * m.relative *
+        c.relative_pose = sessions[j].raw[ka.id].inverse() * ka.frame * m.relative *
           kb.frame.inverse() * sessions[s].raw[kb.id];
         c.fitness_score = 1.0 - m.inlier_fraction;
         constraints.push_back(c);
         const Eigen::Vector3d t = c.relative_pose.translation();
         const Eigen::Quaterniond q(c.relative_pose.rotation());
-        edges_csv << s << "," << ka.id << "," << kb.id << "," << m.inlier_fraction << "," <<
-          t.x() <<
-          "," << t.y() << "," << t.z() << "," << q.x() << "," << q.y() << "," << q.z() << "," <<
-          q.w() << "\n";
+        edges_csv << s << "," << j << "," << ka.id << "," << kb.id << "," << m.inlier_fraction <<
+          "," << t.x() << "," << t.y() << "," << t.z() << "," << q.x() << "," << q.y() << "," <<
+          q.z() << "," << q.w() << "\n";
       }
-    } else {
-      offsets[0] = 0;
-      report << "  - session: 0\n    joined: true\n";
+      add_session(s);
     }
-    for (std::size_t k = 0; k < sessions[s].raw.size(); ++k) {
-      graphslam::pose_graph::SubmapNode node_k;
-      node_k.pose = placement[s] * sessions[s].raw[k];
-      node_k.odometry_covariance = sessions[s].covariance[k];
-      node_k.session_start = (s > 0 && k == 0);
-      nodes.push_back(node_k);
+  }
+  report << "  - session: 0\n    joined: true\n";
+  for (std::size_t s = 1; s < n; ++s) {
+    const auto & result = results[s];
+    report << "  - session: " << s << "\n    joined: " << (result.joined ? "true" : "false") <<
+      "\n    candidates: " << result.candidates << "\n    accepted: " << result.accepted.size() <<
+      "\n    excluded_by_debug_hook: " << (excluded[s] ? "true" : "false") << "\n    ambiguous: " <<
+      (result.ambiguous ? "true" : "false") << "\n    self_similar: '" << result.self_similar <<
+      "'\n    sets_tried:\n";
+    for (const auto & a : result.attempts) {
+      report << "      - {size: " << a.size << ", places: " << a.places << ", share_below: " <<
+        a.share_below << ", median: " << a.median << ", passed: " <<
+        (a.passed ? "true" : "false") <<
+        "}\n";
     }
-    for (auto c : sessions[s].loops) {
-      c.from += offsets[s];
-      c.to += offsets[s];
-      constraints.push_back(c);
+    if (result.joined) {
+      report << "    transform_to_session_0: " << matrixRow(result.transform) << "\n";
     }
+  }
+  // how each session was joined: tries, the pass, the map's sessions at its last try
+  report << "map_joins:\n";
+  for (std::size_t s = 1; s < n; ++s) {
+    report << "  - {session: " << s << ", tries: " << tries[s] << ", joined_in_pass: " <<
+      pass_joined[s] << ", map_sessions: [";
+    for (std::size_t i = 0; i < tried_with[s].size(); ++i) {
+      report << (i ? ", " : "") << tried_with[s][i];
+    }
+    report << "]";
+    if (parts_as_sessions && offsets[s] >= 0) {  // the truth is the identity
+      double sq = 0.0;
+      for (const auto & k : sessions[s].keyframes) {
+        const Eigen::Vector3d p = k.frame.translation();
+        sq += (placement[s] * p - p).squaredNorm();
+      }
+      report << ", error_to_identity_rms_m: " <<
+        std::sqrt(sq / std::max<std::size_t>(1, sessions[s].keyframes.size()));
+    }
+    report << "}\n";
   }
   // every session's self-similarity: stored, checked in this run (then stored), or not needed
   report << "self_similarity:\n";

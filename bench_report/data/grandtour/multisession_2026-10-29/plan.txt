@@ -328,3 +328,37 @@ Time (step 5, both self-joins in the join -> step 6):
     not pass (73 s on con).
   A new run still pays its own self-join (con-2's: about 500 s, 7.8 times the join alone on con). It does not depend
   on the map either, so it can run when the run is processed (the precheck), before any join.
+
+Step 7 plan (fixed 2026-10-30 before any run with it): join each session to the map, not only to the first session.
+Why: steps 2-6 join every session to the first. When the map is made of several runs, a new run that overlaps only a
+later run's places cannot join, and its matches are made against part of the map.
+Change (graph_slam_multisession_join, this commit; multisession_join_to, default "map"):
+  - the sessions are tried in order; each is joined to the map, the sessions joined before it with their keyframes in
+    the first session's frame (each moved by its session's placement; a keyframe's map stays in its own frame). The
+    whole-map check runs over that map. The sessions that do not join are tried again once the map has grown, until it
+    stops growing;
+  - an inter-session edge links the session's keyframe to the map keyframe's own session (inter_session_edges.csv gets
+    a map_session column);
+  - the map's self-similarity: every session in it was checked when it joined (none self-similar), so only the new
+    session's is checked (stored ones used, step 6);
+  - "first" keeps the old way (each session joined to the first only, no second try);
+  - with two sessions the map is the first session, so nothing changes;
+  - a test hook, debug_split_parts (with debug_split_gap_s): one session cut into parts of equal duration with the gap
+    left out between them, each part a session (its submaps, odometry, own loop edges). The truth is the identity:
+    join_report.yaml gives each joined part's error to it (RMS over its keyframes). With debug_exclude_transform every
+    part's matches near the identity are left out (the stress test: any join is wrong).
+Runs (this commit's build):
+  (a) the four same-site pairs of step 2 (both sessions' self-similarity stored in step 6);
+  (b) the 18 sessions of step 3 (con-1, con-2, arc-3, arc-4, arc-5, arc-6, heap-1, pil-2; MapsHD 8; exp04; Oxford;
+      backend inputs recorded again where deleted), each cut into 3 parts with 30 s gaps, four runs each: positive and
+      stress, with "map" and with "first". The parts' self-similarity is stored per session (one cache directory per
+      session) and shared by its four runs.
+Reading:
+  (a) the pairs' outputs byte-identical to step 5's (trajectories; inter_session_edges.csv without the new column;
+      join_report.yaml without the map_joins and self_similarity blocks);
+  (b) no wrong join in any of the 72 runs: no join in a stress run, and every joined part within 0.3 m (RMS) of the
+      identity;
+  decision: "map" stays the default if (a) and (b) hold and on every session it joins at least as many parts as
+  "first"; otherwise "first" becomes the default and the difference is reported.
+Reported besides: the parts joined in each way, the parts that join only through the map (the map held part 1 when
+they joined), their errors, and the times.
