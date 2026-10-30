@@ -106,3 +106,9 @@ Reading:
   B: the same bytes as A's.
   Decision: the default wait is kept if A and B hold. If A does not hold, there is another cause; it is looked for
   before any default changes. Reported besides: the time the wait adds.
+Step R, runs A result (2026-10-30; rko_params_*_gyro002_wait.ros.yaml; stepR_runs.log): met. With the frontend waiting
+for its subscribers, the three exp04 runs give the same bytes (trajectory a4748f73, pose graph f434203a, loop edges
+8ac346d2, map 63e7439e, tiles 12066edb; the baseline's) and so do the three Oxford runs (trajectory cd21af83, pose graph
+edbeeac4, loop edges 895f277e, map 6a4d5c3c, tiles 28e129c6; the trajectory of chapter 16's baseline). The wait ends
+0.02-0.18 s after graph_based_slam starts. So the launch file now makes the offline node wait by default
+(wait_for_backend, this commit); runs B follow.

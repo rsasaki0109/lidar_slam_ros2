@@ -1,0 +1,19 @@
+exp04_rA1 traj=a4748f73362e3180a8567e9a16a7a3e6 g2o=f434203ac5064e98bda89c40d75177ce loops=8ac346d2e520be620b00e6031589387a map=63e7439e0a57f2885986a13db3d07b01 tiles=12066edbdf0905abe587892032542294 (81 files) front=bc23199243971466e1645e4eed7640ca
+   [1793365387.473148599] [rko_lio_offline_node]: Offline output subscribers ready; starting bag processing[0m
+oxford_rA1 traj=cd21af833c11ba5a1b4c67ab0faa5d8a g2o=edbeeac4087a325a1f39c00048697272 loops=895f277efd80ca4603dffb599002bf2a map=6a4d5c3c3a817c41ecd70d30ebabcfb3 tiles=28e129c67fa4c45b1b5b127a98c92096 (68 files) front=3fe7772305554e4e994c0980f3726c53
+   [1793365427.729995793] [rko_lio_offline_node]: Offline output subscribers ready; starting bag processing[0m
+exp04_rA2 traj=a4748f73362e3180a8567e9a16a7a3e6 g2o=f434203ac5064e98bda89c40d75177ce loops=8ac346d2e520be620b00e6031589387a map=63e7439e0a57f2885986a13db3d07b01 tiles=12066edbdf0905abe587892032542294 (81 files) front=bc23199243971466e1645e4eed7640ca
+   [1793365853.995105909] [rko_lio_offline_node]: Offline output subscribers ready; starting bag processing[0m
+oxford_rA2 traj=cd21af833c11ba5a1b4c67ab0faa5d8a g2o=edbeeac4087a325a1f39c00048697272 loops=895f277efd80ca4603dffb599002bf2a map=6a4d5c3c3a817c41ecd70d30ebabcfb3 tiles=28e129c67fa4c45b1b5b127a98c92096 (68 files) front=3fe7772305554e4e994c0980f3726c53
+   [1793365898.143680639] [rko_lio_offline_node]: Offline output subscribers ready; starting bag processing[0m
+exp04_rA3 traj=a4748f73362e3180a8567e9a16a7a3e6 g2o=f434203ac5064e98bda89c40d75177ce loops=8ac346d2e520be620b00e6031589387a map=63e7439e0a57f2885986a13db3d07b01 tiles=12066edbdf0905abe587892032542294 (81 files) front=bc23199243971466e1645e4eed7640ca
+   [1793366323.964246282] [rko_lio_offline_node]: Offline output subscribers ready; starting bag processing[0m
+oxford_rA3 traj=cd21af833c11ba5a1b4c67ab0faa5d8a g2o=edbeeac4087a325a1f39c00048697272 loops=895f277efd80ca4603dffb599002bf2a map=6a4d5c3c3a817c41ecd70d30ebabcfb3 tiles=28e129c67fa4c45b1b5b127a98c92096 (68 files) front=3fe7772305554e4e994c0980f3726c53
+   [1793366363.616770026] [rko_lio_offline_node]: Offline output subscribers ready; starting bag processing[0m
+exp04_rA1,33.455,33.854,0.398,32.8281,40,1
+oxford_rA1,336.532,419.477,82.945,335.956,444,22
+exp04_rA2,37.143,37.506,0.363,36.5495,40,1
+oxford_rA2,340.497,419.095,78.598,339.773,444,22
+exp04_rA3,32.889,33.251,0.361,32.3549,40,1
+oxford_rA3,327.732,405.900,78.168,327.177,444,22
+QUEUE83_DONE
