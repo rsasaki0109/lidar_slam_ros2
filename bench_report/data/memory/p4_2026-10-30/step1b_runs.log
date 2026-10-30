@@ -1,0 +1,57 @@
+build done
+oxford_p4hook,316.319,401.894,85.575,315.789,444,21,3fe7772305554e4e994c0980f3726c53,224f9f62cc867bf8f54eee8e88b4d0fc,47735b3f03488c42b4b4aa70da6908b9,e7c96516e05cdf114c1679af4aa818a6
+7749,graph_based_sla,1377204
+7748,offline_node,493968
+sum_of_process_peaks,,1940676
+peak_of_sum,,1446528
+mem done p4hook 12:34:43
+  [map save] 25644013 points downsampled without assembling the map, in 14 passes of at most 2000000 points
+  streamed against the old save of the same run: map.pcd 2823404 / 2823404 points; largest difference xyz 3.05e-05 m, intensity 0.00e+00; tiles: 69 files, same names, point counts the same, largest difference xyz 3.05e-05 m, intensity 0.00e+00
+oxford_p4hookc,316.076,435.722,119.645,315.535,444,21,3fe7772305554e4e994c0980f3726c53,c371aa4358c7a1c84997c600a83307b4,3b41ffff9c27b3477da3862e22a86ce2,e7c96516e05cdf114c1679af4aa818a6
+8024,graph_based_sla,966824
+8023,offline_node,457228
+sum_of_process_peaks,,1493548
+peak_of_sum,,1036148
+mem done p4hookc 12:42:22
+  [map save] 25644016 points downsampled without assembling the map, in 14 passes of at most 2000000 points
+  streamed against the old save of the same run: map.pcd 2824987 / 2824987 points; largest difference xyz 3.81e-05 m, intensity 0.00e+00; tiles: 69 files, same names, point counts the same, largest difference xyz 3.81e-05 m, intensity 0.00e+00
+exp04_p4cand2,32.288,32.608,0.319,31.7623,40,1,bc23199243971466e1645e4eed7640ca,a4748f73362e3180a8567e9a16a7a3e6,f434203ac5064e98bda89c40d75177ce,8ac346d2e520be620b00e6031589387a
+8330,offline_node,367532
+8331,graph_based_sla,206784
+sum_of_process_peaks,,643508
+peak_of_sum,,630888
+oxford_p4cand2,305.567,384.387,78.820,304.984,444,22,3fe7772305554e4e994c0980f3726c53,cd21af833c11ba5a1b4c67ab0faa5d8a,edbeeac4087a325a1f39c00048697272,895f277efd80ca4603dffb599002bf2a
+8494,graph_based_sla,776388
+8493,offline_node,455120
+sum_of_process_peaks,,1300940
+peak_of_sum,,1152968
+mem done p4cand2 12:49:51
+oxford_p4cand2c,315.964,430.461,114.497,315.396,444,22,3fe7772305554e4e994c0980f3726c53,cd21af833c11ba5a1b4c67ab0faa5d8a,edbeeac4087a325a1f39c00048697272,895f277efd80ca4603dffb599002bf2a
+8798,offline_node,486132
+8799,graph_based_sla,347392
+sum_of_process_peaks,,903028
+peak_of_sum,,794380
+mem done p4cand2c 12:57:08
+exp04 streamed save in its log: 0
+run,frontend_end_s,backend_peak_mb,backend_peak_t_s,backend_max_while_frontend_runs_mb,backend_max_after_frontend_mb,backend_last_mb
+/home/user/bench/mem/exp04_p4base,39.1,196,23.9,196,192,192
+/home/user/bench/mem/exp04_p4cand2,33.0,199,33.4,199,199,92
+/home/user/bench/mem/oxford_p4base,365.7,1358,436.0,606,1358,542
+/home/user/bench/mem/oxford_p4cand2,306.4,709,385.1,616,709,606
+/home/user/bench/mem/oxford_p4basec,348.0,984,428.1,249,984,234
+/home/user/bench/mem/oxford_p4cand2c,316.6,320,431.3,240,320,106
+exp04_p4base: offline_node,371504 graph_based_sla,201192 ,643360 ,629424 
+exp04_p4cand2: offline_node,367532 graph_based_sla,206784 ,643508 ,630888 
+oxford_p4base: graph_based_sla,1390104 offline_node,466824 ,1930012 ,1462952 
+oxford_p4cand2: graph_based_sla,776388 offline_node,455120 ,1300940 ,1152968 
+oxford_p4basec: graph_based_sla,1007212 offline_node,452216 ,1535852 ,1083464 
+oxford_p4cand2c: offline_node,486132 graph_based_sla,347392 ,903028 ,794380 
+exp04_p4base,37.984,38.319,0.334,36.9675,40,1
+oxford_p4base,364.730,436.465,71.734,364.133,444,21
+oxford_p4basec,347.129,428.836,81.707,346.573,444,22
+oxford_p4hook,316.319,401.894,85.575,315.789,444,21
+oxford_p4hookc,316.076,435.722,119.645,315.535,444,21
+exp04_p4cand2,32.288,32.608,0.319,31.7623,40,1
+oxford_p4cand2,305.567,384.387,78.820,304.984,444,22
+oxford_p4cand2c,315.964,430.461,114.497,315.396,444,22
+QUEUE82_DONE

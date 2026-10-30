@@ -234,6 +234,16 @@ The Oxford pipeline still peaks at 1.4–1.8 GiB, against the SOTA-v6 gate of 33
 main item is streaming the saved map instead of holding the full cloud (chapter 16:
 685 MiB for the Oxford map alone).
 
+Status (2026-10-30, report chapter 39):
+- Step 1: the saved map is downsampled from the submaps in passes over z layers, without
+  assembling it (`map_save_points_per_pass`). The voxels and their order are VoxelGrid's, and
+  the values agree within 3.8e-5 m.
+  - Oxford's backend peak: 1,358 -> 758 MiB (984 -> 339 MiB with the PCD cache).
+  - The pipeline sum: 1,885 -> 1,270 MiB (1,500 -> 882 MiB with the PCD cache).
+- The pipeline's outputs differ from run to run (three trajectories in four Oxford runs, with the
+  frontend identical), which matters for Phase 5's reproducibility.
+- Next: the running backend (submap clouds), the frontend (about 450 MiB).
+
 ### Phase 5 — Blind evaluation and publication
 
 - Preregister G, the rival revisions, the thresholds, the machine, and the run order. Run
