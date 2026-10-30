@@ -312,6 +312,8 @@ int main(int argc, char ** argv)
   node->get_parameter_or("multisession_keyframe_range_m", range_m, 40.0);
   graphslam::multisession::JoinConfig join;
   node->get_parameter_or("multisession_num_threads", join.num_threads, join.num_threads);
+  node->get_parameter_or(
+    "multisession_self_gate_fraction", join.self_gate_fraction, join.self_gate_fraction);
   // the stress test of the plan only: drop the matches that agree with this transform of session 1
   std::vector<double> exclude_values;
   double exclude_radius_m;
@@ -391,7 +393,8 @@ int main(int argc, char ** argv)
     if (exclude_values.size() == 12) {
       exclude = make_exclude(b);
     }
-    const auto result = graphslam::multisession::joinSessions(a, b, join, exclude);
+    graphslam::multisession::SessionCache cache_a(a, join), cache_b(b, join);
+    const auto result = graphslam::multisession::joinSessions(cache_a, cache_b, join, exclude);
     double sq = 0.0;
     for (const auto & k : b) {
       const Eigen::Vector3d p = k.frame.translation();
@@ -426,14 +429,16 @@ int main(int argc, char ** argv)
   std::vector<graphslam::pose_graph::LoopConstraint> constraints;
   std::vector<int> offsets(sessions.size(), -1);
   std::vector<Eigen::Isometry3d> placement(sessions.size(), Eigen::Isometry3d::Identity());
+  // session 0's work (Scan Context, small_gicp clouds, self-similarity) is shared by every join
+  graphslam::multisession::SessionCache cache_0(sessions[0].keyframes, join);
   for (std::size_t s = 0; s < sessions.size(); ++s) {
     if (s > 0) {
       exclude = nullptr;
       if (s == 1 && exclude_values.size() == 12) {
         exclude = make_exclude(sessions[s].keyframes);
       }
-      const auto result = graphslam::multisession::joinSessions(
-        sessions[0].keyframes, sessions[s].keyframes, join, exclude);
+      graphslam::multisession::SessionCache cache_s(sessions[s].keyframes, join);
+      const auto result = graphslam::multisession::joinSessions(cache_0, cache_s, join, exclude);
       report << "  - session: " << s << "\n    joined: " << (result.joined ? "true" : "false") <<
         "\n    candidates: " << result.candidates << "\n    accepted: " << result.accepted.size() <<
         "\n    excluded_by_debug_hook: " << (exclude ? "true" : "false") << "\n    ambiguous: " <<

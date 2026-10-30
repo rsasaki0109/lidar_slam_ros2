@@ -217,3 +217,42 @@ pair, 13 -> 227 s on an ARCHE pair; a join that does not pass costs what it did.
 Remaining limits: a session that does not see its own symmetry (two identical rooms, each walked by one session only)
 cannot be refused by either rule; no data here has that case. The self-joins make the tool ten times slower when it
 joins.
+
+Step 5 plan (fixed 2026-10-30 before any run with it): make the self-similarity check faster.
+Measured first, on arc-5 + arc-6 with step 4's build and timers added (ms_join5/prof_*, not a candidate run). Of 285 s,
+the main join takes 5 s and the two self-joins 211 s. In the self-joins the GICP registrations take 197 s (93 %), Scan
+Context 4 s, preparing the clouds 3 s and the inlier count 8 s. Reusing the per-session work (Scan Context, clouds)
+therefore saves about 3 % only. With one thread per registration they take 615 s instead of 197 s on 4 threads (3.1
+times on 4 cores).
+Per candidate (a diagnostic build, ms_join5/diag_arc5_arc6): the self-joins register 1133 candidates. 624 end with an
+inlier fraction of 0.6 or more, all near the identity (the session's own revisits, left out), at 26 ms each. The other
+509 are wrong and end below 0.6, at 549 ms each: 94 % of the time (3.5 times the points, 13,900 against 4,000, and 42
+iterations against 5). After the first stage (2 m) the accepted candidates have at least 0.76 of their points within
+1.0 m of A's (main join: 0.77); 192 of the wrong ones have less than 0.5, and their finer stages take 141 of 296 s.
+Two changes (multisession_join.hpp, this commit):
+  5a, the same method: a cache per session (Scan Context descriptors, small_gicp clouds, the self-similarity result:
+    a session's self-join runs once however many sessions it is joined to); each registration on one thread, the
+    candidates (and the whole-map check's keyframes) in parallel, so the result does not depend on the number of
+    threads. A registration's sums now run in another order than with 4 threads, so transforms change in the last bits.
+  5b, a gate in the self-join only (self_gate_fraction): after the first stage, a candidate with less than 0.5 of B's
+    points within 1.0 m of A's is not refined further. Then less than 0.5 of them lie within 0.3 m, so it is rejected
+    (0.5 <= min_inlier_fraction 0.6, 1.0 m >= inlier_distance_m 0.3). Expected: about half of the self-join's time.
+    The main join is unchanged: its candidates are mostly right, and steps 2-4 keep their decisions without re-runs.
+    Threshold rule, applied before the confirmation runs: if the diagnostics of con-1 + con-2 or con-1's split
+    (running) show an accepted candidate with less than 0.7 within 1.0 m after the first stage, the threshold becomes
+    that minimum less 0.2.
+Runs:
+  5a (gate off): arc-5 + arc-6 with 4 threads and with 1 thread.
+  5b (5a with the gate): every step 4 run in which a set passed, so that a self-join ran: the four same-site pairs of
+    step 2; the split runs con-1 (refused, self-similar a), con-2, arc-4, arc-5, arc-6, Oxford, pil-2 (joined) and
+    calibration-room 1 stress (refused, self-similar a), with backend inputs recorded again where deleted. (The other
+    runs never reach a self-join and cannot change.)
+Reading:
+  5a: the two thread counts give byte-identical outputs (join_report.yaml, inter_session_edges.csv, trajectories); the
+    decision as in step 4 and the transform within 1 mm (RMS over B's keyframes) of step 4's. Time reported.
+  5b: every run's decision as in step 4 (joined, or refused for the same reason) and every joined transform within 1 mm
+    of step 4's. If so, the gate is on by default; if any decision differs, the gate is off by default and only 5a is
+    kept. Time reported against step 4 (1376 s for a Construction pair, 227 s for an ARCHE pair).
+Not expected: a join that passes stays several times slower than one that does not. The time is the registration of
+wrong candidates, which only fewer or cheaper registrations reduce, and the self-join's candidates are kept (fewer
+would make the check less sensitive).

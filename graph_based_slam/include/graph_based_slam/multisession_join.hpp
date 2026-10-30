@@ -38,6 +38,8 @@
 //   transform also holds over the whole map (B's keyframes that land near A's keyframes must lie on
 //   A's maps). A site's repeated structure makes wrong matches that agree with one another; the
 //   whole-map check is what rejects them. Needs small_gicp.
+// Each registration runs on one thread and the candidates run in parallel (num_threads), so the
+// result does not depend on the number of threads (plan.txt, step 5).
 
 #include <algorithm>
 #include <cmath>
@@ -53,7 +55,7 @@
 #include <Eigen/Geometry>  // NOLINT(build/include_order)
 #include <pcl/point_cloud.h>  // NOLINT(build/include_order)
 #include <pcl/point_types.h>  // NOLINT(build/include_order)
-#include <small_gicp/ann/kdtree_omp.hpp>  // NOLINT(build/include_order)
+#include <small_gicp/ann/kdtree.hpp>  // NOLINT(build/include_order)
 #include <small_gicp/points/eigen.hpp>  // NOLINT(build/include_order)
 #include <small_gicp/points/point_cloud.hpp>  // NOLINT(build/include_order)
 #include <small_gicp/registration/registration_helper.hpp>  // NOLINT(build/include_order)
@@ -98,6 +100,13 @@ struct JoinConfig
   // sequence left out (a keyframe and its neighbours always match themselves).
   int self_candidates {10};
   int self_skip_neighbors {10};
+  // In the self-join: a candidate with less than this share of B's points within
+  // self_gate_distance_m of A's after the first registration stage is not refined further. With
+  // a share at most min_inlier_fraction and a distance at least inlier_distance_m it is then
+  // rejected. Most self-join candidates are wrong, and they take most of its time (plan.txt,
+  // step 5). 0: off.
+  double self_gate_fraction {0.5};
+  double self_gate_distance_m {1.0};
   int num_threads {4};
 };
 
@@ -245,9 +254,26 @@ struct Prepared
 
 inline Prepared prepare(const Keyframe & keyframe, const JoinConfig & config)
 {
-  auto pre = small_gicp::preprocess_points(
-    keyframe.points, config.registration_voxel_m, 10, config.num_threads);
+  auto pre = small_gicp::preprocess_points(keyframe.points, config.registration_voxel_m, 10, 1);
   return {pre.first, pre.second};
+}
+
+// The share of the source's points within distance of the target's, the source moved by t.
+inline double overlap(
+  const Prepared & target, const Prepared & source, const Eigen::Isometry3d & t, double distance)
+{
+  const double max_sq = distance * distance;
+  std::size_t inside = 0;
+  for (std::size_t i = 0; i < source.cloud->size(); ++i) {
+    std::size_t index = 0;
+    double sq = 0.0;
+    const Eigen::Vector4d q = t.matrix() * source.cloud->point(i);
+    if (target.tree->nearest_neighbor_search(q, &index, &sq) && sq < max_sq) {
+      ++inside;
+    }
+  }
+  return source.cloud->size() > 0 ?
+         static_cast<double>(inside) / static_cast<double>(source.cloud->size()) : 0.0;
 }
 
 // Moving B's keyframe positions by two session transforms: the larger distance between them.
@@ -264,6 +290,45 @@ inline double disagreement(
 
 }  // namespace detail
 
+// The work on one session that does not depend on the session it is joined to: Scan Context
+// descriptors, small_gicp clouds (made when a join first needs them) and the self-similarity
+// check. A join and its self-joins share it, and so do the joins of one session to several
+// others. All of them must use the JoinConfig it was made with.
+struct SessionCache
+{
+  SessionCache(const std::vector<Keyframe> & session, const JoinConfig & config)
+  : keyframes(session), descriptors(session.size()), prepared(session.size())
+  {
+    const int n = static_cast<int>(session.size());
+#pragma omp parallel for num_threads(config.num_threads) schedule(dynamic)
+    for (int i = 0; i < n; ++i) {
+      descriptors[i] = detail::scanContext(session[i], config);
+    }
+  }
+
+  // Makes the small_gicp clouds of these keyframes that are not made yet.
+  void prepare(std::vector<int> indices, const JoinConfig & config)
+  {
+    std::sort(indices.begin(), indices.end());
+    indices.erase(std::unique(indices.begin(), indices.end()), indices.end());
+    indices.erase(
+      std::remove_if(
+        indices.begin(), indices.end(), [this](int i) {return prepared[i] != nullptr;}),
+      indices.end());
+    const int n = static_cast<int>(indices.size());
+#pragma omp parallel for num_threads(config.num_threads) schedule(dynamic)
+    for (int k = 0; k < n; ++k) {
+      prepared[indices[k]] = std::make_shared<const detail::Prepared>(
+        detail::prepare(keyframes[indices[k]], config));
+    }
+  }
+
+  const std::vector<Keyframe> & keyframes;
+  std::vector<ScanContext::Descriptor> descriptors;
+  std::vector<std::shared_ptr<const detail::Prepared>> prepared;
+  int self_similar {-1};  // -1: not checked yet
+};
+
 // The whole-map check of a session transform: B's keyframes that land within place_radius_m of
 // one of A's, and the share of them with less than place_min_fraction of their points within
 // inlier_distance_m of those A keyframes' maps.
@@ -272,9 +337,12 @@ inline SetAttempt wholeMapCheck(
   const Eigen::Isometry3d & session, const JoinConfig & config)
 {
   SetAttempt out;
-  std::vector<double> fractions;
   const double max_sq = config.inlier_distance_m * config.inlier_distance_m;
-  for (const Keyframe & kb : b) {
+  const int nb = static_cast<int>(b.size());
+  std::vector<double> placed(nb, -1.0);  // the fraction of each placed B keyframe
+#pragma omp parallel for num_threads(config.num_threads) schedule(dynamic)
+  for (int k = 0; k < nb; ++k) {
+    const Keyframe & kb = b[k];
     const Eigen::Isometry3d g = session * kb.frame;
     std::vector<Eigen::Vector3f> near_points;
     for (const Keyframe & ka : a) {
@@ -289,8 +357,7 @@ inline SetAttempt wholeMapCheck(
       continue;
     }
     auto target = std::make_shared<small_gicp::PointCloud>(near_points);
-    small_gicp::KdTree<small_gicp::PointCloud> tree(
-      target, small_gicp::KdTreeBuilderOMP(config.num_threads));
+    small_gicp::KdTree<small_gicp::PointCloud> tree(target);
     std::size_t inside = 0;
     for (const auto & p : kb.points) {
       const Eigen::Vector3d q = g * p.cast<double>();
@@ -302,7 +369,13 @@ inline SetAttempt wholeMapCheck(
         ++inside;
       }
     }
-    fractions.push_back(static_cast<double>(inside) / static_cast<double>(kb.points.size()));
+    placed[k] = static_cast<double>(inside) / static_cast<double>(kb.points.size());
+  }
+  std::vector<double> fractions;
+  for (double f : placed) {
+    if (f >= 0.0) {
+      fractions.push_back(f);
+    }
   }
   out.places = static_cast<int>(fractions.size());
   if (fractions.empty()) {
@@ -321,94 +394,110 @@ inline SetAttempt wholeMapCheck(
 inline bool differentTransforms(
   const Eigen::Isometry3d & s, const Eigen::Isometry3d & t, const std::vector<Keyframe> & b,
   const JoinConfig & config);
-inline bool selfSimilar(const std::vector<Keyframe> & s, const JoinConfig & config);
+inline bool selfSimilar(SessionCache & s, const JoinConfig & config);
 
 // Joins session B to session A. exclude (optional) drops matches before the agreement step; it
-// is a test hook (the stress test of the plan), not part of the method.
+// is a test hook (the stress test of the plan), not part of the method. In a self-join cache_a
+// and cache_b are the same session.
 inline JoinResult joinSessions(
-  const std::vector<Keyframe> & a, const std::vector<Keyframe> & b, const JoinConfig & config,
+  SessionCache & cache_a, SessionCache & cache_b, const JoinConfig & config,
   const std::function<bool(const Match &)> & exclude = nullptr, bool self_join = false)
 {
   JoinResult result;
+  const std::vector<Keyframe> & a = cache_a.keyframes;
+  const std::vector<Keyframe> & b = cache_b.keyframes;
   if (a.empty() || b.empty()) {
     return result;
   }
-  std::vector<ScanContext::Descriptor> a_sc;
-  a_sc.reserve(a.size());
-  for (const Keyframe & k : a) {
-    a_sc.push_back(detail::scanContext(k, config));
-  }
-  std::vector<std::unique_ptr<detail::Prepared>> a_pre(a.size());
-  const double inlier_sq = config.inlier_distance_m * config.inlier_distance_m;
-
-  for (int bi = 0; bi < static_cast<int>(b.size()); ++bi) {
+  // the Scan Context candidates of every B keyframe, in B's order
+  struct Candidate
+  {
+    int a;
+    int b;
+    double distance;
+    int shift;
+  };
+  const int nb = static_cast<int>(b.size());
+  std::vector<std::vector<Candidate>> per_b(nb);
+#pragma omp parallel for num_threads(config.num_threads) schedule(dynamic)
+  for (int bi = 0; bi < nb; ++bi) {
     if (b[bi].points.empty()) {
       continue;
     }
-    const ScanContext::Descriptor query = detail::scanContext(b[bi], config);
     std::vector<std::pair<double, int>> ranked;  // (distance, a index), with the shift kept apart
     std::vector<int> shifts(a.size(), 0);
     for (int ai = 0; ai < static_cast<int>(a.size()); ++ai) {
       if (self_join && std::abs(ai - bi) <= config.self_skip_neighbors) {
         continue;
       }
-      const auto aligned = ScanContext::distanceWithAlignment(query, a_sc[ai]);
+      const auto aligned = ScanContext::distanceWithAlignment(
+        cache_b.descriptors[bi], cache_a.descriptors[ai]);
       ranked.emplace_back(aligned.distance, ai);
       shifts[ai] = aligned.shift;
     }
     const int keep = std::min<int>(
       self_join ? config.self_candidates : config.sc_candidates, static_cast<int>(ranked.size()));
     std::partial_sort(ranked.begin(), ranked.begin() + keep, ranked.end());
-    detail::Prepared source;
-    bool source_ready = false;
     for (int r = 0; r < keep; ++r) {
-      const double distance = ranked[r].first;
       const int ai = ranked[r].second;
-      if (distance > config.sc_max_distance || a[ai].points.empty()) {
-        continue;
+      if (ranked[r].first <= config.sc_max_distance && !a[ai].points.empty()) {
+        per_b[bi].push_back({ai, bi, ranked[r].first, shifts[ai]});
       }
-      ++result.candidates;
-      if (!source_ready) {
-        source = detail::prepare(b[bi], config);
-        source_ready = true;
+    }
+  }
+  std::vector<Candidate> candidates;
+  std::vector<int> need_a, need_b;
+  for (const auto & list : per_b) {
+    for (const Candidate & c : list) {
+      candidates.push_back(c);
+      need_a.push_back(c.a);
+      need_b.push_back(c.b);
+    }
+  }
+  result.candidates = static_cast<int>(candidates.size());
+  cache_a.prepare(need_a, config);
+  cache_b.prepare(need_b, config);
+
+  // the registration of every candidate, one thread each
+  const int nc = static_cast<int>(candidates.size());
+  std::vector<Match> matches(nc);
+#pragma omp parallel for num_threads(config.num_threads) schedule(dynamic)
+  for (int c = 0; c < nc; ++c) {
+    const int ai = candidates[c].a;
+    const int bi = candidates[c].b;
+    const detail::Prepared & target = *cache_a.prepared[ai];
+    const detail::Prepared & source = *cache_b.prepared[bi];
+    // B's azimuth theta is seen in A at theta + shift * sector width.
+    const double yaw = candidates[c].shift * 2.0 * M_PI / ScanContext::NUM_SECTORS;
+    Eigen::Isometry3d t = Eigen::Isometry3d::Identity();
+    t.linear() = Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()).toRotationMatrix();
+    const auto & stages = config.registration_distances_m;
+    for (std::size_t stage = 0; stage < stages.size(); ++stage) {
+      small_gicp::RegistrationSetting setting;
+      setting.type = small_gicp::RegistrationSetting::GICP;
+      setting.max_correspondence_distance = stages[stage];
+      setting.num_threads = 1;
+      setting.max_iterations = config.registration_max_iterations;
+      t = small_gicp::align(*target.cloud, *source.cloud, *target.tree, t,
+            setting).T_target_source;
+      if (stage == 0 && self_join && config.self_gate_fraction > 0.0 &&
+        detail::overlap(target, source, t, config.self_gate_distance_m) <
+        config.self_gate_fraction)
+      {
+        break;
       }
-      if (!a_pre[ai]) {
-        a_pre[ai] = std::make_unique<detail::Prepared>(detail::prepare(a[ai], config));
-      }
-      const detail::Prepared & target = *a_pre[ai];
-      // B's azimuth theta is seen in A at theta + shift * sector width.
-      const double yaw = shifts[ai] * 2.0 * M_PI / ScanContext::NUM_SECTORS;
-      Eigen::Isometry3d t = Eigen::Isometry3d::Identity();
-      t.linear() = Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()).toRotationMatrix();
-      for (double max_distance : config.registration_distances_m) {
-        small_gicp::RegistrationSetting setting;
-        setting.type = small_gicp::RegistrationSetting::GICP;
-        setting.max_correspondence_distance = max_distance;
-        setting.num_threads = config.num_threads;
-        setting.max_iterations = config.registration_max_iterations;
-        t = small_gicp::align(*target.cloud, *source.cloud, *target.tree, t,
-              setting).T_target_source;
-      }
-      std::size_t inside = 0;
-      for (std::size_t i = 0; i < source.cloud->size(); ++i) {
-        std::size_t index = 0;
-        double sq = 0.0;
-        const Eigen::Vector4d q = t.matrix() * source.cloud->point(i);
-        if (target.tree->nearest_neighbor_search(q, &index, &sq) && sq < inlier_sq) {
-          ++inside;
-        }
-      }
-      Match m;
-      m.a = ai;
-      m.b = bi;
-      m.sc_distance = distance;
-      m.inlier_fraction = source.cloud->size() > 0 ?
-        static_cast<double>(inside) / static_cast<double>(source.cloud->size()) : 0.0;
-      m.relative = t;
-      m.session = a[ai].frame * t * b[bi].frame.inverse();
-      if (m.inlier_fraction >= config.min_inlier_fraction && !(exclude && exclude(m))) {
-        result.accepted.push_back(m);
-      }
+    }
+    Match & m = matches[c];
+    m.a = ai;
+    m.b = bi;
+    m.sc_distance = candidates[c].distance;
+    m.inlier_fraction = detail::overlap(target, source, t, config.inlier_distance_m);
+    m.relative = t;
+    m.session = a[ai].frame * t * b[bi].frame.inverse();
+  }
+  for (const Match & m : matches) {
+    if (m.inlier_fraction >= config.min_inlier_fraction && !(exclude && exclude(m))) {
+      result.accepted.push_back(m);
     }
   }
 
@@ -507,9 +596,9 @@ inline JoinResult joinSessions(
     result.joined = false;
   }
   if (result.joined && config.refuse_self_similar) {
-    if (selfSimilar(a, config)) {
+    if (selfSimilar(cache_a, config)) {
       result.self_similar = "a";
-    } else if (selfSimilar(b, config)) {
+    } else if (selfSimilar(cache_b, config)) {
       result.self_similar = "b";
     }
     if (!result.self_similar.empty()) {
@@ -536,18 +625,32 @@ inline bool differentTransforms(
 }
 
 // A session is self-similar if it joins itself, with the matches near the identity left out,
-// under the same method (without these two refusals).
-inline bool selfSimilar(const std::vector<Keyframe> & s, const JoinConfig & config)
+// under the same method (without these two refusals). Checked once per session cache.
+inline bool selfSimilar(SessionCache & s, const JoinConfig & config)
 {
-  JoinConfig inner = config;
-  inner.refuse_ambiguous = false;
-  inner.refuse_self_similar = false;
-  const double radius = config.ambiguity_m;
-  return joinSessions(
-    s, s, inner, [&s, radius](const Match & m) {
-      const Eigen::Vector3d p = s[m.b].frame.translation();
-      return (m.session * p - p).norm() <= radius;
-    }, true).joined;
+  if (s.self_similar < 0) {
+    JoinConfig inner = config;
+    inner.refuse_ambiguous = false;
+    inner.refuse_self_similar = false;
+    const double radius = config.ambiguity_m;
+    const std::vector<Keyframe> & k = s.keyframes;
+    s.self_similar = joinSessions(
+      s, s, inner, [&k, radius](const Match & m) {
+        const Eigen::Vector3d p = k[m.b].frame.translation();
+        return (m.session * p - p).norm() <= radius;
+      }, true).joined ? 1 : 0;
+  }
+  return s.self_similar == 1;
+}
+
+// The same for two sessions without caches of their own.
+inline JoinResult joinSessions(
+  const std::vector<Keyframe> & a, const std::vector<Keyframe> & b, const JoinConfig & config,
+  const std::function<bool(const Match &)> & exclude = nullptr)
+{
+  SessionCache cache_a(a, config);
+  SessionCache cache_b(b, config);
+  return joinSessions(cache_a, cache_b, config, exclude);
 }
 
 }  // namespace multisession

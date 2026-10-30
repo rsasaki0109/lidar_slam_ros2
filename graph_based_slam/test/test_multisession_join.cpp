@@ -133,6 +133,35 @@ TEST(MultisessionJoin, FindsTheTransformBetweenTwoWalksOfOneSite)
   EXPECT_TRUE(result.attempts.back().passed);
 }
 
+TEST(MultisessionJoin, GivesTheSameResultOnAnyNumberOfThreads)
+{
+  std::mt19937 rng(7);
+  std::vector<Eigen::Vector3d> site = boxes(rng, 60, -20.0, 80.0, 4.0, 25.0);
+  ground(&site, -20.0, 80.0, 25.0);
+  const auto a = walk(site, 0.0, 40.0, 0.0, 0.0, Eigen::Isometry3d::Identity());
+  const auto b = walk(site, 10.0, 50.0, 1.0, 0.3, planar(15.0, -7.0, 0.4, 1.0));
+  multisession::JoinResult results[2];
+  for (int run = 0; run < 2; ++run) {
+    multisession::JoinConfig config;
+    config.num_threads = run == 0 ? 1 : 3;
+    multisession::SessionCache cache_a(a, config), cache_b(b, config);
+    results[run] = multisession::joinSessions(cache_a, cache_b, config);
+    // the self-similarity of both sessions was checked, and is kept for later joins
+    EXPECT_EQ(cache_a.self_similar, 0);
+    EXPECT_EQ(cache_b.self_similar, 0);
+  }
+  ASSERT_TRUE(results[0].joined);
+  EXPECT_EQ(results[0].candidates, results[1].candidates);
+  ASSERT_EQ(results[0].accepted.size(), results[1].accepted.size());
+  for (std::size_t i = 0; i < results[0].accepted.size(); ++i) {
+    EXPECT_EQ(results[0].accepted[i].b, results[1].accepted[i].b);
+    EXPECT_EQ(results[0].accepted[i].inlier_fraction, results[1].accepted[i].inlier_fraction);
+    EXPECT_TRUE(results[0].accepted[i].relative.matrix() ==
+          results[1].accepted[i].relative.matrix());
+  }
+  EXPECT_TRUE(results[0].transform.matrix() == results[1].transform.matrix());
+}
+
 TEST(MultisessionJoin, DoesNotJoinTwoDifferentSites)
 {
   std::mt19937 rng_a(11), rng_b(12);
