@@ -149,6 +149,7 @@ was removed (`debug_exclude_transform`), so any join would be wrong.
 
 Joining to the map (report 38.8): there is no three-run set with a shared reference, so 18 sessions
 were each cut into three parts. Each part was joined as a session, and the truth is the identity.
+
 - Joining to the map joins 10 parts. Joining to the first part only joins 8.
 - Two parts join only with the map, on a second try, once the third part is in the map (Oxford,
   pil-2).
