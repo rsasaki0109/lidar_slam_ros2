@@ -50,7 +50,8 @@ struct GraphSlamConfig
   int ndt_num_threads {0};
   // GICP loop registration: largest point-to-point distance taken as a correspondence (m).
   double gicp_max_correspondence_distance {30.0};
-  // GICP loop registration: converged once the transformation changes by less than this between iterations.
+  // GICP loop registration: converged once the transformation changes by less than this between
+  // iterations.
   double gicp_transformation_epsilon {1e-8};
   double threshold_loop_closure_score_ {1.0};
   double scan_context_loop_closure_score_threshold_ {-1.0};
@@ -179,6 +180,11 @@ struct GraphSlamConfig
   double map_grid_size_x_ {20.0};
   double map_grid_size_y_ {20.0};
   double map_leaf_size_ {0.2};
+  // The saved map is downsampled from the submap clouds in passes of at most this many points,
+  // without assembling the whole map (map_saver::voxelGridFilterStreamed). 0: assemble it and
+  // downsample it with one VoxelGrid, as before Phase 4. Not used when the map is also published
+  // or the dynamic object filter is on (both need the whole map).
+  int map_save_points_per_pass_ {2000000};
 
   // Optional absolute and inertial constraints.
   bool use_gnss_ {false};

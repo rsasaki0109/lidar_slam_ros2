@@ -34,6 +34,9 @@
 #include <pcl/point_types.h>
 #include <pcl/register_point_struct.h>
 
+#include <cstddef>
+#include <functional>
+
 namespace graphslam
 {
 
@@ -130,6 +133,20 @@ void voxelGridFilter(const MapCloud::ConstPtr & input, float leaf_size, MapCloud
 // point falls in the same voxel as in one VoxelGrid pass over the whole map; the voxels come
 // out part by part. Non-finite points are dropped, as VoxelGrid drops them.
 void voxelGridFilterInParts(const MapCloud & input, float leaf_size, MapCloud & output);
+
+// The downsampling of voxelGridFilter for a map that is never assembled (Phase 4, step 1). The
+// map is given as parts, part(i, cloud) filling the i-th part's points (a submap cloud moved by
+// its pose), and the parts are read once to find the map's bounding box and how many points each
+// z layer of voxels holds, then once per pass. A pass takes a range of z layers with at most
+// points_per_pass points (a layer is never split; one layer with more is a pass of its own) and
+// keeps only those points. The voxels, and their order, are those of one VoxelGrid pass over the
+// assembled map: the same float arithmetic places a point in its voxel, and the voxel index (64
+// bits, so no map needs splitting) grows slowest with the z layer. A voxel's point is the mean of
+// its points, summed in double in the parts' order; VoxelGrid sums in float in the order of its
+// sort, so the means differ in the last bits. Non-finite points are dropped.
+void voxelGridFilterStreamed(
+  std::size_t parts, const std::function<void(std::size_t, MapCloud &)> & part, float leaf_size,
+  std::size_t points_per_pass, MapCloud & output);
 
 }  // namespace map_saver
 }  // namespace graphslam

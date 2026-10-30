@@ -210,6 +210,7 @@ GraphSlamConfig loadGraphSlamConfig(rclcpp::Node & node)
   LOAD(map_grid_size_x_, "map_grid_size_x");
   LOAD(map_grid_size_y_, "map_grid_size_y");
   LOAD(map_leaf_size_, "map_leaf_size");
+  LOAD(map_save_points_per_pass_, "map_save_points_per_pass");
   LOAD(use_gnss_, "use_gnss");
   LOAD(gnss_topic_, "gnss_topic");
   LOAD(gnss_info_weight_, "gnss_info_weight");
@@ -516,6 +517,9 @@ std::vector<std::string> validateGraphSlamConfig(const GraphSlamConfig & config)
   positive(config.map_grid_size_x_, "map_grid_size_x");
   positive(config.map_grid_size_y_, "map_grid_size_y");
   positive(config.map_leaf_size_, "map_leaf_size");
+  if (config.map_save_points_per_pass_ < 0) {
+    errors.emplace_back("map_save_points_per_pass must be >= 0");
+  }
   if (config.odom_cloud_sync_queue_size_ < 1) {
     errors.emplace_back("odom_cloud_sync_queue_size must be >= 1");
   }

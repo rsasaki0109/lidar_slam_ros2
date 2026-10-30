@@ -1,0 +1,34 @@
+Phase 4 (resources; SOTA v7 roadmap, docs/roadmap/sota-v7-plan-2026-10.md), step 1: the saved map without the assembled
+map (2026-10-30). Measured with chapter 16's tools (bench_report/scripts/mem_baseline.sh, mem_pipeline.sh,
+pipe_pipeline.sh, mem_sampler.py, mem_peaks.py): the sum of the pipeline's per-process peak RSS (VmHWM), MiB.
+
+Measured first (the baseline, before any change; not a candidate run): lidar_slam_ros2 55a4673 (graph_based_slam and
+lidarslam rebuilt into ws/slam_dev), rko_lio ws/rko_g35, chapter 16's settings (frontend rko_params_*_gyro002, backend
+lidarslam_competitive_v2_loop_ndt1_res2.yaml: loop on, NDT 2 m, map_leaf_size 0.1), one run each, warm caches.
+  run                     pipeline sum  backend peak (when)          backend before the save  frontend
+  exp04                   628           196 (during the run)         196                      363
+  Oxford                  1,885         1,358 (the map save, 436 s)  606                      456
+  Oxford, PCD cache       1,500         984 (the map save)           249                      442
+Oxford's backend peak is the map save, as in chapter 16 (16.6: the assembled map 391 MiB and VoxelGrid's work 316 MiB).
+
+Change (graph_based_slam, this commit; map_save_points_per_pass, default 2,000,000; 0 = the old save):
+  map_saver::voxelGridFilterStreamed: when the map is only saved (not published) and the dynamic object filter is off,
+  it is not assembled. The submap clouds, each moved by its pose as before, are read once for the bounding box and the
+  points per z layer of voxels, then once per pass; a pass takes a range of z layers with at most 2,000,000 points.
+  The voxels and their order are those of one VoxelGrid pass over the assembled map (the same float arithmetic places a
+  point; the 64-bit voxel index grows slowest with the z layer). A voxel's point is the mean of its points, summed in
+  double in the submaps' order; VoxelGrid sums in float in the order of its sort, so the means differ in the last bits
+  and map.pcd is no longer byte-identical. Unit tests: against VoxelGrid over the assembled map (same voxels and order,
+  within 1e-4 m), against voxelGridFilterInParts for a map too large for VoxelGrid's 32-bit index, and the same bytes
+  whatever the passes.
+Runs (candidate: this commit rebuilt into ws/slam_dev; everything else as the baseline): exp04, Oxford, Oxford with the
+PCD cache.
+Reading:
+  (1) the frontend trajectory, trajectory_optimized.tum, pose_graph.g2o and loop_edges.csv byte-identical to the
+      baseline run with the same settings;
+  (2) map.pcd with the same number of points as the baseline's, point i within 1e-3 m (x, y, z) and 1e-2 (intensity)
+      of the baseline's point i for every i; the pointcloud_map tiles: the same files with the same numbers of points,
+      within the same bounds (bench_report/scripts/p4_map_compare.py).
+  Decision: map_save_points_per_pass stays 2,000,000 by default if (1) and (2) hold on the three runs; otherwise 0.
+  Reported besides: the backend's peak and when, the pipeline sum, the time of the save. Expected, not a reading:
+  Oxford's backend near its peak before the save (606 / 249 MiB) plus the passes' work (about 100 MiB).

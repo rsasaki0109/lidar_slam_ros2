@@ -165,6 +165,14 @@ private:
     // Autoware-compatible grid-divided PCD map output
   // Takes the map by value and frees it once downsampled (callers pass it by std::move).
   void saveGridDividedMap(MapCloud::Ptr map);
+  // The same map, downsampled from the submap clouds moved by their poses without assembling it
+  // (map_save_points_per_pass).
+  void saveStreamedMap(
+    const std::vector<GraphStateStore::CloudPtr> & clouds,
+    const std::vector<Eigen::Isometry3d> & poses);
+  // Writes the downsampled map: the grid-divided tiles, their metadata, map.pcd and
+  // map_projector_info.yaml. map_points: the points it was downsampled from (for the log).
+  void saveDownsampledMap(MapCloud::Ptr downsampled, std::size_t map_points);
   void writeMapBundleArtifacts(
     const lidarslam_msgs::msg::MapArray & map_array_msg,
     const DeterministicArtifacts & artifacts,

@@ -36,7 +36,9 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <limits>
+#include <map>
 #include <utility>
 #include <vector>
 
@@ -126,6 +128,119 @@ void voxelGridFilterInParts(const MapCloud & input, float leaf_size, MapCloud & 
   result.header = input.header;
   result.sensor_origin_ = input.sensor_origin_;
   result.sensor_orientation_ = input.sensor_orientation_;
+  result.width = static_cast<std::uint32_t>(result.size());
+  result.height = 1;
+  result.is_dense = true;
+  output = std::move(result);
+}
+
+
+void voxelGridFilterStreamed(
+  std::size_t parts, const std::function<void(std::size_t, MapCloud &)> & part, float leaf_size,
+  std::size_t points_per_pass, MapCloud & output)
+{
+  // As pcl::VoxelGrid::setLeafSize computes it.
+  const float inverse_leaf = 1.0f / leaf_size;
+  const auto finite = [](const MapPoint & p) {
+      return std::isfinite(p.x) && std::isfinite(p.y) && std::isfinite(p.z);
+    };
+  const auto layer_of = [inverse_leaf](float z) {
+      return static_cast<int>(std::floor(z * inverse_leaf));
+    };
+
+  // First pass: the bounding box (as getMinMax3D), and the points of every z layer of voxels.
+  Eigen::Vector4f min_p = Eigen::Vector4f::Constant(std::numeric_limits<float>::max());
+  Eigen::Vector4f max_p = Eigen::Vector4f::Constant(std::numeric_limits<float>::lowest());
+  std::map<int, std::size_t> layer_points;
+  MapCloud cloud;
+  for (std::size_t i = 0; i < parts; ++i) {
+    cloud.clear();
+    part(i, cloud);
+    for (const MapPoint & p : cloud.points) {
+      if (!finite(p)) {
+        continue;
+      }
+      for (int axis = 0; axis < 3; ++axis) {
+        min_p[axis] = std::min(min_p[axis], p.data[axis]);
+        max_p[axis] = std::max(max_p[axis], p.data[axis]);
+      }
+      ++layer_points[layer_of(p.z)];
+    }
+  }
+  MapCloud result;
+  if (!layer_points.empty()) {
+    // VoxelGrid's grid: its first voxel and the multipliers of its index, in 64 bits.
+    std::int64_t min_b[3], mul[3];
+    std::int64_t span = 1;
+    for (int axis = 0; axis < 3; ++axis) {
+      min_b[axis] = static_cast<int>(std::floor(min_p[axis] * inverse_leaf));
+      const std::int64_t max_b = static_cast<int>(std::floor(max_p[axis] * inverse_leaf));
+      mul[axis] = span;
+      span *= max_b - min_b[axis] + 1;
+    }
+    // Passes over ranges of z layers. The voxel index grows slowest with the layer, so the passes
+    // give the voxels in VoxelGrid's order.
+    std::vector<std::pair<int, int>> passes;
+    std::size_t in_pass = 0;
+    for (const auto & entry : layer_points) {
+      if (passes.empty() || (in_pass > 0 && in_pass + entry.second > points_per_pass)) {
+        passes.emplace_back(entry.first, entry.first);
+        in_pass = 0;
+      }
+      passes.back().second = entry.first;
+      in_pass += entry.second;
+    }
+    struct Entry
+    {
+      std::int64_t index;
+      float x, y, z, intensity;
+    };
+    std::vector<Entry> entries;
+    for (const auto & range : passes) {
+      entries.clear();
+      for (std::size_t i = 0; i < parts; ++i) {
+        cloud.clear();
+        part(i, cloud);
+        for (const MapPoint & p : cloud.points) {
+          if (!finite(p)) {
+            continue;
+          }
+          const int layer = layer_of(p.z);
+          if (layer < range.first || layer > range.second) {
+            continue;
+          }
+          // As VoxelGrid::applyFilter computes a point's voxel.
+          std::int64_t index = 0;
+          for (int axis = 0; axis < 3; ++axis) {
+            const int ijk = static_cast<int>(
+              std::floor(p.data[axis] * inverse_leaf) - static_cast<float>(min_b[axis]));
+            index += ijk * mul[axis];
+          }
+          entries.push_back({index, p.x, p.y, p.z, p.intensity});
+        }
+      }
+      std::stable_sort(
+        entries.begin(), entries.end(),
+        [](const Entry & a, const Entry & b) {return a.index < b.index;});
+      for (std::size_t first = 0; first < entries.size(); ) {
+        std::size_t last = first;
+        double sum[4] = {0.0, 0.0, 0.0, 0.0};
+        for (; last < entries.size() && entries[last].index == entries[first].index; ++last) {
+          sum[0] += entries[last].x;
+          sum[1] += entries[last].y;
+          sum[2] += entries[last].z;
+          sum[3] += entries[last].intensity;
+        }
+        const double n = static_cast<double>(last - first);
+        MapPoint centroid;
+        for (int k = 0; k < 4; ++k) {
+          centroid.data[k] = static_cast<float>(sum[k] / n);
+        }
+        result.push_back(centroid);
+        first = last;
+      }
+    }
+  }
   result.width = static_cast<std::uint32_t>(result.size());
   result.height = 1;
   result.is_dense = true;
