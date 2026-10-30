@@ -1096,6 +1096,10 @@ void GraphBasedSlamComponent::Impl::tryCreateSubmap(
           "failed to store submap " + std::to_string(submap_idx)});
     }
   }
+  if (!submap.cloud.data.empty()) {
+    // Kept with only what its conversion reads (RKO-LIO's scan: 12 bytes a point, not 16).
+    pointcloud_conversion::packForPointXYZI(submap.cloud);
+  }
   std_msgs::msg::Header map_header;
   map_header.stamp = odom_msg.header.stamp;
   map_header.frame_id = "map";

@@ -34,7 +34,12 @@
 #include <pcl_conversions/pcl_conversions.h>
 
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include <sensor_msgs/msg/point_cloud2.hpp>
 
@@ -84,6 +89,76 @@ inline bool fromRosMsgWithOptionalIntensity(
     output.points[index].intensity = 0.0F;
   }
   return false;
+}
+
+// Keeps only what fromRosMsgWithOptionalIntensity reads: x, y, z and, if the message has one,
+// intensity, each FLOAT32, packed without padding (12 or 16 bytes a point; RKO-LIO's scan has 16
+// with x, y, z). Converting the packed message gives the same cloud. Returns false and leaves the
+// message as it is when a field the conversion reads is missing, of another type or named twice,
+// or the data is shorter than its layout says.
+inline bool packForPointXYZI(sensor_msgs::msg::PointCloud2 & message)
+{
+  using sensor_msgs::msg::PointField;
+  const char * const names[4] = {"x", "y", "z", "intensity"};
+  const std::size_t count = hasField(message, "intensity") ? 4 : 3;
+  std::uint32_t offsets[4] = {0, 0, 0, 0};
+  for (std::size_t k = 0; k < count; ++k) {
+    std::size_t found = 0;
+    for (const auto & field : message.fields) {
+      if (field.name != names[k]) {
+        continue;
+      }
+      ++found;
+      if (field.datatype != PointField::FLOAT32 || field.count != 1 ||
+        static_cast<std::size_t>(field.offset) + sizeof(float) > message.point_step)
+      {
+        return false;
+      }
+      offsets[k] = field.offset;
+    }
+    if (found != 1) {
+      return false;
+    }
+  }
+  const std::size_t width = message.width;
+  const std::size_t height = message.height;
+  const std::size_t point_step = sizeof(float) * count;
+  bool packed = message.fields.size() == count && message.point_step == point_step &&
+    message.row_step == width * point_step;
+  for (std::size_t k = 0; k < count; ++k) {
+    packed = packed && offsets[k] == sizeof(float) * k;
+  }
+  if (packed) {
+    return true;
+  }
+  if (width * height > 0 &&
+    (message.row_step < width * message.point_step ||
+    message.data.size() < (height - 1) * message.row_step + width * message.point_step))
+  {
+    return false;
+  }
+  std::vector<std::uint8_t> data(width * height * point_step);
+  std::uint8_t * out = data.data();
+  for (std::size_t row = 0; row < height; ++row) {
+    const std::uint8_t * row_data = message.data.data() + row * message.row_step;
+    for (std::size_t col = 0; col < width; ++col) {
+      const std::uint8_t * point = row_data + col * message.point_step;
+      for (std::size_t k = 0; k < count; ++k, out += sizeof(float)) {
+        std::memcpy(out, point + offsets[k], sizeof(float));
+      }
+    }
+  }
+  message.fields.resize(count);
+  for (std::size_t k = 0; k < count; ++k) {
+    message.fields[k].name = names[k];
+    message.fields[k].offset = static_cast<std::uint32_t>(sizeof(float) * k);
+    message.fields[k].datatype = PointField::FLOAT32;
+    message.fields[k].count = 1;
+  }
+  message.point_step = static_cast<std::uint32_t>(point_step);
+  message.row_step = static_cast<std::uint32_t>(width * point_step);
+  message.data = std::move(data);
+  return true;
 }
 
 }  // namespace pointcloud_conversion

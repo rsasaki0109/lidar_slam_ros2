@@ -115,3 +115,26 @@ edbeeac4, loop edges 895f277e, map 6a4d5c3c, tiles 28e129c6; the trajectory of c
 Step R, runs B result (2026-10-30; lidarslam b0f93b8 rebuilt into ws/slam_dev; the default launch, no wait setting):
 met. exp04 twice and Oxford twice, every output byte-identical to runs A (the offline node logs that it waited). The
 default wait stays. Since chapter 18 the measurements passed the barrier themselves; the default launch did not wait.
+Step 2 plan (fixed 2026-10-30 before any run with it): the running backend's submap clouds without padding.
+Found first (no new run): the 616 MiB of report 39.6 is not held in a 32-byte point type, as was said when this step was
+chosen. GraphStateStore keeps each submap's cloud as the PointCloud2 the frontend sent: rko_lio's deskewed scan, x, y, z
+FLOAT32 and 4 bytes of padding (16 bytes a point, no intensity). Oxford's 25.6 M stored points take 391 MiB; the backend
+holds about 170 MiB 17 s into the run. There is no 32-byte type to halve. Without the padding a point takes 12 bytes:
+25 % less, 98 MiB on Oxford.
+Lossless compression was measured on 387 deskewed scans of GrandTour con-1 (Hesai, every tenth frame of its backend input,
+points in the frontend's order): per axis, bytes shuffled, zstd level 1 gives 0.57 of the 16-byte size (0.76 of the
+packed size); bytes shuffled without the axis split 0.60; plain zstd 0.70. It would need a codec in the store and a new
+dependency. It is left for a later step.
+Change: when the backend makes a submap from odometry and a scan, the scan is stored with only the fields its reader (the
+conversion to PointXYZI, fromRosMsgWithOptionalIntensity) reads: x, y, z and intensity if there is one, FLOAT32, without
+padding (12 or 16 bytes a point). A scan with a field of another type is stored as it is. The map_array input (the
+scanmatcher frontend) is not changed.
+Runs (graph_based_slam with the change in ws/slam_dev, rko_lio ws/rko_g35, mem_baseline.sh with the default launch as in
+step R's runs B): exp04 twice, Oxford twice.
+Reading:
+  - every output byte-identical to step R (exp04: trajectory a4748f73, pose graph f434203a, loop edges 8ac346d2, map
+    63e7439e, tiles 12066edb; Oxford: cd21af83, edbeeac4, 895f277e, 6a4d5c3c, 28e129c6), the frontend's trajectory too;
+  - in both Oxford runs, the backend's largest RSS while the frontend runs is at least 50 MiB below the lowest of step R's
+    five Oxford runs (583 MiB), so at most 533 MiB.
+  Decision: kept if both hold. Reported besides: the backend's VmHWM and its largest RSS after the frontend ends, against
+  step R's five Oxford runs (722-796 and 679-733 MiB), and exp04's.
