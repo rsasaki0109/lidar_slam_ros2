@@ -342,6 +342,33 @@ def test_offline_node_waits_for_the_backend_by_default():
     assert "'output_subscriber_timeout_sec': float(" in launch_source
 
 
+def test_offline_node_queues_ten_lidar_frames_by_default():
+    module = _parse_launch_ast()
+    generate_launch_description = _find_function(
+        module,
+        'generate_launch_description',
+    )
+    return_stmt = next(
+        node for node in generate_launch_description.body
+        if isinstance(node, ast.Return)
+    )
+    argument = _find_declare_launch_argument_call(
+        return_stmt.value,
+        'max_lidar_buffer_size',
+    )
+    default_kw = next(kw for kw in argument.keywords if kw.arg == 'default_value')
+    assert _constant_string(default_kw.value) == '10'
+    launch_source = LAUNCH_PATH.read_text(encoding='utf-8')
+    assert "'async.max_lidar_buffer_size': int(" in launch_source
+    # In the launch defaults (the first parameter source), so rko_param_file still wins.
+    create_node = ast.get_source_segment(
+        launch_source, _find_function(module, 'create_rko_offline_node')
+    )
+    assert create_node.index("'async.max_lidar_buffer_size'") < create_node.index(
+        'parameters.append(rko_param_file)'
+    )
+
+
 def test_offline_wait_parameter_exists_in_vendored_rko_lio():
     offline_node = (
         REPO_ROOT / 'Thirdparty' / 'rko_lio' / 'rko_lio' / 'ros' / 'offline_node.cpp'
@@ -350,6 +377,11 @@ def test_offline_wait_parameter_exists_in_vendored_rko_lio():
         return  # submodule not checked out
     assert 'declare_parameter<double>("output_subscriber_timeout_sec"' in (
         offline_node.read_text(encoding='utf-8')
+    )
+    # The offline reader stops at 9 of the queue's frames while registration can run.
+    assert '0.9 * max_lidar_buffer_size' in offline_node.read_text(encoding='utf-8')
+    assert '"async.max_lidar_buffer_size"' in (
+        offline_node.with_name('threaded_node.cpp').read_text(encoding='utf-8')
     )
     base_node = offline_node.with_name('base_node.cpp')
     assert 'declare_parameter<std::string>("deskewed_scan_topic"' in (

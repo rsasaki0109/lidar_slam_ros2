@@ -97,6 +97,13 @@ def create_rko_offline_node(context, *args, **kwargs):
         'dump_results': LaunchConfiguration('dump_results'),
         'results_dir': LaunchConfiguration('results_dir'),
         'run_name': LaunchConfiguration('run_name'),
+        # The offline node stops reading the bag at 9 queued frames while it can
+        # register, so 10 frames lose none and keep the frontend about 90 MiB
+        # smaller on Oxford than rko_lio's default of 50 (bench_report/REPORT.md,
+        # chapters 16.5 and 39). Only a live node drops frames at this size.
+        'async.max_lidar_buffer_size': int(
+            LaunchConfiguration('max_lidar_buffer_size').perform(context)
+        ),
     })
 
     # Let the optional YAML file override launch defaults such as
@@ -384,6 +391,14 @@ def generate_launch_description():
             'skip_to_time',
             default_value='0.0',
             description='Skip to this timestamp in the bag (seconds).',
+        ),
+        DeclareLaunchArgument(
+            'max_lidar_buffer_size',
+            default_value='10',
+            description=(
+                'LiDAR frames the offline node queues for registration '
+                '(async.max_lidar_buffer_size; rko_param_file overrides it).'
+            ),
         ),
         DeclareLaunchArgument(
             'wait_for_backend',
