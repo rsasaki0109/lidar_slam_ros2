@@ -91,6 +91,28 @@ inline bool fromRosMsgWithOptionalIntensity(
   return false;
 }
 
+// Whether the message has the layout packForPointXYZI leaves: x, y, z and, if there is one,
+// intensity, FLOAT32 at offsets 0, 4, 8 and 12, in that order, without padding.
+inline bool isPackedForPointXYZI(const sensor_msgs::msg::PointCloud2 & message)
+{
+  const char * const names[4] = {"x", "y", "z", "intensity"};
+  const std::size_t count = message.fields.size();
+  if (count != 3 && count != 4) {
+    return false;
+  }
+  for (std::size_t k = 0; k < count; ++k) {
+    const auto & field = message.fields[k];
+    if (field.name != names[k] || field.offset != sizeof(float) * k ||
+      field.datatype != sensor_msgs::msg::PointField::FLOAT32 || field.count != 1)
+    {
+      return false;
+    }
+  }
+  const std::size_t point_step = sizeof(float) * count;
+  return message.point_step == point_step && message.row_step == message.width * point_step &&
+         message.data.size() == static_cast<std::size_t>(message.height) * message.row_step;
+}
+
 // Keeps only what fromRosMsgWithOptionalIntensity reads: x, y, z and, if the message has one,
 // intensity, each FLOAT32, packed without padding (12 or 16 bytes a point; RKO-LIO's scan has 16
 // with x, y, z). Converting the packed message gives the same cloud. Returns false and leaves the
@@ -120,17 +142,12 @@ inline bool packForPointXYZI(sensor_msgs::msg::PointCloud2 & message)
       return false;
     }
   }
+  if (isPackedForPointXYZI(message)) {
+    return true;
+  }
   const std::size_t width = message.width;
   const std::size_t height = message.height;
   const std::size_t point_step = sizeof(float) * count;
-  bool packed = message.fields.size() == count && message.point_step == point_step &&
-    message.row_step == width * point_step;
-  for (std::size_t k = 0; k < count; ++k) {
-    packed = packed && offsets[k] == sizeof(float) * k;
-  }
-  if (packed) {
-    return true;
-  }
   if (width * height > 0 &&
     (message.row_step < width * message.point_step ||
     message.data.size() < (height - 1) * message.row_step + width * message.point_step))

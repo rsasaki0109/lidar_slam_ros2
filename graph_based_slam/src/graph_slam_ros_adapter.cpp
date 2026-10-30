@@ -50,6 +50,7 @@
 #include "graph_based_slam/backend_core.hpp"
 #include "graph_based_slam/bev_mutual_visibility.hpp"
 #include "graph_based_slam/candidate_aggregator.hpp"
+#include "graph_based_slam/cloud_compression.hpp"
 #include "graph_based_slam/degeneracy_diagnostics_csv.hpp"
 #include "graph_based_slam/dynamic_object_filter.hpp"
 #include "graph_based_slam/gnss_alignment.hpp"
@@ -1171,7 +1172,10 @@ pcl::PointCloud<pcl::PointXYZI>::Ptr GraphBasedSlamComponent::Impl::loadSubmapCl
   }
   cloud.reset(new pcl::PointCloud<pcl::PointXYZI>);
   if (idx >= 0 && idx < static_cast<int>(clouds.size()) && clouds[idx]) {
-    cloud = convertSubmapCloud(*clouds[idx]);
+    const cloud_compression::StoredCloud & stored = *clouds[idx];
+    cloud = stored.compressed.empty() ?
+      convertSubmapCloud(stored.message) :
+      convertSubmapCloud(cloud_compression::restore(stored));
   }
   return cloud;
 }
@@ -1187,7 +1191,7 @@ std::size_t GraphBasedSlamComponent::Impl::submapPointCount(
     }
   }
   if (idx >= 0 && idx < static_cast<int>(clouds.size()) && clouds[idx]) {
-    return static_cast<std::size_t>(clouds[idx]->width) * clouds[idx]->height;
+    return static_cast<std::size_t>(clouds[idx]->message.width) * clouds[idx]->message.height;
   }
   return 0;
 }
@@ -1312,6 +1316,16 @@ void GraphBasedSlamComponent::Impl::saveStreamedMap(
   for (std::size_t i = 0; i < poses.size(); ++i) {
     map_points += submapPointCount(clouds, static_cast<int>(i));
   }
+  std::size_t stored_bytes = 0;
+  std::size_t data_bytes = 0;
+  for (const auto & cloud : clouds) {
+    if (cloud) {
+      stored_bytes += cloud_compression::storedBytes(*cloud);
+      data_bytes += static_cast<std::size_t>(cloud->message.height) * cloud->message.row_step;
+    }
+  }
+  std::cout << "[map save] submap clouds held in " << stored_bytes / 1048576.0 << " MiB (" <<
+    data_bytes / 1048576.0 << " MiB uncompressed)" << std::endl;
   const std::size_t points_per_pass =
     static_cast<std::size_t>(config_.map_save_points_per_pass_);
   if (map_points <= points_per_pass) {

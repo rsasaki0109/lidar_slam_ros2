@@ -1,0 +1,31 @@
+Traceback (most recent call last):
+  File "/tmp/claude-0/-home-user/79d76acb-f8a2-53a2-854b-d6db5cb3acb2/scratchpad/comp/sample_frames.py", line 32, in <module>
+    rclpy.spin(node)
+  File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/__init__.py", line 247, in spin
+    executor.spin_once()
+  File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/executors.py", line 926, in spin_once
+    self._spin_once_impl(timeout_sec)
+  File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/executors.py", line 907, in _spin_once_impl
+    handler, entity, node = self.wait_for_ready_callbacks(
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/executors.py", line 877, in wait_for_ready_callbacks
+    return next(self._cb_iter)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/executors.py", line 785, in _wait_for_ready_callbacks
+    raise ExternalShutdownException()
+rclpy.executors.ExternalShutdownException
+-rw-r--r-- 1 root root 234415092 Oct 30 17:41 /tmp/claude-0/-home-user/79d76acb-f8a2-53a2-854b-d6db5cb3acb2/scratchpad/comp/oxford.bin
+oxford_ratio2 traj=cd21af833c11ba5a1b4c67ab0faa5d8a g2o=edbeeac4087a325a1f39c00048697272 loops=895f277efd80ca4603dffb599002bf2a map=6a4d5c3c3a817c41ecd70d30ebabcfb3 tiles=28e129c67fa4c45b1b5b127a98c92096 (68 files)
+raw12 234.4 MB (16B would be 312.6 MB)
+zstd1             0.918 of 12B  0.688 of 16B  comp 577 MB/s  decomp 678 MB/s
+zstd3             0.918 of 12B  0.688 of 16B  comp 532 MB/s  decomp 891 MB/s
+shuf+zstd1        0.695 of 12B  0.521 of 16B  comp 930 MB/s  decomp 3704 MB/s
+shuf+zstd3        0.692 of 12B  0.519 of 16B  comp 539 MB/s  decomp 3609 MB/s
+shuf+lz4          0.744 of 12B  0.558 of 16B  comp 2472 MB/s  decomp 7039 MB/s
+axis+zstd1        0.915 of 12B  0.687 of 16B  comp 703 MB/s  decomp 900 MB/s
+axis+shuf+zstd1   0.675 of 12B  0.506 of 16B  comp 796 MB/s  decomp 2894 MB/s
+axis+shuf+zstd3   0.668 of 12B  0.501 of 16B  comp 442 MB/s  decomp 2639 MB/s
+axis+plain+shuf+zstd1: 0.675 of 12B, 0.506 of 16B
+axis+delta+shuf+zstd1: 0.631 of 12B, 0.473 of 16B
+axis+xor+shuf+zstd1: 0.664 of 12B, 0.498 of 16B
+QUEUE87_DONE

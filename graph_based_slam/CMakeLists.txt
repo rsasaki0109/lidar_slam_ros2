@@ -77,6 +77,8 @@ if(NOT g2o_FOUND)
 endif()
 find_package(OpenMP)
 find_package(small_gicp QUIET)
+find_package(zstd_vendor QUIET)
+find_package(zstd QUIET)
 
 option(
   GRAPH_BASED_SLAM_ENABLE_3D_BBS
@@ -157,6 +159,30 @@ target_include_directories(
   graph_slam_map_point PUBLIC include ${EIGEN3_INCLUDE_DIR} ${PCL_INCLUDE_DIRS}
 )
 target_link_libraries(graph_slam_map_point ${PCL_LIBRARIES})
+
+# The backend keeps packed submap clouds compressed with zstd when it is found (cloud_compression).
+add_library(graph_slam_cloud_compression STATIC
+  src/cloud_compression.cpp
+)
+set_target_properties(graph_slam_cloud_compression PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_compile_features(graph_slam_cloud_compression PRIVATE cxx_std_17)
+target_include_directories(
+  graph_slam_cloud_compression PUBLIC include PRIVATE ${EIGEN3_INCLUDE_DIR} ${PCL_INCLUDE_DIRS}
+)
+ament_target_dependencies(graph_slam_cloud_compression sensor_msgs pcl_conversions)
+# zstd_vendor's Findzstd defines zstd::zstd; zstd's own package config, zstd::libzstd_shared.
+if(TARGET zstd::zstd)
+  set(GRAPH_BASED_SLAM_ZSTD_TARGET zstd::zstd)
+elseif(TARGET zstd::libzstd_shared)
+  set(GRAPH_BASED_SLAM_ZSTD_TARGET zstd::libzstd_shared)
+endif()
+if(GRAPH_BASED_SLAM_ZSTD_TARGET)
+  target_compile_definitions(graph_slam_cloud_compression PRIVATE GRAPH_BASED_SLAM_HAVE_ZSTD)
+  target_link_libraries(graph_slam_cloud_compression ${GRAPH_BASED_SLAM_ZSTD_TARGET})
+  message(STATUS "zstd found; submap clouds are kept compressed")
+else()
+  message(STATUS "zstd not found; submap clouds are kept uncompressed")
+endif()
 
 add_library(graph_slam_io_adapters STATIC
   src/filesystem_io_ports.cpp
@@ -301,6 +327,15 @@ if(BUILD_TESTING)
   if(TARGET test_graph_state_store)
     target_include_directories(test_graph_state_store PRIVATE include ${EIGEN3_INCLUDE_DIR})
     ament_target_dependencies(test_graph_state_store lidarslam_msgs)
+    target_link_libraries(test_graph_state_store graph_slam_cloud_compression)
+  endif()
+  ament_add_gtest(
+    test_cloud_compression
+    test/test_cloud_compression.cpp
+  )
+  if(TARGET test_cloud_compression)
+    ament_target_dependencies(test_cloud_compression sensor_msgs)
+    target_link_libraries(test_cloud_compression graph_slam_cloud_compression)
   endif()
   ament_add_gtest(
     test_triangle_descriptor
@@ -1009,6 +1044,7 @@ target_link_libraries(graph_based_slam_component
   graph_slam_application
   graph_slam_io_adapters
   graph_slam_map_point
+  graph_slam_cloud_compression
   g2o::core
   g2o::types_slam3d
   g2o::solver_eigen

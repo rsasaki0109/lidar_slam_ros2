@@ -27,6 +27,7 @@
   <depend>ndt_omp_ros2</depend>
   <depend>libg2o</depend>
   <depend>libpcl-all-dev</depend>
+  <depend>zstd_vendor</depend>
 
   <exec_depend>python3-imageio</exec_depend>
 
