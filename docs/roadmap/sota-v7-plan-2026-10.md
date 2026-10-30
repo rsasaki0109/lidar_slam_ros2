@@ -254,8 +254,11 @@ Status (2026-10-30, report chapter 39):
   shuffled, zstd level 1; outputs byte-identical). Oxford's scans take 198.8 instead of 293.5
   MiB. In two pairs of alternating runs on one boot, the backend while the frontend runs: 512 ->
   437 and 499 -> 427 MiB; its peak: 668 -> 595 and 649 -> 566 MiB; the save 5-7 s longer.
-- Next: the frontend (446-480 MiB on Oxford, now the largest process while running), what the
-  save adds to the backend (about 130-140 MiB), the PCD cache as the default.
+- Step 5 (investigation): the frontend's live heap at its peak on Oxford is 363 MiB: the local
+  map 211 (its points 143, hash buckets 48), the LiDAR queue 101, the bag read-ahead 17. About
+  53 MiB more of its 416 MiB heap is not live data (malloc's free memory and arena slack).
+- Next: malloc settings (frontend and backend), what the save adds to the backend (about
+  130-140 MiB), the PCD cache as the default.
 
 ### Phase 5 — Blind evaluation and publication
 

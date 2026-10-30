@@ -222,3 +222,20 @@ Step 4 result (2026-10-30; graph_based_slam 59355c9, A = 4a69722's library; step
   - The plan said the save reads every submap 16 times on Oxford; it is 15 (the counting pass and 14 passes).
   - Oxford's frontend took 215-226 s in these runs, against 485 s in the ratio run of the same boot: the machine's speed
     changes even within a boot, which the pairs absorb.
+Step 5 (investigation, no change; 2026-10-30, a boot from 18:23; step5_*): what the frontend's memory is made of.
+  Runs: default runs with the frontend's /proc/<pid>/smaps sampled every 2 s (Oxford; exp04), and default runs with the
+  offline node under heaptrack (exp04, Oxford). Every output of the four runs byte-identical to step R; heaptrack slowed
+  the frontend by less than 1 %. The first heaptrack attempt recorded nothing: the launch file gave the offline node an
+  empty prefix, which overrides ros2 launch --launch-prefix; fixed in 3fb167b (None when there is no barrier).
+  Oxford, at the frontend's RSS peak (446 MiB): heap 416, libraries 27, files 2, shared memory 1 MiB.
+  heaptrack, Oxford, live heap at its peak 363 MiB (MB / 1.048576):
+    local map (VoxelHashMap) 211 MiB: the voxels' points 143, the hash table's 2^20 buckets 48, voxel_fronts_ (2^19
+      entries of 40 bytes) 20; so 262k-524k voxels;
+    LiDAR queue (lidar_callback, its deque) 101 MiB; the queued frames are copies of the converted scan;
+    bag read-ahead (rosbag2 MCAP, the 1 s buffer of BufferableBag) 17 MiB;
+    the rest 34 MiB (scan downsampling 6, MCAP 6, the DDS payload pool 4, ...). The DDS history of depth 128 holds
+      little: 4 MiB.
+  So about 53 MiB of the 416 MiB heap is not live data at the peak (malloc's free memory and the arenas' slack;
+  different runs, approximate).
+  exp04: RSS peak 362 MiB (heap 333, libraries 27); live heap 269 MiB: local map 123, LiDAR queue 85, bag read-ahead 33,
+  the rest 28; about 64 MiB not live.

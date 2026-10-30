@@ -1,0 +1,73 @@
+reading file "exp04_front.gz" - please wait, this might take some time...
+Debuggee command was: /home/user/ws/rko_g35/install/rko_lio/lib/rko_lio/offline_node --ros-args -r __node:=rko_lio_offline_node --params-file /tmp/launch_params_qeoxbkzm --params-file /home/user/bench/mem/exp04_s5hp/rko_params.ros.yaml
+finished reading file, now analyzing data:
+
+PEAK MEMORY CONSUMERS
+128.53M peak memory consumed over 589336 calls from
+rko_lio::core::VoxelHashMap::add_points(std::vector<> const&)
+  in /home/user/ws/rko_g35/install/rko_lio/lib/rko_lio/offline_node
+  and 128.53M from 3 other places
+
+70.96M peak memory consumed over 2014 calls from
+rko_lio::ros::ThreadedNode::lidar_callback(std::shared_ptr<> const&)
+  in /home/user/ws/rko_g35/install/rko_lio/lib/rko_lio/offline_node
+  and 70.96M from 2 other places
+
+34.79M peak memory consumed over 102921 calls from
+rcutils_uint8_array_init
+  in /opt/ros/jazzy/lib/librcutils.so
+  and 34.79M from 14 other places
+
+17.73M peak memory consumed over 755 calls from
+void std::deque<>::_M_push_back_aux<>(rko_lio::core::Timestamps const&, std::vector<> const&, std::vector<> const&)
+  in /home/user/ws/rko_g35/install/rko_lio/lib/rko_lio/offline_node
+  and 17.73M from 4 other places
+
+6.28M peak memory consumed over 103144 calls from
+0x7f644716a508
+  in /opt/ros/jazzy/lib/libmcap.so
+  and 6.28M from 1377 other places
+
+3.66M peak memory consumed over 3771 calls from
+rko_lio::core::voxel_down_sample_sorted(std::vector<> const&, double)
+  in /home/user/ws/rko_g35/install/rko_lio/lib/rko_lio/offline_node
+  and 3.66M from 3 other places
+
+2.91M peak memory consumed over 1258 calls from
+0x7f6447d39682
+  in /opt/ros/jazzy/lib/libsensor_msgs__rosidl_typesupport_fastrtps_cpp.so
+  and 2.91M from 1 other places
+
+2.53M peak memory consumed over 499 calls from
+eprosima::fastrtps::rtps::TopicPayloadPool::do_get_payload(unsigned int, eprosima::fastrtps::rtps::CacheChange_t&, bool)
+  in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+  and 2.53M from 247 other places
+
+2.43M peak memory consumed over 3774 calls from
+rko_lio::ros::utils::point_cloud2_to_eigen_with_timestamps(std::shared_ptr<> const&)
+  in /home/user/ws/rko_g35/install/rko_lio/lib/rko_lio/offline_node
+  and 2.43M from 3 other places
+
+1.60M peak memory consumed over 27317 calls from
+0x7f645aac023d
+  in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+  and 1.60M from 3737 other places
+
+1.49M peak memory consumed over 1258 calls from
+rko_lio::core::LIO::register_scan(Sophus::SE3<> const&, std::vector<> const&, std::vector<> const&, std::vector<> const*)
+  in /home/user/ws/rko_g35/install/rko_lio/lib/rko_lio/offline_node
+  and 1.49M from 1 other places
+
+1.49M peak memory consumed over 1257 calls from
+std::vector<>::vector(unsigned long, std::allocator<> const&)
+  in /home/user/ws/rko_g35/install/rko_lio/lib/rko_lio/offline_node
+  and 1.49M from 1 other places
+
+
+total runtime: 23.64s.
+calls to allocation functions: 1875820 (79339/s)
+temporary memory allocations: 342256 (14475/s)
+peak heap memory consumption: 281.98M
+peak RSS (including heaptrack overhead): 388.50M
+total memory leaked: 323.04K
+suppressed leaks: 84.21K
