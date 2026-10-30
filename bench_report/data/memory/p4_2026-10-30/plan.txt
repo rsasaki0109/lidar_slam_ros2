@@ -84,3 +84,25 @@ Memory (per-process peak RSS, VmHWM, MiB; baseline -> step 1b, one run each):
   (444-475 MiB) is now the larger process.
 Time of the save (map_save call to answer; it also finishes the loop searches and optimizes): Oxford 71.7 -> 78.8 s,
 with the PCD cache 81.7 -> 114.5 s (each of the 15 reads of the submaps loads the cached files again).
+
+Reproducibility plan (step R, fixed 2026-10-30 before any run with it): why the pipeline's outputs differ from run to
+run, and a default that gives the same outputs.
+Found first, from the runs above (no new run): every difference is at the start. Across the eight Oxford runs and the
+three exp04 runs, the submap stamps differ only in the first submap (0.1-0.3 s later: the backend missed the first one
+or two scans) and, in three Oxford runs, in the next five (one scan earlier each); from submap 6 on they are the same.
+The frontend publishes before graph_based_slam has subscribed. The launch file can wait for it
+(wait_for_output_subscribers, chapter 18.3; the measurements since chapter 18 used it), but not by default, and the
+chapter 16 tools used here (pipe_pipeline.sh without BARRIER=1) did not. The offline node can also wait by itself until
+its odometry and scan publishers have subscribers (output_subscriber_timeout_sec, polled every 10 ms); the launch sets it
+only together with the external barrier script (about 10 s, chapter 18.3).
+Runs (graph_based_slam 958b525 in ws/slam_dev, rko_lio ws/rko_g35, the backend settings of step 1b):
+  A: the frontend's own wait (output_subscriber_timeout_sec 30, no barrier script): exp04 three times, Oxford three
+     times.
+  If A's reading holds, the launch file makes the offline node wait by default (graph_based_slam is always launched),
+  and B: that launch with no extra setting, exp04 twice, Oxford twice.
+Reading:
+  A: within each sequence, the three runs' outputs byte-identical (frontend trajectory, trajectory_optimized.tum,
+     pose_graph.g2o, loop_edges.csv, map.pcd, the tiles);
+  B: the same bytes as A's.
+  Decision: the default wait is kept if A and B hold. If A does not hold, there is another cause; it is looked for
+  before any default changes. Reported besides: the time the wait adds.
