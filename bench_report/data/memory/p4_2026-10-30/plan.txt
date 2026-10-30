@@ -138,3 +138,15 @@ Reading:
     five Oxford runs (583 MiB), so at most 533 MiB.
   Decision: kept if both hold. Reported besides: the backend's VmHWM and its largest RSS after the frontend ends, against
   step R's five Oxford runs (722-796 and 679-733 MiB), and exp04's.
+Step 2 result (2026-10-30; graph_based_slam 4a69722 in ws/slam_dev; step2_runs.log): met.
+  - Every output byte-identical to step R in all four runs (exp04 a4748f73 / f434203a / 8ac346d2 / 63e7439e / 12066edb,
+    Oxford cd21af83 / edbeeac4 / 895f277e / 6a4d5c3c / 28e129c6; the frontend's bc231992 and 3fe77723).
+  - Oxford, the backend's largest RSS while the frontend runs: 501 and 500 MiB (step R 583-599; at most 533 needed).
+  The packing stays. Besides:
+  - Oxford backend VmHWM 666 and 654 MiB, against 705-777 MiB in step R's five runs. The plan above gave these as
+    "722-796 MiB": the same values in thousands of KiB, a unit slip in the plan's text. The backend's largest RSS after
+    the frontend ends (the save): 637 and 612 MiB (679-733).
+  - Oxford frontend VmHWM 429 and 482 MiB (step R 450-473); pipeline sum 1,162 and 1,209 MiB (step R 1,249-1,303).
+  - exp04 backend VmHWM 196 and 195 MiB (step R runs B 196 and 199). Its 1.8 M points are 7 MiB smaller.
+  - Times are not compared: the machine restarted between step R (last run 13:42) and these runs (booted 13:50). The
+    frontend, unchanged and with the same output, took 357-388 s here against 311-341 s in step R.

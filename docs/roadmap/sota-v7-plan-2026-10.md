@@ -244,7 +244,11 @@ Status (2026-10-30, report chapter 39):
   frontend identical): the offline node published before graph_based_slam had subscribed, and the
   map started one or two scans late. The launch file now makes the offline node wait by default
   (`wait_for_backend`). Repeated default runs give byte-identical outputs (exp04 and Oxford).
-- Next: the running backend (submap clouds), the frontend (about 450 MiB).
+- Step 2: the running backend keeps each submap's scan without its padding (16 -> 12 bytes a
+  point; outputs byte-identical). Oxford's backend while the frontend runs: 583-599 -> 500-501
+  MiB; its peak: 705-777 -> 654-666 MiB.
+- Next: lossless compression of the stored scans (about 70 MiB more on Oxford, estimated from
+  GrandTour scans), the PCD cache as the default, the frontend (about 450 MiB).
 
 ### Phase 5 — Blind evaluation and publication
 
