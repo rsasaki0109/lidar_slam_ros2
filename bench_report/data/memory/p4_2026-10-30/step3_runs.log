@@ -1,0 +1,26 @@
+exp04_s3r1 traj=a4748f73362e3180a8567e9a16a7a3e6 g2o=f434203ac5064e98bda89c40d75177ce loops=8ac346d2e520be620b00e6031589387a map=63e7439e0a57f2885986a13db3d07b01 tiles=12066edbdf0905abe587892032542294 (81 files) front=bc23199243971466e1645e4eed7640ca
+1
+drops=0 max_lidar_buffer_size: 10
+oxford_s3r1 traj=cd21af833c11ba5a1b4c67ab0faa5d8a g2o=edbeeac4087a325a1f39c00048697272 loops=895f277efd80ca4603dffb599002bf2a map=6a4d5c3c3a817c41ecd70d30ebabcfb3 tiles=28e129c67fa4c45b1b5b127a98c92096 (68 files) front=3fe7772305554e4e994c0980f3726c53
+1
+drops=0 max_lidar_buffer_size: 10
+exp04_s3r2 traj=a4748f73362e3180a8567e9a16a7a3e6 g2o=f434203ac5064e98bda89c40d75177ce loops=8ac346d2e520be620b00e6031589387a map=63e7439e0a57f2885986a13db3d07b01 tiles=12066edbdf0905abe587892032542294 (81 files) front=bc23199243971466e1645e4eed7640ca
+1
+drops=0 max_lidar_buffer_size: 10
+oxford_s3r2 traj=cd21af833c11ba5a1b4c67ab0faa5d8a g2o=edbeeac4087a325a1f39c00048697272 loops=895f277efd80ca4603dffb599002bf2a map=6a4d5c3c3a817c41ecd70d30ebabcfb3 tiles=28e129c67fa4c45b1b5b127a98c92096 (68 files) front=3fe7772305554e4e994c0980f3726c53
+1
+drops=0 max_lidar_buffer_size: 10
+exp04_s3r1,40.789,41.208,0.419,40.0252,40,1
+oxford_s3r1,384.136,463.836,79.700,383.553,444,22
+exp04_s3r2,34.574,34.935,0.361,33.9137,40,1
+oxford_s3r2,349.283,435.143,85.860,348.775,444,22
+run,frontend_end_s,backend_peak_mb,backend_peak_t_s,backend_max_while_frontend_runs_mb,backend_max_after_frontend_mb,backend_last_mb
+exp04_s3r1,42.2,204,27.5,204,187,187
+exp04_s3r2,35.5,211,26.1,211,208,180
+oxford_s3r1,385.1,650,464.7,511,650,469
+oxford_s3r2,350.0,627,435.9,497,627,303
+exp04_s3r1 vmhwm_kb backend=208652 frontend=282684 sum=560224
+exp04_s3r2 vmhwm_kb backend=216292 frontend=290368 sum=575756
+oxford_s3r1 vmhwm_kb backend=701344 frontend=390576 sum=1161244
+oxford_s3r2 vmhwm_kb backend=683984 frontend=395156 sum=1148276
+QUEUE86_DONE

@@ -1,0 +1,14 @@
+bag,lidar_topic,imu_topic,frames,most_frames_read_while_waiting,frames_never_past
+/home/user/data/oxford_keble05/ros2,/hesai/pandar,/alphasense_driver_ros/imu,5834,2,1
+/home/user/data/koide/outdoor_hard_01a_c,/livox/points,/livox/imu,2887,7,1
+/home/user/data/koide/outdoor_hard_01b_c,/livox/points,/livox/imu,2260,2,1
+/home/user/data/koide/outdoor_hard_02a_c,/livox/points,/livox/imu,2880,2,1
+/home/user/data/koide/outdoor_hard_02b_c,/livox/points,/livox/imu,2247,2,1
+/home/user/data/mapshd/bags/calibration-room_trial-1_c,/livox/pointcloud,/livox/imu,3911,2,1
+/home/user/data/mapshd/bags/calibration-room_trial-2_c,/livox/pointcloud,/livox/imu,2306,2,1
+/home/user/data/mapshd/bags/flat-room_trial-1_c,/livox/pointcloud,/livox/imu,2607,2,1
+/home/user/data/mapshd/bags/long-corridor_trial-1_c,/livox/pointcloud,/livox/imu,1203,2,1
+/home/user/data/mapshd/bags/outdoor-urk_trial-1_c,/livox/pointcloud,/livox/imu,2808,2,1
+/home/user/data/mapshd/bags/underground-garage_trial-1_c,/livox/pointcloud,/livox/imu,3710,2,101
+/home/user/data/mapshd/bags/underground-garage_trial-2_c,/livox/pointcloud,/livox/imu,3409,2,1
+/home/user/data/mapshd/bags/underground-garage_trial-3_c,/livox/pointcloud,/livox/imu,3108,2,101

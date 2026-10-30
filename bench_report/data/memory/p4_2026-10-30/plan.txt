@@ -173,3 +173,15 @@ Reading:
   - in both Oxford runs, the frontend's VmHWM is at least 50 MiB below the lowest of the seven Oxford runs of steps R
     and 2 (429 MiB), so at most 379 MiB.
   Decision: kept if all three hold. Reported besides: the backend's VmHWM, the pipeline sum, exp04's frontend.
+Step 3 result (2026-10-30; lidarslam 7e92807 in ws/slam_dev; step3_runs.log, step3_lidar_queue_check.csv): not met.
+  - Bag order: met. At most 7 frames (Koide outdoor_hard_01a, during its one 0.65 s pause of the IMU stream at 108.6 s),
+    3 on exp04, 2 on Oxford and every other bag. Two MapsHD garage bags (trial 1 and 3) end with 101 frames past the
+    last IMU sample; they are never registered with either queue size.
+  - Outputs: met. All four runs byte-identical to step 2 (the frontend's trajectory too), no frame dropped, and the
+    offline node logged max_lidar_buffer_size 10.
+  - Memory: not met. Oxford's frontend VmHWM was 381 and 386 MiB, above the 379 MiB the plan asked for (the seven runs
+    with 50 frames: 429-482 MiB, mean 459).
+  Decision: the launch default is not changed (the launch file and its test are back to 340d4bf; the check script
+  stays). Besides: exp04's frontend 276 and 284 MiB (with 50 frames, seven runs 351-370). Each process's peak with 10
+  frames, against step 2's two runs: Oxford backend 685 and 668 MiB (666, 654), exp04 backend 204 and 211 (196, 195).
+  Pipeline sum, Oxford 1,134 and 1,121 MiB (1,162, 1,209), exp04 547 and 562 (632, 621).

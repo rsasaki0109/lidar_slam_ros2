@@ -247,6 +247,9 @@ Status (2026-10-30, report chapter 39):
 - Step 2: the running backend keeps each submap's scan without its padding (16 -> 12 bytes a
   point; outputs byte-identical). Oxford's backend while the frontend runs: 583-599 -> 500-501
   MiB; its peak: 705-777 -> 654-666 MiB.
+- Step 3, not adopted: the offline launch's LiDAR queue at 10 frames (rko_lio's default is 50).
+  Outputs were byte-identical and the frontend about 75 MiB smaller on average on Oxford, but
+  both runs missed the planned 379 MiB (381 and 386 MiB).
 - Next: lossless compression of the stored scans (about 70 MiB more on Oxford, estimated from
   GrandTour scans), the PCD cache as the default, the frontend (about 450 MiB).
 
