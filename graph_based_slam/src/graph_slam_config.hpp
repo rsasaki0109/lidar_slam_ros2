@@ -185,6 +185,8 @@ struct GraphSlamConfig
   // downsample it with one VoxelGrid, as before Phase 4. Not used when the map is also published
   // or the dynamic object filter is on (both need the whole map).
   int map_save_points_per_pass_ {2000000};
+  // Test only: with a streamed save, the same map also saved as before into this directory.
+  std::string debug_map_save_assembled_dir_ {""};
 
   // Optional absolute and inertial constraints.
   bool use_gnss_ {false};

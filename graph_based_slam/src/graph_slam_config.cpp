@@ -211,6 +211,7 @@ GraphSlamConfig loadGraphSlamConfig(rclcpp::Node & node)
   LOAD(map_grid_size_y_, "map_grid_size_y");
   LOAD(map_leaf_size_, "map_leaf_size");
   LOAD(map_save_points_per_pass_, "map_save_points_per_pass");
+  LOAD(debug_map_save_assembled_dir_, "debug_map_save_assembled_dir");
   LOAD(use_gnss_, "use_gnss");
   LOAD(gnss_topic_, "gnss_topic");
   LOAD(gnss_info_weight_, "gnss_info_weight");

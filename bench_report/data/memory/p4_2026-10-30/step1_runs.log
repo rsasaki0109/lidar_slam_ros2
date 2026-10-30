@@ -1,0 +1,59 @@
+build done
+1614785174 bytes (1.6 GB, 1.5 GiB) copied, 0.604929 s, 2.7 GB/s
+exp04_p4cand,36.344,36.977,0.632,35.7792,40,1,bc23199243971466e1645e4eed7640ca,b7d6f0785d68878288c705f9e1690bd0,8c48e614981f7902c79bc4f00f9cb3a7,93d311b006caf3d426f4f144f14f12d8
+6022,offline_node,374628
+6023,graph_based_sla,229184
+sum_of_process_peaks,,672984
+peak_of_sum,,640292
+4430894499 bytes (4.4 GB, 4.1 GiB) copied, 1.73056 s, 2.6 GB/s
+oxford_p4cand,337.252,417.313,80.061,336.695,444,22,3fe7772305554e4e994c0980f3726c53,cd21af833c11ba5a1b4c67ab0faa5d8a,edbeeac4087a325a1f39c00048697272,895f277efd80ca4603dffb599002bf2a
+6194,graph_based_sla,775868
+6193,offline_node,457092
+sum_of_process_peaks,,1302372
+peak_of_sum,,1143664
+mem done p4cand 12:09:40
+oxford_p4candc,314.926,425.317,110.391,314.408,444,21,3fe7772305554e4e994c0980f3726c53,c371aa4358c7a1c84997c600a83307b4,3b41ffff9c27b3477da3862e22a86ce2,e7c96516e05cdf114c1679af4aa818a6
+6489,offline_node,490928
+6490,graph_based_sla,376880
+sum_of_process_peaks,,937408
+peak_of_sum,,795112
+mem done p4candc 12:16:52
+QUEUE80_DONE
+== exp04_p4cand against exp04_p4base
+exp04_p4base traj=a4748f73362e3180a8567e9a16a7a3e6 g2o=f434203ac5064e98bda89c40d75177ce loops=8ac346d2e520be620b00e6031589387a map=63e7439e0a57f2885986a13db3d07b01 tiles=12066edbdf0905abe587892032542294 (81 files)
+exp04_p4cand traj=b7d6f0785d68878288c705f9e1690bd0 g2o=8c48e614981f7902c79bc4f00f9cb3a7 loops=93d311b006caf3d426f4f144f14f12d8 map=f6014c852b1e7722404795fc7a000567 tiles=6a832e057e92e17863aa0a3f4ce58c6a (81 files)
+  front_0/front_tum_0.txt identical
+  trajectory_optimized.tum DIFFERS
+  pose_graph.g2o DIFFERS
+  loop_edges.csv DIFFERS
+  map.pcd 312061 / 312089 points; count differs; tiles: 81 files, same names, point counts DIFFER, largest difference xyz 1.95e+01 m, intensity 0.00e+00
+== oxford_p4cand against oxford_p4base
+oxford_p4base traj=361179a66fd989b9b2ff0b88da94ed06 g2o=19b0d8121dcd15147cf439cce9f654d0 loops=e7c96516e05cdf114c1679af4aa818a6 map=bec78cd91fe331b0ba77ad9bc0b0885d tiles=fb859010eb1578257b6f59026c085ea6 (69 files)
+oxford_p4cand traj=cd21af833c11ba5a1b4c67ab0faa5d8a g2o=edbeeac4087a325a1f39c00048697272 loops=895f277efd80ca4603dffb599002bf2a map=6a4d5c3c3a817c41ecd70d30ebabcfb3 tiles=28e129c67fa4c45b1b5b127a98c92096 (68 files)
+  front_0/front_tum_0.txt identical
+  trajectory_optimized.tum DIFFERS
+  pose_graph.g2o DIFFERS
+  loop_edges.csv DIFFERS
+  map.pcd 2822140 / 2826445 points; count differs; tiles: different files (69 / 68)
+== oxford_p4candc against oxford_p4basec
+oxford_p4basec traj=cd21af833c11ba5a1b4c67ab0faa5d8a g2o=edbeeac4087a325a1f39c00048697272 loops=895f277efd80ca4603dffb599002bf2a map=d717fe20d703023e8216a0c75e9dea7f tiles=bec6df7d013c55b967bb5eebb57a6f38 (68 files)
+oxford_p4candc traj=c371aa4358c7a1c84997c600a83307b4 g2o=3b41ffff9c27b3477da3862e22a86ce2 loops=e7c96516e05cdf114c1679af4aa818a6 map=97770e18ea188f5aca465b9c064ff2b6 tiles=1ce9a5bfdd954ddbc4fb568bff0bb5cc (69 files)
+  front_0/front_tum_0.txt identical
+  trajectory_optimized.tum DIFFERS
+  pose_graph.g2o DIFFERS
+  loop_edges.csv DIFFERS
+  map.pcd 2826445 / 2824987 points; count differs; tiles: different files (68 / 69)
+run,frontend_end_s,backend_peak_mb,backend_peak_t_s,backend_max_while_frontend_runs_mb,backend_max_after_frontend_mb,backend_last_mb
+/home/user/bench/mem/exp04_p4base,39.1,196,23.9,196,192,192
+/home/user/bench/mem/exp04_p4cand,37.5,217,37.9,194,217,120
+/home/user/bench/mem/oxford_p4base,365.7,1358,436.0,606,1358,542
+/home/user/bench/mem/oxford_p4cand,338.2,709,418.2,604,709,567
+/home/user/bench/mem/oxford_p4basec,348.0,984,428.1,249,984,234
+/home/user/bench/mem/oxford_p4candc,315.7,335,426.2,246,335,217
+exp04_p4base: offline_node,371504 graph_based_sla,201192 ,643360 ,629424 
+exp04_p4cand: offline_node,374628 graph_based_sla,229184 ,672984 ,640292 
+oxford_p4base: graph_based_sla,1390104 offline_node,466824 ,1930012 ,1462952 
+oxford_p4cand: graph_based_sla,775868 offline_node,457092 ,1302372 ,1143664 
+oxford_p4basec: graph_based_sla,1007212 offline_node,452216 ,1535852 ,1083464 
+oxford_p4candc: offline_node,490928 graph_based_sla,376880 ,937408 ,795112 
+QUEUE81_DONE

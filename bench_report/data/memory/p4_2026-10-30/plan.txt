@@ -32,3 +32,33 @@ Reading:
   Decision: map_save_points_per_pass stays 2,000,000 by default if (1) and (2) hold on the three runs; otherwise 0.
   Reported besides: the backend's peak and when, the pipeline sum, the time of the save. Expected, not a reading:
   Oxford's backend near its peak before the save (606 / 249 MiB) plus the passes' work (about 100 MiB).
+
+Step 1 runs (2026-10-30; 42ff730; data/memory/p4_2026-10-30/step1_runs.log) and why the reading could not be read:
+  memory, backend peak (MiB; pipeline sum): exp04 196 -> 217 (628 -> 657); Oxford 1,358 -> 709 (1,885 -> 1,272);
+    Oxford with the PCD cache 984 -> 335 (1,500 -> 915). The save (map_save call to answer): Oxford 71.7 -> 80.1 s,
+    with the PCD cache 81.7 -> 110.4 s (each pass reads the cached submaps again).
+  (1) not met, and not because of the change: the pipeline does not give the same outputs from run to run. With the
+    frontend output byte-identical in all six runs, Oxford's four runs gave three different trajectories (the
+    candidate's default run is byte-identical to the baseline's PCD cache run, and to chapter 16's baseline); exp04's
+    submaps are cut up to 0.3 s apart in the two runs (the same loop, registered slightly differently). The backend
+    takes the frontend's scans in time, so where its submaps start depends on timing. So (2) compared maps of
+    different trajectories (point counts differ) and says nothing about the save.
+  exp04's backend peak grew (196 -> 217 MiB): its map (1.80 million points) took one pass, and a pass (24 bytes a point
+    and the sort's buffer, about 36) takes more than the old save (16 bytes a point and VoxelGrid's 8).
+
+Step 1b plan (fixed 2026-10-30 before any run with it):
+Change (this commit): (a) a map with at most map_save_points_per_pass points is assembled and downsampled with one
+VoxelGrid as before (the same bytes, and less memory than a pass); (b) each pass reserves its points up front;
+(c) a test hook, debug_map_save_assembled_dir: after a streamed save, the same map is also saved as before into that
+directory, so the two saves of one run (one trajectory) can be compared.
+Runs (this commit rebuilt into ws/slam_dev):
+  with the hook: Oxford, and Oxford with the PCD cache (the two saves of each run compared);
+  without it, for the memory: exp04, Oxford, Oxford with the PCD cache.
+Reading:
+  (2) in both runs with the hook, the streamed map.pcd has the old save's number of points and every point within
+      1e-3 m (x, y, z) and 1e-2 (intensity) of the old save's point with the same index; the tiles: the same files with
+      the same numbers of points, within the same bounds;
+  (3) exp04's map fits in one pass, so it is saved as before (no streamed save in its log).
+  Decision: map_save_points_per_pass stays 2,000,000 by default if (2) and (3) hold; otherwise 0.
+  Reported besides: the memory and the save's time against step 1's baseline. Reading (1) is dropped: the pipeline's
+  outputs differ from run to run with or without the change; the hook runs show the save on one trajectory.

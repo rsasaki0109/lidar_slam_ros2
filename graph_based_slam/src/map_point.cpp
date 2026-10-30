@@ -135,7 +135,7 @@ void voxelGridFilterInParts(const MapCloud & input, float leaf_size, MapCloud & 
 }
 
 
-void voxelGridFilterStreamed(
+std::size_t voxelGridFilterStreamed(
   std::size_t parts, const std::function<void(std::size_t, MapCloud &)> & part, float leaf_size,
   std::size_t points_per_pass, MapCloud & output)
 {
@@ -167,7 +167,14 @@ void voxelGridFilterStreamed(
       ++layer_points[layer_of(p.z)];
     }
   }
+  struct Pass
+  {
+    int first_layer;
+    int last_layer;
+    std::size_t points;
+  };
   MapCloud result;
+  std::vector<Pass> passes;
   if (!layer_points.empty()) {
     // VoxelGrid's grid: its first voxel and the multipliers of its index, in 64 bits.
     std::int64_t min_b[3], mul[3];
@@ -180,15 +187,14 @@ void voxelGridFilterStreamed(
     }
     // Passes over ranges of z layers. The voxel index grows slowest with the layer, so the passes
     // give the voxels in VoxelGrid's order.
-    std::vector<std::pair<int, int>> passes;
-    std::size_t in_pass = 0;
     for (const auto & entry : layer_points) {
-      if (passes.empty() || (in_pass > 0 && in_pass + entry.second > points_per_pass)) {
-        passes.emplace_back(entry.first, entry.first);
-        in_pass = 0;
+      if (passes.empty() || (passes.back().points > 0 &&
+        passes.back().points + entry.second > points_per_pass))
+      {
+        passes.push_back({entry.first, entry.first, 0});
       }
-      passes.back().second = entry.first;
-      in_pass += entry.second;
+      passes.back().last_layer = entry.first;
+      passes.back().points += entry.second;
     }
     struct Entry
     {
@@ -196,8 +202,9 @@ void voxelGridFilterStreamed(
       float x, y, z, intensity;
     };
     std::vector<Entry> entries;
-    for (const auto & range : passes) {
+    for (const Pass & pass : passes) {
       entries.clear();
+      entries.reserve(pass.points);
       for (std::size_t i = 0; i < parts; ++i) {
         cloud.clear();
         part(i, cloud);
@@ -206,7 +213,7 @@ void voxelGridFilterStreamed(
             continue;
           }
           const int layer = layer_of(p.z);
-          if (layer < range.first || layer > range.second) {
+          if (layer < pass.first_layer || layer > pass.last_layer) {
             continue;
           }
           // As VoxelGrid::applyFilter computes a point's voxel.
@@ -245,6 +252,7 @@ void voxelGridFilterStreamed(
   result.height = 1;
   result.is_dense = true;
   output = std::move(result);
+  return passes.size();
 }
 
 }  // namespace map_saver

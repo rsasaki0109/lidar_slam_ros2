@@ -143,8 +143,9 @@ void voxelGridFilterInParts(const MapCloud & input, float leaf_size, MapCloud & 
 // assembled map: the same float arithmetic places a point in its voxel, and the voxel index (64
 // bits, so no map needs splitting) grows slowest with the z layer. A voxel's point is the mean of
 // its points, summed in double in the parts' order; VoxelGrid sums in float in the order of its
-// sort, so the means differ in the last bits. Non-finite points are dropped.
-void voxelGridFilterStreamed(
+// sort, so the means differ in the last bits. Non-finite points are dropped. Returns the number
+// of passes.
+std::size_t voxelGridFilterStreamed(
   std::size_t parts, const std::function<void(std::size_t, MapCloud &)> & part, float leaf_size,
   std::size_t points_per_pass, MapCloud & output);
 
