@@ -192,7 +192,9 @@ def create_rko_offline_node(context, *args, **kwargs):
             executable='offline_node',
             name='rko_lio_offline_node',
             parameters=parameters,
-            prefix=prefix,
+            # None, not an empty prefix: a prefix set here overrides ros2 launch's
+            # --launch-prefix (e.g. a profiler around the offline node).
+            prefix=prefix or None,
             output='screen',
             emulate_tty=True,
         ),

@@ -342,6 +342,12 @@ def test_offline_node_waits_for_the_backend_by_default():
     assert "'output_subscriber_timeout_sec': float(" in launch_source
 
 
+def test_offline_node_leaves_the_launch_prefix_to_ros2_launch():
+    # An empty prefix in the launch file would override ros2 launch --launch-prefix.
+    launch_source = LAUNCH_PATH.read_text(encoding='utf-8')
+    assert 'prefix=prefix or None,' in launch_source
+
+
 def test_offline_wait_parameter_exists_in_vendored_rko_lio():
     offline_node = (
         REPO_ROOT / 'Thirdparty' / 'rko_lio' / 'rko_lio' / 'ros' / 'offline_node.cpp'
