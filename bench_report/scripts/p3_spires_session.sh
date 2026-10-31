@@ -4,7 +4,7 @@
 #   1. its LiDAR and IMU into /home/user/data/oxford_<short>/ros2 (oxford_to_ros2.py with WORKERS fetches at a time; no
 #      ground truth is fetched),
 #   2. the frontend (Phase 1 configuration G12 on the Oxford rig file) publishing its odometry and its deskewed scans
-#      thinned to 0.1 m, recorded as the backend input (scripts/record_backend_input.sh),
+#      thinned to DESKEW_VOXEL (default 0.1 m), recorded as the backend input (scripts/record_backend_input.sh),
 #   3. graph_slam_offline_runner with the walking preset.
 # Outputs: /home/user/bench/spires_ms/<short>/{backend_input,front,run}. DROP_BAG=1 deletes the converted bag afterwards
 # (it can be fetched again); CONVERT_ONLY=1 stops after step 1. The sequences share one rig and calibration, so the
@@ -37,7 +37,7 @@ BACKEND_CAPTURE_STORAGE_PRESET=zstd_fast bash "${REPO}/scripts/record_backend_in
   --setup "${WS}/install/setup.bash" -- \
   "${WS}/install/rko_lio/lib/rko_lio/offline_node" --ros-args --params-file "${params}" \
   -p bag_path:="${bag}" -p lidar_topic:=/hesai/pandar -p imu_topic:=/alphasense_driver_ros/imu -p results_dir:="${O}/front" \
-  -p publish_deskewed_scan:=true -p output_subscriber_timeout_sec:=60.0 -p deskewed_scan_voxel_size:=0.1 "${fargs[@]}" \
+  -p publish_deskewed_scan:=true -p output_subscriber_timeout_sec:=60.0 -p deskewed_scan_voxel_size:="${DESKEW_VOXEL:-0.1}" "${fargs[@]}" \
   > "${O}/record.log" 2>&1
 EXT=$("${PY}" -c "import sys, yaml; p = yaml.safe_load(open(sys.argv[1])); p = next(iter(p.values()))['ros__parameters']
 print('[' + ','.join(str(v) for v in p['extrinsic_lidar2base_quat_xyzw_xyz']) + ']')" "${params}")
