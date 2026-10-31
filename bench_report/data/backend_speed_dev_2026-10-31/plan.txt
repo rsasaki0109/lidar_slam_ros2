@@ -1,0 +1,20 @@
+Backend speed on the walking development data (rule 3 of data/kitti/raw05_2026-10-31/plan_speed.txt). Written
+2026-10-31, before any of these runs.
+
+Candidate: t4v05 = the walking preset (lidarslam/param/lidarslam_mid360_rko_graph_walking.yaml) with
+ndt_num_threads 4 and voxel_leaf_size 0.5. On KITTI 05 it took 687 / 746 s against the preset's 2799 s, APE 2.92
+against 3.12 m, the same bytes on two runs.
+
+Data: MapsHD (8 trials: calibration-room 1/2, flat-room 1, long-corridor 1, outdoor-urk 1, underground-garage 1/2/3)
+and HILTI 2022 exp04, run as in data/loops_robust_dev_2026-10-29/plan.txt (frontend G12 on the rig files, backend
+input recorded, graph_slam_offline_runner of ws/slam_hi, densified and scored as the frontend). Oxford Keble 05 is left
+out: its ground truth stays sealed in this work. Script: bench_report/scripts/p3_dev_backend.sh <sequence> spd with
+VARIANTS="ndt2 t4v05"; rows of label spd in /home/user/bench/dev_loops/scores.csv.
+
+Reading, fixed now
+1. No regression: on every sequence, t4v05's APE is at most max(2 % , 0.5 mm) above ndt2's.
+2. Not worse overall: the geometric mean of the nine APEs is not above ndt2's.
+3. If 1 and 2 hold, the walking preset takes ndt_num_threads 4 and voxel_leaf_size 0.5. Otherwise it stays as it is,
+   and the speed-up is offered only as an option for dense LiDARs.
+Reported besides: backend wall time per sequence and loop edges. The live pipeline (frontend and backend on the same
+4 cores) is not measured here; 4 NDT threads may contend with the frontend there.
