@@ -996,9 +996,6 @@ void readPoseGraphConfig(rclcpp::Node & node, RunnerConfig & config)
   double loop_edge_info_constant_rot;
   node.get_parameter_or("loop_edge_info_constant_trans", loop_edge_info_constant_trans, 0.0);
   node.get_parameter_or("loop_edge_info_constant_rot", loop_edge_info_constant_rot, 0.0);
-  bool loop_edge_info_from_registration;
-  node.get_parameter_or(
-    "loop_edge_info_from_registration", loop_edge_info_from_registration, false);
   node.get_parameter_or("loop_edge_robust_kernel_delta", loop_edge_robust_kernel_delta, 1.0);
   node.get_parameter_or(
     "loop_edge_robust_kernel_type", loop_edge_robust_kernel_type, std::string("huber"));
@@ -1036,7 +1033,6 @@ void readPoseGraphConfig(rclcpp::Node & node, RunnerConfig & config)
   loop_config.info_weight = loop_edge_info_weight;
   loop_config.constant_info_trans = std::max(0.0, loop_edge_info_constant_trans);
   loop_config.constant_info_rot = std::max(0.0, loop_edge_info_constant_rot);
-  loop_config.information_from_registration = loop_edge_info_from_registration;
   loop_config.robust_kernel_type = loop_edge_robust_kernel_type;
   loop_config.robust_kernel_delta = loop_edge_robust_kernel_delta;
 
@@ -2478,7 +2474,7 @@ void writePoseGraphOutputs(
   }
   // Diagnostic beside it, when a loop registration reported a Hessian: each
   // edge's information of relative_pose exp([w; v]) (row-major 6x6), from
-  // the registration whether or not loop_edge_info_from_registration uses it.
+  // the registration.
   if (std::any_of(
       bag.edge_set.edges().begin(), bag.edge_set.edges().end(),
       [](const graphslam::backend_core::LoopEdgeSet::Edge & edge) {

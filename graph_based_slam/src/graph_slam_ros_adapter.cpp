@@ -1350,13 +1350,6 @@ void GraphBasedSlamComponent::Impl::saveStreamedMap(
     " points downsampled without assembling the map, in " <<
     passes << " passes of at most " << points_per_pass << " points" << std::endl;
   saveDownsampledMap(std::move(downsampled), map_points, config_.map_save_dir_);
-  if (!config_.debug_map_save_assembled_dir_.empty()) {
-    // Test only (Phase 4 step 1b): the same map saved as before, into another directory, to
-    // compare the two saves of one run.
-    io_ports_.map_output->prepareDirectory(config_.debug_map_save_assembled_dir_);
-    saveGridDividedMap(
-      assembleSavedMap(clouds, poses, map_points), config_.debug_map_save_assembled_dir_);
-  }
 }
 
 void GraphBasedSlamComponent::Impl::saveDownsampledMap(

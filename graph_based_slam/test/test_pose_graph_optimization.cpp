@@ -623,40 +623,5 @@ TEST(LoopEdgeInformation, RegistrationHessianMovesToTheEdgeAndItsInverse)
   }
 }
 
-TEST(LoopEdgeInformation, ShapedInformationKeepsTheConstantsMeanInG2oOrder)
-{
-  // [w; v]: rotation information 4, 8, 12 / rad^2, translation 1, 2, 3 / m^2.
-  Eigen::Matrix<double, 6, 6> information = Eigen::Matrix<double, 6, 6>::Zero();
-  information.diagonal() << 4.0, 8.0, 12.0, 1.0, 2.0, 3.0;
-  const Eigen::Matrix<double, 6, 6> shaped =
-    loop_information::g2oShapedInformation(information, 200.0, 1e5);
-  // g2o order [t; q.vec], q.vec = w / 2: translation 1:2:3, rotation 4:8:12 (times 4), each
-  // scaled to the mean.
-  Eigen::Matrix<double, 6, 1> expected;
-  expected << 100.0, 200.0, 300.0, 0.5e5, 1e5, 1.5e5;
-  EXPECT_TRUE(shaped.diagonal().isApprox(expected));
-  EXPECT_TRUE((shaped - Eigen::Matrix<double, 6, 6>(shaped.diagonal().asDiagonal())).isZero());
-
-  LoopEdgeConfig config;
-  config.constant_info_trans = 200.0;
-  config.constant_info_rot = 1e5;
-  pose_graph::LoopConstraint constraint;
-  constraint.fitness_score = 0.3;
-  constraint.registration_information_valid = true;
-  constraint.registration_information = information;
-  Eigen::Matrix<double, 6, 6> constant = Eigen::Matrix<double, 6, 6>::Zero();
-  constant.diagonal() << 200.0, 200.0, 200.0, 1e5, 1e5, 1e5;
-  // Off by default; on, only for an edge whose registration reported a Hessian.
-  EXPECT_TRUE(pose_graph::loopEdgeInformation(config, constraint).isApprox(constant));
-  config.information_from_registration = true;
-  EXPECT_TRUE(pose_graph::loopEdgeInformation(config, constraint).isApprox(shaped));
-  constraint.registration_information_valid = false;
-  EXPECT_TRUE(pose_graph::loopEdgeInformation(config, constraint).isApprox(constant));
-  // A degenerate Hessian falls back to the constants too.
-  constraint.registration_information_valid = true;
-  constraint.registration_information.setZero();
-  EXPECT_TRUE(pose_graph::loopEdgeInformation(config, constraint).isApprox(constant));
-}
-
 }  // namespace
 }  // namespace graphslam
