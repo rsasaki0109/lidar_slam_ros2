@@ -31,6 +31,8 @@
 
 from pathlib import Path
 import re
+import subprocess
+import sys
 
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
@@ -131,3 +133,12 @@ def test_live_and_offline_adapters_use_the_same_application_artifact_path():
     for adapter in (live, offline):
         assert 'map_saver::loopEdgeCsvLine' not in adapter
         assert 'map_saver::trajectoryTumLine' not in adapter
+
+
+def test_parameter_reference_page_matches_the_config_sources():
+    # docs/graph-slam-parameters.md is generated from graph_slam_config.{hpp,cpp}; a parameter
+    # added, removed or re-defaulted without regenerating the page fails here.
+    script = SOURCE_ROOT.parents[1] / 'scripts' / 'generate_graph_slam_parameter_reference.py'
+    result = subprocess.run(
+        [sys.executable, str(script), '--check'], capture_output=True, text=True, check=False)
+    assert result.returncode == 0, result.stderr
