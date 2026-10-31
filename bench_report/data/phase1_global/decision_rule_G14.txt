@@ -1,0 +1,58 @@
+Phase 1, candidate G14 (fixed 2026-10-27 before any G14 run other than the five GrandTour missions of the Hesai
+registration screen, data/grandtour/screen_hs_2026-10-27/, whose results are known: they count with those runs).
+
+G14 = G12 + bump_image_registration true, bump_image_max_rotation_correction_deg 2.0,
+      bump_image_rotation_fallback_window 10, bump_image_rotation_fallback_min_count 3 (rko_lio 400fc3c, ws/rko_g13;
+      the other bump_image_* keys at their defaults, BIEVR-LIO's map parameters). Each scan is registered against
+      voxel-wise height ("bump") images of the map, using a 0.1 m downsample of the scan in the 300 map voxels with the
+      most relief; a scan whose bump result turns more than 2 deg away from the IMU guess in at least 3 of the last 10
+      scans is registered again point-to-point (the ENWIDE v10 fallback, configs/enwide/rko_lio_os0_open_ground_v10.yaml).
+
+Why: on the Hesai XT-32 + STIM320 rig (HS) G12's scan-to-scan vertical jitter is two to three times BIEVR-LIO's, and
+it has transient vertical drifts (ARC-5) and start failures (PIL-2). In the screen (one run each, ATE without reference
+spikes, m; G12 / G14 / BIEVR-LIO): ARC-5 0.0554 / 0.0120 / 0.0147, CON-3 0.0281 / 0.0164 / 0.0162,
+PIL-2 0.0768 / 0.0294 / 0.0297, HEAP-1 0.0281 / 0.0281 / 0.0285, SPX-3 0.0097 / 0.0091 / 0.0080; vertical jitter
+(p1_grandtour_jitter.py) 18.5 -> 6.9, 15.3 -> 7.0, 18.0 -> 9.5, 9.0 -> 7.4, 5.6 -> 5.1 mm.
+The other screened options (Levenberg-Marquardt, no gravity regularisation, point-to-plane, their combinations, the
+inertial window) were worse than G14 on ARC-5, CON-3 and PIL-2 (the best of them 0.0187, 0.0200, 0.0537); on HEAP-1
+and SPX-3 all lie within 0.0272-0.0284 and 0.0080-0.0104 (the inertial window, 0.0080 on SPX-3, diverged on ARC-5:
+1.61 m).
+
+G12 on the development data (one run each, frontend only):
+  GrandTour HS rig, ATE without reference spikes: heap-1 0.0281, arc-3 0.1262, arc-4 0.0233, arc-6 0.0104,
+    con-1 0.0261, eig-2 0.0375, snow-3 0.1161, spx-1 0.0210, spx-3 0.0097, ice-1 0.0166, arc-1 0.0279, arc-5 0.0554,
+    con-2 0.0290, pil-2 0.0768, con-3 0.0281; mean of these 15 0.0422. (snow-1 0.3769: every method, BIEVR-LIO and
+    FAST-LIO2 included, is 0.37-0.38 m off with the same error shape, so its reference is not used for decisions.)
+  GrandTour LS rig (Livox MID-360 with range scale 0.9985 + STIM320): heap-1 0.0453, arc-3 0.0466, arc-4 0.0207,
+    arc-6 0.0178, con-1 0.0816, eig-2 0.0391, snow-3 0.0256, spx-1 0.0444; mean 0.0401.
+  MapsHD calib-room 1 / 2, flat-room 1, long-corridor 1, outdoor-urk 1, garage 1 / 2 / 3:
+    0.0261 / 0.0207 / 0.0148 / 0.0712 / 0.0545 / 0.0440 / 0.0293 / 0.0267; Oxford Keble 05 0.0533, HILTI exp04 0.0527;
+    all-ten geometric mean 0.0353 (best profiles 0.0348).
+  Koide outdoor_hard 02a / 02b / 01b / 01a: 0.837 / 0.715 / 1.840 / 0.977.
+
+Adopt G14 as G if all of these hold (one run each, frontend only), checked in this order, stopping at the first that
+fails:
+  1. GrandTour HS rig, the 15 missions above: mean below G12's 0.0422, and no mission worse than G12 by more than
+     10 % and more than 2 mm at once (on missions near 1 cm, 10 % is 1 mm). snow-1 is run and reported only.
+  2. The Phase 1 gate: each family's geometric mean within 1.10 x its best profile (MapsHD's eight, Oxford 0.0503,
+     exp04 0.0520), the all-ten geometric mean within 1.05 x 0.0348 and not above G12's 0.0353.
+  3. Koide: no sequence worse than G12 by more than 5 %, and 01a below 1.5 m.
+  4. GrandTour LS rig, the 8 missions above: mean not above G12's 0.0401, and no mission worse than G12 by more than
+     10 % and more than 2 mm at once.
+  5. Every run real-time (node time below the data duration).
+If criterion 1 holds and a later one fails, G14 is not adopted as G; whether bump registration may then be switched by
+a rig property (a spinning multi-beam LiDAR) is a new candidate with its own rule.
+If G14 is adopted, the HS rig with G14 becomes the COMFORT candidate; a submission needs a new preregistration and the
+maintainer's decision.
+
+Result (2026-10-27; GrandTour HS rig, ATE without reference spikes, m; G12 in brackets):
+  arc-5 0.0120 (0.0554), con-3 0.0164 (0.0281), pil-2 0.0294 (0.0768), heap-1 0.0281 (0.0281), spx-3 0.0091 (0.0097)
+  (the screen runs), arc-3 0.2374 (0.1262, +88 %, +111 mm), arc-4 0.0188 (0.0233), arc-6 0.0124 (0.0104, +19 %,
+  +2.0 mm), con-1 0.0391 (0.0261, +50 %, +13 mm), eig-2 0.0285 (0.0375).
+Criterion 1 fails on arc-3 and con-1: G14 is NOT adopted. The Phase 1, Koide and LS runs were not made (a MapsHD run
+that had started was stopped). The remaining HS missions (snow-3, spx-1, ice-1, arc-1, con-2, snow-1) were started as
+diagnostics after the rule had failed and lost their data to a full disk; they are run in the next screen.
+Where it fails, the bump registration slips in open scenes: ARC-3 at 307 s (outdoors, median keypoint range 41-44 m,
+0.22 -> 0.77 m in 5 s) and 368 s, in the same places as BIEVR-LIO (0.14 -> 0.66 m at 307 s); CON-1 is a wide
+construction site. The 300 informed voxels lie mostly on the ground near the sensor there, and nothing holds the
+translation along it; G12's point-to-point keypoints use the far structure.

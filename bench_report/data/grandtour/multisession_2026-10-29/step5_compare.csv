@@ -1,0 +1,22 @@
+name,decision_step4,decision_step5,same,transform_difference_mm,transform_difference_deg
+a_arc5_arc6,joined,joined,True,0.100,0.0000
+con1_con2,joined,joined,True,0.015,0.0000
+con2_con1,joined,joined,True,0.018,0.0013
+arc5_arc6,joined,joined,True,0.100,0.0000
+arc6_arc5,joined,joined,True,0.774,0.0024
+con-1_positive,self-similar a,self-similar a,True,
+con-1_stress,not joined,not joined,True,
+con-2_positive,joined,joined,True,0.054,0.0000
+con-2_stress,not joined,not joined,True,
+arc-4_positive,joined,joined,True,0.106,0.0000
+arc-4_stress,not joined,not joined,True,
+arc-5_positive,joined,joined,True,0.365,0.0011
+arc-5_stress,not joined,not joined,True,
+arc-6_positive,joined,joined,True,0.269,0.0015
+arc-6_stress,not joined,not joined,True,
+calibration-room_trial-1_positive,ambiguous,ambiguous,True,
+calibration-room_trial-1_stress,self-similar a,self-similar a,True,
+oxford_positive,joined,joined,True,0.044,0.0000
+oxford_stress,not joined,not joined,True,
+pil-2_positive,joined,joined,True,0.446,0.0019
+pil-2_stress,not joined,not joined,True,

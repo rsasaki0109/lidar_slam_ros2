@@ -1,0 +1,19 @@
+Phase 1, candidate G6 (fixed 2026-10-26 before any G6 run).
+
+GT-free scene signal (V with scan_statistics, chapter 30.10): the median distance of a scan's keypoints from the sensor.
+Per sequence (median over scans): kernel helps on calibration-room 1/2 9.1/8.7 m, flat-room 3.9, garage 7.5-7.9,
+long-corridor 6.5; kernel hurts on outdoor-urk 13.1, Oxford 16.6, Koide 02a/02b 15.6/14.6; exp04 22.3 (kernel neutral).
+Below 12 m: 99-100 % of the scans of the first group, 2-22 % of the second.
+
+G6 = V + icp_robust_kernel_scale_factor 2.0 applied only to scans whose median keypoint range is below 12 m
+     (threshold chosen from the numbers above; plain least squares otherwise). Gravity window off (chapter 30.9).
+Rule: every sequence <= 1.10 x its reference (MapsHD Z values, Oxford 0.0503, exp04 0.0520), and for Koide (where V
+itself is 1.5x the Koide profile, a known weakness) not worse than V by more than 10 %.
+Order: MapsHD urk, Oxford, Koide 02a, then MapsHD calib1/flat/garage1, exp04, then all remaining sequences.
+
+Result (one run each, frontend only; ratio to reference):
+  calib1 0.0251 (0.95), calib2 0.1916 (9.35), flat 0.0135 (0.91), corridor 0.1320 (1.85), urk 0.0585 (1.15),
+  garage1 0.0477 (1.08), garage2 0.0346 (1.18), garage3 0.0348 (1.30), Oxford 0.0514 (1.02), exp04 0.0545 (1.05);
+  geometric mean 0.0490 against the reference 0.0348 (1.41; V 0.0635, 1.82). Koide 02a 0.838 (V 0.824), 02b 0.890 (V 0.714).
+G6 is NOT adopted. calib2 and the corridor slide horizontally (calib2 x/y 0.144/0.126 m, z 0.014; corridor y 0.112):
+the kernel weakens the few correspondences that hold the horizontal position. The 4-trial screen had not shown this.

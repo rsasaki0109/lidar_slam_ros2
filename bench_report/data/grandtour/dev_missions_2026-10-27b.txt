@@ -1,0 +1,16 @@
+GrandTour development set, second extension (fixed 2026-10-27, maintainer decision "おすすめで": more development data
+for the COMFORT ranking work, before any of these references is read). Added to the eight of
+dev_missions_2026-10-27.txt (HEAP-1, ARC-3, ARC-4, ARC-6, CON-1, EIG-2, SNOW-3, SPX-1):
+
+  ARC-1   2024-11-18-12-05-01   ARCHE - Industrial (indoor/outdoor, stairs)       site of arc-2 / arc-7
+  ARC-5   2024-11-18-16-59-23   ARCHE - Panic Loop                                site of arc-2 / arc-7
+  CON-2   2024-12-09-09-41-46   Construction Halter - Corridor 2                  site of con-4
+  CON-3   2024-12-09-11-28-28   Construction Halter - Apartment (stairs, 796 s)   site of con-4
+  SNOW-1  2024-11-03-07-52-45   Jungfraujoch - Snow 1                             site of snow-2
+  SPX-3   2024-11-02-17-43-10   Jungfraujoch - Sphinx 3 (night)                   site of spx-2
+  ICE-1   2024-11-02-21-12-51   Jungfraujoch - Ice Palace (indoor)                Jungfraujoch
+  PIL-2   2024-11-11-12-42-47   Pilatus - Hike 2 (trail, stairs, slopes)          long slopes like eig-1
+
+Sixteen development missions in all. The other train missions (27) stay unread as the C1 holdout. The test missions'
+sensor data are still not inspected beyond running the pipeline on them. Data of other missions (prior maps) are not
+used for a COMFORT submission until the organizers confirm that the rules allow it.

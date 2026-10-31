@@ -22,6 +22,8 @@ Options:
   --setup <setup.bash>       ROS/workspace setup override (active environment is accepted)
   --flush-timeout <seconds>  Recorder SIGINT flush timeout (default: 60)
 
+BACKEND_CAPTURE_STORAGE_PRESET (environment) picks the MCAP storage preset (default fastwrite; zstd_fast compresses).
+
 The output directory must not already contain a rosbag. The wrapped command and
 recorder share the current ROS_DOMAIN_ID. The capture is accepted only when
 /rko_lio/odometry and /rko_lio/frame both contain messages.
@@ -90,7 +92,7 @@ printf '\n'
 # Bash starts asynchronous commands with SIGINT ignored in non-interactive
 # mode. GNU env restores the default dispositions immediately before exec.
 /usr/bin/env --default-signal=INT --default-signal=TERM \
-  ros2 bag record --storage mcap --storage-preset-profile fastwrite \
+  ros2 bag record --storage mcap --storage-preset-profile "${BACKEND_CAPTURE_STORAGE_PRESET:-fastwrite}" \
   --max-cache-size 1073741824 --include-unpublished-topics \
   --qos-profile-overrides-path "${QOS_OVERRIDES}" -o "${OUTPUT_DIR}" \
   /rko_lio/odometry /rko_lio/frame >"${RECORD_LOG}" 2>&1 &

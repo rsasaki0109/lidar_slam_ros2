@@ -1,0 +1,15 @@
+Phase 1, candidate G8 (fixed 2026-10-26 before any G8 run).
+
+G8 = G7 + a fallback: when a close scan registered with the close-scene settings leaves fewer than 85 % of its keypoints
+within that registration's correspondence cap (0.25 m) of the map, the scan is registered again with the base settings
+(V) and that result is used. The 85 % sits between the failing Koide 02b scan (70 % within 0.25 m even after V) and
+normal scans (MapsHD median 100 %, Koide 92-98 %).
+Gate: as for G7 (per family geometric mean <= 1.10 x the family's best profile, all ten <= 1.05 x 0.0348; Koide 02a
+and 02b each <= 1.10 x V).
+
+Result (one run each, frontend only; ratio to reference):
+  MapsHD calib1 0.0500 (1.90), calib2 0.0218 (1.06), flat 0.0148 (1.00), corridor 0.0702 (0.99), urk 0.0545 (1.07),
+  garage1/2/3 0.0424/0.0284/0.0276 (0.96/0.97/1.04); MapsHD family 1.095; Oxford 0.0533 (1.060); exp04 0.0527 (1.014);
+  all ten 0.0377 (1.083 > 1.05). Koide 02a 0.829 (V 1.005), 02b 0.717 (V 1.004; one fallback).
+G8 is NOT adopted (all-ten geometric mean 1.083). The fallback fired on 0-4 scans per sequence; on calibration-room 1
+its four base-setting registrations raise the error from 0.026 to 0.050 m.

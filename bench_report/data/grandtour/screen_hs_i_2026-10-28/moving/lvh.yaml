@@ -1,0 +1,37 @@
+# HS-G15c + start_standstill_radius 1.0 + start_standstill_level_sec 1.0 + start_standstill_hold (screen_hs_i_2026-10-28/plan.txt; rko_lio d0e9027)
+/**:
+  ros__parameters:
+    deskew: true
+    voxel_size: 0.25
+    max_range: 100.0
+    min_range: 0.7
+    initialization_phase: true
+    double_downsample: true
+    enable_kidnap_relocalization: false
+    reset_on_registration_failure: false
+    relocalize_after_scan_gap: false
+    max_iterations: 50
+    convergence_criterion: 3.0e-05
+    icp_keypoint_voxel_multiplier: 2.25
+    publisher_queue_depth: 128
+    initialization_max_gyro_rad_s: 0.02
+    max_expected_jerk: 1000.0
+    close_scene_max_median_range: 12.0
+    close_scene_max_correspondence_distance: 0.25
+    close_scene_localizability_boost: 10.0
+    close_scene_localizability_normal_only: true
+    close_scene_min_inlier_fraction: 0.6
+    min_icp_keypoints: 100
+    keypoint_shortfall_voxel_multiplier: 1.0
+    bump_image_registration: true
+    bump_image_max_rotation_correction_deg: 2.0
+    bump_image_rotation_fallback_window: 10
+    bump_image_rotation_fallback_min_count: 3
+    bump_image_point_to_point_weight: 1.0
+    bump_image_point_to_point_start_distance: 3.0
+    output_filter_position_sigma: 0.02
+    output_filter_acceleration_noise: 0.001
+    output_filter_bias_noise: 0.0001
+    start_standstill_radius: 1.0
+    start_standstill_level_sec: 1.0
+    start_standstill_hold: true

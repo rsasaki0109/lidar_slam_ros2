@@ -50,6 +50,7 @@
 #include "graph_based_slam/backend_core.hpp"
 #include "graph_based_slam/bev_mutual_visibility.hpp"
 #include "graph_based_slam/candidate_aggregator.hpp"
+#include "graph_based_slam/cloud_compression.hpp"
 #include "graph_based_slam/degeneracy_diagnostics_csv.hpp"
 #include "graph_based_slam/dynamic_object_filter.hpp"
 #include "graph_based_slam/gnss_alignment.hpp"
@@ -675,8 +676,12 @@ void GraphBasedSlamComponent::Impl::doPoseAdjustment(
   // The global map is assembled only to publish or save it, and the submap clouds are
   // transformed only for that and for the map array: an in-loop adjustment that does
   // neither touches no point. A map only saved is assembled as MapPoints (16 bytes a point
-  // instead of PointXYZI's 32); a published one as PointXYZI, as published before.
-  const bool build_map = do_save_map || publish_map;
+  // instead of PointXYZI's 32); a published one as PointXYZI, as published before. A map only
+  // saved, without the dynamic object filter, is not assembled at all when
+  // map_save_points_per_pass is set: it is downsampled from the submap clouds (saveStreamedMap).
+  const bool stream_save = do_save_map && !publish_map && !config_.use_dynamic_object_filter_ &&
+    config_.map_save_points_per_pass_ > 0;
+  const bool build_map = (do_save_map && !stream_save) || publish_map;
   lidarslam_msgs::msg::MapArray modified_map_array_msg;
   modified_map_array_msg.header = map_array_msg.header;
   nav_msgs::msg::Path path;
@@ -712,7 +717,7 @@ void GraphBasedSlamComponent::Impl::doPoseAdjustment(
       pcl::transformPointCloud(*cloud_ptr, *transformed_cloud_ptr, se3.matrix().cast<float>());
       if (publish_map) {
         *map_ptr += *transformed_cloud_ptr;
-      } else if (do_save_map) {
+      } else if (build_map) {
         // As pcl::PointCloud::operator+= appends a cloud.
         for (const auto & p : transformed_cloud_ptr->points) {
           save_map->points.emplace_back(p);
@@ -759,7 +764,13 @@ void GraphBasedSlamComponent::Impl::doPoseAdjustment(
     map_msg_ptr->header.frame_id = "map";
     modified_map_pub_->publish(*map_msg_ptr);
   }
-  if (do_save_map) {
+  if (stream_save) {
+    save_map.reset();
+    saveStreamedMap(clouds, opt_result.poses);
+    writeMapBundleArtifacts(
+      map_array_msg, application_result.artifacts, opt_result.poses);
+    writeDegeneracyReport();
+  } else if (do_save_map) {
     if (publish_map) {
       save_map = toMapCloud(*map_ptr);
     }
@@ -1086,6 +1097,10 @@ void GraphBasedSlamComponent::Impl::tryCreateSubmap(
           "failed to store submap " + std::to_string(submap_idx)});
     }
   }
+  if (!submap.cloud.data.empty()) {
+    // Kept with only what its conversion reads (RKO-LIO's scan: 12 bytes a point, not 16).
+    pointcloud_conversion::packForPointXYZI(submap.cloud);
+  }
   std_msgs::msg::Header map_header;
   map_header.stamp = odom_msg.header.stamp;
   map_header.frame_id = "map";
@@ -1157,7 +1172,10 @@ pcl::PointCloud<pcl::PointXYZI>::Ptr GraphBasedSlamComponent::Impl::loadSubmapCl
   }
   cloud.reset(new pcl::PointCloud<pcl::PointXYZI>);
   if (idx >= 0 && idx < static_cast<int>(clouds.size()) && clouds[idx]) {
-    cloud = convertSubmapCloud(*clouds[idx]);
+    const cloud_compression::StoredCloud & stored = *clouds[idx];
+    cloud = stored.compressed.empty() ?
+      convertSubmapCloud(stored.message) :
+      convertSubmapCloud(cloud_compression::restore(stored));
   }
   return cloud;
 }
@@ -1173,7 +1191,7 @@ std::size_t GraphBasedSlamComponent::Impl::submapPointCount(
     }
   }
   if (idx >= 0 && idx < static_cast<int>(clouds.size()) && clouds[idx]) {
-    return static_cast<std::size_t>(clouds[idx]->width) * clouds[idx]->height;
+    return static_cast<std::size_t>(clouds[idx]->message.width) * clouds[idx]->message.height;
   }
   return 0;
 }
@@ -1230,15 +1248,16 @@ void GraphBasedSlamComponent::Impl::writeMapBundleArtifacts(
 
 void GraphBasedSlamComponent::Impl::saveGridDividedMap(MapCloud::Ptr map)
 {
+  saveGridDividedMap(std::move(map), config_.map_save_dir_);
+}
+
+void GraphBasedSlamComponent::Impl::saveGridDividedMap(
+  MapCloud::Ptr map, const std::string & save_dir)
+{
   if (map->empty()) {
     std::cout << "Map is empty, skipping save." << std::endl;
     return;
   }
-
-  // Create output directory (clean existing PCD files to prevent orphans)
-  std::string out_dir = config_.map_save_dir_ + "/pointcloud_map";
-  io_ports_.map_output->prepareDirectory(out_dir);
-  io_ports_.map_output->removeByExtension(out_dir, {".pcd", ".yaml"});
 
   // Downsample the map, then free the full map: everything below uses the downsampled one.
   // MapPoint clouds give the same points and files as PointXYZI ones (map_point.hpp).
@@ -1254,6 +1273,99 @@ void GraphBasedSlamComponent::Impl::saveGridDividedMap(MapCloud::Ptr map)
     map_saver::voxelGridFilter(map, leaf_size, *downsampled);
   }
   map.reset();
+  saveDownsampledMap(std::move(downsampled), map_points, save_dir);
+}
+
+void GraphBasedSlamComponent::Impl::moveSubmapCloud(
+  const std::vector<GraphStateStore::CloudPtr> & clouds,
+  const std::vector<Eigen::Isometry3d> & poses, std::size_t i,
+  pcl::PointCloud<pcl::PointXYZI> & transformed)
+{
+  // As doPoseAdjustment moves a submap cloud into the map.
+  const pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_ptr =
+    loadSubmapCloud(clouds, static_cast<int>(i));
+  const Eigen::Affine3d se3(poses[i].matrix());
+  pcl::transformPointCloud(*cloud_ptr, transformed, se3.matrix().cast<float>());
+}
+
+MapCloud::Ptr GraphBasedSlamComponent::Impl::assembleSavedMap(
+  const std::vector<GraphStateStore::CloudPtr> & clouds,
+  const std::vector<Eigen::Isometry3d> & poses, std::size_t map_points)
+{
+  // As doPoseAdjustment assembles a map it only saves.
+  MapCloud::Ptr map(new MapCloud);
+  map->reserve(map_points);
+  pcl::PointCloud<pcl::PointXYZI> transformed;
+  for (std::size_t i = 0; i < poses.size(); ++i) {
+    moveSubmapCloud(clouds, poses, i, transformed);
+    for (const auto & p : transformed.points) {
+      map->points.emplace_back(p);
+    }
+    map->width = static_cast<std::uint32_t>(map->size());
+    map->height = 1;
+    map->is_dense = map->is_dense && transformed.is_dense;
+  }
+  return map;
+}
+
+void GraphBasedSlamComponent::Impl::saveStreamedMap(
+  const std::vector<GraphStateStore::CloudPtr> & clouds,
+  const std::vector<Eigen::Isometry3d> & poses)
+{
+  std::size_t map_points = 0;
+  for (std::size_t i = 0; i < poses.size(); ++i) {
+    map_points += submapPointCount(clouds, static_cast<int>(i));
+  }
+  std::size_t stored_bytes = 0;
+  std::size_t data_bytes = 0;
+  for (const auto & cloud : clouds) {
+    if (cloud) {
+      stored_bytes += cloud_compression::storedBytes(*cloud);
+      data_bytes += static_cast<std::size_t>(cloud->message.height) * cloud->message.row_step;
+    }
+  }
+  std::cout << "[map save] submap clouds held in " << stored_bytes / 1048576.0 << " MiB (" <<
+    data_bytes / 1048576.0 << " MiB uncompressed)" << std::endl;
+  const std::size_t points_per_pass =
+    static_cast<std::size_t>(config_.map_save_points_per_pass_);
+  if (map_points <= points_per_pass) {
+    // The map fits in one pass: assembled and downsampled with one VoxelGrid as before, which
+    // takes less memory than a pass (and gives the same bytes).
+    saveGridDividedMap(assembleSavedMap(clouds, poses, map_points));
+    return;
+  }
+  MapCloud::Ptr downsampled(new MapCloud);
+  const std::size_t passes = map_saver::voxelGridFilterStreamed(
+    poses.size(),
+    [&](std::size_t i, MapCloud & part) {
+      pcl::PointCloud<pcl::PointXYZI> transformed;
+      moveSubmapCloud(clouds, poses, i, transformed);
+      part.points.reserve(transformed.size());
+      for (const auto & p : transformed.points) {
+        part.points.emplace_back(p);
+      }
+    },
+    static_cast<float>(config_.map_leaf_size_), points_per_pass, *downsampled);
+  std::cout << "[map save] " << map_points <<
+    " points downsampled without assembling the map, in " <<
+    passes << " passes of at most " << points_per_pass << " points" << std::endl;
+  saveDownsampledMap(std::move(downsampled), map_points, config_.map_save_dir_);
+  if (!config_.debug_map_save_assembled_dir_.empty()) {
+    // Test only (Phase 4 step 1b): the same map saved as before, into another directory, to
+    // compare the two saves of one run.
+    io_ports_.map_output->prepareDirectory(config_.debug_map_save_assembled_dir_);
+    saveGridDividedMap(
+      assembleSavedMap(clouds, poses, map_points), config_.debug_map_save_assembled_dir_);
+  }
+}
+
+void GraphBasedSlamComponent::Impl::saveDownsampledMap(
+  MapCloud::Ptr downsampled, std::size_t map_points, const std::string & save_dir)
+{
+  // Create output directory (clean existing PCD files to prevent orphans)
+  std::string out_dir = save_dir + "/pointcloud_map";
+  io_ports_.map_output->prepareDirectory(out_dir);
+  io_ports_.map_output->removeByExtension(out_dir, {".pcd", ".yaml"});
 
   std::cout << map_saver::downsampleLogLine(map_points, downsampled->size(),
       config_.map_leaf_size_)
@@ -1319,7 +1431,7 @@ void GraphBasedSlamComponent::Impl::saveGridDividedMap(MapCloud::Ptr map)
   io_ports_.map_output->writeBytes(out_dir + "/pointcloud_map_metadata.yaml", meta.str());
 
   // Also save the full map as a single PCD for convenience
-  io_ports_.map_output->writeMapCloud(config_.map_save_dir_ + "/map.pcd", *downsampled);
+  io_ports_.map_output->writeMapCloud(save_dir + "/map.pcd", *downsampled);
 
   std::cout << map_saver::savedMapLogLine(saved, grid_config, out_dir) << std::endl;
   std::cout << "Total points: " << downsampled->size() << std::endl;
@@ -1335,7 +1447,7 @@ void GraphBasedSlamComponent::Impl::saveGridDividedMap(MapCloud::Ptr map)
     gnss_origin_lat = gnss_origin_lat_;
     gnss_origin_lon = gnss_origin_lon_;
   }
-  std::string proj_file = config_.map_save_dir_ + "/map_projector_info.yaml";
+  std::string proj_file = save_dir + "/map_projector_info.yaml";
   io_ports_.map_output->writeBytes(
     proj_file,
     map_saver::projectorInfoYaml(gnss_origin_set, gnss_origin_lat, gnss_origin_lon));

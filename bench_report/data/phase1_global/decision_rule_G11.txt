@@ -1,0 +1,17 @@
+Phase 1, candidate G11 (fixed 2026-10-26 before any G11 run).
+
+G11 = G10 + min_icp_keypoints 100 (a scan with fewer ICP keypoints is not registered; the IMU prediction carries the
+pose, as in the Koide profile, research note koide-handheld-outdoor-profile-2026-10.md: an occluded scan).
+With V, no scan of MapsHD (8), Oxford Keble 05 or exp04 has fewer than 100 keypoints (minimum 162), so the ten
+development sequences must stay byte-identical to G10 (checked on MapsHD flat-room 1, the lowest at 162, and on
+Oxford); Koide 02a/02b have 1/2 such scans, 01a/01b are checked too.
+Adopt in place of G10 if the checked sequences are byte-identical and no Koide sequence is worse than G10.
+
+Result (one run each, frontend only): MapsHD flat-room 1 and Oxford byte-identical to G10 (58825b41, 9df00551).
+Koide: 02a 0.837 (G10 0.829, +1.0 %), 02b 0.715 (0.724), 01b 1.840 (1.952), 01a 0.977 (3.229; the occluded scan no
+longer lifts the trajectory, z 3.146 -> 0.656).
+By the rule as written (no Koide sequence worse than G10), G11 is NOT adopted because of 02a (+1.0 %). G10 stays G.
+
+Maintainer decision (2026-10-26): G11 is adopted as G in place of G10, overriding the rule as written. The 02a
+difference is not run-to-run noise (the runs are deterministic); it is the cost of skipping the one 23-keypoint scan
+of 02a, against 01a 3.229 -> 0.977 m and no change on the ten development sequences.

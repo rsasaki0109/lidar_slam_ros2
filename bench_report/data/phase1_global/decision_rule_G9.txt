@@ -1,0 +1,14 @@
+Phase 1, candidate G9 (fixed 2026-10-26 before any G9 run).
+
+G9 = G7 + a coarse-to-fine fallback: when a close scan registered with the close-scene settings leaves fewer than 85 %
+of its keypoints within 0.25 m of the map, it is registered with the base settings (V) and then again with the
+close-scene settings starting from that result; the second result is used.
+Gate: as for G7/G8 (per family geometric mean <= 1.10 x the family's best profile, all ten <= 1.05 x 0.0348; Koide 02a
+and 02b each <= 1.10 x V).
+
+Result (one run each, frontend only; ratio to reference):
+  MapsHD calib1 0.0352 (1.34), calib2 0.0237 (1.16), flat 0.0148 (1.00), corridor 0.0705 (0.99), urk 0.0545 (1.07),
+  garage1/2/3 0.0426/0.0290/0.0274 (0.97/0.99/1.03); MapsHD family 1.062; Oxford 0.0533 (1.060); exp04 0.0527 (1.014);
+  all ten 0.0368 (1.057 > 1.05). Koide 02a 0.829 (V 1.005), 02b 0.724 (V 1.015).
+G9 is NOT adopted (all-ten geometric mean 1.057). The fallback still fires on four calibration-room 1 scans that G7
+registered well (0.0261 m without any fallback).

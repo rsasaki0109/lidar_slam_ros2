@@ -1,0 +1,33 @@
+Output filter settings, replayed offline (2026-10-28, written before any replay other than the spx-3 test below; the
+logged runs are running).
+
+Why: the output filter (position sigma 0.02 m, acceleration noise 0.001 m^2/s^3, bias noise 1e-4 m^2/s^5, chosen on
+the prototype, screen_hs_f_2026-10-27/) halves the error below 1 s but moves part of it into 1-10 s (against G15b:
+con-3 5.2 -> 6.5, spx-1 6.0 -> 7.4 mm; with the filter after moving starts: arc-4 8.2 -> 9.8, ice-1 3.4 -> 4.9 mm),
+which costs arc-4 and ice-1 0.2 mm net. The filter changes only the output, so its settings can be tried without
+running the LIO again: rko_lio 142eeaa logs the filter's inputs (output_filter_log; no output changes: the logged
+spx-3 run gives G15e's file byte for byte), and tools/output_filter_replay.cpp runs rko_lio's own filter on them
+(p1_grandtour_output_filter_sweep.py checks the run's own setting against its output to 1 um before scoring).
+Test (2026-10-28, spx-3 only, five settings): 0.02/0.001/1e-4 8.8 mm (the run's), 0.01/0.001/1e-4 8.4,
+0.03/0.001/1e-4 9.3, 0.02/0.003/1e-4 8.5, 0.02/0.001/1e-3 8.6.
+
+Runs: G15f + output_filter_log (filter_sweep_2026-10-28/runs/g15flog.yaml, ws/rko_g30, label fsw_g15flog) on the 15 HS
+development missions (static starts: G15c's runs; moving starts: G15f's). Each must give G15c's (static) or the
+fifteenth screen's mgo5 (moving) trajectory byte for byte; the log changes no output (the G15e-logged spx-3 test run
+gave G15e's file byte for byte).
+Grid: position sigma 0.005, 0.01, 0.015, 0.02, 0.03 m x acceleration noise 0.0003, 0.001, 0.003, 0.01 x bias noise
+1e-5, 1e-4, 1e-3 (60 settings).
+Selection: on a tuning half only: heap-1, pil-2, con-1, eig-2, arc-3 (static starts), snow-3, arc-5, arc-4 (moving).
+The setting with the lowest mean ATE (without reference spikes) there; among those within 0.1 mm of it, the one
+nearest to the current setting (fewest grid steps). The other seven (spx-3, spx-1, arc-1, con-2, con-3 static;
+ice-1, arc-6 moving) are reported as held out (spx-3 was seen in the test above).
+A setting it picks is judged as a configuration under a rule fixed before any run with it.
+
+Selection (2026-10-28, on the tuning half only; no held-out mission had been replayed: grid.csv then held the eight
+tuning missions, 480 rows; p1_grandtour_output_filter_select.py):
+  mean ATE over the tuning half, mm: current 0.02 / 0.001 / 1e-4  21.01; best 0.03 / 0.01 / 1e-5  20.69; within
+  0.1 mm of it and nearest to the current setting: 0.02 / 0.003 / 1e-5 (two grid steps)  20.78 -> picked.
+  per mission, current -> picked: heap-1 23.8 -> 23.3, pil-2 26.2 -> 26.1, con-1 24.7 -> 24.4, eig-2 25.6 -> 25.3,
+  arc-3 19.0 -> 18.8, snow-3 14.3 -> 14.0, arc-5 16.5 -> 16.3, arc-4 18.1 -> 18.0.
+  The ten best settings all have the lower bias noise (1e-5) or a higher acceleration noise: a filter that lets the
+  acceleration bias wander less and the motion more.

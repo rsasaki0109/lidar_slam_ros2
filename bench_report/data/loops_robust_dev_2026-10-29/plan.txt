@@ -1,0 +1,66 @@
+Phase 3 (SOTA v7), robust loops on the other development data (2026-10-29): MapsHD (8 trials), Oxford Spires Keble 05,
+HILTI 2022 exp04. Plan and reading fixed before any run. Follows bench_report/data/grandtour/loops_robust_2026-10-29/
+(chapter 36): on GrandTour, small_gicp's GICP at a 0.5 m correspondence distance was the first loop registration that
+made no mission more than 1 mm worse, but it did not help there, because a 2-cm frontend is as accurate as the loops.
+These ten sequences drift more and are where the walking backend preset (NDT 2 m) was adopted (chapters 14-25).
+
+Frontend: the Phase 1 global configuration G12 (configs/sota_v7/rko_lio_global_G12_2026-10-26.yaml, given as
+overrides on the rig files /home/user/bench/params/{mapshd,oxford_keble05,exp04}_gyro002_jerk1000.yaml, as in the
+G12 screen), rko_lio d40d3b9 (ws/rko_g35; the options added since G12 are off by default). Its trajectory is checked
+against the Phase 1 run of G10/G12 (md5 of front_tum_0.txt; MapsHD 1e87c667 8ab954f4 58825b41 87177585 b79883d4
+66188b0b 91884993 c1cd384f, Oxford 9df00551, exp04 5dff1cb9 for G10); a difference is reported, and the frontend of
+this run is the reference either way.
+Backend input: the frontend run again with publish_deskewed_scan (deskewed scans thinned to 0.1 m, the preset's
+map_leaf_size), recorded with scripts/record_backend_input.sh; its trajectory must equal the frontend-only run's.
+Backend: graph_slam_offline_runner of ws/slam_hi (lidar_slam_ros2 31d2694, built with small_gicp fa0cfc9), the walking
+preset lidarslam/param/lidarslam_mid360_rko_graph_walking.yaml (loops after 60 m, constant loop information, drift
+gate), the rig's LiDAR extrinsic. Variants:
+  ndt2      the preset (NDT 2 m cells), the adopted backend;
+  sg05      registration_method SMALL_GICP, gicp_max_correspondence_distance 0.5, gicp_transformation_epsilon 1e-4;
+  sg05_dcs  sg05 with loop_edge_robust_kernel_type dcs, loop_edge_robust_kernel_delta 1.0.
+Scored: the backend's optimized submap poses (trajectory_optimized.tum) densified onto the frontend's trajectory
+(scripts/densify_corrected_trajectory.py, as in chapters 13-25), then scored as the frontend is in Phase 1 (MapsHD:
+front_score.py, evo_ape -a in the LiDAR frame; Oxford: ape_oxford.py; exp04: ape_from_tum.py --interpolate on the
+seven control points). The frontend of the same run is scored the same way.
+Reading, per variant:
+  1. it does not hurt: no sequence's APE more than 5 % above the frontend's;
+  2. it helps: the geometric mean of the ten APEs is below the frontend's.
+  A variant that meets both and whose geometric mean is not above ndt2's is recommended as the walking preset's loop
+  registration in place of NDT 2 m. The preset file is not changed in this step (SMALL_GICP needs small_gicp in the
+  build, which the preset cannot assume); that is put to the maintainer.
+Reported besides: loop edges and backend wall time per sequence. The public MID-360 driving bag (whose start loop the
+preset must keep closing) is not on this machine and is not run.
+Disk: one sequence at a time (frontend, recording, three backend runs, scores), then its backend input is deleted.
+
+Results (2026-10-29; scores.csv rows of label dl in /home/user/bench/dev_loops; script p3_dev_backend.sh, summary
+p3_dev_backend_summary.py). The frontend's trajectory equals Phase 1's G10/G12 run on all ten (md5 above). APE in m;
+ratio to the frontend; loop edges in brackets.
+  sequence                   frontend   ndt2                 sg05                 sg05_dcs
+  flat-room 1                0.0148     0.0149 1.009 (1)     0.0148 1.001 (1)     0.0148 1.001 (1)
+  calibration-room 1         0.0261     0.0264 1.008 (15)    0.0268 1.027 (18)    0.0268 1.027 (18)
+  calibration-room 2         0.0207     0.0209 1.006 (1)     0.0208 1.003 (1)     0.0208 1.003 (1)
+  long-corridor 1            0.0712     0.0712 1.000 (0)     0.0712 1.000 (0)     0.0712 1.000 (0)
+  outdoor-urk 1              0.0545     0.0535 0.982 (1)     0.0536 0.985 (1)     0.0536 0.985 (1)
+  underground-garage 1       0.0440     0.0427 0.971 (2)     0.0447 1.015 (2)     0.0447 1.015 (2)
+  underground-garage 2       0.0293     0.0358 1.221 (5)     0.0298 1.016 (6)     0.0298 1.016 (6)
+  underground-garage 3       0.0267     0.0311 1.163 (1)     0.0267 0.997 (1)     0.0267 0.997 (1)
+  exp04                      0.0527     0.0527 1.000 (0)     0.0527 1.000 (0)     0.0527 1.000 (0)
+  oxford                     0.0533     0.0521 0.978 (14)    0.0521 0.977 (14)    0.0663 1.244 (14)
+  geometric mean of ten      0.0353     0.0364               0.0354               0.0363
+Reading:
+  ndt2 (the adopted preset) neither: garage 2 +22.1 %, garage 3 +16.3 %, geometric mean above the frontend's.
+  sg05 does not hurt (the largest ratio 1.027, calibration-room 1) but does not help (0.0354 against 0.0353).
+  sg05_dcs does not hurt nor help: Oxford +24.4 %.
+  No variant meets both readings, so none is recommended in place of NDT 2 m by the rule. Two facts for the
+  maintainer beside it: with the current frontend (G12) the adopted backend preset makes the ten sequences worse than
+  the frontend alone (0.0364 against 0.0353; garages 2 and 3), and sg05 is better than it on both counts (0.0354; at
+  most +2.7 % instead of +22.1 %).
+Diagnosis (p3_mapshd_loop_errors.py, loop edges against MapsHD's 6-DoF ground truth): NDT's loops in the garages are
+90-110 mm off in the median (garage 2: 98 mm, up to 251 mm) where the frontend's relative pose for the same pairs is
+14-28 mm; small_gicp's are 14-34 mm there, about the frontend's. On calibration-room 1 small_gicp's 18 loops are better
+than the frontend in translation (median 21.9 against 24.8 mm, 11 of 18) but worse in rotation (0.46 against 0.36 deg),
+which is where its +2.7 % comes from. DCS on Oxford: the loops are within 7.3 cm of the frontend (chi2 at most about 1
+in translation with the constant information 200), yet DCS with Phi 1 weakens their corrections (median 0.026 -> 0.015
+m) and the result is worse than the frontend alone: Phi is not scaled to the edges' information.
+Cost: small_gicp with the preset's one thread is slower on Oxford (backend 1102 s against NDT's 282 s for a 581-s
+sequence; a live backend would fall behind); on MapsHD and exp04 it is as fast as NDT or faster (5-35 s).

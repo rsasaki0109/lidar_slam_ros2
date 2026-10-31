@@ -1,0 +1,16 @@
+Phase 1, candidate G10 (fixed 2026-10-26 before any G10 run).
+
+Measured with G7 (no fallback; temporary debug build, not committed): the lowest fractions of keypoints within 0.25 m
+after a close-scene registration are 0.772/0.779/0.814 on calibration-room 1 and 0.828 on calibration-room 2 (both
+registered well by G7), and 0.471 (the scan where the heading jumps), then 0.740/0.776 on Koide 02b.
+G10 = G9 with close_scene_min_inlier_fraction 0.6 instead of 0.85 (threshold chosen from these development numbers).
+Gate: as for G7-G9 (per family geometric mean <= 1.10 x the family's best profile, all ten <= 1.05 x 0.0348; Koide 02a
+and 02b each <= 1.10 x V).
+
+Result (one run each, frontend only; ratio to reference):
+  MapsHD calib1 0.0261 (0.99), calib2 0.0207 (1.01), flat 0.0148 (1.00), corridor 0.0712 (1.00), urk 0.0545 (1.07),
+  garage1/2/3 0.0440/0.0293/0.0267 (1.00/1.00/1.00), all eight md5-identical to G7 (no fallback); MapsHD family 1.010;
+  Oxford 0.0533 (1.060); exp04 0.0527 (1.014); all ten 0.0353 against 0.0348 (1.015; V 0.0635, 1.82).
+  Koide 02a 0.829 (V 1.005), 02b 0.724 (V 1.015; one fallback).
+G10 IS ADOPTED as the Phase 1 base configuration G. Its two thresholds (12 m, 0.6) were chosen on development data
+and are confirmed only by a holdout.

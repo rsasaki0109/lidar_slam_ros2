@@ -147,14 +147,51 @@ TEST(GraphStateStore, SnapshotsShareEachStoredCloudInsteadOfCopyingIt)
   EXPECT_TRUE(first.map_array.submaps[0].cloud.data.empty());
   EXPECT_DOUBLE_EQ(first.map_array.submaps[0].distance, 1.0);
   EXPECT_EQ(first.clouds[0].get(), second.clouds[0].get());
-  EXPECT_EQ(first.clouds[0]->data, (std::vector<uint8_t>{1, 2, 3, 4, 5, 6}));
-  EXPECT_EQ(first.clouds[0]->width, 3U);
+  EXPECT_EQ(first.clouds[0]->message.data, (std::vector<uint8_t>{1, 2, 3, 4, 5, 6}));
+  EXPECT_EQ(first.clouds[0]->message.width, 3U);
 
   // The deep snapshot still hands out the whole graph, clouds included.
   lidarslam_msgs::msg::MapArray deep;
   ASSERT_TRUE(store.snapshot(deep));
   ASSERT_EQ(deep.submaps.size(), 1U);
   EXPECT_EQ(deep.submaps[0].cloud.data, (std::vector<uint8_t>{1, 2, 3, 4, 5, 6}));
+}
+
+TEST(GraphStateStore, KeepsAPackedCloudCompressedAndHandsItBackWhole)
+{
+  graphslam::GraphStateStore store;
+  std_msgs::msg::Header header;
+  lidarslam_msgs::msg::SubMap submap;
+  submap.cloud.width = 300;
+  submap.cloud.height = 1;
+  for (const char * name : {"x", "y", "z"}) {
+    sensor_msgs::msg::PointField field;
+    field.name = name;
+    field.offset = static_cast<std::uint32_t>(4 * submap.cloud.fields.size());
+    field.datatype = sensor_msgs::msg::PointField::FLOAT32;
+    field.count = 1;
+    submap.cloud.fields.push_back(field);
+  }
+  submap.cloud.point_step = 12;
+  submap.cloud.row_step = 300 * 12;
+  submap.cloud.data.resize(300 * 12);
+  for (std::size_t i = 0; i < submap.cloud.data.size(); ++i) {
+    submap.cloud.data[i] = static_cast<std::uint8_t>(i % 12 < 2 ? i * 7 : i % 12);
+  }
+  const sensor_msgs::msg::PointCloud2 original = submap.cloud;
+  store.append(std::move(submap), header);
+
+  graphslam::GraphStateStore::Snapshot snapshot;
+  ASSERT_TRUE(store.snapshot(snapshot));
+  ASSERT_EQ(snapshot.clouds.size(), 1U);
+  EXPECT_EQ(
+    snapshot.clouds[0]->compressed.empty(), !graphslam::cloud_compression::available());
+  EXPECT_EQ(graphslam::cloud_compression::restore(*snapshot.clouds[0]), original);
+
+  lidarslam_msgs::msg::MapArray deep;
+  ASSERT_TRUE(store.snapshot(deep));
+  ASSERT_EQ(deep.submaps.size(), 1U);
+  EXPECT_EQ(deep.submaps[0].cloud, original);
 }
 
 TEST(GraphStateStore, ReplaceKeepsTheCloudOfEverySubmap)
@@ -169,7 +206,7 @@ TEST(GraphStateStore, ReplaceKeepsTheCloudOfEverySubmap)
   graphslam::GraphStateStore::Snapshot snapshot;
   ASSERT_TRUE(store.snapshot(snapshot));
   ASSERT_EQ(snapshot.clouds.size(), 2U);
-  EXPECT_EQ(snapshot.clouds[0]->data, (std::vector<uint8_t>{7}));
-  EXPECT_EQ(snapshot.clouds[1]->data, (std::vector<uint8_t>{8, 9}));
+  EXPECT_EQ(snapshot.clouds[0]->message.data, (std::vector<uint8_t>{7}));
+  EXPECT_EQ(snapshot.clouds[1]->message.data, (std::vector<uint8_t>{8, 9}));
   EXPECT_TRUE(snapshot.map_array.submaps[1].cloud.data.empty());
 }

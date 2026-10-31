@@ -76,6 +76,9 @@ if(NOT g2o_FOUND)
   endif()
 endif()
 find_package(OpenMP)
+find_package(small_gicp QUIET)
+find_package(zstd_vendor QUIET)
+find_package(zstd QUIET)
 
 option(
   GRAPH_BASED_SLAM_ENABLE_3D_BBS
@@ -138,6 +141,14 @@ target_link_libraries(
   g2o::solver_eigen
   g2o::stuff
 )
+# registration_method SMALL_GICP (loop registration with small_gicp) when small_gicp is found.
+if(small_gicp_FOUND)
+  target_compile_definitions(graph_slam_application PUBLIC GRAPH_BASED_SLAM_HAVE_SMALL_GICP)
+  target_link_libraries(graph_slam_application small_gicp::small_gicp)
+  message(STATUS "small_gicp found; backend registration_method SMALL_GICP enabled")
+else()
+  message(STATUS "small_gicp not found; backend registration_method SMALL_GICP disabled")
+endif()
 
 add_library(graph_slam_map_point STATIC
   src/map_point.cpp
@@ -148,6 +159,30 @@ target_include_directories(
   graph_slam_map_point PUBLIC include ${EIGEN3_INCLUDE_DIR} ${PCL_INCLUDE_DIRS}
 )
 target_link_libraries(graph_slam_map_point ${PCL_LIBRARIES})
+
+# The backend keeps packed submap clouds compressed with zstd when it is found (cloud_compression).
+add_library(graph_slam_cloud_compression STATIC
+  src/cloud_compression.cpp
+)
+set_target_properties(graph_slam_cloud_compression PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_compile_features(graph_slam_cloud_compression PRIVATE cxx_std_17)
+target_include_directories(
+  graph_slam_cloud_compression PUBLIC include PRIVATE ${EIGEN3_INCLUDE_DIR} ${PCL_INCLUDE_DIRS}
+)
+ament_target_dependencies(graph_slam_cloud_compression sensor_msgs pcl_conversions)
+# zstd_vendor's Findzstd defines zstd::zstd; zstd's own package config, zstd::libzstd_shared.
+if(TARGET zstd::zstd)
+  set(GRAPH_BASED_SLAM_ZSTD_TARGET zstd::zstd)
+elseif(TARGET zstd::libzstd_shared)
+  set(GRAPH_BASED_SLAM_ZSTD_TARGET zstd::libzstd_shared)
+endif()
+if(GRAPH_BASED_SLAM_ZSTD_TARGET)
+  target_compile_definitions(graph_slam_cloud_compression PRIVATE GRAPH_BASED_SLAM_HAVE_ZSTD)
+  target_link_libraries(graph_slam_cloud_compression ${GRAPH_BASED_SLAM_ZSTD_TARGET})
+  message(STATUS "zstd found; submap clouds are kept compressed")
+else()
+  message(STATUS "zstd not found; submap clouds are kept uncompressed")
+endif()
 
 add_library(graph_slam_io_adapters STATIC
   src/filesystem_io_ports.cpp
@@ -292,6 +327,15 @@ if(BUILD_TESTING)
   if(TARGET test_graph_state_store)
     target_include_directories(test_graph_state_store PRIVATE include ${EIGEN3_INCLUDE_DIR})
     ament_target_dependencies(test_graph_state_store lidarslam_msgs)
+    target_link_libraries(test_graph_state_store graph_slam_cloud_compression)
+  endif()
+  ament_add_gtest(
+    test_cloud_compression
+    test/test_cloud_compression.cpp
+  )
+  if(TARGET test_cloud_compression)
+    ament_target_dependencies(test_cloud_compression sensor_msgs)
+    target_link_libraries(test_cloud_compression graph_slam_cloud_compression)
   endif()
   ament_add_gtest(
     test_triangle_descriptor
@@ -1000,6 +1044,7 @@ target_link_libraries(graph_based_slam_component
   graph_slam_application
   graph_slam_io_adapters
   graph_slam_map_point
+  graph_slam_cloud_compression
   g2o::core
   g2o::types_slam3d
   g2o::solver_eigen
@@ -1075,12 +1120,39 @@ target_link_libraries(graph_slam_offline_runner
   g2o::stuff
 )
 
+# Multi-session join (several sessions of one site in one pose graph): needs small_gicp.
+if(small_gicp_FOUND)
+  add_executable(graph_slam_multisession_join src/graph_slam_multisession_join.cpp)
+  target_compile_features(graph_slam_multisession_join PRIVATE cxx_std_17)
+  target_include_directories(graph_slam_multisession_join PRIVATE include ${PCL_INCLUDE_DIRS})
+  ament_target_dependencies(graph_slam_multisession_join
+    rclcpp rosbag2_cpp pcl_conversions nav_msgs sensor_msgs)
+  target_link_libraries(graph_slam_multisession_join
+    graph_slam_application
+    small_gicp::small_gicp
+    ${PCL_LIBRARIES}
+    g2o::core
+    g2o::types_slam3d
+    g2o::solver_eigen
+    g2o::stuff
+  )
+  install(TARGETS graph_slam_multisession_join DESTINATION lib/${PROJECT_NAME})
+endif()
+
 include_directories(
   include
   ${PCL_INCLUDE_DIRS}
 )
 
 if(BUILD_TESTING)
+  if(small_gicp_FOUND)
+    ament_add_gtest(test_multisession_join test/test_multisession_join.cpp TIMEOUT 300)
+    if(TARGET test_multisession_join)
+      target_compile_features(test_multisession_join PRIVATE cxx_std_17)
+      target_include_directories(test_multisession_join PRIVATE include ${EIGEN3_INCLUDE_DIR})
+      target_link_libraries(test_multisession_join small_gicp::small_gicp ${PCL_LIBRARIES})
+    endif()
+  endif()
   ament_add_gtest(
     test_graph_slam_composition
     test/test_graph_slam_composition.cpp

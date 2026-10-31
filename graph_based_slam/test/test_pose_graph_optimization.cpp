@@ -33,6 +33,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <cmath>
 #include <cstring>
 #include <vector>
 
@@ -533,6 +534,128 @@ TEST(PoseGraphOptimization, LoopEdgeInformationCanBeConstant)
     expected.diagonal() << 200.0, 200.0, 200.0, 1e5, 1e5, 1e5;
     EXPECT_TRUE(information.isApprox(expected));
   }
+}
+
+// Small right perturbation exp([w; v]) to first order (the tests use |delta| ~ 1e-6).
+Eigen::Isometry3d perturbation(const Eigen::Matrix<double, 6, 1> & delta)
+{
+  Eigen::Isometry3d e = Eigen::Isometry3d::Identity();
+  const Eigen::Vector3d w = delta.head<3>();
+  if (w.norm() > 0.0) {
+    e.linear() = Eigen::AngleAxisd(w.norm(), w.normalized()).toRotationMatrix();
+  }
+  e.translation() = delta.tail<3>();
+  return e;
+}
+
+// [w; v] of a small transform.
+Eigen::Matrix<double, 6, 1> tangent(const Eigen::Isometry3d & e)
+{
+  const Eigen::AngleAxisd a(e.rotation());
+  Eigen::Matrix<double, 6, 1> xi;
+  xi.head<3>() = a.angle() * a.axis();
+  xi.tail<3>() = e.translation();
+  return xi;
+}
+
+Eigen::Isometry3d pose(double yaw, double pitch, const Eigen::Vector3d & t)
+{
+  Eigen::Isometry3d g = Eigen::Isometry3d::Identity();
+  g.linear() = (Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()) *
+    Eigen::AngleAxisd(pitch, Eigen::Vector3d::UnitY())).toRotationMatrix();
+  g.translation() = t;
+  return g;
+}
+
+TEST(PoseGraphOptimization, NoAdjacentEdgeAcrossASessionStart)
+{
+  // two sessions of three submaps, joined by one loop edge: the adjacent edges stay inside each
+  std::vector<SubmapNode> nodes(6);
+  for (int i = 0; i < 6; ++i) {
+    nodes[i].pose.translation() = Eigen::Vector3d(i, 0.0, 0.0);
+  }
+  nodes[3].session_start = true;
+  LoopConstraint join;
+  join.from = 2;
+  join.to = 3;
+  join.relative_pose.translation() = Eigen::Vector3d(1.0, 0.0, 0.0);
+  AdjacentEdgeConfig adjacent;
+  adjacent.num_adjacent_pose_constraints = 5;
+  const auto joined = optimizePoseGraph(
+    nodes, {join}, {}, {}, adjacent, LoopEdgeConfig{}, ImuEdgeConfig{}, Chi2Collection::UNIFIED);
+  EXPECT_EQ(joined.adjacent_chi2.size(), 6U);  // (0,1) (0,2) (1,2) and (3,4) (3,5) (4,5)
+  nodes[3].session_start = false;
+  const auto single = optimizePoseGraph(
+    nodes, {join}, {}, {}, adjacent, LoopEdgeConfig{}, ImuEdgeConfig{}, Chi2Collection::UNIFIED);
+  EXPECT_EQ(single.adjacent_chi2.size(), 15U);
+}
+
+TEST(LoopEdgeInformation, RegistrationHessianMovesToTheEdgeAndItsInverse)
+{
+  // A positive definite Hessian of the registration T exp(delta).
+  Eigen::Matrix<double, 6, 6> m;
+  for (int i = 0; i < 36; ++i) {
+    m(i / 6, i % 6) = std::sin(1.0 + i);
+  }
+  const Eigen::Matrix<double, 6, 6> hessian =
+    m * m.transpose() + Eigen::Matrix<double, 6, 6>::Identity();
+  const Eigen::Isometry3d candidate = pose(0.3, 0.05, Eigen::Vector3d(120.0, -40.0, 3.0));
+  const Eigen::Isometry3d latest = pose(-1.2, -0.02, Eigen::Vector3d(118.0, -35.0, 2.5));
+  const Eigen::Isometry3d registration = pose(0.01, 0.0, Eigen::Vector3d(0.3, -0.2, 0.05));
+  const Eigen::Isometry3d relative = candidate.inverse() * registration * latest;
+  const Eigen::Matrix<double, 6, 6> information =
+    loop_information::relativePoseInformation(latest, hessian);
+  const Eigen::Matrix<double, 6, 6> inverse_information =
+    loop_information::inverseEdgeInformation(relative, information);
+  for (int k = 0; k < 6; ++k) {
+    Eigen::Matrix<double, 6, 1> delta;
+    for (int i = 0; i < 6; ++i) {
+      delta(i) = 1e-6 * std::cos(3.0 * k + i);
+    }
+    const Eigen::Isometry3d moved = candidate.inverse() * registration * perturbation(delta) *
+      latest;
+    // The registration's cost of delta equals the edge's cost of its own tangent, both ways round.
+    const Eigen::Matrix<double, 6, 1> e = tangent(relative.inverse() * moved);
+    const Eigen::Matrix<double, 6, 1> e_inverse = tangent(relative * moved.inverse());
+    const double cost = delta.dot(hessian * delta);
+    EXPECT_NEAR(e.dot(information * e), cost, 1e-4 * cost);
+    EXPECT_NEAR(e_inverse.dot(inverse_information * e_inverse), cost, 1e-4 * cost);
+  }
+}
+
+TEST(LoopEdgeInformation, ShapedInformationKeepsTheConstantsMeanInG2oOrder)
+{
+  // [w; v]: rotation information 4, 8, 12 / rad^2, translation 1, 2, 3 / m^2.
+  Eigen::Matrix<double, 6, 6> information = Eigen::Matrix<double, 6, 6>::Zero();
+  information.diagonal() << 4.0, 8.0, 12.0, 1.0, 2.0, 3.0;
+  const Eigen::Matrix<double, 6, 6> shaped =
+    loop_information::g2oShapedInformation(information, 200.0, 1e5);
+  // g2o order [t; q.vec], q.vec = w / 2: translation 1:2:3, rotation 4:8:12 (times 4), each
+  // scaled to the mean.
+  Eigen::Matrix<double, 6, 1> expected;
+  expected << 100.0, 200.0, 300.0, 0.5e5, 1e5, 1.5e5;
+  EXPECT_TRUE(shaped.diagonal().isApprox(expected));
+  EXPECT_TRUE((shaped - Eigen::Matrix<double, 6, 6>(shaped.diagonal().asDiagonal())).isZero());
+
+  LoopEdgeConfig config;
+  config.constant_info_trans = 200.0;
+  config.constant_info_rot = 1e5;
+  pose_graph::LoopConstraint constraint;
+  constraint.fitness_score = 0.3;
+  constraint.registration_information_valid = true;
+  constraint.registration_information = information;
+  Eigen::Matrix<double, 6, 6> constant = Eigen::Matrix<double, 6, 6>::Zero();
+  constant.diagonal() << 200.0, 200.0, 200.0, 1e5, 1e5, 1e5;
+  // Off by default; on, only for an edge whose registration reported a Hessian.
+  EXPECT_TRUE(pose_graph::loopEdgeInformation(config, constraint).isApprox(constant));
+  config.information_from_registration = true;
+  EXPECT_TRUE(pose_graph::loopEdgeInformation(config, constraint).isApprox(shaped));
+  constraint.registration_information_valid = false;
+  EXPECT_TRUE(pose_graph::loopEdgeInformation(config, constraint).isApprox(constant));
+  // A degenerate Hessian falls back to the constants too.
+  constraint.registration_information_valid = true;
+  constraint.registration_information.setZero();
+  EXPECT_TRUE(pose_graph::loopEdgeInformation(config, constraint).isApprox(constant));
 }
 
 }  // namespace

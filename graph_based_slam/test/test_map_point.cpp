@@ -29,6 +29,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstring>
@@ -38,6 +39,7 @@
 #include <string>
 #include <vector>
 
+#include <pcl/common/transforms.h>  // NOLINT(build/include_order)
 #include <pcl/filters/voxel_grid.h>  // NOLINT(build/include_order)
 #include <pcl/point_types.h>  // NOLINT(build/include_order)
 
@@ -232,4 +234,116 @@ TEST(MapPoint, InPartsDownsamplesAMapVoxelGridWouldCopy)
     EXPECT_NEAR(p.intensity, sum[3] / sum[4], 1e-2);
     EXPECT_EQ(++seen[key], 1);
   }
+}
+
+namespace
+{
+
+// Parts of a map: clouds moved by rigid transforms, as submap clouds by their poses.
+std::vector<MapCloud> movedParts(std::size_t parts, std::size_t points, unsigned seed)
+{
+  std::mt19937 rng(seed);
+  std::uniform_real_distribution<float> angle(-0.3f, 0.3f), shift(-5.0f, 5.0f);
+  std::vector<MapCloud> out;
+  for (std::size_t i = 0; i < parts; ++i) {
+    Eigen::Affine3f t = Eigen::Affine3f::Identity();
+    t.rotate(Eigen::AngleAxisf(angle(rng) * 10.0f, Eigen::Vector3f::UnitZ()));
+    t.rotate(Eigen::AngleAxisf(angle(rng), Eigen::Vector3f::UnitX()));
+    t.translation() = Eigen::Vector3f(shift(rng), shift(rng), 0.2f * shift(rng));
+    pcl::PointCloud<pcl::PointXYZI> moved;
+    pcl::transformPointCloud(*uniformCloud(points, 10.0f, seed + 1 + i), moved, t);
+    out.push_back(*graphslam::toMapCloud(moved));
+  }
+  return out;
+}
+
+MapCloud streamed(const std::vector<MapCloud> & parts, float leaf, std::size_t points_per_pass)
+{
+  MapCloud out;
+  graphslam::map_saver::voxelGridFilterStreamed(
+    parts.size(), [&parts](std::size_t i, MapCloud & cloud) {cloud = parts[i];}, leaf,
+    points_per_pass, out);
+  return out;
+}
+
+}  // namespace
+
+// The voxels of one VoxelGrid pass over the assembled map, in the same order; the means agree
+// to float rounding. How the passes are cut does not change the result.
+TEST(MapPoint, StreamedMatchesVoxelGridOverTheAssembledMap)
+{
+  const auto parts = movedParts(20, 5000, 31);
+  MapCloud::Ptr assembled(new MapCloud);
+  for (const auto & part : parts) {
+    *assembled += part;
+  }
+  MapCloud expected;
+  graphslam::map_saver::voxelGridFilter(assembled, 0.1f, expected);
+  const MapCloud actual = streamed(parts, 0.1f, 7000);
+  ASSERT_EQ(actual.size(), expected.size());
+  EXPECT_EQ(actual.width, expected.width);
+  EXPECT_EQ(actual.height, 1U);
+  EXPECT_TRUE(actual.is_dense);
+  float worst_xyz = 0.0f, worst_intensity = 0.0f;
+  for (std::size_t i = 0; i < expected.size(); ++i) {
+    for (int k = 0; k < 3; ++k) {
+      worst_xyz = std::max(worst_xyz, std::abs(actual[i].data[k] - expected[i].data[k]));
+    }
+    worst_intensity = std::max(worst_intensity,
+      std::abs(actual[i].intensity - expected[i].intensity));
+  }
+  EXPECT_LT(worst_xyz, 1e-4f);
+  EXPECT_LT(worst_intensity, 1e-3f);
+  for (const std::size_t per_pass : {std::size_t{1}, std::size_t{1000000}}) {
+    const MapCloud other = streamed(parts, 0.1f, per_pass);
+    ASSERT_EQ(other.size(), actual.size());
+    EXPECT_EQ(std::memcmp(other.points.data(), actual.points.data(), actual.size() * 16), 0);
+  }
+}
+
+// A map too large for VoxelGrid's 32-bit index: the voxels of voxelGridFilterInParts (in another
+// order).
+TEST(MapPoint, StreamedDownsamplesAMapVoxelGridWouldCopy)
+{
+  const float leaf = 0.1f;
+  std::vector<MapCloud> parts = movedParts(4, 20000, 41);
+  MapCloud far = parts.back();
+  for (auto & p : far.points) {
+    p.x += 1000.0f;
+    p.y += 1000.0f;
+    p.z += 60.0f;
+  }
+  parts.push_back(far);
+  graphslam::MapPoint nan;
+  nan.x = std::numeric_limits<float>::quiet_NaN();
+  parts.front().push_back(nan);
+  MapCloud assembled;
+  for (const auto & part : parts) {
+    assembled += part;
+  }
+  ASSERT_TRUE(graphslam::map_saver::voxelGridWouldCopyInput(assembled, leaf));
+  MapCloud expected;
+  graphslam::map_saver::voxelGridFilterInParts(assembled, leaf, expected);
+  const MapCloud actual = streamed(parts, leaf, 15000);
+  ASSERT_EQ(actual.size(), expected.size());
+  const float inverse_leaf = 1.0f / leaf;
+  const auto by_voxel = [inverse_leaf](const MapCloud & cloud) {
+      std::map<std::array<int, 3>, graphslam::MapPoint> out;
+      for (const auto & p : cloud) {
+        out[{static_cast<int>(std::floor(p.z * inverse_leaf)),
+            static_cast<int>(std::floor(p.y * inverse_leaf)),
+            static_cast<int>(std::floor(p.x * inverse_leaf))}] = p;
+      }
+      return out;
+    };
+  const auto a = by_voxel(actual), e = by_voxel(expected);
+  ASSERT_EQ(a.size(), e.size());
+  float worst = 0.0f;
+  for (auto ia = a.begin(), ie = e.begin(); ia != a.end(); ++ia, ++ie) {
+    ASSERT_EQ(ia->first, ie->first);
+    for (int k = 0; k < 3; ++k) {
+      worst = std::max(worst, std::abs(ia->second.data[k] - ie->second.data[k]));
+    }
+  }
+  EXPECT_LT(worst, 1e-3f);
 }

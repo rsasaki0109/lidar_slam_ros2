@@ -1,0 +1,64 @@
+GrandTour COMFORT Localization Benchmark, test phase, submission 2: preregistration (fixed 2026-10-26 23:5x UTC, before
+any test mission is run with it).
+
+What is submitted
+  The frontend (RKO-LIO) alone with G12, unchanged:
+    configs/sota_v7/rko_lio_global_G12_2026-10-26.yaml       md5 c4bde039a2499e10f7c6557c2e0b523c
+    rko_lio 6be3e3e (branch claude/jolly-gauss-dliz8l), offline_node md5 8324a5c01a3a0cd8a2afb05c583b1372
+  Rig inputs (LS): the Livox MID-360 point cloud, as in submission 1, and the STIM320 IMU instead of the Livox's
+  built-in IMU; the STIM320 frame is the base frame; extrinsics from the export's `transform` attributes;
+  T_world_prism(t) = T_world_stim320(t) T_stim320_prism with box_base -> prism from tf_static, as before.
+  Category: LiDAR + IMU (no camera, GNSS or external odometry).
+
+Why (data/grandtour/decision_rule_rig_2026-10-27.txt, development missions only; ATE without reference spikes, m):
+  mission   Livox IMU   STIM320
+  heap-1    0.0647      0.0636
+  arc-3     0.0715      0.0539
+  arc-4     0.0257      0.0233
+  arc-6     0.0211      0.0188
+  con-1     0.0879      0.0851
+  eig-2     0.0422      0.0413
+  snow-3    0.0344      0.0341
+  spx-1     0.0574      0.0521
+  mean      0.0506      0.0465
+  The Hesai XT-32 alone (HS) and the Hesai + Livox merge (HLS) were better on most missions but fail the rule
+  (HS: snow-3 0.1161, arc-3 0.1262; HLS: snow-3 0.1031, arc-4 0.0311), so LS is the one taken.
+  No test score was used: the test results of submission 1 decided only that more development data were needed.
+
+What is read for a test mission
+  livox_points.tar and stim320_imu.tar of the mission's Hugging Face folder (and the zarr attributes in them).
+
+Policy
+  1. The six test trajectories are produced in one batch (p1_grandtour_batch.sh with IMU=stim320_imu) and packed into
+     one zip; the md5 of every file is recorded here before the zip leaves the VM.
+  2. The maintainer uploads it once to the test phase as submission 2. The scores are recorded whatever they are.
+  3. As before: a pipeline failure is fixed and recorded; a poor trajectory because of G12 or the rig is submitted as is.
+
+Record (2026-10-27, after the batch, before the zip left the VM)
+  First attempt: a typo put the SPX-1 folder in place of SPX-2; the batch was stopped during the arc-2 conversion and
+  restarted with the right folder. Then the con-4 run lost its output (the VM ran out of memory with other jobs
+  beside it; the converter now streams, checked byte-identical on ARC-6); con-4 was run again alone. arc-2 and arc-7
+  are the runs of the first attempt (only their end-of-bag drops, below, in their logs).
+  Test missions, one run each with LS (node time / data span):
+    arc-2  21.1 s / 425 s   md5 8eadb3c955da43f0446b892079a81f49
+    arc-7  25.5 s / 322 s   md5 8c4379c5075f41f76c0c4eba7c5cc714
+    con-4  72.8 s / 743 s   md5 1942ef844eee2cfcdf64dc52afec65cc
+    eig-1  44.1 s / 430 s   md5 81b106922f132c20a3f4dca2b03fe477
+    snow-2 30.6 s / 261 s   md5 1581dcba52feb0cfc7530160b7b535a0
+    spx-2  14.0 s / 383 s   md5 b973cde0d28a58e03f25529f646b9510
+  comfort_test_LS.zip (the six files at its root): md5 91d8b8de2deac65ca6b932ebeb609e8b
+  Each trajectory ends 12.5-13.1 s before the G one: the STIM320 recording stops about 14 s before the Livox one, and
+  the last LiDAR scans, with no IMU data after them, are not processed. No scan was dropped for too few keypoints.
+
+Upload and scores (reported by the maintainer, 2026-10-27): comfort_test_LS.zip submitted to the Test Phase as the
+second test-phase submission (2 of 60 used). Mean ATE / RTE / LE 0.119920 / 0.024559 / 0.108403 (submission 1, G:
+0.117901 / 0.024559 / 0.107554). Per mission ATE / RTE / LE:
+  arc-2  0.336448 / 0.030592 / 0.371653   (G 0.311146)
+  arc-7  0.026150 / 0.021792 / 0.015707   (G 0.028961)
+  con-4  0.151832 / 0.023273 / 0.043344   (G 0.154113)
+  eig-1  0.114232 / 0.027024 / 0.142263   (G 0.116501)
+  snow-2 0.037714 / 0.021383 / 0.011676   (G 0.038418)
+  spx-2  0.053142 / 0.023291 / 0.065775   (G 0.058268)
+Five of six missions are 2-10 % better, as on the development data; arc-2 is 8 % worse and decides the mean.
+Leaderboard: maintainer decision (2026-10-27): neither submission 1 nor submission 2 is put on the public leaderboard.
+No further test-phase submission before the deadline.

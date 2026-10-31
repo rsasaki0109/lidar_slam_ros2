@@ -466,9 +466,11 @@ The only remaining PCL factory is the explicitly named
 | Method | Current construction/settings |
 | --- | --- |
 | `NDT` | Typed host-resident `lidarslam_builtin/NdtOmp`, 100 iterations, `ndt_resolution`, epsilon `0.01`, step size `0.1`, outlier ratio `0.55`, `DIRECT7`, optional `ndt_num_threads`; the runner and live component use the same request mapping. |
-| `GICP` | Explicit `makeLegacyGicpRegistration()` bridge around `pclomp::GeneralizedIterativeClosestPoint<PointXYZI, PointXYZI>`, maximum correspondence `30`, 100 iterations, transformation epsilon `1e-8`, Euclidean fitness epsilon `1e-6`, RANSAC iterations `0`; `ndt_num_threads` is ignored. |
+| `GICP` | Explicit `makeLegacyGicpRegistration()` bridge around `pclomp::GeneralizedIterativeClosestPoint<PointXYZI, PointXYZI>`, maximum correspondence `gicp_max_correspondence_distance` (default `30`), 100 iterations, transformation epsilon `gicp_transformation_epsilon` (default `1e-8`), Euclidean fitness epsilon `1e-6`, RANSAC iterations `0`; `ndt_num_threads` is ignored. |
+| `SMALL_GICP` | Only when graph_based_slam is built with small_gicp (found by CMake): `makeLoopRegistration()` builds `small_gicp::RegistrationPCL<PointXYZI, PointXYZI>` (type `GICP`, Gauss-Newton) behind the same bridge, maximum correspondence `gicp_max_correspondence_distance`, 100 iterations, `gicp_transformation_epsilon` as its step tolerance in translation (m) and rotation (rad), `ndt_num_threads` as its thread count. Without small_gicp the method is refused, with no fallback. |
 
-The backend compatibility factory has no NDT, FAST, or SMALL branch. Its
+The backend compatibility factory has no FAST branch, and its SMALL branch is
+GICP only (no VGICP). Its
 `ndt_resolution` and `ndt_num_threads` names are historical; the legacy GICP
 bridge does not read frontend parameters such as `ndt_step_size`,
 `ndt_outlier_ratio`, or `gicp_corr_dist_threshold`. Backend defaults therefore

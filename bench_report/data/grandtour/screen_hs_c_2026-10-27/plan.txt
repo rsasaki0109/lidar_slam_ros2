@@ -1,0 +1,27 @@
+Third screen: the height from the point-to-point terms (2026-10-27, written before any of these runs).
+
+Why: G15 fails G's gate on Oxford Keble 05 (0.0700 m against G12's 0.0533). The bump terms improve Oxford's horizontal
+error (per 30 s window xy 0.011-0.03 m against G12's 0.02-0.047) and keep the attitude (tilt 0.2-0.3 deg, as G12), but
+the height drifts by 0.06-0.12 m while the walker climbs or descends (1 m at 85 s, 4.4 m at 150-190 s; G12 0.02 m
+there). rko_lio 7973a41 adds bump_image_vertical_from_point_to_point: the bump system's world z translation is dropped
+before the point-to-point system is added, so the height comes from the point-to-point terms alone.
+Koide 02b (G15 2.21 m, bump alone 0.54, G12 0.72) diverges gradually from 43 s on, no single slip; it is checked too.
+
+Variant g15v = G15 + bump_image_vertical_from_point_to_point true (ws/rko_g16, rko_lio 7973a41).
+Data: Oxford Keble 05; Koide outdoor_hard 02a, 02b, 01b, 01a; GrandTour HS arc-3, arc-5, pil-2, con-3, snow-3, heap-1
+(where bump's height mattered: arc-5's height drift and pil-2's start with G12, arc-3's stairs).
+Reported: ATE per run, against G12 and G15. A screen, not an adoption: a candidate it picks gets its own rule on all the
+development data.
+
+Amendment (before any run of the corrected variant): the first build (rko_lio 7973a41) zeroed the bump system's z row
+and column, and Oxford diverged within 10 s (5.95 m, oxford_front.csv G15v_zeroed): the ground's height residuals then
+act on the attitude. rko_lio 4th commit after 05ab894 marginalises the height out (Schur complement) instead; the
+variant is run again under the label G15m with that build (ws/rko_g16, offline_node md5 e82baf07...).
+
+Result (2026-10-27): the variant does not help where G15 fails, so the screen was stopped after Oxford and Koide 02b.
+  Oxford Keble 05: G15m 0.0684 m (G15 0.0700, G12 0.0533). The height error stays in the same windows (60-120 s,
+  150-240 s, 300-360 s: z 0.05-0.12 m, G12 0.02-0.08), though the height now comes from the point-to-point terms
+  alone; the tilt error is the same as G12's (0.2-0.3 deg) and close-scene scans are as many (892 / 893). So the bump
+  terms do not pull the height directly: the height drift comes with the bump-registered horizontal / attitude.
+  Koide outdoor_hard_02b: G15m 2.335 m (G15 2.206, bump alone 0.539, G12 0.715); it drifts gradually, no single slip.
+  The interrupted Koide 02a / 01b / 01a runs were removed from koide_front.csv; no GrandTour run was made.

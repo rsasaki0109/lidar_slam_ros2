@@ -1,0 +1,45 @@
+# Chapter 30.7: frontend-only form of lidarslam/param/rko_lio_mid360_handheld_outdoor.yaml (the Koide outdoor profile).
+/**:
+  ros__parameters:
+    base_frame: base_link
+    odom_frame: odom
+    lidar_frame: ''
+    imu_frame: ''
+    publish_deskewed_scan: true
+    odom_topic: /rko_lio/odometry
+    dump_results: true
+    run_name: front
+    imu_acceleration_unit: auto
+    enable_kidnap_relocalization: false
+    reset_on_registration_failure: false
+    relocalize_after_scan_gap: false
+    extrinsic_imu2base_quat_xyzw_xyz:
+    - 0.0
+    - 0.0
+    - 0.0
+    - 1.0
+    - 0.0
+    - 0.0
+    - 0.0
+    extrinsic_lidar2base_quat_xyzw_xyz:
+    - 0.0
+    - 0.0
+    - 0.0
+    - 1.0
+    - 0.0
+    - 0.0
+    - 0.0
+    initialization_phase: true
+    deskew: true
+    voxel_size: 0.5
+    max_points_per_voxel: 20
+    min_range: 1.0
+    max_range: 100.0
+    max_correspondence_distance: 0.5
+    double_downsample: true
+    gravity_window_alignment: true
+    gravity_window_sec: 40.0
+    gravity_alignment_relevel_map: true
+    async.output_publish_delay_ms: 20
+    max_scan_delta_sec: 3.0
+    min_icp_keypoints: 100

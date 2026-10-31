@@ -1,0 +1,26 @@
+Eleventh screen on the HS rig: the start hold that keeps the position (2026-10-28, written before any of these runs).
+
+Why: the tenth screen showed that the start-standstill hold took the IMU-predicted pose for a held scan, which walks
+off when the biases are kept and the frame is still tilted by a moving start (ARC-5, h0: 0.59 m in 4 s); the eighth
+screen's per-interval bias had hidden it by absorbing the tilt, at the cost of taking the standing robot's sway for a
+gyro bias (ICE-1 +3.5 mm). rko_lio 5e99906 makes the hold keep the position (the attitude follows the gyro); tests
+112/112.
+Variants (ws/rko_g24; HS-G15c + start_standstill_radius 1.0 + start_standstill_hold true; not tuned):
+  p0 = start_standstill_bias none; pa = average; pi = interval (the eighth screen's ss with the new hold).
+Missions: snow-3, ice-1, arc-6, arc-5, arc-4 (moving starts), heap-1, pil-2, arc-1, arc-3 (static). Compared with
+HS-G15c. A screen: a candidate it picks is judged on all 15 HS missions under a rule fixed before those runs (the test's
+SNOW-2 starts on the spot like SNOW-3, so the start hold is what matters there).
+
+Result (2026-10-28; ws/rko_g24, rko_lio 5e99906; ATE without reference spikes, m; G15c / p0 / pa / pi):
+  snow-3  0.0268 / 0.0168 / 0.0165 / 0.0170      heap-1  0.0238 / 0.0236 / 0.0226 / 0.0213
+  arc-5   0.0152 / 0.0180 / 0.0228 / 0.0156      pil-2   0.0262 / 0.0259 / 0.0255 / 0.0251
+  ice-1   0.0111 / 0.0117 / 0.0112 / 0.0142      arc-1   0.0120 / 0.0123 / 0.0116 / 0.0116
+  arc-6   0.0099 / 0.0121 / 0.0126 / 0.0124      arc-3   0.0190 / 0.0224 / 0.0187 / 0.0206
+  arc-4   0.0178 / 0.0170 / 0.0165 / 0.0170      mean    0.0180 / 0.0178 / 0.0176 / 0.0172
+Keeping the position removes the walk-off (ARC-5 p0 0.0607 -> 0.0180). Every variant gains on SNOW-3 (-10 mm) and on
+average, but each breaks the 10 % / 2 mm tolerance somewhere: all on ARC-6 (+2.2 to +2.7 mm), whose loss lies in the
+first 5 s only (without the first 10 s all variants are at or below G15c: 9.6-9.9 against 10.0 mm): the robot shifts
+3-5 cm while it stands, which the registration follows within 1 cm there and the hold freezes. Besides, pa loses ARC-5
+(the average bias absorbs its 16-deg tilt), pi ICE-1 (the per-interval bias takes the sway), p0 ARC-5 and ARC-3.
+rko_lio 07d57b8 adds start_standstill_hold_radius (register the standing scan, keep it within that radius of where the
+robot started standing): the twelfth screen.

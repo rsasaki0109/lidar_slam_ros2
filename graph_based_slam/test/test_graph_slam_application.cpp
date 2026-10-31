@@ -33,6 +33,7 @@
 #include <vector>
 
 #include "graph_based_slam/graph_slam_application.hpp"
+#include "graph_based_slam/registration_factory.hpp"
 
 namespace graphslam
 {
@@ -244,6 +245,56 @@ TEST(GraphSlamApplication, RejectsInvalidOwnedEngineConfiguration)
   config.registration_method = "GICP";
   config.voxel_leaf_size = 0.0;
   EXPECT_THROW(static_cast<void>(GraphSlamApplication(config)), std::invalid_argument);
+}
+
+// A corner of three planes (floor and two walls), so that every degree of freedom is constrained.
+Cloud::Ptr cornerCloud()
+{
+  Cloud::Ptr cloud(new Cloud);
+  for (int a = 0; a < 40; ++a) {
+    for (int b = 0; b < 40; ++b) {
+      const float u = 0.1F * static_cast<float>(a) + 0.01F * static_cast<float>(b % 3);
+      const float v = 0.1F * static_cast<float>(b) + 0.01F * static_cast<float>(a % 3);
+      pcl::PointXYZI point;
+      point.intensity = 0.0F;
+      point.x = u; point.y = v; point.z = 0.0F;
+      cloud->push_back(point);
+      point.x = u; point.y = 0.0F; point.z = v;
+      cloud->push_back(point);
+      point.x = 0.0F; point.y = u; point.z = v;
+      cloud->push_back(point);
+    }
+  }
+  return cloud;
+}
+
+TEST(GraphSlamApplication, SmallGicpLoopRegistrationRecoversAShift)
+{
+  const auto registration = backend_core::makeLoopRegistration("SMALL_GICP", 2.0, 1, 0.5, 1e-5);
+#ifdef GRAPH_BASED_SLAM_HAVE_SMALL_GICP
+  ASSERT_TRUE(registration);
+  const Cloud::Ptr target = cornerCloud();
+  Eigen::Matrix4f shift = Eigen::Matrix4f::Identity();
+  shift.block<3, 1>(0, 3) = Eigen::Vector3f(0.05F, -0.03F, 0.02F);
+  Cloud::Ptr source(new Cloud);
+  pcl::transformPointCloud(*target, *source, shift);
+  registration->setInputTarget(target);
+  registration->setInputSource(source);
+  Cloud aligned;
+  registration->align(aligned, Eigen::Matrix4f::Identity());
+  ASSERT_TRUE(registration->hasConverged());
+  const Eigen::Matrix4f error = registration->getFinalTransformation() * shift;
+  const float translation_error = error.block<3, 1>(0, 3).norm();
+  const float rotation_error = (error.block<3, 3>(0, 0) - Eigen::Matrix3f::Identity()).norm();
+  EXPECT_LT(translation_error, 1e-3F);
+  EXPECT_LT(rotation_error, 1e-4F);
+
+  GraphSlamApplicationConfig config;
+  config.registration_method = "SMALL_GICP";
+  EXPECT_NO_THROW(static_cast<void>(GraphSlamApplication(config)));
+#else
+  EXPECT_FALSE(registration);
+#endif
 }
 
 }  // namespace

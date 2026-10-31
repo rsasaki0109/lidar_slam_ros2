@@ -1,0 +1,35 @@
+boot 2026-10-30 18:23:13
+oxford_s5smaps traj=cd21af833c11ba5a1b4c67ab0faa5d8a g2o=edbeeac4087a325a1f39c00048697272 loops=895f277efd80ca4603dffb599002bf2a map=6a4d5c3c3a817c41ecd70d30ebabcfb3 tiles=28e129c67fa4c45b1b5b127a98c92096 (68 files) front=3fe7772305554e4e994c0980f3726c53
+  frontend VmHWM kB 456540
+10716
+exp04_s5ht traj=a4748f73362e3180a8567e9a16a7a3e6 g2o=f434203ac5064e98bda89c40d75177ce loops=8ac346d2e520be620b00e6031589387a map=63e7439e0a57f2885986a13db3d07b01 tiles=12066edbdf0905abe587892032542294 (81 files) front=bc23199243971466e1645e4eed7640ca
+  frontend VmHWM kB 379076
+38820
+10616
+total 8
+drwxr-xr-x 2 root root 4096 Oct 30 18:25 .
+drwxr-xr-x 7 root root 4096 Oct 30 18:25 ..
+boot 2026-10-30 18:23:13
+exp04_s5hp traj=a4748f73362e3180a8567e9a16a7a3e6 g2o=f434203ac5064e98bda89c40d75177ce loops=8ac346d2e520be620b00e6031589387a map=63e7439e0a57f2885986a13db3d07b01 tiles=12066edbdf0905abe587892032542294 (81 files) front=bc23199243971466e1645e4eed7640ca
+  frontend VmHWM kB 379392
+39332
+10692
+2072
+total 1540
+drwxr-xr-x 2 root root    4096 Oct 30 18:33 .
+drwxr-xr-x 7 root root    4096 Oct 30 18:33 ..
+-rw-r--r-- 1 root root 1566589 Oct 30 18:33 exp04_front.gz
+oxford_s5hp traj=cd21af833c11ba5a1b4c67ab0faa5d8a g2o=edbeeac4087a325a1f39c00048697272 loops=895f277efd80ca4603dffb599002bf2a map=6a4d5c3c3a817c41ecd70d30ebabcfb3 tiles=28e129c67fa4c45b1b5b127a98c92096 (68 files) front=3fe7772305554e4e994c0980f3726c53
+  frontend VmHWM kB 481296
+39308
+10752
+2076
+total 7068
+drwxr-xr-x 2 root root    4096 Oct 30 18:34 .
+drwxr-xr-x 7 root root    4096 Oct 30 18:33 ..
+-rw-r--r-- 1 root root 1566589 Oct 30 18:33 exp04_front.gz
+-rw-r--r-- 1 root root    3122 Oct 30 18:34 exp04_peaks.txt
+-rw-r--r-- 1 root root    4740 Oct 30 18:34 exp04_peaks_full.txt
+-rw-r--r-- 1 root root 5645108 Oct 30 18:37 oxford_front.gz
+/dev/vda        252G   38G 1006M  98% /
+QUEUE90_DONE

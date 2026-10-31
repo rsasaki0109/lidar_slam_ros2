@@ -1,0 +1,20 @@
+Phase 1, candidate G3 (fixed 2026-10-26 before any G3 run; only V and the Koide profile had been run on Koide 02a).
+
+G3 = V + gravity_window_alignment true, gravity_window_sec 40.0, gravity_alignment_relevel_map true
+     (the three gravity keys of the Koide outdoor profile; no other change).
+Reference values: the best per-family frontend profile on record (MapsHD Z values, Oxford 0.0503, exp04 0.0520, as
+for G1/G2) and, for Koide outdoor_hard, the Koide profile run here (02a 0.546).
+Adopt as the new Phase 1 base if every sequence run is <= 1.10 x its reference; order: Koide 02a, MapsHD
+calib1/flat/garage1/urk, Oxford, exp04, then the other MapsHD trials and Koide 02b/01b/01a. The run stops at the
+first sequence above 1.10 x only if V itself is within 1.10 x there (a sequence where V already fails does not
+decide G3's fate by itself; it is reported).
+
+Result (one run each, frontend only; aligned x / y / z in m where measured):
+  Koide 02a: V 0.824 (0.394/0.267/0.673), Koide profile 0.546 (0.415/0.265/0.236), G3 0.547 (0.398/0.272/0.258)
+  MapsHD: urk 0.195 (z 0.185), calib1 0.292 (z 0.292), flat 0.063 (z 0.062), garage1 0.230 (z 0.192)
+  Oxford 0.877 (0.030/0.033/0.876), exp04 0.0733
+G3 is NOT adopted: every sequence except Koide loses its height. On Koide, the three gravity keys alone reach the
+Koide profile (0.547 against 0.546), so voxel 0.5, min_range 1.0 and the other Koide keys are not what helps there.
+The Oxford height error grows with travel, the signature of a map levelled to a slightly wrong gravity direction
+(for example an unestimated accelerometer bias). Next: find a GT-free condition under which the window's gravity
+direction can be trusted, before any gravity key enters G.

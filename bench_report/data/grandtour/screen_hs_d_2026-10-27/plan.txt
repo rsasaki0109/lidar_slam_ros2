@@ -1,0 +1,21 @@
+Fourth screen on the HS rig: the point-to-point terms only after the start (2026-10-27, written before any of these runs).
+
+Why: HS-G15's largest development error is SNOW-3, 0.0889 m; with the bump terms alone it is 0.0273 m. The
+point-to-point terms bring back the start failure on the open snow field (people walking around the standing robot are
+most of what the keypoints see). The test set has SNOW-2 from the same site. rko_lio 8fdafdf adds
+bump_image_point_to_point_start_distance: the point-to-point terms are added only once the registered pose has been
+that far from the first pose (latched); before, the bump terms register alone.
+Variants (HS-G15 + the key, ws/rko_g18): sd1 (1 m), sd3 (3 m).
+Missions: snow-3 (the target), pil-2, arc-1, arc-3 (start failures with G12), arc-5, con-1 (bump alone and G15 differ
+most there). Reported per run: ATE without reference spikes, jitter; compared with HS-G15 (G15hs_g15).
+A screen: a candidate it picks is judged on all 15 HS missions under a rule fixed before those runs.
+
+Result (2026-10-27; ws/rko_g18, rko_lio 8fdafdf; ATE without reference spikes, m; sd1 / sd3 / HS-G15):
+  snow-3  0.0268 / 0.0268 / 0.0889      pil-2   0.0282 / 0.0279 / 0.0317
+  arc-1   0.0152 / 0.0149 / 0.0168      arc-3   0.0227 / 0.0197 / 0.0247
+  arc-5   0.0158 / 0.0152 / 0.0180      con-1   0.0249 / 0.0249 / 0.0248
+  mean    0.0223 / 0.0216 / 0.0342
+The start failure on the snow field is gone with either distance (bump alone gave 0.0273). The other start transients
+(pil-2, arc-1, arc-3, arc-5) also shrink, more with 3 m; con-1 is unchanged. sd3 is the candidate:
+G15b = HS-G15 + bump_image_point_to_point_start_distance 3.0, judged on all 15 HS missions under
+decision_rule_G15b.txt, fixed before the nine remaining runs.

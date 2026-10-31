@@ -320,6 +320,34 @@ def test_offline_start_barrier_is_opt_in_and_fail_closed():
     assert 'prefix=prefix' in launch_source
 
 
+def test_offline_node_waits_for_the_backend_by_default():
+    module = _parse_launch_ast()
+    generate_launch_description = _find_function(
+        module,
+        'generate_launch_description',
+    )
+    return_stmt = next(
+        node for node in generate_launch_description.body
+        if isinstance(node, ast.Return)
+    )
+    argument = _find_declare_launch_argument_call(
+        return_stmt.value,
+        'wait_for_backend',
+    )
+    default_kw = next(kw for kw in argument.keywords if kw.arg == 'default_value')
+    assert _constant_string(default_kw.value) == 'true'
+    launch_source = LAUNCH_PATH.read_text(encoding='utf-8')
+    # Only the node's own wait: no barrier script unless wait_for_output_subscribers.
+    assert "LaunchConfiguration('wait_for_backend').perform(context)" in launch_source
+    assert "'output_subscriber_timeout_sec': float(" in launch_source
+
+
+def test_offline_node_leaves_the_launch_prefix_to_ros2_launch():
+    # An empty prefix in the launch file would override ros2 launch --launch-prefix.
+    launch_source = LAUNCH_PATH.read_text(encoding='utf-8')
+    assert 'prefix=prefix or None,' in launch_source
+
+
 def test_offline_wait_parameter_exists_in_vendored_rko_lio():
     offline_node = (
         REPO_ROOT / 'Thirdparty' / 'rko_lio' / 'rko_lio' / 'ros' / 'offline_node.cpp'

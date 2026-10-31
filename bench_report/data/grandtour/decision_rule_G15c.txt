@@ -1,0 +1,39 @@
+GrandTour HS configuration G15c (fixed 2026-10-27 before any G15c run other than those of the sixth and seventh HS
+screens, screen_hs_f_2026-10-27/ and screen_hs_g_2026-10-27/, whose results are known and count with these runs).
+
+G15c = HS-G15b (configs/sota_v7/rko_lio_grandtour_hs_G15b_2026-10-27.yaml) + output_filter_position_sigma 0.02,
+output_filter_acceleration_noise 0.001, output_filter_bias_noise 1e-4 (rko_lio 9461e71, ws/rko_g21): the output
+positions are those of a causal 9-state filter (IMU-driven, the registered positions as measurements); the
+registration chain and the map are G15b's. After a moving start the filter stays off (no
+moving_start_gravity_window_sec), so on those missions the output is G15b's byte for byte. A configuration for the HS
+rig of GrandTour only, like G15b.
+
+Why: on the static starts of the sixth screen it lowers the ATE by 0.3-2.9 mm (arc-1 0.0149 -> 0.0120, pil-2 0.0279 ->
+0.0262, eig-2 0.0265 -> 0.0256, heap-1 0.0241 -> 0.0238 m) by halving the sub-second error; on moving starts it needs
+the gravity direction, and the re-estimated gravity of moving_start_gravity_window_sec costs ARC-5 (mg5 0.0180, mgof2
+0.0172 against 0.0152 m), so that window is not part of G15c.
+
+Adopt G15c as the GrandTour HS configuration in place of G15b if all of these hold (one run each, frontend only):
+  1. The 15 HS development missions of decision_rule_G15b.txt: mean below G15b's 0.0189 m, and no mission worse than
+     G15b by more than 10 % and more than 2 mm at once. snow-1 is run and reported only.
+  2. Every run real-time (node time below the mission span).
+  3. On every moving start (log "Moving start") the trajectory is G15b's byte for byte.
+Results counted from the screens: arc-1, pil-2, eig-2, heap-1 (sixth screen, ws/rko_g20; rko_lio 9461e71 changes only
+the moving-start path, and the seventh screen's of2 gives the sixth screen's arc-1 byte for byte), arc-5, arc-4, ice-1,
+arc-6, snow-3 (seventh screen, of2). To run: arc-3, con-1, con-2, con-3, spx-1, spx-3, snow-1. If G15c is adopted, a
+COMFORT submission with it needs its own preregistration and the maintainer's decision.
+
+Result (2026-10-28; one run each, frontend only; ATE without reference spikes, m; G15b in brackets):
+  1. heap-1 0.0238 (0.0241), arc-3 0.0190 (0.0197), arc-4 0.0178 (0.0178), arc-6 0.0099 (0.0099), con-1 0.0247
+     (0.0249), eig-2 0.0256 (0.0265), snow-3 0.0268 (0.0268), spx-1 0.0198 (0.0198), spx-3 0.0077 (0.0087), ice-1
+     0.0111 (0.0111), arc-1 0.0120 (0.0149), arc-5 0.0152 (0.0152), con-2 0.0208 (0.0213), pil-2 0.0262 (0.0279),
+     con-3 0.0150 (0.0152); mean 0.0184 (0.0189); no mission worse than G15b. snow-1 0.3757 (0.3757). Criterion 1
+     holds. (The container restarted once during the runs: con-1's run had not started, its directory was removed and
+     the batch resumed with it; spx-3 and spx-1 were complete.)
+  2. Node time / mission span, s: spx-3 31 / 214, spx-1 52 / 374, con-1 243 / 388, con-2 171 / 384, arc-3 246 / 713,
+     con-3 208 / 796, snow-1 71 / 172, arc-1 183 / 433, pil-2 192 / 407, eig-2 129 / 348, heap-1 143 / 290, arc-5
+     113 / 391, arc-4 90 / 397, ice-1 36 / 251, arc-6 60 / 349, snow-3 89 / 232. Criterion 2 holds.
+  3. The moving starts arc-5, arc-4, ice-1, arc-6, snow-3 (seventh screen) and snow-1 give G15b's trajectories byte
+     for byte; the six other runs here are static starts. Criterion 3 holds.
+G15c is adopted as the GrandTour HS configuration (configs/sota_v7/rko_lio_grandtour_hs_G15c_2026-10-27.yaml). A
+submission with it needs its own preregistration and the maintainer's decision.

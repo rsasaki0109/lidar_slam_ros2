@@ -1,0 +1,44 @@
+boot 2026-10-30 17:11:51
+exp04_s4A1 traj=a4748f73362e3180a8567e9a16a7a3e6 g2o=f434203ac5064e98bda89c40d75177ce loops=8ac346d2e520be620b00e6031589387a map=63e7439e0a57f2885986a13db3d07b01 tiles=12066edbdf0905abe587892032542294 (81 files) front=bc23199243971466e1645e4eed7640ca lib=libgraph_based_slam_component.s2_4a69722.so
+  
+exp04_s4B1 traj=a4748f73362e3180a8567e9a16a7a3e6 g2o=f434203ac5064e98bda89c40d75177ce loops=8ac346d2e520be620b00e6031589387a map=63e7439e0a57f2885986a13db3d07b01 tiles=12066edbdf0905abe587892032542294 (81 files) front=bc23199243971466e1645e4eed7640ca lib=libgraph_based_slam_component.s4.so
+  [map save] submap clouds held in 15.0322 MiB (20.6545 MiB uncompressed)
+exp04_s4A2 traj=a4748f73362e3180a8567e9a16a7a3e6 g2o=f434203ac5064e98bda89c40d75177ce loops=8ac346d2e520be620b00e6031589387a map=63e7439e0a57f2885986a13db3d07b01 tiles=12066edbdf0905abe587892032542294 (81 files) front=bc23199243971466e1645e4eed7640ca lib=libgraph_based_slam_component.s2_4a69722.so
+  
+exp04_s4B2 traj=a4748f73362e3180a8567e9a16a7a3e6 g2o=f434203ac5064e98bda89c40d75177ce loops=8ac346d2e520be620b00e6031589387a map=63e7439e0a57f2885986a13db3d07b01 tiles=12066edbdf0905abe587892032542294 (81 files) front=bc23199243971466e1645e4eed7640ca lib=libgraph_based_slam_component.s4.so
+  [map save] submap clouds held in 15.0322 MiB (20.6545 MiB uncompressed)
+oxford_s4A1 traj=cd21af833c11ba5a1b4c67ab0faa5d8a g2o=edbeeac4087a325a1f39c00048697272 loops=895f277efd80ca4603dffb599002bf2a map=6a4d5c3c3a817c41ecd70d30ebabcfb3 tiles=28e129c67fa4c45b1b5b127a98c92096 (68 files) front=3fe7772305554e4e994c0980f3726c53 lib=libgraph_based_slam_component.s2_4a69722.so
+  
+oxford_s4B1 traj=cd21af833c11ba5a1b4c67ab0faa5d8a g2o=edbeeac4087a325a1f39c00048697272 loops=895f277efd80ca4603dffb599002bf2a map=6a4d5c3c3a817c41ecd70d30ebabcfb3 tiles=28e129c67fa4c45b1b5b127a98c92096 (68 files) front=3fe7772305554e4e994c0980f3726c53 lib=libgraph_based_slam_component.s4.so
+  [map save] submap clouds held in 198.836 MiB (293.47 MiB uncompressed)
+oxford_s4A2 traj=cd21af833c11ba5a1b4c67ab0faa5d8a g2o=edbeeac4087a325a1f39c00048697272 loops=895f277efd80ca4603dffb599002bf2a map=6a4d5c3c3a817c41ecd70d30ebabcfb3 tiles=28e129c67fa4c45b1b5b127a98c92096 (68 files) front=3fe7772305554e4e994c0980f3726c53 lib=libgraph_based_slam_component.s2_4a69722.so
+  
+oxford_s4B2 traj=cd21af833c11ba5a1b4c67ab0faa5d8a g2o=edbeeac4087a325a1f39c00048697272 loops=895f277efd80ca4603dffb599002bf2a map=6a4d5c3c3a817c41ecd70d30ebabcfb3 tiles=28e129c67fa4c45b1b5b127a98c92096 (68 files) front=3fe7772305554e4e994c0980f3726c53 lib=libgraph_based_slam_component.s4.so
+  [map save] submap clouds held in 198.836 MiB (293.47 MiB uncompressed)
+exp04_s4A1,107.636,107.969,0.332,107.195,40,1
+exp04_s4B1,22.079,22.360,0.280,21.7011,40,1
+exp04_s4A2,22.440,22.721,0.281,22.0248,40,1
+exp04_s4B2,22.641,22.949,0.306,22.2674,40,1
+oxford_s4A1,221.206,267.011,45.805,220.816,444,22
+oxford_s4B1,215.333,266.369,51.036,214.952,444,22
+oxford_s4A2,223.906,270.028,46.122,223.557,444,22
+oxford_s4B2,225.624,278.303,52.679,225.239,444,22
+run,frontend_end_s,backend_peak_mb,backend_peak_t_s,backend_max_while_frontend_runs_mb,backend_max_after_frontend_mb,backend_last_mb
+exp04_s4A1,108.1,211,58.6,211,204,185
+exp04_s4B1,22.6,209,14.4,209,207,165
+exp04_s4A2,23.1,205,15.2,205,188,188
+exp04_s4B2,23.3,189,14.3,189,186,107
+oxford_s4A1,221.7,619,267.5,512,619,359
+oxford_s4B1,215.7,555,266.8,437,555,444
+oxford_s4A2,224.3,616,270.6,499,616,497
+oxford_s4B2,226.2,528,278.9,427,528,415
+exp04_s4A1 vmhwm_kb backend=217572 frontend=302708 sum=1448872
+exp04_s4B1 vmhwm_kb backend=215352 frontend=404364 sum=688636
+exp04_s4A2 vmhwm_kb backend=210332 frontend=374012 sum=653232
+exp04_s4B2 vmhwm_kb backend=193664 frontend=384424 sum=646988
+oxford_s4A1 vmhwm_kb backend=683884 frontend=485828 sum=1238884
+oxford_s4B1 vmhwm_kb backend=609656 frontend=491488 sum=1170556
+oxford_s4A2 vmhwm_kb backend=665000 frontend=456888 sum=1191104
+oxford_s4B2 vmhwm_kb backend=579872 frontend=464080 sum=1113264
+boot 2026-10-30 17:11:51
+QUEUE88_DONE

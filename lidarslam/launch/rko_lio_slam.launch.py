@@ -132,6 +132,17 @@ def create_rko_offline_node(context, *args, **kwargs):
     wait_for_subscribers = _parse_bool_arg(
         LaunchConfiguration('wait_for_output_subscribers').perform(context)
     )
+    if _parse_bool_arg(LaunchConfiguration('wait_for_backend').perform(context)):
+        # graph_based_slam is always launched below. Scans published before it
+        # has subscribed are lost, so the map starts one or two scans late, by a
+        # different amount on every run (bench_report/REPORT.md, chapter 39).
+        # The offline node's own wait (polled every 10 ms) adds well under a
+        # second; the barrier script below adds about 10 s.
+        parameters[0].update({
+            'output_subscriber_timeout_sec': float(
+                LaunchConfiguration('subscriber_wait_timeout_sec').perform(context)
+            ),
+        })
     if wait_for_subscribers:
         barrier_script = os.path.join(
             get_package_share_directory('lidarslam'),
@@ -181,7 +192,9 @@ def create_rko_offline_node(context, *args, **kwargs):
             executable='offline_node',
             name='rko_lio_offline_node',
             parameters=parameters,
-            prefix=prefix,
+            # None, not an empty prefix: a prefix set here overrides ros2 launch's
+            # --launch-prefix (e.g. a profiler around the offline node).
+            prefix=prefix or None,
             output='screen',
             emulate_tty=True,
         ),
@@ -373,6 +386,15 @@ def generate_launch_description():
             'skip_to_time',
             default_value='0.0',
             description='Skip to this timestamp in the bag (seconds).',
+        ),
+        DeclareLaunchArgument(
+            'wait_for_backend',
+            default_value='true',
+            description=(
+                'The offline node reads the bag only once its odometry and scan '
+                'outputs have subscribers (graph_based_slam), so no scan is lost '
+                'at the start (subscriber_wait_timeout_sec).'
+            ),
         ),
         DeclareLaunchArgument(
             'wait_for_output_subscribers',

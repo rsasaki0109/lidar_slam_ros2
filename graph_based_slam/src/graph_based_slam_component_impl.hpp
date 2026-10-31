@@ -165,6 +165,25 @@ private:
     // Autoware-compatible grid-divided PCD map output
   // Takes the map by value and frees it once downsampled (callers pass it by std::move).
   void saveGridDividedMap(MapCloud::Ptr map);
+  void saveGridDividedMap(MapCloud::Ptr map, const std::string & save_dir);
+  // The same map, downsampled from the submap clouds moved by their poses without assembling it
+  // (map_save_points_per_pass), unless it fits in one pass.
+  void saveStreamedMap(
+    const std::vector<GraphStateStore::CloudPtr> & clouds,
+    const std::vector<Eigen::Isometry3d> & poses);
+  // Submap cloud i moved by its pose, as into the map.
+  void moveSubmapCloud(
+    const std::vector<GraphStateStore::CloudPtr> & clouds,
+    const std::vector<Eigen::Isometry3d> & poses, std::size_t i,
+    pcl::PointCloud<pcl::PointXYZI> & transformed);
+  // The map only saved, assembled as doPoseAdjustment assembles it.
+  MapCloud::Ptr assembleSavedMap(
+    const std::vector<GraphStateStore::CloudPtr> & clouds,
+    const std::vector<Eigen::Isometry3d> & poses, std::size_t map_points);
+  // Writes the downsampled map into save_dir: the grid-divided tiles, their metadata, map.pcd
+  // and map_projector_info.yaml. map_points: the points it was downsampled from (for the log).
+  void saveDownsampledMap(
+    MapCloud::Ptr downsampled, std::size_t map_points, const std::string & save_dir);
   void writeMapBundleArtifacts(
     const lidarslam_msgs::msg::MapArray & map_array_msg,
     const DeterministicArtifacts & artifacts,

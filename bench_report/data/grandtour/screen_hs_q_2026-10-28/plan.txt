@@ -1,0 +1,37 @@
+Seventeenth screen on the HS rig: the registration takes the gravity of the moving-start window (2026-10-28, written
+before any of these runs).
+
+Why: with scale and lag removed (scale_2026-10-28.txt) HS-G15g is the best or near it on most development missions,
+but on the moving starts BIEVR-LIO is 2-3 mm better (arc-5, arc-4, ice-1), and our height is worse there. The walking
+initialization tilts the world frame (arc-5 16 deg, arc-4 2.9, snow-3 2.8, ice-1 1.5; the test's snow-2 2.1, spx-2
+2.4): the propagation and the attitude regularization keep using (0, 0, -g) in that frame. HS-G15g estimates the
+gravity again after 5 s of motion but gives it to the output filter only. The fifth screen gave it to the whole LIO
+(mg5) and arc-5 came out 0.0180 against 0.0152 on single runs, before noise_2026-10-28/ showed that G15c's 0.0152 was
+the low end of a 0.0152-0.0185 spread (four-run mean 0.0170). This screen judges it again on four-run means.
+Variants (ws/rko_g32, rko_lio eebe6e4; all with convergence_criterion 3.0e-5 (c30), 2.5e-5, 3.5e-5, 4.0e-5):
+  g15g = HS-G15g (the baseline; c30 is HS-G15g itself);
+  mgl5 = HS-G15g with moving_start_gravity_output_only false (the registration, the propagation and the
+         regularization take the window's gravity too);
+  mgl2 = the same with a 2-s window.
+Static starts are untouched by these options (no window without a moving start).
+Missions: the moving starts snow-3, arc-5, arc-4, ice-1, arc-6.
+Reported: per mission the four runs and their mean (ATE without reference spikes), the height error, the tilt
+estimated. A variant is a candidate if its mean over the five missions' four-run means is at least 0.5 mm below
+HS-G15g's and no mission's four-run mean is worse than HS-G15g's by more than 10 % and 2 mm at once. All five moving
+starts serve here, so a configuration from it can be checked only for doing what it says (as decision_rule_G15f.txt
+states); the test's snow-2 and spx-2 are the first independent evidence.
+
+Result (2026-10-28; ws/rko_g32; ATE without reference spikes, m; c30 / c25 / c35 / c40 and the four-run mean):
+  g15g  snow-3 0.0140 0.0139 0.0136 0.0136 mean 0.0138   mgl5  0.0138 0.0139 0.0134 0.0135 mean 0.0136   mgl2  mean 0.0136
+        arc-5  0.0163 0.0144 0.0169 0.0165 mean 0.0160         0.0173 0.0172 0.0180 0.0172 mean 0.0174         mean 0.0171
+        arc-4  0.0180 0.0164 0.0174 0.0171 mean 0.0172         0.0170 0.0169 0.0166 0.0167 mean 0.0168         mean 0.0167
+        ice-1  0.0110 0.0108 0.0106 0.0109 mean 0.0108         0.0109 0.0109 0.0110 0.0108 mean 0.0109         mean 0.0109
+        arc-6  0.0097 0.0096 0.0097 0.0096 mean 0.0096         0.0096 0.0096 0.0097 0.0096 mean 0.0096         mean 0.0097
+  mean of the four-run means: g15g 0.0135, mgl5 0.0137, mgl2 0.0136. (mgl2's runs: hsq_mgl2_c*.)
+  Height RMS, mm, mean of the four runs (g15g / mgl5 / mgl2): snow-3 5.4 / 5.4 / 5.4, arc-5 11.7 / 13.8 / 13.6, arc-4
+  13.3 / 13.2 / 12.9, ice-1 3.0 / 3.0 / 3.0, arc-6 2.7 / 2.7 / 2.7. Tilts estimated: arc-4 2.1, arc-5 16.0, ice-1 0.5,
+  arc-6 0.4, snow-3 2.6 deg (both windows).
+  g15g's c30 runs are HS-G15g's trajectories (0.0140, 0.0163, 0.0180, 0.0110, 0.0097 as the replays).
+No candidate: neither variant is better on the mean, and arc-5 loses 1.1-1.4 mm on four-run means (its height 2 mm),
+confirming the fifth screen's single run. The height error of arc-4 and arc-5 does not come from the gravity the
+registration uses.

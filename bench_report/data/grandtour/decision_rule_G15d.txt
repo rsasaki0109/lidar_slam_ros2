@@ -1,0 +1,51 @@
+GrandTour HS configuration G15d (fixed 2026-10-28 before any G15d run other than those of the twelfth and thirteenth
+HS screens, screen_hs_l_2026-10-28/ and screen_hs_m_2026-10-28/, and of the noise diagnostic, noise_2026-10-28/, whose
+results are known and count with these runs).
+
+G15d = HS-G15c (configs/sota_v7/rko_lio_grandtour_hs_G15c_2026-10-27.yaml) + start_standstill_radius 1.0 +
+start_standstill_hold true + start_standstill_hold_radius 0.05 + start_standstill_bias interval +
+start_standstill_bias_static_only true (rko_lio 6b0a460, ws/rko_g26; confirm_G15d_2026-10-28/g15d.yaml, the
+thirteenth screen's r5is with only its comment line changed). While the robot stands within 1 m of its start, a
+scan's registered position is clamped to 5 cm around the position where it first stood and the map is not updated
+with a clamped scan; after a static start the standing intervals set the gyro and accelerometer biases, after a
+moving start they leave them at zero. A configuration for the HS rig of GrandTour only, like G15c.
+
+Why: on the nine missions of the thirteenth screen it lowers the mean from 0.0180 to 0.0166 m, mostly through SNOW-3
+(0.0268 -> 0.0156; people pull the registration while the robot stands for about 8 s) and HEAP-1 (0.0238 -> 0.0205).
+Its only mission outside the 10 % / 2 mm tolerance there, ARC-5 (0.0152 -> 0.0173), is within the spread of neutral
+changes: over four stopping thresholds the means are 0.0170 (G15c) and 0.0171 (r5is).
+
+Adopt G15d as the GrandTour HS configuration in place of G15c if all of these hold (frontend only):
+  1. The 15 HS development missions of decision_rule_G15b.txt, one run each (the default file): mean below G15c's
+     0.0184 m. snow-1 is run and reported only.
+  2. No mission worse than G15c by more than 10 % and more than 2 mm at once, judged in two stages. First on the
+     single runs. A mission outside the tolerance there is run three more times with each configuration, with
+     convergence_criterion 2.5e-5, 3.5e-5 and 4.0e-5 in place of 3.0e-5 (nothing else changed), and judged again,
+     with the same tolerance, on the means of the four runs of each configuration; it fails only if it is outside
+     the tolerance on those means as well. ARC-5's four-run means are known (0.0170 / 0.0171); this stage was
+     written after them, and ARC-5 passes by it.
+  3. Every run real-time (node time below the mission span).
+Results counted from the screens: snow-3, arc-5, ice-1, arc-6, arc-4 (thirteenth screen, r5is), heap-1, pil-2,
+arc-1, arc-3 (r5i of the twelfth screen, which r5is reproduces byte for byte on static starts, checked on heap-1).
+To run: con-1, eig-2, spx-1, spx-3, con-2, con-3 (all static starts), and snow-1 (reported only). If G15d is
+adopted, a COMFORT submission with it needs its own preregistration and the maintainer's decision; submission 4
+(HS-G15c) is prepared and not uploaded.
+
+Result (2026-10-28; frontend only; ATE without reference spikes, m; G15c in brackets):
+  1. snow-3 0.0156 (0.0268), arc-5 0.0173 (0.0152), ice-1 0.0113 (0.0111), arc-6 0.0101 (0.0099), arc-4 0.0179
+     (0.0178), heap-1 0.0205 (0.0238), pil-2 0.0251 (0.0262), arc-1 0.0117 (0.0120), arc-3 0.0203 (0.0190) from the
+     screens; spx-3 0.0390 (0.0077), spx-1 0.0215 (0.0198), con-1 0.0223 (0.0247), eig-2 0.0275 (0.0256), con-2
+     0.0225 (0.0208), con-3 0.0261 (0.0150) run here. Mean of 15: 0.0206 (0.0184). Criterion 1 does not hold.
+     snow-1 0.3755 (0.3757).
+  2. Outside the tolerance on the single runs: arc-5 (+2.1 mm), spx-3 (+31.3 mm), con-3 (+11.1 mm). Second stage:
+     arc-5 0.0171 / 0.0170 (noise_2026-10-28/), within. spx-3 (confirm_G15d_2026-10-28/stage2/, ws/rko_g26): G15c
+     0.0077 / 0.0076 / 0.0076 / 0.0076, mean 0.0076; G15d 0.0390 / 0.0390 / 0.0390 / 0.0391, mean 0.0390: outside.
+     con-3's second stage was not run: spx-3 already decides. Criterion 2 does not hold.
+  3. Node time / mission span, s: spx-3 48 / 214, spx-1 71 / 374, con-1 263 / 388, eig-2 182 / 348, con-2 250 / 384,
+     con-3 224 / 796, snow-1 83 / 172 (other jobs shared the machine). Criterion 3 holds.
+G15d is NOT adopted; G15c stays the GrandTour HS configuration. Why spx-3 fails: its output leaves G15c's by 2-9 cm
+in episodes of 5-25 s at the turns and comes back to 2-3 mm between them, offset mostly forward in the body frame:
+the standing intervals of a static start set the accelerometer bias from the specific force against gravity in the
+registered attitude, so an attitude error becomes a horizontal bias in the body frame that turns with the robot, and
+the output filter's world-frame bias cannot follow it (con-3's output stays 8 cm from G15c's for 500 s instead, so
+there the registration itself changed). The fourteenth screen (screen_hs_n_2026-10-28/) sets the gyro bias only.

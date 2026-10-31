@@ -1,0 +1,32 @@
+Phase 1, candidate G13 (fixed 2026-10-27 before any G13 run on development data other than the Hesai diagnostics of
+REPORT 31.7, which used the Hesai rig, not the rigs below).
+
+G13 = G12 + map_update_min_translation 0.1 (rko_lio 400fc3c): a registered scan is added to the map only after the
+sensor has moved 0.1 m since the last scan that was added. While a sensor stands still it adds the same sampling
+pattern again and again and fills the voxels (max_points_per_voxel 20); the scans after the start of motion then
+register against that pattern (GrandTour ARC-3 with the Hesai: 0.126 -> 0.043 m, HEAP-1 0.0281 -> 0.0269 m).
+
+G12 on the development data (one run each, frontend only; G12 is byte-identical to G11 / G10 there):
+  MapsHD calib-room 1 / 2, flat-room 1, long-corridor 1, outdoor-urk 1, garage 1 / 2 / 3:
+    0.0261 / 0.0207 / 0.0148 / 0.0712 / 0.0545 / 0.0440 / 0.0293 / 0.0267
+  Oxford Keble 05 0.0533, HILTI exp04 0.0527; all-ten geometric mean 0.0353 (best profiles 0.0348)
+  Koide outdoor_hard 02a / 02b / 01b / 01a: 0.837 / 0.715 / 1.840 / 0.977
+  GrandTour, LS rig (Livox MID-360 + STIM320), ATE without reference spikes: heap-1 0.0636, arc-3 0.0539, arc-4 0.0233,
+    arc-6 0.0188, con-1 0.0851, eig-2 0.0413, snow-3 0.0341, spx-1 0.0521; mean 0.0465
+
+Adopt G13 as G if all of these hold (one run each, frontend only):
+  1. The Phase 1 gate: every family within 1.10x of its best profile, all-ten geometric mean within 1.05x of 0.0348;
+     and the all-ten geometric mean not above G12's 0.0353.
+  2. Koide: no sequence worse than G12 by more than 5 %, and 01a below 1.5 m.
+  3. GrandTour with the LS rig: mean ATE below G12's 0.0465, and no mission worse than G12 by more than 10 %.
+  4. Every run real-time.
+If G13 is adopted, the six test missions are run once with G13 and the LS rig after a new preregistration (a third
+COMFORT submission).
+
+Result (2026-10-27; GrandTour LS rig, ATE without reference spikes, m; G12 in brackets):
+  heap-1 0.0654 (0.0636), snow-3 0.0351 (0.0341), spx-1 0.0669 (0.0521, +28 %), eig-2 0.0387 (0.0413),
+  con-1 0.0859 (0.0851), arc-6 0.0211 (0.0188, +12 %), arc-4 0.0290 (0.0233, +24 %), arc-3 0.1565 (0.0539, x2.9);
+  mean 0.0623 (0.0465).
+Criterion 3 fails: G13 is NOT adopted. The MapsHD / Oxford / exp04 / Koide runs were stopped once the rule had
+failed (the first MapsHD trial was interrupted; no result is recorded). With the Livox MID-360 (a non-repetitive
+pattern, not rings) keeping still-standing scans out of the map takes away more than it gives.

@@ -1,0 +1,4 @@
+Close-scene settings used on 3773 registered scans (0 registered again with the base settings)
+Keypoints taken again at the finer voxel on 6 scans
+dropped scans (fewer than min_icp_keypoints): 0
+scans not processed at the end of the bag (no STIM320 data after them): 76

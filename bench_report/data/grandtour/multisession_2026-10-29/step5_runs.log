@@ -1,0 +1,63 @@
+== a_arc5_arc6_t4 (163 s): 171 candidates, 151 accepted, 1 sets tried, joined
+== a_arc5_arc6_t1 (638 s): 171 candidates, 151 accepted, 1 sets tried, joined
+5a join_report.yaml: identical on 4 and 1 threads
+5a inter_session_edges.csv: identical on 4 and 1 threads
+5a trajectory_session0.tum: identical on 4 and 1 threads
+5a trajectory_session1.tum: identical on 4 and 1 threads
+a_arc5_arc6,joined,joined,True,0.100,0.0000
+== con1_con2 (834 s): 499 candidates, 402 accepted, 3 sets tried, joined
+con1_con2,joined,joined,True,0.015,0.0000
+{"join": "/home/user/bench/grandtour/ms_join5/con1_con2", "joined": true, "candidates": 499, "accepted": 402, "sets_tried": [{"size": 356, "places": 144, "share_below": 0, "median": 0.990382, "passed": true}, {"size": 15, "places": 96, "share_below": 0.302083, "median": 0.620544, "passed": false}, {"size": 8, "places": 108, "share_below": 0.185185, "median": 0.642226, "passed": false}], "ambiguous": false, "self_similar": "", "single_ate_a": 0.0244, "single_ate_b": 0.0207, "join_error_rms_m": 0.0115, "join_error_deg": 0.035, "joint_ate_a": 0.0239, "joint_ate_b_in_a_frame": 0.0227, "joint_ate_b_own_fit": 0.0217, "consistent": true}
+== con2_con1 (832 s): 489 candidates, 438 accepted, 3 sets tried, joined
+con2_con1,joined,joined,True,0.018,0.0013
+{"join": "/home/user/bench/grandtour/ms_join5/con2_con1", "joined": true, "candidates": 489, "accepted": 438, "sets_tried": [{"size": 369, "places": 157, "share_below": 0, "median": 0.98541, "passed": true}, {"size": 16, "places": 118, "share_below": 0.194915, "median": 0.650675, "passed": false}, {"size": 15, "places": 104, "share_below": 0.240385, "median": 0.632459, "passed": false}], "ambiguous": false, "self_similar": "", "single_ate_a": 0.0207, "single_ate_b": 0.0244, "join_error_rms_m": 0.0125, "join_error_deg": 0.035, "joint_ate_a": 0.0208, "joint_ate_b_in_a_frame": 0.0243, "joint_ate_b_own_fit": 0.0234, "consistent": true}
+== arc5_arc6 (82 s): 171 candidates, 151 accepted, 1 sets tried, joined
+arc5_arc6,joined,joined,True,0.100,0.0000
+{"join": "/home/user/bench/grandtour/ms_join5/arc5_arc6", "joined": true, "candidates": 171, "accepted": 151, "sets_tried": [{"size": 151, "places": 57, "share_below": 0, "median": 0.974511, "passed": true}], "ambiguous": false, "self_similar": "", "single_ate_a": 0.0161, "single_ate_b": 0.0097, "join_error_rms_m": 0.0113, "join_error_deg": 0.15, "joint_ate_a": 0.0161, "joint_ate_b_in_a_frame": 0.0146, "joint_ate_b_own_fit": 0.0096, "consistent": true}
+== arc6_arc5 (88 s): 138 candidates, 91 accepted, 1 sets tried, joined
+arc6_arc5,joined,joined,True,0.774,0.0024
+{"join": "/home/user/bench/grandtour/ms_join5/arc6_arc5", "joined": true, "candidates": 138, "accepted": 91, "sets_tried": [{"size": 91, "places": 39, "share_below": 0, "median": 0.956914, "passed": true}], "ambiguous": false, "self_similar": "", "single_ate_a": 0.0097, "single_ate_b": 0.0161, "join_error_rms_m": 0.0293, "join_error_deg": 0.167, "joint_ate_a": 0.0097, "joint_ate_b_in_a_frame": 0.0202, "joint_ate_b_own_fit": 0.016, "consistent": true}
+con-1,positive,69+78,202,44,not joined,nan,36/16/0.062/pass,self-similar a
+con-1,stress,69+78,202,8,not joined,nan,,
+== split con-1 (311 s for both runs)
+con-1_positive,self-similar a,self-similar a,True,
+con-1_stress,not joined,not joined,True,
+con-2,positive,77+79,210,37,joined,0.0095,27/11/0.091/pass,
+con-2,stress,77+79,210,10,not joined,nan,,
+== split con-2 (486 s for both runs)
+con-2_positive,joined,joined,True,0.054,0.0000
+con-2_stress,not joined,not joined,True,
+arc-4,positive,42+45,131,85,joined,0.0041,85/43/0.047/pass,
+arc-4,stress,42+45,131,0,not joined,nan,,
+== split arc-4 (75 s for both runs)
+arc-4_positive,joined,joined,True,0.106,0.0000
+arc-4_stress,not joined,not joined,True,
+arc-5,positive,44+43,93,38,joined,0.0032,38/15/0.000/pass,
+arc-5,stress,44+43,93,0,not joined,nan,,
+== split arc-5 (91 s for both runs)
+arc-5_positive,joined,joined,True,0.365,0.0011
+arc-5_stress,not joined,not joined,True,
+arc-6,positive,20+28,84,76,joined,0.0024,76/28/0.000/pass,
+arc-6,stress,20+28,84,0,not joined,nan,,
+== split arc-6 (9 s for both runs)
+arc-6_positive,joined,joined,True,0.269,0.0015
+arc-6_stress,not joined,not joined,True,
+calibration-room_trial-1: input as in step 4
+calibration-room_trial-1,positive,73+102,306,300,not joined,nan,113/102/0.000/pass;70/102/0.000/pass;18/88/0.136/fail,ambiguous
+calibration-room_trial-1,stress,73+102,306,187,not joined,nan,70/102/0.000/pass;18/88/0.136/fail;12/90/0.156/fail,self-similar a
+== split calibration-room_trial-1 (33 s for both runs)
+calibration-room_trial-1_positive,ambiguous,ambiguous,True,
+calibration-room_trial-1_stress,self-similar a,self-similar a,True,
+oxford: input as in step 4
+oxford,positive,195+225,358,165,joined,0.0090,162/81/0.000/pass,
+oxford,stress,195+225,358,0,not joined,nan,,
+== split oxford (869 s for both runs)
+oxford_positive,joined,joined,True,0.044,0.0000
+oxford_stress,not joined,not joined,True,
+pil-2: input as in step 4
+pil-2,positive,71+79,237,79,joined,0.0150,79/45/0.000/pass,
+pil-2,stress,71+79,237,0,not joined,nan,,
+== split pil-2 (257 s for both runs)
+pil-2_positive,joined,joined,True,0.446,0.0019
+pil-2_stress,not joined,not joined,True,
+QUEUE75_DONE

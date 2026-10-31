@@ -82,6 +82,8 @@ TEST_F(GraphSlamConfigTest, LoaderAppliesRosOverridesAndDeclaresCompleteSurface)
   rclcpp::NodeOptions options;
   options.parameter_overrides({
       rclcpp::Parameter("registration_method", "GICP"),
+      rclcpp::Parameter("gicp_max_correspondence_distance", 1.5),
+      rclcpp::Parameter("gicp_transformation_epsilon", 1e-5),
       rclcpp::Parameter("voxel_leaf_size", 0.4),
       rclcpp::Parameter("use_gnss", true),
       rclcpp::Parameter("gnss_topic", "/fix/filtered"),
@@ -97,6 +99,8 @@ TEST_F(GraphSlamConfigTest, LoaderAppliesRosOverridesAndDeclaresCompleteSurface)
   const auto config = graphslam::loadGraphSlamConfig(*node);
 
   EXPECT_EQ(config.registration_method, "GICP");
+  EXPECT_DOUBLE_EQ(config.gicp_max_correspondence_distance, 1.5);
+  EXPECT_DOUBLE_EQ(config.gicp_transformation_epsilon, 1e-5);
   EXPECT_DOUBLE_EQ(config.voxel_leaf_size, 0.4);
   EXPECT_TRUE(config.use_gnss_);
   EXPECT_EQ(config.gnss_topic_, "/fix/filtered");
@@ -107,7 +111,7 @@ TEST_F(GraphSlamConfigTest, LoaderAppliesRosOverridesAndDeclaresCompleteSurface)
     (std::vector<double>{0.7071068, -0.7071068, 0.0, 0.0, -0.001, -0.00855, 0.055}));
   EXPECT_TRUE(node->has_parameter("triangle_descriptor_keypoint_mode"));
   EXPECT_TRUE(node->has_parameter("degeneracy_diagnostics_csv_path"));
-  EXPECT_EQ(node->list_parameters({}, 0).names.size() - parameters_before_load, 150U);
+  EXPECT_EQ(node->list_parameters({}, 0).names.size() - parameters_before_load, 155U);
 }
 
 TEST_F(GraphSlamConfigTest, ValidationReportsIndependentConfigurationErrors)

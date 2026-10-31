@@ -55,6 +55,8 @@ GraphSlamConfig loadGraphSlamConfig(rclcpp::Node & node)
   LOAD(voxel_leaf_size, "voxel_leaf_size");
   LOAD(ndt_resolution, "ndt_resolution");
   LOAD(ndt_num_threads, "ndt_num_threads");
+  LOAD(gicp_max_correspondence_distance, "gicp_max_correspondence_distance");
+  LOAD(gicp_transformation_epsilon, "gicp_transformation_epsilon");
   LOAD(threshold_loop_closure_score_, "threshold_loop_closure_score");
   LOAD(scan_context_loop_closure_score_threshold_, "scan_context_loop_closure_score_threshold");
   LOAD(distance_loop_closure_, "distance_loop_closure");
@@ -98,6 +100,7 @@ GraphSlamConfig loadGraphSlamConfig(rclcpp::Node & node)
   LOAD(loop_edge_info_weight_, "loop_edge_info_weight");
   LOAD(loop_edge_info_constant_trans_, "loop_edge_info_constant_trans");
   LOAD(loop_edge_info_constant_rot_, "loop_edge_info_constant_rot");
+  LOAD(loop_edge_info_from_registration_, "loop_edge_info_from_registration");
   LOAD(loop_edge_robust_kernel_delta_, "loop_edge_robust_kernel_delta");
   LOAD(loop_edge_robust_kernel_type_, "loop_edge_robust_kernel_type");
   LOAD(use_scan_context_, "use_scan_context");
@@ -207,6 +210,8 @@ GraphSlamConfig loadGraphSlamConfig(rclcpp::Node & node)
   LOAD(map_grid_size_x_, "map_grid_size_x");
   LOAD(map_grid_size_y_, "map_grid_size_y");
   LOAD(map_leaf_size_, "map_leaf_size");
+  LOAD(map_save_points_per_pass_, "map_save_points_per_pass");
+  LOAD(debug_map_save_assembled_dir_, "debug_map_save_assembled_dir");
   LOAD(use_gnss_, "use_gnss");
   LOAD(gnss_topic_, "gnss_topic");
   LOAD(gnss_info_weight_, "gnss_info_weight");
@@ -508,9 +513,14 @@ std::vector<std::string> validateGraphSlamConfig(const GraphSlamConfig & config)
 
   positive(config.voxel_leaf_size, "voxel_leaf_size");
   positive(config.ndt_resolution, "ndt_resolution");
+  positive(config.gicp_max_correspondence_distance, "gicp_max_correspondence_distance");
+  positive(config.gicp_transformation_epsilon, "gicp_transformation_epsilon");
   positive(config.map_grid_size_x_, "map_grid_size_x");
   positive(config.map_grid_size_y_, "map_grid_size_y");
   positive(config.map_leaf_size_, "map_leaf_size");
+  if (config.map_save_points_per_pass_ < 0) {
+    errors.emplace_back("map_save_points_per_pass must be >= 0");
+  }
   if (config.odom_cloud_sync_queue_size_ < 1) {
     errors.emplace_back("odom_cloud_sync_queue_size must be >= 1");
   }

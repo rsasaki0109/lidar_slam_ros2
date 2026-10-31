@@ -38,6 +38,8 @@
 
 #include <Eigen/Geometry>  // NOLINT(build/include_order)
 
+#include "graph_based_slam/loop_edge_information.hpp"
+
 namespace graphslam
 {
 namespace backend_core
@@ -54,6 +56,10 @@ public:
     std::pair<int, int> pair_id{-1, -1};
     Eigen::Isometry3d relative_pose{Eigen::Isometry3d::Identity()};
     double fitness_score{0.0};
+    // Information of relative_pose exp([w; v]) from the loop registration
+    // (loop_edge_information.hpp), when it reports one.
+    bool registration_information_valid{false};
+    Eigen::Matrix<double, 6, 6> registration_information{Eigen::Matrix<double, 6, 6>::Zero()};
   };
 
   void configure(int dedup_index_window) {dedup_index_window_ = dedup_index_window;}
@@ -69,6 +75,10 @@ public:
     Edge normalized = edge;
     if (normalized.pair_id.first > normalized.pair_id.second) {
       std::swap(normalized.pair_id.first, normalized.pair_id.second);
+      if (normalized.registration_information_valid) {
+        normalized.registration_information = loop_information::inverseEdgeInformation(
+          normalized.relative_pose, normalized.registration_information);
+      }
       normalized.relative_pose = normalized.relative_pose.inverse();
     }
     if (normalized.pair_id.first == normalized.pair_id.second) {

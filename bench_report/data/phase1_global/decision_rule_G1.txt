@@ -1,0 +1,47 @@
+Phase 1, candidate G1 (fixed 2026-10-26 before the full runs; the 4-trial MapsHD screen of K1.5/K2.0/K3.0 was
+still running and no Oxford or exp04 kernel result had been seen).
+
+G1 = the shared frontend profile V (bench_report/params/*_gyro002_jerk1000*, rig keys only differ)
+     + icp_robust_kernel_scale_factor f.
+f is chosen on the MapsHD screen only (calibration-room 1, flat-room 1, underground-garage 1, outdoor-urk 1):
+the f with the lowest geometric-mean APE of those four. Oxford Keble 05 and HILTI exp04 (other families) and the
+other four MapsHD trials are the check.
+
+Reference = the best per-family frontend profile on record (docs/comparison.md, frontend alone):
+  MapsHD Z: calib1 0.0263, calib2 0.0205, flat 0.0148, corridor 0.0712, urk 0.0507,
+            garage1 0.0440, garage2 0.0293, garage3 0.0267; Oxford 0.0503; exp04 (7 points) 0.0520.
+
+Adopt G1 as the Phase 1 base if, frontend only, one run each:
+  1. every sequence <= 1.10 x its reference, and
+  2. the geometric mean over the ten sequences <= 1.05 x the reference geometric mean.
+Otherwise record the result and keep V as the base.
+
+Result (2026-10-26, one run each, frontend only):
+  MapsHD screen GM (calib1, flat, garage1, urk): V 0.0565, Z 0.0305, K1.5 0.0330, K2.0 0.0328, K3.0 0.0335 -> f = 2.0
+  K2.0: calib1 0.0249, flat 0.0135, garage1 0.0477, urk 0.0725 (ref 0.0507, 1.43x),
+        Oxford 0.0571 (ref 0.0503, 1.13x), exp04 0.0529 (ref 0.0520, 1.02x)
+  Rule 1 fails on outdoor-urk and Oxford. G1 is NOT adopted; V stays the base.
+  Indoor scenes gain a lot; the two outdoor scenes lose. Next: a range-proportional kernel scale.
+
+Range-scaled kernel (scale = f x median(distance / range) x range), one run each:
+  KR2.0: calib1 0.0543, flat 0.0173, garage1 0.0574, urk 0.0470, Oxford 0.1385
+  KR3.0: calib1 0.0652, flat 0.0157, garage1 0.0661, urk 0.0464
+  Rejected (Oxford 2.75x, calib1 worse than V). The option is removed from the code.
+Next: the kernel on the residual along the matched map normal (point-to-plane distance), so that the spacing of
+sparse rings along a surface does not count as an outlier.
+
+Normal-residual kernel (kernel and its median on |n . (p - q)|, point-to-point system unchanged), one run each:
+  KN2.0: calib1 1.847 (diverged), flat 0.0515, garage1 0.1071, urk 0.1199. Rejected and removed; the remaining
+  KN3.0 and Oxford runs were stopped. Keeping the along-surface offsets at full weight in a point-to-point system
+  drags the estimate along the surfaces.
+
+Correction: the Oxford KN2.0 row (0.0394 m) is from a run stopped at 3076 of 5834 scans. On the same first-half
+window V scores 0.0403 m, so KN2.0 is about equal to V there, not better.
+
+Per axis (aligned RMSE x / y / z, m):
+  Oxford V 0.0314/0.0253/0.0302, K2.0 0.0273/0.0230/0.0445, Zsettings 0.0230/0.0230/0.0565
+  urk    V 0.0484/0.0331/0.0099, K2.0 0.0506/0.0328/0.0403, KR2.0 0.0379/0.0250/0.0120
+  calib1 V 0.0123/0.0122/0.0447, K2.0 0.0107/0.0103/0.0200
+  garage1 V 0.1254/0.0216/0.0176, K2.0 0.0372/0.0232/0.0187
+Outdoors the kernel loses the vertical constraint (ground); indoors it removes a vertical (rooms) or along-aisle
+(garage) bias. Next hypothesis: separate kernel scales for ground and non-ground correspondences.

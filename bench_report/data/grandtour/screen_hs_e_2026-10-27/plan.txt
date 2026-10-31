@@ -1,0 +1,32 @@
+Fifth screen on the HS rig: gravity estimated again after a moving start (2026-10-27, written before any of these runs).
+
+Why: rko_lio sets the world frame's tilt from the mean accelerometer sample of the first scan interval (0.1 s, 50
+samples). When the robot starts walking (initialization_max_gyro_rad_s, "Moving start" in the log) that mean holds the
+gait's acceleration: rotating the STIM320's specific force with HS-G15's trajectory shows the output frame tilted from
+gravity, constantly over the whole mission, by 16.2 deg on ARC-5, 2.9 on ARC-4, 2.8 on SNOW-3, 1.5 on ICE-1 and 0.2 on
+ARC-6 (static starts: 0.1-0.7 deg). The frame itself does not matter to the SE(3)-aligned ATE, but rko_lio keeps using
+gravity = (0, 0, -g) in it: the IMU propagation, the body-acceleration filter and the orientation regularization then
+work against the map. The test missions SNOW-2 and SPX-2 also start moving (as seen in submission 3's own logs).
+rko_lio (this change) adds moving_start_gravity_window_sec: after a moving start, the specific force of the scan
+intervals from 1 s to 1 s + window after the initialization, rotated into the world frame, less the velocity change
+of the registered positions (mean velocity over +-0.5 s at both ends, with the matching ramp weights), gives the
+world-frame gravity; the frame and the map are kept, so the trajectory stays continuous. Static starts are unchanged.
+Variant (ws/rko_g19, G15b + the key): mg5 (5 s; one value, chosen before any run, not tuned).
+Missions: arc-5, arc-4, snow-3, ice-1, arc-6 (moving starts), spx-3 (static start: the trajectory must be the same as
+G15b's byte for byte). Compared with G15b (hsd_sd3 / G15b_g15b). Reported: ATE without reference spikes, jitter, and
+the re-estimated tilt from the log. A screen: a candidate it picks is judged under a rule fixed before further runs.
+
+Result (2026-10-27; ws/rko_g19, rko_lio 36ec8cd; ATE without reference spikes, m; mg5 / G15b; re-estimated tilt):
+  arc-5   0.0180 / 0.0152   16.10 deg (the IMU-based measure of 34.7: 16.2)
+  arc-4   0.0171 / 0.0178    2.66 deg (2.9)
+  snow-3  0.0266 / 0.0268    2.09 deg (2.8)
+  ice-1   0.0108 / 0.0111
+  arc-6   0.0099 / 0.0099
+  spx-3   static start: trajectory md5 ae0cfcbc... as G15b's (unchanged)
+  mean of the five moving starts 0.0165 / 0.0162.
+The estimate of the tilt is right, but the one mission where it is large gets worse, by 2.8 mm (18 %), mostly in
+height (20-s windows: z 16.9 -> 20.4 mm at 40 s, 16.7 -> 29.8 mm at 200 s); the others gain 0-0.7 mm. The Tukey
+weight of the orientation regularization was still about 0.85 with the 16-deg error (its scale is one g), so the
+tilted frame had been pulling the attitude towards the wrong vertical and the registration had been holding it.
+mg5 is not a candidate on its own (ARC-5 would break the 10 % / 2 mm tolerance). The sixth screen's mgof shows it with
+the output filter.

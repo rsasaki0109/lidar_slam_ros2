@@ -1,0 +1,43 @@
+Phase 2: a long vehicle development sequence (roadmap docs/roadmap/sota-v7-plan-2026-10.md, Phase 2: "Long vehicle
+sequences are the weakest part of the record ... Add one long development sequence of this kind before Phase 5").
+Written 2026-10-31, before any run on this data. A measurement, not a candidate: nothing is adopted from it alone.
+
+Why KITTI 05
+- KITTI 00/05/07 are development data (roadmap section 3). G has not yet been run on a vehicle in v7.
+- KITTI Odometry ships no IMU. Its sequence 05 is raw drive 2011_09_30_drive_0018, frames 0-2760, whose OXTS unit logs
+  100 Hz inertial data. 05 is 2.2 km, the length that fits this VM's disk; 00 (4.5 km) does not.
+- Ground truth: dataset/poses/05.txt (left camera), put in the Velodyne frame with calib.txt's Tr. It comes from the
+  same OXTS unit's GNSS/INS solution; only the unit's accelerations and angular rates go into the bag.
+
+Input (bench_report/scripts/kitti_raw_to_ros2.py, range reads of the official archives)
+- /kitti/velodyne/points: the sync archive's scans, x y z intensity, no point time; header stamp when the scanner faced
+  forward (velodyne_points/timestamps.txt), stored at the scan's end.
+- /kitti/oxts/imu: the extract archive's OXTS ax ay az (m/s^2, gravity included: 9.81 on z in the first 3.5 s) and
+  wx wy wz (rad/s), 100 Hz (median interval 10.00 ms, maximum 10.3 ms in the first 3.5 s).
+
+Per-rig inputs (rig_kitti_raw.yaml; everything else is G)
+- Topics, frames; the base is the IMU.
+- extrinsic_lidar2base_quat_xyzw_xyz: the inverse of 2011_09_30/calib_imu_to_velo.txt
+  [-0.007412088, 0.001015086, 0.000385188, 0.999971941, 0.810543972, -0.307054372, 0.802723995].
+- deskew false. KITTI's scans are already motion-compensated. GT-free check: where the scan starts and ends (behind
+  the car), the range step between the two sides of the cut is -0.015 / +0.008 / -0.004 / -0.001 m at frames
+  300 / 1200 / 1600 / 2000 (7.3 / 3.6 / 9.9 / 9.5 m/s). An uncompensated scan would step by the distance driven in a
+  scan (0.73 / 0.36 / 0.99 / 0.95 m). Frame 800 (3.2 m/s) steps -0.21 m. The scans have no point time to deskew with.
+- Algorithm keys: configs/sota_v7/rko_lio_global_G12_2026-10-26.yaml, unchanged.
+
+Runs (bench_report/scripts/p2_kitti_raw.sh <label>)
+- front: the frontend alone (ws/rko_g35).
+- ndt2: graph_slam_offline_runner (ws/slam_hi) with the Phase 3 walking preset as it is (NDT 2 m loop registration).
+- sg05: the same with registration_method SMALL_GICP, 0.5 m, epsilon 1e-4 (Phase 3's setting that "does not hurt").
+- Scores: APE RMSE / max (m, SE(3) Umeyama on the positions) and KITTI t_rel (%) / r_rel (deg/m) over 100-800 m,
+  all in the Velodyne frame (p2_kitti_score.py); the frame count matched.
+
+Reading, fixed now
+1. Completion: the frontend must give a pose for every one of the 2761 scans. A missing or reset stretch is a failure
+   of G on this rig; it is recorded with where and why, and the follow-up is an analysis, not a setting chosen on 05.
+2. The frontend's scores are recorded as G's vehicle baseline. Published numbers of other methods on 05 are context
+   only (different inputs; most use no IMU); no claim is made.
+3. Loops on a long trajectory: a backend variant helps if its APE RMSE is at least 10 % lower than the frontend's,
+   hurts if it is more than 2 % higher, and is neutral otherwise. Its t_rel is reported beside it.
+4. Nothing changes in G or the presets on this run alone. A change it suggests is screened on all development data
+   under the Phase 1 rule first.

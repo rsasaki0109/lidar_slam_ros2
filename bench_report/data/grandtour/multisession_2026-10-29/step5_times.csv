@@ -1,0 +1,21 @@
+name,seconds_step4,seconds_step5
+con1_con2,1364,821
+con2_con1,1359,820
+arc5_arc6,221,76
+arc6_arc5,222,86
+split con-1_positive,301,204
+split con-1_stress,104,83
+split con-2_positive,565,366
+split con-2_stress,112,95
+split arc-4_positive,55,32
+split arc-4_stress,6,3
+split arc-5_positive,57,44
+split arc-5_stress,41,35
+split arc-6_positive,4,3
+split arc-6_stress,1,1
+split calibration-room_trial-1_positive,14,7
+split calibration-room_trial-1_stress,36,18
+split oxford_positive,853,686
+split oxford_stress,123,101
+split pil-2_positive,369,216
+split pil-2_stress,48,32

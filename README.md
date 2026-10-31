@@ -10,9 +10,10 @@
   <img src="lidarslam/images/map_flythrough_stadtgarten.webp" alt="Camera-coloured SLAM point-cloud map of a park" width="42%">
   <img src="lidarslam/images/slam_geode_stairs_beta.gif" alt="Handheld Ouster OS1-64 going down one stairwell and up another" width="49%">
   <img src="lidarslam/images/slam_geode_tunnel4_beta.gif" alt="UGV with an Ouster OS1-64 mapping a metro tunnel" width="49%">
+  <img src="docs/assets/images/multisession_oxford_new_college.gif" alt="Three separate walks through New College, Oxford, each first drawn where it was recorded, then joined into one map" width="98%">
 </p>
 
-*Outdoor walk, APE 0.55 m ([Koide](https://zenodo.org/records/10122133), CC BY 4.0) · camera-coloured park ([RTK-SLAM](https://rtk-slam-dataset.github.io/), CC BY 4.0) · stairs, ATE 0.24 m on development data · held-out metro tunnel, 0.38 m like BIEVR-LIO and FAST-LIO2 ([GEODE](https://github.com/PengYu-Team/GEODE_dataset)). [How these were made](docs/readme-media.md).*
+*Outdoor walk, APE 0.55 m ([Koide](https://zenodo.org/records/10122133), CC BY 4.0) · camera-coloured park ([RTK-SLAM](https://rtk-slam-dataset.github.io/), CC BY 4.0) · stairs, ATE 0.24 m on development data · held-out metro tunnel, 0.38 m like BIEVR-LIO and FAST-LIO2 ([GEODE](https://github.com/PengYu-Team/GEODE_dataset)) · three separate walks joined into one map with no position hint ([Oxford Spires](https://huggingface.co/datasets/ori-drs/oxford_spires_dataset), CC BY-NC-SA 4.0). [How these were made](docs/readme-media.md).*
 
 **Turn a rosbag into a map you can actually drive on.** ROS 2 LiDAR SLAM that writes an Autoware-compatible map bundle: `pointcloud_map/`, `map_projector_info.yaml` and lanelet2. `RKO-LIO` (MIT) + `graph_based_slam` (BSD-2), no GPL on the default workflow. [日本語クイックスタート](docs/getting-started-ja.md) · release notes [v0.10.0](docs/releases/v0.10.0.md) · next [v0.10.1](docs/releases/v0.10.1.md)
 

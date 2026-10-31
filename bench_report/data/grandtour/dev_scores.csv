@@ -1,0 +1,216 @@
+dev_G12_stim,heap-1,reference points 4597 of 4598, path 154.0 m, ATE rmse 0.0636 m, median 0.0500, max 0.1692, without 0 reference spikes 0.0636
+dev_G12_livox,heap-1,reference points 4597 of 4598, path 154.0 m, ATE rmse 0.0647 m, median 0.0496, max 0.1738, without 0 reference spikes 0.0647
+dev_G12_livox,snow-3,reference points 4612 of 4694, path 141.2 m, ATE rmse 0.0344 m, median 0.0302, max 0.1071, without 0 reference spikes 0.0344
+dev_G12_stim,snow-3,reference points 4612 of 4694, path 141.2 m, ATE rmse 0.0341 m, median 0.0298, max 0.1054, without 0 reference spikes 0.0341
+dev_G12_livox,spx-1,reference points 4197 of 4197, path 139.4 m, ATE rmse 0.0574 m, median 0.0456, max 0.1537, without 0 reference spikes 0.0574
+dev_G12_stim,spx-1,reference points 4197 of 4197, path 139.4 m, ATE rmse 0.0521 m, median 0.0401, max 0.1443, without 0 reference spikes 0.0521
+dev_G12_livox,arc-6,reference points 3171 of 3173, path 97.0 m, ATE rmse 0.0211 m, median 0.0188, max 0.0497, without 0 reference spikes 0.0211
+dev_G12_stim,arc-6,reference points 3171 of 3173, path 97.0 m, ATE rmse 0.0188 m, median 0.0169, max 0.0490, without 0 reference spikes 0.0188
+dev_G12_livox,arc-3,reference points 3654 of 3654, path 196.9 m, ATE rmse 0.2768 m, median 0.0615, max 16.1593, without 1 reference spikes 0.0715
+dev_G12_stim,arc-3,reference points 3654 of 3654, path 196.9 m, ATE rmse 0.2728 m, median 0.0436, max 16.1612, without 1 reference spikes 0.0539
+dev_G12_livox,eig-2,reference points 3903 of 3903, path 166.9 m, ATE rmse 0.0422 m, median 0.0332, max 0.1334, without 0 reference spikes 0.0422
+dev_G12_stim,eig-2,reference points 3903 of 3903, path 166.9 m, ATE rmse 0.0413 m, median 0.0336, max 0.1270, without 0 reference spikes 0.0413
+dev_G12_livox,con-1,reference points 5898 of 5898, path 242.8 m, ATE rmse 0.0879 m, median 0.0599, max 0.2679, without 1 reference spikes 0.0879
+dev_G12_stim,con-1,reference points 5898 of 5898, path 242.8 m, ATE rmse 0.0851 m, median 0.0578, max 0.2606, without 1 reference spikes 0.0851
+dev_G12_livox,arc-4,reference points 1514 of 1514, path 43.8 m, ATE rmse 0.0257 m, median 0.0203, max 0.0760, without 0 reference spikes 0.0257
+dev_G12_stim,arc-4,reference points 1514 of 1514, path 43.8 m, ATE rmse 0.0233 m, median 0.0193, max 0.0660, without 0 reference spikes 0.0233
+dev_G12_stim_rs0.998,heap-1,reference points 4597 of 4598, path 154.0 m, ATE rmse 0.0404 m, median 0.0334, max 0.1078, without 0 reference spikes 0.0404
+dev_G12_hesai_stim,heap-1,reference points 4596 of 4598, path 154.0 m, ATE rmse 0.0281 m, median 0.0190, max 0.1323, without 0 reference spikes 0.0281
+dev_G12_hesai_stim,snow-3,reference points 4608 of 4694, path 141.1 m, ATE rmse 0.1161 m, median 0.0230, max 0.8683, without 0 reference spikes 0.1161
+dev_G12_hesai_stim,spx-1,reference points 4197 of 4197, path 139.4 m, ATE rmse 0.0210 m, median 0.0174, max 0.1417, without 0 reference spikes 0.0210
+dev_G12_hesai_stim,eig-2,reference points 3903 of 3903, path 166.9 m, ATE rmse 0.0375 m, median 0.0252, max 0.2866, without 0 reference spikes 0.0375
+dev_G12_hesai_stim,con-1,reference points 5898 of 5898, path 242.8 m, ATE rmse 0.0261 m, median 0.0190, max 0.0816, without 1 reference spikes 0.0261
+dev_G12_hesai_stim,arc-6,reference points 3171 of 3173, path 97.0 m, ATE rmse 0.0104 m, median 0.0096, max 0.0368, without 0 reference spikes 0.0104
+dev_G12_hesai_stim,arc-3,reference points 3654 of 3654, path 196.9 m, ATE rmse 0.2959 m, median 0.0284, max 16.1727, without 1 reference spikes 0.1262
+dev_G12_hesai_stim,arc-4,reference points 1514 of 1514, path 43.8 m, ATE rmse 0.0233 m, median 0.0154, max 0.0906, without 0 reference spikes 0.0233
+dev_G12_merged_stim,snow-3,reference points 4608 of 4694, path 141.1 m, ATE rmse 0.1031 m, median 0.0234, max 0.7558, without 0 reference spikes 0.1031
+diag_hs_minr2,snow-3,reference points 4608 of 4694, path 141.1 m, ATE rmse 0.1181 m, median 0.0233, max 0.8815, without 0 reference spikes 0.1181
+dev_G12_merged_stim,arc-4,reference points 1514 of 1514, path 43.8 m, ATE rmse 0.0311 m, median 0.0158, max 0.2945, without 0 reference spikes 0.0311
+dev_G12_merged_stim,heap-1,reference points 4596 of 4598, path 154.0 m, ATE rmse 0.0231 m, median 0.0192, max 0.0802, without 0 reference spikes 0.0231
+dev_G12_merged_stim,eig-2,reference points 3903 of 3903, path 166.9 m, ATE rmse 0.0315 m, median 0.0203, max 0.2496, without 0 reference spikes 0.0315
+diag_hs_closeall,snow-3,reference points 4608 of 4694, path 141.1 m, ATE rmse 0.0752 m, median 0.0150, max 0.7126, without 0 reference spikes 0.0752
+diag_hs_closeall,arc-3,reference points 3654 of 3654, path 196.9 m, ATE rmse 0.2775 m, median 0.0198, max 16.1639, without 1 reference spikes 0.0740
+diag_hs_p2pl,snow-3,reference points 4608 of 4694, path 141.1 m, ATE rmse 0.0866 m, median 0.0174, max 0.7701, without 0 reference spikes 0.0866
+diag_hs_p2pl,arc-3,reference points 3654 of 3654, path 196.9 m, ATE rmse 0.2979 m, median 0.0297, max 16.1737, without 1 reference spikes 0.1309
+dev_G12_merged_stim,arc-3,reference points 3654 of 3654, path 196.9 m, ATE rmse 0.3235 m, median 0.1406, max 16.1170, without 1 reference spikes 0.1832
+diag_hls_closeall,arc-3,reference points 3654 of 3654, path 196.9 m, ATE rmse 0.3050 m, median 0.1333, max 16.1277, without 1 reference spikes 0.1476
+diag_hls_closeall,snow-3,reference points 4608 of 4694, path 141.1 m, ATE rmse 0.0673 m, median 0.0145, max 0.4990, without 0 reference spikes 0.0673
+diag_hs_mapmove,arc-3,reference points 3654 of 3654, path 196.9 m, ATE rmse 0.2709 m, median 0.0199, max 16.1620, without 1 reference spikes 0.0430
+diag_hs_mapmove,snow-3,reference points 4608 of 4694, path 141.1 m, ATE rmse 0.0879 m, median 0.0199, max 0.6446, without 0 reference spikes 0.0879
+diag_hs_mapmove,heap-1,reference points 4596 of 4598, path 154.0 m, ATE rmse 0.0269 m, median 0.0198, max 0.1193, without 0 reference spikes 0.0269
+diag_hs_mapmove_closeall,snow-3,reference points 4608 of 4694, path 141.1 m, ATE rmse 0.0476 m, median 0.0125, max 0.3588, without 0 reference spikes 0.0476
+diag_hs_standstill,snow-3,reference points 4608 of 4694, path 141.1 m, ATE rmse 0.0811 m, median 0.0211, max 0.5454, without 0 reference spikes 0.0811
+diag_hs_standstill,arc-3,reference points 3654 of 3654, path 196.9 m, ATE rmse 0.2726 m, median 0.0232, max 16.1628, without 1 reference spikes 0.0526
+diag_hs_hold,snow-3,reference points 4608 of 4694, path 141.1 m, ATE rmse 0.0442 m, median 0.0199, max 0.3442, without 0 reference spikes 0.0442
+diag_hs_hold,arc-3,reference points 3654 of 3654, path 196.9 m, ATE rmse 3.9557 m, median 3.3208, max 15.8558, without 1 reference spikes 3.9475
+diag_hs_hold,heap-1,reference points 4596 of 4598, path 154.0 m, ATE rmse 0.0233 m, median 0.0173, max 0.1017, without 0 reference spikes 0.0233
+dev_G13_stim,heap-1,reference points 4597 of 4598, path 154.0 m, ATE rmse 0.0654 m, median 0.0490, max 0.1653, without 0 reference spikes 0.0654
+dev_G13_stim,snow-3,reference points 4612 of 4694, path 141.2 m, ATE rmse 0.0351 m, median 0.0290, max 0.1107, without 0 reference spikes 0.0351
+dev_G13_stim,spx-1,reference points 4197 of 4197, path 139.4 m, ATE rmse 0.0669 m, median 0.0548, max 0.1814, without 0 reference spikes 0.0669
+dev_G13_stim,eig-2,reference points 3903 of 3903, path 166.9 m, ATE rmse 0.0387 m, median 0.0312, max 0.1227, without 0 reference spikes 0.0387
+dev_G13_stim,con-1,reference points 5898 of 5898, path 242.8 m, ATE rmse 0.0859 m, median 0.0598, max 0.2659, without 1 reference spikes 0.0859
+dev_G13_stim,arc-6,reference points 3171 of 3173, path 97.0 m, ATE rmse 0.0211 m, median 0.0181, max 0.0588, without 0 reference spikes 0.0211
+dev_G13_stim,arc-4,reference points 1514 of 1514, path 43.8 m, ATE rmse 0.0290 m, median 0.0236, max 0.0768, without 0 reference spikes 0.0290
+dev_G13_stim,arc-3,reference points 3654 of 3654, path 196.9 m, ATE rmse 0.3094 m, median 0.1099, max 16.1269, without 1 reference spikes 0.1565
+dev_G12_stim_rs0.9985,heap-1,reference points 4597 of 4598, path 154.0 m, ATE rmse 0.0453 m, median 0.0359, max 0.1231, without 0 reference spikes 0.0453
+dev_G12_stim_rs0.9985,snow-3,reference points 4612 of 4694, path 141.2 m, ATE rmse 0.0256 m, median 0.0216, max 0.0865, without 0 reference spikes 0.0256
+dev_G12_stim_rs0.9985,spx-1,reference points 4197 of 4197, path 139.4 m, ATE rmse 0.0444 m, median 0.0354, max 0.1438, without 0 reference spikes 0.0444
+dev_G12_stim_rs0.9985,eig-2,reference points 3903 of 3903, path 166.9 m, ATE rmse 0.0391 m, median 0.0341, max 0.1028, without 0 reference spikes 0.0391
+dev_G12_stim_rs0.9985,con-1,reference points 5898 of 5898, path 242.8 m, ATE rmse 0.0816 m, median 0.0544, max 0.2603, without 1 reference spikes 0.0816
+dev_G12_stim_rs0.9985,arc-6,reference points 3171 of 3173, path 97.0 m, ATE rmse 0.0178 m, median 0.0160, max 0.0465, without 0 reference spikes 0.0178
+dev_G12_stim_rs0.9985,arc-4,reference points 1514 of 1514, path 43.8 m, ATE rmse 0.0207 m, median 0.0162, max 0.0621, without 0 reference spikes 0.0207
+dev_G12_stim_rs0.9985,arc-3,reference points 3654 of 3654, path 196.9 m, ATE rmse 0.2714 m, median 0.0418, max 16.1573, without 1 reference spikes 0.0466
+dev_G12_stim_rs0.9985,snow-1,reference points 1200 of 1201, path 23.2 m, ATE rmse 0.3718 m, median 0.2154, max 0.9721, without 0 reference spikes 0.3718
+dev_G12_hesai_stim,snow-1,reference points 1199 of 1201, path 23.2 m, ATE rmse 0.3769 m, median 0.2206, max 0.9750, without 0 reference spikes 0.3769
+dev_G12_stim_rs0.9985,spx-3,reference points 2229 of 2229, path 88.2 m, ATE rmse 0.0187 m, median 0.0155, max 0.0602, without 0 reference spikes 0.0187
+dev_G12_hesai_stim,spx-3,reference points 2229 of 2229, path 88.2 m, ATE rmse 0.0097 m, median 0.0084, max 0.0592, without 0 reference spikes 0.0097
+dev_G12_stim_rs0.9985,ice-1,reference points 3958 of 3958, path 49.3 m, ATE rmse 0.0197 m, median 0.0173, max 0.0606, without 0 reference spikes 0.0197
+dev_G12_hesai_stim,ice-1,reference points 3958 of 3958, path 49.3 m, ATE rmse 0.0166 m, median 0.0131, max 0.0689, without 0 reference spikes 0.0166
+dev_G12_stim_rs0.9985,arc-1,reference points 6137 of 6139, path 179.4 m, ATE rmse 0.0213 m, median 0.0178, max 0.0764, without 0 reference spikes 0.0213
+dev_G12_hesai_stim,arc-1,reference points 6136 of 6139, path 179.4 m, ATE rmse 0.0279 m, median 0.0143, max 0.1736, without 0 reference spikes 0.0279
+dev_G12_stim_rs0.9985,arc-5,reference points 2986 of 2987, path 96.4 m, ATE rmse 0.0166 m, median 0.0142, max 0.0559, without 0 reference spikes 0.0166
+dev_G12_hesai_stim,arc-5,reference points 2985 of 2987, path 96.3 m, ATE rmse 0.0554 m, median 0.0267, max 0.1898, without 0 reference spikes 0.0554
+dev_G12_stim_rs0.9985,con-2,reference points 4768 of 4769, path 218.7 m, ATE rmse 0.0779 m, median 0.0546, max 0.2685, without 0 reference spikes 0.0779
+dev_G12_hesai_stim,con-2,reference points 4766 of 4769, path 218.7 m, ATE rmse 0.0290 m, median 0.0187, max 0.1526, without 0 reference spikes 0.0290
+dev_G12_stim_rs0.9985,pil-2,reference points 7925 of 8029, path 252.2 m, ATE rmse 0.0713 m, median 0.0688, max 0.1615, without 0 reference spikes 0.0713
+dev_G12_hesai_stim,pil-2,reference points 7926 of 8029, path 252.2 m, ATE rmse 0.0768 m, median 0.0437, max 0.5975, without 0 reference spikes 0.0768
+dev_G12_stim_rs0.9985,con-3,reference points 2732 of 2732, path 68.1 m, ATE rmse 0.0189 m, median 0.0165, max 0.0487, without 0 reference spikes 0.0189
+dev_G12_hesai_stim,con-3,reference points 2732 of 2732, path 68.1 m, ATE rmse 0.0281 m, median 0.0194, max 0.1677, without 0 reference spikes 0.0281
+rival_bievr_hs,heap-1,reference points 4594 of 4598, path 154.0 m, ATE rmse 0.0285 m, median 0.0218, max 0.0741, without 0 reference spikes 0.0285
+rival_bievr_hs,arc-4,reference points 1514 of 1514, path 43.8 m, ATE rmse 0.0168 m, median 0.0160, max 0.0348, without 0 reference spikes 0.0168
+rival_bievr_hs,arc-6,reference points 3169 of 3173, path 97.0 m, ATE rmse 0.0118 m, median 0.0111, max 0.0237, without 0 reference spikes 0.0118
+rival_bievr_hs,con-1,reference points 5898 of 5898, path 242.8 m, ATE rmse 0.0426 m, median 0.0352, max 0.1084, without 1 reference spikes 0.0426
+rival_bievr_hs,eig-2,reference points 3903 of 3903, path 166.9 m, ATE rmse 0.0279 m, median 0.0248, max 0.0643, without 0 reference spikes 0.0279
+rival_bievr_hs,snow-3,reference points 4606 of 4694, path 141.1 m, ATE rmse 0.0369 m, median 0.0154, max 0.3118, without 0 reference spikes 0.0369
+rival_bievr_hs,spx-1,reference points 4197 of 4197, path 139.4 m, ATE rmse 0.0302 m, median 0.0266, max 0.1556, without 0 reference spikes 0.0302
+rival_bievr_hs,snow-1,reference points 1197 of 1201, path 23.2 m, ATE rmse 0.3770 m, median 0.2133, max 0.9812, without 0 reference spikes 0.3770
+rival_bievr_hs,spx-3,reference points 2229 of 2229, path 88.2 m, ATE rmse 0.0080 m, median 0.0073, max 0.0598, without 0 reference spikes 0.0080
+rival_bievr_hs,ice-1,reference points 3954 of 3958, path 49.3 m, ATE rmse 0.0084 m, median 0.0070, max 0.0294, without 0 reference spikes 0.0084
+rival_bievr_hs,arc-1,reference points 6134 of 6139, path 179.4 m, ATE rmse 0.0150 m, median 0.0120, max 0.0571, without 0 reference spikes 0.0150
+rival_bievr_hs,arc-5,reference points 2983 of 2987, path 96.3 m, ATE rmse 0.0147 m, median 0.0122, max 0.0415, without 0 reference spikes 0.0147
+rival_bievr_hs,con-2,reference points 4763 of 4769, path 218.7 m, ATE rmse 0.0456 m, median 0.0293, max 0.1987, without 0 reference spikes 0.0456
+rival_bievr_hs,pil-2,reference points 7926 of 8029, path 252.2 m, ATE rmse 0.0297 m, median 0.0268, max 0.1018, without 0 reference spikes 0.0297
+rival_bievr_hs,con-3,reference points 2732 of 2732, path 68.1 m, ATE rmse 0.0162 m, median 0.0127, max 0.0638, without 0 reference spikes 0.0162
+rival_fastlio_hs,heap-1,reference points 4572 of 4598, path 154.0 m, ATE rmse 0.0173 m, median 0.0156, max 0.0418, without 0 reference spikes 0.0173
+rival_fastlio_hs,arc-3,reference points 3654 of 3654, path 196.9 m, ATE rmse 39.7464 m, median 23.3844, max 75.2550, without 1 reference spikes 39.7323
+rival_fastlio_hs,arc-4,reference points 1514 of 1514, path 43.8 m, ATE rmse 0.0296 m, median 0.0243, max 0.0889, without 0 reference spikes 0.0296
+rival_fastlio_hs,arc-6,reference points 3149 of 3173, path 96.9 m, ATE rmse 0.0299 m, median 0.0250, max 0.0670, without 0 reference spikes 0.0299
+rival_fastlio_hs,con-1,reference points 5898 of 5898, path 242.8 m, ATE rmse 0.0373 m, median 0.0277, max 0.0921, without 1 reference spikes 0.0373
+rival_bievr_hs,arc-3,reference points 3654 of 3654, path 196.9 m, ATE rmse 0.3796 m, median 0.2137, max 16.1329, without 1 reference spikes 0.2698
+screen_hs_base,arc-5,reference points 2985 of 2987, path 96.3 m, ATE rmse 0.0554 m, median 0.0267, max 0.1898, without 0 reference spikes 0.0554,jitter_xy 15.0 mm, jitter_z 18.5 mm
+screen_hs_bump,arc-5,reference points 2985 of 2987, path 96.3 m, ATE rmse 0.0120 m, median 0.0105, max 0.0284, without 0 reference spikes 0.0120,jitter_xy 12.4 mm, jitter_z 6.9 mm
+screen_hs_iw,arc-5,reference points 2985 of 2987, path 96.3 m, ATE rmse 1.6147 m, median 1.4705, max 3.2310, without 0 reference spikes 1.6147,jitter_xy 14.7 mm, jitter_z 13.1 mm
+screen_hs_lm,arc-5,reference points 2985 of 2987, path 96.3 m, ATE rmse 0.0212 m, median 0.0135, max 0.0962, without 0 reference spikes 0.0212,jitter_xy 15.3 mm, jitter_z 13.5 mm
+screen_hs_lmnograv,arc-5,reference points 2985 of 2987, path 96.3 m, ATE rmse 0.0337 m, median 0.0224, max 0.1339, without 0 reference spikes 0.0337,jitter_xy 15.0 mm, jitter_z 12.9 mm
+screen_hs_lmp2pl,arc-5,reference points 2985 of 2987, path 96.3 m, ATE rmse 0.0187 m, median 0.0117, max 0.0907, without 0 reference spikes 0.0187,jitter_xy 14.0 mm, jitter_z 11.4 mm
+screen_hs_nograv,arc-5,reference points 2985 of 2987, path 96.3 m, ATE rmse 0.0346 m, median 0.0168, max 0.1672, without 0 reference spikes 0.0346,jitter_xy 15.5 mm, jitter_z 14.8 mm
+screen_hs_p2pl,arc-5,reference points 2985 of 2987, path 96.3 m, ATE rmse 0.0273 m, median 0.0140, max 0.1648, without 0 reference spikes 0.0273,jitter_xy 13.8 mm, jitter_z 16.1 mm
+rival_fastlio_hs,eig-2,reference points 3903 of 3903, path 166.9 m, ATE rmse 0.0204 m, median 0.0174, max 0.0631, without 0 reference spikes 0.0204
+screen_hs_base,con-3,reference points 2732 of 2732, path 68.1 m, ATE rmse 0.0281 m, median 0.0194, max 0.1677, without 0 reference spikes 0.0281,jitter_xy 14.7 mm, jitter_z 15.3 mm
+screen_hs_bump,con-3,reference points 2732 of 2732, path 68.1 m, ATE rmse 0.0164 m, median 0.0122, max 0.0545, without 0 reference spikes 0.0164,jitter_xy 12.7 mm, jitter_z 7.0 mm
+screen_hs_iw,con-3,reference points 2732 of 2732, path 68.1 m, ATE rmse 0.0275 m, median 0.0201, max 0.1500, without 0 reference spikes 0.0275,jitter_xy 13.4 mm, jitter_z 10.2 mm
+screen_hs_lm,con-3,reference points 2732 of 2732, path 68.1 m, ATE rmse 0.0296 m, median 0.0200, max 0.1791, without 0 reference spikes 0.0296,jitter_xy 14.5 mm, jitter_z 12.3 mm
+screen_hs_lmnograv,con-3,reference points 2732 of 2732, path 68.1 m, ATE rmse 0.0218 m, median 0.0192, max 0.0516, without 0 reference spikes 0.0218,jitter_xy 14.6 mm, jitter_z 13.6 mm
+screen_hs_lmp2pl,con-3,reference points 2732 of 2732, path 68.1 m, ATE rmse 0.0210 m, median 0.0184, max 0.0621, without 0 reference spikes 0.0210,jitter_xy 14.4 mm, jitter_z 12.1 mm
+screen_hs_nograv,con-3,reference points 2732 of 2732, path 68.1 m, ATE rmse 0.0281 m, median 0.0197, max 0.1777, without 0 reference spikes 0.0281,jitter_xy 14.7 mm, jitter_z 17.7 mm
+screen_hs_p2pl,con-3,reference points 2732 of 2732, path 68.1 m, ATE rmse 0.0200 m, median 0.0171, max 0.0611, without 0 reference spikes 0.0200,jitter_xy 14.2 mm, jitter_z 16.1 mm
+rival_fastlio_hs,snow-3,reference points 4593 of 4694, path 141.0 m, ATE rmse 0.0166 m, median 0.0142, max 0.0534, without 0 reference spikes 0.0166
+screen_hs_base,pil-2,reference points 7926 of 8029, path 252.2 m, ATE rmse 0.0768 m, median 0.0437, max 0.5975, without 0 reference spikes 0.0768,jitter_xy 35.2 mm, jitter_z 18.0 mm
+screen_hs_bump,pil-2,reference points 7926 of 8029, path 252.2 m, ATE rmse 0.0294 m, median 0.0245, max 0.0942, without 0 reference spikes 0.0294,jitter_xy 17.7 mm, jitter_z 9.5 mm
+screen_hs_iw,pil-2,reference points 7926 of 8029, path 252.2 m, ATE rmse 0.0629 m, median 0.0353, max 0.5433, without 0 reference spikes 0.0629,jitter_xy 26.3 mm, jitter_z 14.5 mm
+screen_hs_lm,pil-2,reference points 7926 of 8029, path 252.2 m, ATE rmse 0.0634 m, median 0.0375, max 0.5918, without 0 reference spikes 0.0634,jitter_xy 39.7 mm, jitter_z 16.9 mm
+screen_hs_lmnograv,pil-2,reference points 7926 of 8029, path 252.2 m, ATE rmse 0.0592 m, median 0.0367, max 0.5510, without 0 reference spikes 0.0592,jitter_xy 32.6 mm, jitter_z 17.3 mm
+screen_hs_lmp2pl,pil-2,reference points 7926 of 8029, path 252.2 m, ATE rmse 0.0537 m, median 0.0381, max 0.4396, without 0 reference spikes 0.0537,jitter_xy 29.7 mm, jitter_z 16.0 mm
+screen_hs_nograv,pil-2,reference points 7926 of 8029, path 252.2 m, ATE rmse 0.0706 m, median 0.0394, max 0.6174, without 0 reference spikes 0.0706,jitter_xy 41.8 mm, jitter_z 18.8 mm
+screen_hs_p2pl,pil-2,reference points 7926 of 8029, path 252.2 m, ATE rmse 0.0975 m, median 0.0494, max 0.6974, without 0 reference spikes 0.0975,jitter_xy 49.9 mm, jitter_z 19.4 mm
+rival_fastlio_hs,spx-1,reference points 4197 of 4197, path 139.4 m, ATE rmse 0.0422 m, median 0.0374, max 0.1633, without 0 reference spikes 0.0422
+screen_hs_base,heap-1,reference points 4596 of 4598, path 154.0 m, ATE rmse 0.0281 m, median 0.0190, max 0.1323, without 0 reference spikes 0.0281,jitter_xy 14.3 mm, jitter_z 9.0 mm
+screen_hs_bump,heap-1,reference points 4596 of 4598, path 154.0 m, ATE rmse 0.0281 m, median 0.0227, max 0.0634, without 0 reference spikes 0.0281,jitter_xy 13.1 mm, jitter_z 7.4 mm
+screen_hs_iw,heap-1,reference points 4596 of 4598, path 154.0 m, ATE rmse 0.0276 m, median 0.0178, max 0.1310, without 0 reference spikes 0.0276,jitter_xy 13.2 mm, jitter_z 7.5 mm
+screen_hs_lm,heap-1,reference points 4596 of 4598, path 154.0 m, ATE rmse 0.0272 m, median 0.0187, max 0.1226, without 0 reference spikes 0.0272,jitter_xy 14.7 mm, jitter_z 8.6 mm
+screen_hs_lmnograv,heap-1,reference points 4596 of 4598, path 154.0 m, ATE rmse 0.0273 m, median 0.0190, max 0.1233, without 0 reference spikes 0.0273,jitter_xy 14.7 mm, jitter_z 8.7 mm
+screen_hs_lmp2pl,heap-1,reference points 4596 of 4598, path 154.0 m, ATE rmse 0.0284 m, median 0.0183, max 0.1413, without 0 reference spikes 0.0284,jitter_xy 14.8 mm, jitter_z 8.6 mm
+screen_hs_nograv,heap-1,reference points 4596 of 4598, path 154.0 m, ATE rmse 0.0282 m, median 0.0191, max 0.1323, without 0 reference spikes 0.0282,jitter_xy 14.3 mm, jitter_z 9.0 mm
+screen_hs_p2pl,heap-1,reference points 4596 of 4598, path 154.0 m, ATE rmse 0.0278 m, median 0.0186, max 0.1296, without 0 reference spikes 0.0278,jitter_xy 14.4 mm, jitter_z 9.3 mm
+rival_fastlio_hs,snow-1,reference points 1162 of 1201, path 22.9 m, ATE rmse 0.3767 m, median 0.2146, max 0.9784, without 0 reference spikes 0.3767
+rival_fastlio_hs,spx-3,reference points 2229 of 2229, path 88.2 m, ATE rmse 0.0126 m, median 0.0105, max 0.0533, without 0 reference spikes 0.0126
+screen_hs_base,spx-3,reference points 2229 of 2229, path 88.2 m, ATE rmse 0.0097 m, median 0.0084, max 0.0592, without 0 reference spikes 0.0097,jitter_xy 27.2 mm, jitter_z 5.6 mm
+screen_hs_bump,spx-3,reference points 2229 of 2229, path 88.2 m, ATE rmse 0.0091 m, median 0.0078, max 0.0630, without 0 reference spikes 0.0091,jitter_xy 27.0 mm, jitter_z 5.1 mm
+screen_hs_iw,spx-3,reference points 2229 of 2229, path 88.2 m, ATE rmse 0.0080 m, median 0.0073, max 0.0598, without 0 reference spikes 0.0080,jitter_xy 26.5 mm, jitter_z 4.7 mm
+screen_hs_lm,spx-3,reference points 2229 of 2229, path 88.2 m, ATE rmse 0.0103 m, median 0.0089, max 0.0585, without 0 reference spikes 0.0103,jitter_xy 27.4 mm, jitter_z 5.7 mm
+screen_hs_lmnograv,spx-3,reference points 2229 of 2229, path 88.2 m, ATE rmse 0.0104 m, median 0.0091, max 0.0578, without 0 reference spikes 0.0104,jitter_xy 27.4 mm, jitter_z 5.9 mm
+screen_hs_lmp2pl,spx-3,reference points 2229 of 2229, path 88.2 m, ATE rmse 0.0100 m, median 0.0086, max 0.0628, without 0 reference spikes 0.0100,jitter_xy 27.4 mm, jitter_z 5.6 mm
+screen_hs_nograv,spx-3,reference points 2229 of 2229, path 88.2 m, ATE rmse 0.0097 m, median 0.0083, max 0.0638, without 0 reference spikes 0.0097,jitter_xy 27.2 mm, jitter_z 5.7 mm
+screen_hs_p2pl,spx-3,reference points 2229 of 2229, path 88.2 m, ATE rmse 0.0095 m, median 0.0081, max 0.0648, without 0 reference spikes 0.0095,jitter_xy 27.1 mm, jitter_z 5.5 mm
+rival_fastlio_hs,ice-1,reference points 3944 of 3958, path 49.3 m, ATE rmse 0.0194 m, median 0.0166, max 0.0566, without 0 reference spikes 0.0194
+G14hs_g14,arc-3,reference points 3654 of 3654, path 196.9 m, ATE rmse 0.3565 m, median 0.1474, max 16.0779, without 1 reference spikes 0.2374,jitter_xy 18.3 mm, jitter_z 12.5 mm
+rival_fastlio_hs,arc-1,reference points 6122 of 6139, path 179.4 m, ATE rmse 0.0154 m, median 0.0129, max 0.0540, without 0 reference spikes 0.0154
+G14hs_g14,arc-4,reference points 1514 of 1514, path 43.8 m, ATE rmse 0.0188 m, median 0.0170, max 0.0399, without 0 reference spikes 0.0188,jitter_xy 15.9 mm, jitter_z 6.6 mm
+rival_fastlio_hs,arc-5,reference points 2973 of 2987, path 96.3 m, ATE rmse 0.0251 m, median 0.0193, max 0.1014, without 0 reference spikes 0.0251
+G14hs_g14,arc-6,reference points 3171 of 3173, path 97.0 m, ATE rmse 0.0124 m, median 0.0109, max 0.0284, without 0 reference spikes 0.0124,jitter_xy 10.9 mm, jitter_z 5.0 mm
+rival_fastlio_hs,con-2,reference points 4751 of 4769, path 218.7 m, ATE rmse 0.0214 m, median 0.0157, max 0.0662, without 0 reference spikes 0.0214
+G14hs_g14,con-1,reference points 5898 of 5898, path 242.8 m, ATE rmse 0.0391 m, median 0.0319, max 0.1056, without 1 reference spikes 0.0391,jitter_xy 13.9 mm, jitter_z 6.8 mm
+rival_fastlio_hs,pil-2,reference points 7923 of 8029, path 252.1 m, ATE rmse 0.0356 m, median 0.0290, max 0.1862, without 0 reference spikes 0.0356
+G14hs_g14,eig-2,reference points 3903 of 3903, path 166.9 m, ATE rmse 0.0285 m, median 0.0255, max 0.0668, without 0 reference spikes 0.0285,jitter_xy 17.0 mm, jitter_z 8.4 mm
+hsb_w0,arc-3,reference points 3654 of 3654, path 196.9 m, ATE rmse 0.3565 m, median 0.1474, max 16.0779, without 1 reference spikes 0.2374,jitter_xy 18.3 mm, jitter_z 12.5 mm
+hsb_w01,arc-3,reference points 3654 of 3654, path 196.9 m, ATE rmse 0.2953 m, median 0.1335, max 16.1278, without 1 reference spikes 0.1265,jitter_xy 18.3 mm, jitter_z 14.9 mm
+hsb_w03,arc-3,reference points 3654 of 3654, path 196.9 m, ATE rmse 0.2708 m, median 0.0386, max 16.1442, without 1 reference spikes 0.0439,jitter_xy 18.4 mm, jitter_z 12.6 mm
+hsb_w1,arc-3,reference points 3654 of 3654, path 196.9 m, ATE rmse 0.2685 m, median 0.0187, max 16.1559, without 1 reference spikes 0.0247,jitter_xy 18.7 mm, jitter_z 12.4 mm
+hsb_w0,con-1,reference points 5898 of 5898, path 242.8 m, ATE rmse 0.0391 m, median 0.0319, max 0.1056, without 1 reference spikes 0.0391,jitter_xy 13.9 mm, jitter_z 6.8 mm
+hsb_w01,con-1,reference points 5898 of 5898, path 242.8 m, ATE rmse 0.0354 m, median 0.0284, max 0.1006, without 1 reference spikes 0.0354,jitter_xy 13.9 mm, jitter_z 6.9 mm
+hsb_w03,con-1,reference points 5898 of 5898, path 242.8 m, ATE rmse 0.0308 m, median 0.0250, max 0.0989, without 1 reference spikes 0.0308,jitter_xy 13.9 mm, jitter_z 6.9 mm
+hsb_w1,con-1,reference points 5898 of 5898, path 242.8 m, ATE rmse 0.0248 m, median 0.0187, max 0.0857, without 1 reference spikes 0.0248,jitter_xy 14.0 mm, jitter_z 7.3 mm
+hsb_w0,arc-6,reference points 3171 of 3173, path 97.0 m, ATE rmse 0.0124 m, median 0.0109, max 0.0284, without 0 reference spikes 0.0124,jitter_xy 10.9 mm, jitter_z 5.0 mm
+hsb_w01,arc-6,reference points 3171 of 3173, path 97.0 m, ATE rmse 0.0118 m, median 0.0105, max 0.0253, without 0 reference spikes 0.0118,jitter_xy 10.9 mm, jitter_z 4.9 mm
+hsb_w03,arc-6,reference points 3171 of 3173, path 97.0 m, ATE rmse 0.0105 m, median 0.0096, max 0.0262, without 0 reference spikes 0.0105,jitter_xy 10.9 mm, jitter_z 4.8 mm
+hsb_w1,arc-6,reference points 3171 of 3173, path 97.0 m, ATE rmse 0.0097 m, median 0.0089, max 0.0266, without 0 reference spikes 0.0097,jitter_xy 11.0 mm, jitter_z 5.0 mm
+hsb_w0,arc-5,reference points 2985 of 2987, path 96.3 m, ATE rmse 0.0120 m, median 0.0105, max 0.0284, without 0 reference spikes 0.0120,jitter_xy 12.4 mm, jitter_z 6.9 mm
+hsb_w01,arc-5,reference points 2985 of 2987, path 96.3 m, ATE rmse 0.0123 m, median 0.0107, max 0.0368, without 0 reference spikes 0.0123,jitter_xy 12.4 mm, jitter_z 7.4 mm
+hsb_w03,arc-5,reference points 2985 of 2987, path 96.3 m, ATE rmse 0.0135 m, median 0.0114, max 0.0538, without 0 reference spikes 0.0135,jitter_xy 12.5 mm, jitter_z 8.2 mm
+hsb_w1,arc-5,reference points 2985 of 2987, path 96.3 m, ATE rmse 0.0180 m, median 0.0124, max 0.0722, without 0 reference spikes 0.0180,jitter_xy 12.7 mm, jitter_z 9.8 mm
+hsb_w0,pil-2,reference points 7926 of 8029, path 252.2 m, ATE rmse 0.0294 m, median 0.0245, max 0.0942, without 0 reference spikes 0.0294,jitter_xy 17.7 mm, jitter_z 9.5 mm
+hsb_w01,pil-2,reference points 7926 of 8029, path 252.2 m, ATE rmse 0.0278 m, median 0.0235, max 0.0990, without 0 reference spikes 0.0278,jitter_xy 17.6 mm, jitter_z 9.7 mm
+hsb_w03,pil-2,reference points 7926 of 8029, path 252.2 m, ATE rmse 0.0269 m, median 0.0214, max 0.1019, without 0 reference spikes 0.0269,jitter_xy 18.0 mm, jitter_z 9.9 mm
+hsb_w1,pil-2,reference points 7926 of 8029, path 252.2 m, ATE rmse 0.0317 m, median 0.0227, max 0.2698, without 0 reference spikes 0.0317,jitter_xy 21.1 mm, jitter_z 11.3 mm
+hsb_w0,con-3,run failed
+hsb_w0,con-3,reference points 2732 of 2732, path 68.1 m, ATE rmse 0.0164 m, median 0.0122, max 0.0545, without 0 reference spikes 0.0164,jitter_xy 12.7 mm, jitter_z 7.0 mm
+hsb_w01,con-3,reference points 2732 of 2732, path 68.1 m, ATE rmse 0.0187 m, median 0.0114, max 0.0787, without 0 reference spikes 0.0187,jitter_xy 12.8 mm, jitter_z 7.6 mm
+hsb_w03,con-3,reference points 2732 of 2732, path 68.1 m, ATE rmse 0.0138 m, median 0.0098, max 0.0469, without 0 reference spikes 0.0138,jitter_xy 12.8 mm, jitter_z 7.7 mm
+hsb_w1,con-3,reference points 2732 of 2732, path 68.1 m, ATE rmse 0.0139 m, median 0.0108, max 0.0508, without 0 reference spikes 0.0139,jitter_xy 13.1 mm, jitter_z 10.2 mm
+hsb_w0,snow-3,reference points 4608 of 4694, path 141.1 m, ATE rmse 0.0273 m, median 0.0138, max 0.2011, without 0 reference spikes 0.0273,jitter_xy 18.8 mm, jitter_z 9.4 mm
+hsb_w01,snow-3,reference points 4608 of 4694, path 141.1 m, ATE rmse 0.0423 m, median 0.0145, max 0.4049, without 0 reference spikes 0.0423,jitter_xy 19.6 mm, jitter_z 9.7 mm
+hsb_w03,snow-3,reference points 4608 of 4694, path 141.1 m, ATE rmse 0.0515 m, median 0.0146, max 0.5045, without 0 reference spikes 0.0515,jitter_xy 21.2 mm, jitter_z 10.1 mm
+hsb_w1,snow-3,reference points 4608 of 4694, path 141.1 m, ATE rmse 0.0889 m, median 0.0188, max 0.6681, without 0 reference spikes 0.0889,jitter_xy 27.0 mm, jitter_z 10.7 mm
+hsb_w0,spx-1,reference points 4197 of 4197, path 139.4 m, ATE rmse 0.0388 m, median 0.0375, max 0.1636, without 0 reference spikes 0.0388,jitter_xy 12.7 mm, jitter_z 6.6 mm
+hsb_w01,spx-1,reference points 4197 of 4197, path 139.4 m, ATE rmse 0.0338 m, median 0.0327, max 0.1580, without 0 reference spikes 0.0338,jitter_xy 12.6 mm, jitter_z 6.5 mm
+hsb_w03,spx-1,reference points 4197 of 4197, path 139.4 m, ATE rmse 0.0273 m, median 0.0254, max 0.1530, without 0 reference spikes 0.0273,jitter_xy 12.6 mm, jitter_z 6.5 mm
+hsb_w1,spx-1,reference points 4197 of 4197, path 139.4 m, ATE rmse 0.0188 m, median 0.0165, max 0.1467, without 0 reference spikes 0.0188,jitter_xy 12.7 mm, jitter_z 6.8 mm
+hsb_w0,ice-1,reference points 3958 of 3958, path 49.3 m, ATE rmse 0.0119 m, median 0.0102, max 0.0333, without 0 reference spikes 0.0119,jitter_xy 10.9 mm, jitter_z 5.9 mm
+hsb_w01,ice-1,reference points 3958 of 3958, path 49.3 m, ATE rmse 0.0118 m, median 0.0101, max 0.0307, without 0 reference spikes 0.0118,jitter_xy 10.8 mm, jitter_z 5.9 mm
+hsb_w03,ice-1,reference points 3958 of 3958, path 49.3 m, ATE rmse 0.0121 m, median 0.0103, max 0.0308, without 0 reference spikes 0.0121,jitter_xy 10.8 mm, jitter_z 6.1 mm
+hsb_w1,ice-1,reference points 3958 of 3958, path 49.3 m, ATE rmse 0.0115 m, median 0.0099, max 0.0420, without 0 reference spikes 0.0115,jitter_xy 11.1 mm, jitter_z 6.5 mm
+hsb_w0,arc-1,reference points 6136 of 6139, path 179.4 m, ATE rmse 0.0143 m, median 0.0114, max 0.0662, without 0 reference spikes 0.0143,jitter_xy 17.5 mm, jitter_z 11.2 mm
+hsb_w01,arc-1,reference points 6136 of 6139, path 179.4 m, ATE rmse 0.0146 m, median 0.0113, max 0.0694, without 0 reference spikes 0.0146,jitter_xy 17.6 mm, jitter_z 11.7 mm
+hsb_w03,arc-1,reference points 6136 of 6139, path 179.4 m, ATE rmse 0.0152 m, median 0.0114, max 0.0791, without 0 reference spikes 0.0152,jitter_xy 17.8 mm, jitter_z 11.8 mm
+hsb_w1,arc-1,reference points 6136 of 6139, path 179.4 m, ATE rmse 0.0168 m, median 0.0119, max 0.0850, without 0 reference spikes 0.0168,jitter_xy 18.1 mm, jitter_z 12.6 mm
+hsb_w0,con-2,reference points 4766 of 4769, path 218.7 m, ATE rmse 0.0457 m, median 0.0272, max 0.2554, without 0 reference spikes 0.0457,jitter_xy 13.1 mm, jitter_z 6.9 mm
+hsb_w01,con-2,reference points 4766 of 4769, path 218.7 m, ATE rmse 0.0433 m, median 0.0256, max 0.2307, without 0 reference spikes 0.0433,jitter_xy 13.1 mm, jitter_z 7.1 mm
+hsb_w03,con-2,reference points 4766 of 4769, path 218.7 m, ATE rmse 0.0370 m, median 0.0246, max 0.1648, without 0 reference spikes 0.0370,jitter_xy 13.0 mm, jitter_z 7.2 mm
+hsb_w1,con-2,reference points 4766 of 4769, path 218.7 m, ATE rmse 0.0258 m, median 0.0177, max 0.0983, without 0 reference spikes 0.0258,jitter_xy 13.1 mm, jitter_z 7.4 mm
+rival_fastlio_hs,con-3,reference points 2732 of 2732, path 68.1 m, ATE rmse 0.0552 m, median 0.0371, max 0.2277, without 0 reference spikes 0.0552
+G15hs_g15,arc-3,reference points 3654 of 3654, path 196.9 m, ATE rmse 0.2685 m, median 0.0187, max 16.1559, without 1 reference spikes 0.0247,jitter_xy 18.7 mm, jitter_z 12.4 mm
+G15hs_g15,con-1,reference points 5898 of 5898, path 242.8 m, ATE rmse 0.0248 m, median 0.0187, max 0.0857, without 1 reference spikes 0.0248,jitter_xy 14.0 mm, jitter_z 7.3 mm
+G15hs_g15,arc-6,reference points 3171 of 3173, path 97.0 m, ATE rmse 0.0097 m, median 0.0089, max 0.0266, without 0 reference spikes 0.0097,jitter_xy 11.0 mm, jitter_z 5.0 mm
+G15hs_g15,arc-5,reference points 2985 of 2987, path 96.3 m, ATE rmse 0.0180 m, median 0.0124, max 0.0722, without 0 reference spikes 0.0180,jitter_xy 12.7 mm, jitter_z 9.8 mm
+G15hs_g15,pil-2,reference points 7926 of 8029, path 252.2 m, ATE rmse 0.0317 m, median 0.0227, max 0.2698, without 0 reference spikes 0.0317,jitter_xy 21.1 mm, jitter_z 11.3 mm
+G15hs_g15,con-3,reference points 2732 of 2732, path 68.1 m, ATE rmse 0.0139 m, median 0.0108, max 0.0508, without 0 reference spikes 0.0139,jitter_xy 13.1 mm, jitter_z 10.2 mm
+G15hs_g15,snow-3,reference points 4608 of 4694, path 141.1 m, ATE rmse 0.0889 m, median 0.0188, max 0.6681, without 0 reference spikes 0.0889,jitter_xy 27.0 mm, jitter_z 10.7 mm
+G15hs_g15,spx-1,reference points 4197 of 4197, path 139.4 m, ATE rmse 0.0188 m, median 0.0165, max 0.1467, without 0 reference spikes 0.0188,jitter_xy 12.7 mm, jitter_z 6.8 mm
+G15hs_g15,ice-1,reference points 3958 of 3958, path 49.3 m, ATE rmse 0.0115 m, median 0.0099, max 0.0420, without 0 reference spikes 0.0115,jitter_xy 11.1 mm, jitter_z 6.5 mm
+G15hs_g15,arc-1,reference points 6136 of 6139, path 179.4 m, ATE rmse 0.0168 m, median 0.0119, max 0.0850, without 0 reference spikes 0.0168,jitter_xy 18.1 mm, jitter_z 12.6 mm
+G15hs_g15,con-2,reference points 4766 of 4769, path 218.7 m, ATE rmse 0.0258 m, median 0.0177, max 0.0983, without 0 reference spikes 0.0258,jitter_xy 13.1 mm, jitter_z 7.4 mm
+G15hs_g15,heap-1,reference points 4596 of 4598, path 154.0 m, ATE rmse 0.0242 m, median 0.0194, max 0.0728, without 0 reference spikes 0.0242,jitter_xy 13.2 mm, jitter_z 7.9 mm
+G15hs_g15,spx-3,reference points 2229 of 2229, path 88.2 m, ATE rmse 0.0087 m, median 0.0073, max 0.0602, without 0 reference spikes 0.0087,jitter_xy 27.0 mm, jitter_z 5.1 mm
+G15hs_g15,arc-4,reference points 1514 of 1514, path 43.8 m, ATE rmse 0.0200 m, median 0.0096, max 0.0908, without 0 reference spikes 0.0200,jitter_xy 16.1 mm, jitter_z 7.8 mm
+G15hs_g15,eig-2,reference points 3903 of 3903, path 166.9 m, ATE rmse 0.0302 m, median 0.0251, max 0.1360, without 0 reference spikes 0.0302,jitter_xy 17.6 mm, jitter_z 9.5 mm
+G15hs_g15,snow-1,reference points 1199 of 1201, path 23.2 m, ATE rmse 0.3763 m, median 0.2146, max 0.9767, without 0 reference spikes 0.3763,jitter_xy 9.9 mm, jitter_z 4.9 mm

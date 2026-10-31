@@ -159,6 +159,8 @@ GraphSlamApplicationConfig makeGraphSlamApplicationConfig(const GraphSlamConfig 
   result.registration_method = config.registration_method;
   result.ndt_resolution = config.ndt_resolution;
   result.ndt_num_threads = config.ndt_num_threads;
+  result.gicp_max_correspondence_distance = config.gicp_max_correspondence_distance;
+  result.gicp_transformation_epsilon = config.gicp_transformation_epsilon;
   result.voxel_leaf_size = config.voxel_leaf_size;
   result.loop_search_query_stride = config.loop_search_query_stride_;
   result.loop_edge_dedup_index_window = config.loop_edge_dedup_index_window_;
@@ -180,6 +182,7 @@ PoseGraphConfigBundle makePoseGraphConfig(
   result.loop.info_weight = config.loop_edge_info_weight_;
   result.loop.constant_info_trans = config.loop_edge_info_constant_trans_;
   result.loop.constant_info_rot = config.loop_edge_info_constant_rot_;
+  result.loop.information_from_registration = config.loop_edge_info_from_registration_;
   result.loop.robust_kernel_type = config.loop_edge_robust_kernel_type_;
   result.loop.robust_kernel_delta = config.loop_edge_robust_kernel_delta_;
   result.imu.info_roll_pitch = config.imu_rotation_info_roll_pitch_;

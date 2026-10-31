@@ -8,24 +8,28 @@
 # (offline node exit - t0), complete_s (map_save response - t0), save_s (map_save call..response),
 # offline_node_took_s, submaps, loop_edges, front_md5, traj_md5, g2o_md5, loops_md5
 # BACKEND_SCHED_IDLE=1 (experiment): run every graph_based_slam thread under SCHED_IDLE.
-# BAG, LIDAR, IMU, RKO_PARAMS override the exp04 defaults (bag, topics, RKO-LIO ROS parameter file).
+# BAG, LIDAR, IMU, RKO_PARAMS override the exp04 defaults (bag, topics, RKO-LIO ROS parameter file). OVERLAY: a
+# workspace sourced over <ws> (e.g. a newer rko_lio); REPO: the lidar_slam_ros2 checkout to run from.
 # BARRIER=1: launch with wait_for_output_subscribers:=true (and whole-second subscriber_wait_timeout_sec, which
 # the installed launch passes to the barrier script unchanged), so the offline node reads the bag only after
 # graph_based_slam has subscribed to its odometry and scans (no scans lost at startup; chapter 18).
+# LAUNCH_PREFIX (with LAUNCH_PREFIX_FILTER, a regex on the executable name): ros2 launch's --launch-prefix, e.g. a
+# profiler around the offline node only.
 csv=$1; label=$2; w=$3; yaml=$4; out=$5
 bag=${BAG:-/home/user/data/hilti2022/exp04_ros2}
 rm -rf "${out}"; mkdir -p "${out}"
-set +u; source "${w}/install/setup.bash"; set -u
+set +u; source "${w}/install/setup.bash"; [[ -n ${OVERLAY:-} ]] && source "${OVERLAY}/install/setup.bash"; set -u
 export ROS_DOMAIN_ID=36 ROS_LOG_DIR="${out}/roslog" M6A10_BENCHMARK_NO_MAP_ARTIFACTS=1
 cp "${RKO_PARAMS:-/home/user/bench/params/rko_params.ros.yaml}" "${out}/rko_params.ros.yaml"
+prefix=(); [[ -n ${LAUNCH_PREFIX:-} ]] && prefix=(--launch-prefix "${LAUNCH_PREFIX}" --launch-prefix-filter "${LAUNCH_PREFIX_FILTER:-.*}")
 barrier=(); [[ ${BARRIER:-0} == 1 ]] && barrier=(wait_for_output_subscribers:=true subscriber_wait_timeout_sec:=30 ${BARRIER_EXTRA:-})
-cd /home/user/rsasaki0109/lidar_slam_ros2
+cd "${REPO:-/home/user/lidar_slam_ros2}"
 timeout 3000 python3 /home/user/scripts/save_when_frontend_done.py "${out}/pipeline_times.json" "${out}/saver.ready" \
   > "${out}/saver.log" 2>&1 &
 spid=$!
 for ((k = 0; k < 600; k++)); do [[ -e ${out}/saver.ready ]] && break; sleep 0.05; done
 t0=$(date +%s.%N)
-setsid ros2 launch lidarslam rko_lio_slam.launch.py "main_param_dir:=${yaml}" "rko_param_file:=${out}/rko_params.ros.yaml" \
+setsid ros2 launch "${prefix[@]}" lidarslam rko_lio_slam.launch.py "main_param_dir:=${yaml}" "rko_param_file:=${out}/rko_params.ros.yaml" \
   "bag_path:=${bag}" "lidar_topic:=${LIDAR:-/hesai/pandar}" "imu_topic:=${IMU:-/alphasense/imu}" \
   base_frame:=base_link publish_static_tf:=true "save_dir:=${out}" "results_dir:=${out}" run_name:=front \
   dump_results:=true use_rviz:=false "${barrier[@]}" > "${out}/slam.launch.log" 2>&1 &

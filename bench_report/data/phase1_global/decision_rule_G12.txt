@@ -1,0 +1,34 @@
+Phase 1, candidate G12 (fixed 2026-10-26 before any G12 run; after the GrandTour validation mission ARC-3 failed with G).
+
+Why: with G, ARC-3 (2024-11-18-13-48-19, multi-floor building) has an ATE of 4.597 m. 180 scans in the stairwells
+have 75-99 ICP keypoints, fewer than min_icp_keypoints 100, and are not registered; the IMU alone carries the pose for
+up to 4.5 s at a time and the trajectory diverges (42 m at 600 s). The scans are not empty (4,762-12,564 points): the
+scene is small, and the keypoint voxel (0.25 x 2.25 = 0.5625 m) leaves too few keypoints.
+
+G12 = G + keypoint_shortfall_voxel_multiplier 1.0: a scan with fewer than min_icp_keypoints keypoints takes its
+keypoints again from its map-resolution downsample (voxel 0.125 m) at voxel 0.25 x 1.0 = 0.25 m, about five times as
+many; if it still has fewer than min_icp_keypoints, it is dropped as before. Nothing else changes, so a sequence with no
+scan under 100 keypoints is byte-identical to G.
+
+Adopt G12 as G if all of these hold (one run each, frontend only):
+  1. MapsHD flat-room 1 (lowest keypoint count of the ten development sequences, 162) and Oxford Keble 05 are
+     byte-identical to G (58825b41, 9df00551).
+  2. Koide outdoor_hard 02a/02b/01b/01a: none is worse than G by more than 5 %, and 01a stays below 1.5 m (the
+     occluded-scan failure that G11 fixed must not come back). G: 0.837 / 0.715 / 1.840 / 0.977.
+  3. GrandTour ARC-3 (validation) ATE below 0.5 m, and HEAP-1 (validation) not worse than 1.05 x G (0.0647 m).
+  4. Every run stays real-time (node time below the data duration).
+
+Result (one run each, frontend only; rko_lio 6be3e3e, built before one function signature was reformatted, offline_node
+md5 8324a5c0):
+  1. MapsHD flat-room 1 58825b41 and Oxford 9df00551: byte-identical to G.
+  2. Koide 02a 51a366da (0.837), 02b e0aa64d8 (0.715), 01b b73a4b7d (1.840), 01a 3098dddc (0.977): byte-identical to
+     G. The finer voxel was tried on 3/3/1/3 of their scans, which still had fewer than 100 keypoints and were dropped
+     as before (the counter in stdout counts every scan the finer voxel was tried on).
+  3. ARC-3 0.2768 m RMSE (G 4.597), median 0.0615, max 16.16; 195 scans used the finer keypoints and none was dropped.
+     The max is one reference point: the prism reference jumps 16.16 m in 0.085 s at 620.9 s and back; without that
+     point the ATE is 0.0719 m. HEAP-1 0.0647 m, byte-identical to G (no scan under 100 keypoints).
+  4. Node time / data: ARC-3 157 s / 685 s, HEAP-1 58 s / 303 s, Oxford 459 s / 583 s, Koide 103-221 s /
+     223-288 s, flat-room 142 s / 261 s (two runs side by side and other jobs on four cores): real-time.
+G12 is adopted as G (configs/sota_v7/rko_lio_global_G12_2026-10-26.yaml).
+Also run on the COMFORT test mission ARC-2: byte-identical to G (67f16969). No test mission has a scan under 100
+keypoints with G, so the G12 trajectories of all six are the G ones.

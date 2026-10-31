@@ -1,0 +1,97 @@
+Eighteenth HS screen, step 1: how far the registration moves a scan away from the IMU prediction (2026-10-28,
+written before these runs).
+
+Why: submission 5 (HS-G15g) scored 0.0426 m on the test, with arc-2 at 0.102. HS-G15g's own arc-2 output (no reference
+read) jumps up 0.63 m in 0.6 s at t = 143 s (vertical speed 1.86 m/s, impossible for the walking robot), where the
+Livox submissions stay level: the registration slipped in height in the ARCHE building. No development mission shows
+such a jump with HS-G15g (the largest |vz| on the dev ARC missions is 0.98 m/s for a 0.23 m step on arc-3's stairs).
+The idea is a GT-free guard that bounds how far the registration may move a scan from its IMU prediction (in height
+first) and keeps such scans out of the map. Its threshold must come from development data only, with margin.
+rko_lio 3403690 logs each scan's predicted (initial-guess) position with its registered one (output_filter_log 'U'
+events; no output changes).
+Runs: HS-G15g + output_filter_log (runs/g15glog.yaml, ws/rko_g33, offline_node md5 9dbf743c...) on the ARCHE
+development missions arc-3 (stairs), arc-1, arc-4, arc-5, arc-6. Each must give HS-G15g's trajectory (hsq_g15g_c30 or
+the G15g replays). Reported: per mission the distribution of the per-scan vertical and horizontal innovation
+(registered - predicted): 99 %, 99.9 %, max, with where the largest occur. No test mission is run.
+
+Interim (2026-10-28, arc-3 and arc-1 analysed): the per-scan innovation (registered - predicted) is large in normal
+operation on these stairs: |dz| 99 % 40-50 mm, max 104 (arc-3) and 129 mm (arc-1); |dxy| max 49 and 85 mm. The
+prediction starts from the registration's own velocity, so a slip would hardly show in it. The output filter's
+innovation (IMU-driven prediction) is of the same size (|dz| max 82-122 mm). arc-3 rises 0.44 m and falls again at
+78-80 s (outside the reference): integrating the IMU alone from 77 s gives the same rise (-2.60 -> -2.16 m by 78.5 s)
+and fall, so it is real motion on the stairs, not a slip.
+Amendment (before any further run): to know whether submission 5's arc-2 jump (+0.63 m in 0.6 s at 143 s) is a slip
+at all, the test mission arc-2 is run once more with the same file plus output_filter_log (runs_test/g15glog.yaml,
+ws/rko_g33): only its sensor streams are read, as in every test run, and only our own log is analysed (the IMU's
+vertical motion against the registered one around 143 s), as with the frame tilt of the moving starts. Its trajectory
+must equal submission 5's arc-2 byte for byte. Nothing from it is submitted; whatever guard follows is set on
+development data.
+
+Step 1 result (2026-10-28; ws/rko_g33; the five runs give HS-G15g's trajectories: arc-5, arc-4, arc-6 byte for byte
+with hsq_g15g_c30, arc-3 and arc-1 to 0.5 um with the G15g replays). Per-scan innovation, mm:
+  mission  |dz| 99 % / 99.9 % / max     |dxy| 99 % / 99.9 % / max
+  arc-3    39.8 / 67.8 / 103.5          25.1 / 38.5 / 49.2
+  arc-1    50.4 / 91.5 / 128.6          26.7 / 40.5 / 85.2
+  arc-5    48.3 / 90.4 / 111.2          29.6 / 47.4 / 56.2
+  arc-4    26.1 / 43.4 / 48.3           20.3 / 26.0 / 30.5
+  arc-6    11.2 / 17.4 / 24.1           13.4 / 16.7 / 26.3
+Test arc-2, the diagnostic run (its trajectory equals submission 5's byte for byte, md5 9a0fc4da...): at 142.9 s
+the registration moves the scan +509.7 mm up from its prediction in one scan, then -344 and -206 mm as the predicted
+velocity catches up; integrating the IMU alone from 141.5-142.5 s keeps the height at 1.11-1.21 m while the
+registration stays at 1.71-1.84 m afterwards. A slip of the registration, kept by the map.
+
+Step 2 (fixed before any of its runs): G15gi = HS-G15g + registration_innovation_limit_xy 0.25 m and _z 0.25 m (rko_lio
+82da285, ws/rko_g34; guard/g15gi.yaml): about twice the largest innovation of the five ARCHE development missions
+(129 mm vertical, 85 mm horizontal). The value was set knowing the arc-2 slip (510 mm); any limit from 0.13 to 0.5 m
+would catch it, and 0.25 m is the round value at twice the development maximum, not fitted to it.
+Runs: G15gi on the 15 HS development missions and snow-1; each run reports how many scans the limits bounded.
+Adopt G15gi as the GrandTour HS configuration in place of HS-G15g if all hold:
+  1. Every development mission either is HS-G15g's trajectory byte for byte (no scan bounded) or, where scans were
+     bounded, is not worse than HS-G15g's by more than 10 % and 2 mm at once (two stages as decision_rule_G15d.txt);
+     the mean over the 15 is not above HS-G15g's 0.0174 m.
+  2. Every run real-time.
+What it can and cannot show: on development data the guard can only be shown harmless (it was not needed there);
+that it helps rests on the arc-2 diagnostic (guard_test/: the same file plus output_filter_log on the test's arc-2,
+GT-free: is the slip bounded, and does the height then follow the IMU), not on any score. A COMFORT submission with
+it would be a change made after seeing the test result of submission 5; whether to make one is the maintainer's
+decision, stated as such.
+
+Amendment (2026-10-28, after the first guard run, before any development mission was judged): the diagnostic run on
+the test's arc-2 (ws/rko_g34, rko_lio 82da285, label hsrg_g15gilog) reported 54 bounded scans, yet its logged
+innovations reach the limit only once (192.5 s, -250 mm), and its trajectory leaves submission 5's already at 0.3 s.
+The cause is in the helper: clamp_innovation returned predicted + (registered - predicted) for every scan, which
+rounds off the registered value where the two differ by more than a factor of two (coordinates near the origin);
+such a scan was counted as bounded and kept out of the map. 53 of the 54 were such rounding cases. That run therefore
+does not show the guard: it went apart from 0.3 s on through those map gaps, and the slip at 142.9 s did not happen in
+it at all (largest innovation near it +211 mm at 144.8 s), so it says nothing about whether the guard catches the
+slip. It is void, as is the partial development run it was followed by (arc-3, stopped before its registration).
+Fix: rko_lio d40d3b9 leaves a part within its limit bit for bit and moves only a part beyond it (a test with values
+near the origin, which the old helper fails). Build ws/rko_g35 (offline_node md5 2a97ab3c...). The step-2 rule above
+stands unchanged with this build: the same file guard/g15gi.yaml, the test diagnostic guard_test/g15gilog.yaml, labels
+hsrh_g15gi and hsrh_g15gilog. The fix makes the code do what the rule describes; no setting changed.
+
+Result (2026-10-28; ws/rko_g35, rko_lio d40d3b9; the test diagnostic, GT-free: only our own outputs and logs):
+  arc-2 (hsrh_g15gilog): the trajectory is submission 5's byte for byte up to 142.9 s. The limits bound 2 scans:
+  142.9 s (+510 -> +250 mm) and 143.1 s (-250 mm: the prediction, carried by the bounded step's velocity, overshoots).
+  The next scans register at the same height as before (IMU position 1.73-1.76 m at 143.5-144.5 s against 1.72-1.74 m
+  in submission 5); from 145 s on the two runs differ by 0-10 mm in height (37 mm at 250 s). The guard bounds the step
+  but the height does not then follow the IMU: the diagnostic does not show what the guard was made for.
+  Reading of the event (GT-free; our own outputs of arc-2 and arc-7, the development reference of arc-3): the step is
+  most likely the registration coming back from a height drift built up on the stairs, not a slip.
+  - After the step the upper floor lies 2.54 m above the floor the climb started from (-0.41 -> 2.13 m, prism). The
+    floor spacing in the ARCHE building is 2.53 m on the development reference (arc-3 dwells at 0.13 and 2.66 m) and
+    in our own test arc-7 (climb 0.37 -> 2.90 m). Without the step it would be about 2.0 m.
+  - The later descent (2.10 -> -0.35 m at 320-360 s, no step) ends at the level the climb started from (-0.39 against
+    -0.41 m).
+  - In the 12 s before the step the height sank from 1.87 to 1.60 m at places the later passes (180-200 s) show as
+    floor at 2.13 m.
+  The IMU check of step 1 (142.0-144.5 s) showed only that the robot did not move vertically during the step, which
+  holds either way. Integrating the IMU over longer windows drifts by 0.1 m/s within seconds (attitude errors leak
+  gravity) and cannot tell where the drift built up.
+  The development runs were stopped after the diagnostic (only arc-3 had begun; removed): G15gi is withdrawn, not
+  judged. Its premise, a slip kept by the map, does not hold for the one event it was made for, and bounding a
+  correction would only delay it. rko_lio keeps the option (registration_innovation_limit_xy / _z, default 0: off).
+  What arc-2 needs instead is to keep the height during the climb (about 100-130 s). There the registration's height
+  is weakly constrained: the marginal z std from the logged Hessians is 11-14 (arbitrary units) against 1.0-1.5 on
+  the floor after. Development arc-3 and arc-1 reach the same values on their stairs without drifting. Not addressed
+  here.

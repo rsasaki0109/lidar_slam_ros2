@@ -1,0 +1,54 @@
+Phase 1, candidate G15 (fixed 2026-10-27 before any G15 run other than the eleven GrandTour missions of the second
+Hesai screen, data/grandtour/screen_hs_b_2026-10-27/, whose results are known: they count with those runs).
+
+G15 = G14 + bump_image_point_to_point_weight 1.0 (rko_lio 05ab894, ws/rko_g15): every scan is registered with the
+bump-image system plus the keypoints' point-to-point system, each averaged over its own residuals, with equal weight.
+At weight 0 (G14) the build gives G14's trajectories byte for byte on the screen's missions.
+
+Why: G14 slipped in open scenes (ARC-3, CON-1; decision_rule_G14.txt). In the second screen (11 missions, HS rig, ATE
+without reference spikes, m; bump alone (G14) / weight 0.1 / 0.3 / 1.0 / G12):
+  arc-3 0.2374 / 0.1265 / 0.0439 / 0.0247 / 0.1262     con-1 0.0391 / 0.0354 / 0.0308 / 0.0248 / 0.0261
+  arc-6 0.0124 / 0.0118 / 0.0105 / 0.0097 / 0.0104     arc-5 0.0120 / 0.0123 / 0.0135 / 0.0180 / 0.0554
+  pil-2 0.0294 / 0.0278 / 0.0269 / 0.0317 / 0.0768     con-3 0.0164 / 0.0187 / 0.0138 / 0.0139 / 0.0281
+  snow-3 0.0273 / 0.0423 / 0.0515 / 0.0889 / 0.1161    spx-1 0.0388 / 0.0338 / 0.0273 / 0.0188 / 0.0210
+  ice-1 0.0119 / 0.0118 / 0.0121 / 0.0115 / 0.0166     arc-1 0.0143 / 0.0146 / 0.0152 / 0.0168 / 0.0279
+  con-2 0.0457 / 0.0433 / 0.0370 / 0.0258 / 0.0290
+  mean 0.0441 / 0.0344 / 0.0257 / 0.0259 / 0.0485 (BIEVR-LIO 0.0474, FAST-LIO2 fails on arc-3)
+Weights 0.3 and 1.0 have the same mean; 0.3 is worse than G12 by more than 10 % and 2 mm on con-1, spx-1 and con-2,
+1.0 on none of the eleven. More point-to-point weight costs the missions where bump alone was best (snow-3, whose start
+on a flat snow field with people near the sensor comes back, 0.0273 -> 0.0889; arc-5 0.0120 -> 0.0180).
+
+G12 and G14 values as in decision_rule_G14.txt. Adopt G15 as G if all of these hold (one run each, frontend only),
+checked in this order, stopping at the first that fails:
+  1. GrandTour HS rig, the 15 missions of decision_rule_G14.txt (all but snow-1): mean below G12's 0.0422, and no
+     mission worse than G12 by more than 10 % and more than 2 mm at once. snow-1 is run and reported only.
+  2. The Phase 1 gate: each family's geometric mean within 1.10 x its best profile (MapsHD's eight, Oxford 0.0503,
+     exp04 0.0520), the all-ten geometric mean within 1.05 x 0.0348 and not above G12's 0.0353.
+  3. Koide: no sequence worse than G12 by more than 5 %, and 01a below 1.5 m.
+  4. GrandTour LS rig, the 8 missions of decision_rule_G14.txt: mean not above G12's 0.0401, and no mission worse than
+     G12 by more than 10 % and more than 2 mm at once.
+  5. Every run real-time (node time below the data duration).
+If criterion 1 holds and a later one fails, G15 is not adopted as G; switching it by a rig property is then a new
+candidate with its own rule. If G15 is adopted, the HS rig with G15 becomes the COMFORT candidate; a submission needs a
+new preregistration and the maintainer's decision.
+
+Result (2026-10-27; one run each, frontend only, rko_lio 05ab894):
+  1. GrandTour HS rig, ATE without reference spikes (G12 in brackets): heap-1 0.0242 (0.0281), arc-3 0.0247 (0.1262),
+     arc-4 0.0200 (0.0233), arc-6 0.0097 (0.0104), con-1 0.0248 (0.0261), eig-2 0.0302 (0.0375), snow-3 0.0889 (0.1161),
+     spx-1 0.0188 (0.0210), spx-3 0.0087 (0.0097), ice-1 0.0115 (0.0166), arc-1 0.0168 (0.0279), arc-5 0.0180 (0.0554),
+     con-2 0.0258 (0.0290), pil-2 0.0317 (0.0768), con-3 0.0139 (0.0281); mean 0.0245 (0.0422), better on all 15.
+     snow-1 0.3763. Criterion 1 holds.
+  2. MapsHD calib-room 1 / 2, flat-room 1, long-corridor 1, outdoor-urk 1, garage 1 / 2 / 3:
+     0.0234 / 0.0164 / 0.0104 / 0.0698 / 0.0609 / 0.0404 / 0.0301 / 0.0271, family geometric mean 0.0294 (0.93 x its
+     best profiles); exp04 0.0532 (1.02 x); all-ten geometric mean 0.0340 (G12 0.0353). But Oxford Keble 05 0.0700
+     (1.39 x its best profile 0.0503; G12 0.0533): the height error grows (per-axis RMSE x/y/z 0.027 / 0.017 / 0.063 m
+     against G12's 0.029 / 0.023 / 0.038). Criterion 2 fails: G15 is NOT adopted.
+  Run as diagnostics after the failure (the rule stops here):
+  3. Koide outdoor_hard 02a 0.791 (0.837), 02b 2.206 (0.715, x3.1), 01b 1.163 (1.840), 01a 0.862 (0.977): it would fail.
+  5. Oxford took 597.7 s for 583 s of data (G12 458.5 s): not real-time on the 64-beam handheld rig. The GrandTour,
+     MapsHD and Koide runs are real-time.
+  4. The LS runs were stopped before their first result.
+  Diagnostics after the rule (2026-10-27, rko_lio 05ab894): bump alone (G14) / G15 / G15 with min_beta 100 / G12:
+    Oxford Keble 05      0.0771 / 0.0700 / 0.0681 / 0.0533 m  (the bump terms themselves cost Oxford's height)
+    Koide outdoor_hard_02b 0.539 / 2.206 / 1.239 / 0.715 m    (bump alone is better than G12; the point-to-point terms
+                                                               added to it break 02b)

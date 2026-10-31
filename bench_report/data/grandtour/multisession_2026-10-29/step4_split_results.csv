@@ -1,0 +1,16 @@
+con-1,positive,69+78,202,44,not joined,nan,36/16/0.062/pass,self-similar a
+con-1,stress,69+78,202,8,not joined,nan,,
+con-2,positive,77+79,210,37,joined,0.0095,27/11/0.091/pass,
+con-2,stress,77+79,210,10,not joined,nan,,
+arc-4,positive,42+45,131,85,joined,0.0041,85/43/0.047/pass,
+arc-4,stress,42+45,131,0,not joined,nan,,
+arc-5,positive,44+43,93,38,joined,0.0033,38/15/0.000/pass,
+arc-5,stress,44+43,93,0,not joined,nan,,
+arc-6,positive,20+28,84,76,joined,0.0025,76/28/0.000/pass,
+arc-6,stress,20+28,84,0,not joined,nan,,
+calibration-room_trial-1,positive,73+102,306,300,not joined,nan,113/102/0.000/pass;70/102/0.000/pass;18/88/0.136/fail,ambiguous
+calibration-room_trial-1,stress,73+102,306,187,not joined,nan,70/102/0.000/pass;18/88/0.136/fail;12/90/0.156/fail,self-similar a
+oxford,positive,195+225,358,165,joined,0.0090,162/81/0.000/pass,
+oxford,stress,195+225,358,0,not joined,nan,,
+pil-2,positive,71+79,237,79,joined,0.0149,79/45/0.000/pass,
+pil-2,stress,71+79,237,0,not joined,nan,,

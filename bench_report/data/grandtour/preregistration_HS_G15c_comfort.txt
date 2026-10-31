@@ -1,0 +1,75 @@
+GrandTour COMFORT Localization Benchmark, test phase, submission 4 (prepared): preregistration (fixed 2026-10-28 before
+any test mission is run with it). The maintainer decided (2026-10-28) to prepare it; whether and when it is uploaded is
+the maintainer's decision. Submission 3 (HS-G15, preregistration_HS_G15_comfort.txt) has not been uploaded; the
+maintainer can upload this one in its place.
+
+What is submitted
+  The frontend (RKO-LIO) alone with the GrandTour configuration HS-G15c, unchanged:
+    configs/sota_v7/rko_lio_grandtour_hs_G15c_2026-10-27.yaml   md5 40024bc65fc6c3931b68f3228ddc81a3
+    rko_lio 9461e71 (branch claude/jolly-gauss-dliz8l), ws/rko_g21 offline_node md5 ef174ce6905e4fc5d090a4e12dae9799
+  HS-G15c = HS-G15b (HS-G15 + point-to-point terms only after 3 m from the start) + the causal output position filter
+  (decision_rule_G15b.txt, decision_rule_G15c.txt). It is NOT the project's global configuration G: it was chosen on
+  GrandTour development missions, for the HS rig only. The submission is labelled as GrandTour-specific.
+  The output filter is causal and runs online: each output position comes from the IMU samples and registered scans up
+  to its own time (an IMU-driven filter with the registered positions as measurements); no pose is changed afterwards.
+  After a moving start (the log's "Moving start") the filter stays off and the output is the registration's.
+  Rig inputs (HS): the Hesai XT-32 point cloud and the STIM320 IMU; the STIM320 frame is the base frame; extrinsics
+  from the export's `transform` attributes; T_world_prism(t) = T_world_stim320(t) T_stim320_prism with box_base ->
+  prism from tf_static, as in submissions 1 to 3.
+  Category: LiDAR + IMU (no camera, GNSS or external odometry). Real-time: yes (node time below the mission span on
+  every GrandTour development mission).
+
+Why (development missions only; ATE without reference spikes, m; REPORT.md chapter 34.8):
+  mission  HS-G15  HS-G15b  HS-G15c  BIEVR-LIO  FAST-LIO2      mission  HS-G15  HS-G15b  HS-G15c  BIEVR-LIO  FAST-LIO2
+  heap-1   0.0242  0.0241   0.0238   0.0285     0.0173         spx-3    0.0087  0.0087   0.0077   0.0080     0.0126
+  arc-3    0.0247  0.0197   0.0190   0.2698     39.7           ice-1    0.0115  0.0111   0.0111   0.0084     0.0194
+  arc-4    0.0200  0.0178   0.0178   0.0168     0.0296         arc-1    0.0168  0.0149   0.0120   0.0150     0.0154
+  arc-6    0.0097  0.0099   0.0099   0.0118     0.0299         arc-5    0.0180  0.0152   0.0152   0.0147     0.0251
+  con-1    0.0248  0.0249   0.0247   0.0426     0.0373         con-2    0.0258  0.0213   0.0208   0.0456     0.0214
+  eig-2    0.0302  0.0265   0.0256   0.0279     0.0204         pil-2    0.0317  0.0279   0.0262   0.0297     0.0356
+  snow-3   0.0889  0.0268   0.0268   0.0369     0.0166         con-3    0.0139  0.0152   0.0150   0.0162     0.0552
+  spx-1    0.0188  0.0198   0.0198   0.0302     0.0422
+  mean of 15 (snow-1 excluded)  0.0245  0.0189  0.0184  0.0401  2.67;  without arc-3  0.0245  0.0189  0.0183  0.0237  0.0270
+  BIEVR-LIO's development mean without arc-3 (0.0237) is close to its test score (0.022, 2nd on the leaderboard).
+  No test score was used: no submission after the first two has been uploaded, and the first two's test results
+  decided only that more development data were needed. The reference's time lag found on the development missions
+  (reference_time_offset_2026-10-27.txt) is not applied.
+
+What is read for a test mission
+  hesai_points.tar and stim320_imu.tar of the mission's Hugging Face folder (and the zarr attributes in them).
+  Test missions: arc-2 2024-11-18-13-22-14, arc-7 2024-11-18-17-31-36, con-4 2024-12-09-11-53-11,
+  eig-1 2024-11-03-13-51-43, snow-2 2024-11-03-07-57-34, spx-2 2024-11-02-17-18-32.
+
+Policy
+  0. Before the test runs, the configuration file is run on one development mission (spx-3, a static start, so the
+     filter is on) and must give the same trajectory, byte for byte, as the G15c confirmation run (G15c_g15c/spx-3,
+     front_tum md5 26e7144ca4ab421f3adf43b8ef50296a); otherwise nothing is run.
+  1. The six test trajectories are produced in one batch (p1_grandtour_batch.sh, LIDAR=hesai_points IMU=stim320_imu,
+     G_CONFIG the file above, WS=ws/rko_g21) and packed into one zip; the md5 of every file is recorded here before
+     the zip leaves the VM.
+  2. If the maintainer uploads it, it is uploaded once as the next test-phase submission, and the scores are recorded
+     whatever they are.
+  3. A pipeline failure is fixed and recorded; a poor trajectory because of HS-G15c or the rig is submitted as is.
+
+Fact sheet (proposed)
+  Method name: lidar_slam_ros2 (RKO-LIO frontend, GrandTour configuration HS-G15c). Description: LiDAR-inertial odometry
+  with bump-image (voxel-wise height image) and point-to-point registration and a causal IMU-driven output position
+  filter, Hesai XT-32 + STIM320, frontend output only, no loop closure, no post-processing; configuration selected on
+  GrandTour training missions. Novel: yes. Real-time: yes. LiDAR: yes. IMU: yes. Camera: no. GNSS: no. External
+  odometry: no.
+
+Record (2026-10-28, after the batch, before the zip left the VM)
+  Policy 0: the configuration file gives the G15c confirmation's spx-3 trajectory byte for byte (front_tum md5
+  26e7144c...). The test batch ran only after that check (one script: the check, then the batch).
+  Test missions, one run each with HS-G15c (node time / mission span), no registration failure; as in every run, only
+  the bag's last LiDAR frames, after the STIM320 stream ends, are dropped (about 71-75 per mission); the pose counts
+  and first stamps equal submission 3's:
+    arc-2    81.4 s / 425 s   static start   md5 872ec1db6151567d9a00f0e8ff689be0
+    arc-7    86.8 s / 322 s   static start   md5 31f2d02169720c3ebb19106e47d324bd
+    con-4   393.4 s / 743 s   static start   md5 40bc69660ef656b176e35fd812fdf495
+    eig-1   206.8 s / 430 s   static start   md5 c4c70c455cf813b74d497aa6c171f7e8
+    snow-2  127.9 s / 261 s   moving start   md5 5ddd805215753182c6e3daa00cd339b2   (output filter off)
+    spx-2    67.2 s / 383 s   moving start   md5 4302b7a94fd76ddd4cf4ac4635d7e794   (output filter off)
+  comfort_test_G15cHS.zip (the six files at its root): md5 dc8b7273ae8ea20dc735694022fa6c49
+  (data/grandtour/G15cHS/, and a copy at the repository root for the maintainer.)
+  Only the sensor streams of the test missions were read, and only by the pipeline; no test reference was opened.

@@ -1,0 +1,21 @@
+== calibration-room_trial-1
+ndt2: 15 edges, 15 with GT; loop err median 26.1 mm / 0.460 deg, max 51.7 mm / 1.543 deg; frontend median 18.9 mm / 0.347 deg; loop better (translation) 3/15
+sg05: 18 edges, 18 with GT; loop err median 21.9 mm / 0.458 deg, max 66.9 mm / 0.929 deg; frontend median 24.8 mm / 0.364 deg; loop better (translation) 11/18
+== calibration-room_trial-2
+ndt2: 1 edges, 1 with GT; loop err median 47.8 mm / 0.328 deg, max 47.8 mm / 0.328 deg; frontend median 32.9 mm / 0.350 deg; loop better (translation) 0/1
+sg05: 1 edges, 1 with GT; loop err median 6.6 mm / 0.558 deg, max 6.6 mm / 0.558 deg; frontend median 7.2 mm / 0.499 deg; loop better (translation) 1/1
+== flat-room_trial-1
+ndt2: 1 edges, 1 with GT; loop err median 24.0 mm / 1.959 deg, max 24.0 mm / 1.959 deg; frontend median 28.2 mm / 0.198 deg; loop better (translation) 1/1
+sg05: 1 edges, 1 with GT; loop err median 28.7 mm / 0.287 deg, max 28.7 mm / 0.287 deg; frontend median 28.2 mm / 0.198 deg; loop better (translation) 0/1
+== outdoor-urk_trial-1
+ndt2: 1 edges, 1 with GT; loop err median 23.3 mm / 0.394 deg, max 23.3 mm / 0.394 deg; frontend median 82.2 mm / 0.155 deg; loop better (translation) 1/1
+sg05: 1 edges, 1 with GT; loop err median 56.1 mm / 0.160 deg, max 56.1 mm / 0.160 deg; frontend median 82.2 mm / 0.155 deg; loop better (translation) 1/1
+== underground-garage_trial-1
+ndt2: 2 edges, 2 with GT; loop err median 108.6 mm / 0.677 deg, max 124.1 mm / 0.920 deg; frontend median 27.5 mm / 0.435 deg; loop better (translation) 0/2
+sg05: 2 edges, 2 with GT; loop err median 33.8 mm / 0.448 deg, max 38.8 mm / 0.722 deg; frontend median 27.5 mm / 0.435 deg; loop better (translation) 0/2
+== underground-garage_trial-2
+ndt2: 5 edges, 5 with GT; loop err median 98.3 mm / 0.573 deg, max 251.4 mm / 1.263 deg; frontend median 14.2 mm / 0.329 deg; loop better (translation) 0/5
+sg05: 6 edges, 6 with GT; loop err median 15.4 mm / 0.301 deg, max 27.1 mm / 0.472 deg; frontend median 14.9 mm / 0.322 deg; loop better (translation) 2/6
+== underground-garage_trial-3
+ndt2: 1 edges, 1 with GT; loop err median 91.8 mm / 0.612 deg, max 91.8 mm / 0.612 deg; frontend median 20.4 mm / 0.167 deg; loop better (translation) 0/1
+sg05: 1 edges, 1 with GT; loop err median 13.8 mm / 0.133 deg, max 13.8 mm / 0.133 deg; frontend median 20.4 mm / 0.167 deg; loop better (translation) 1/1

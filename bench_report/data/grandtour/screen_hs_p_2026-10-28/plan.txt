@@ -1,0 +1,38 @@
+Sixteenth screen on the HS rig: the output filter's measurement noise from each scan's registration (2026-10-28,
+written before any adaptive replay; replayed offline like filter_sweep_2026-10-28/).
+
+Why: the output filter (HS-G15g) trusts every registered position alike (sigma 0.02 m in every direction), but a
+scan's registration is constrained unevenly: in a corridor or on open ground one horizontal direction rests on few
+surfaces. The registration's final Gauss-Newton Hessian H (6x6, averaged over its residuals, [t_world; r_world]) says
+how well: C = translation block of H^-1 is the marginal translation covariance up to a scale. rko_lio 0404f95 logs H
+with each filter update (output_filter_log; no output changes), and tools/output_filter_replay_adaptive.cpp replays the
+filter (the prediction is OutputPositionFilter's; mode "fixed" reproduces it exactly: difference 0 on spx-3) with
+  scalar    R = sigma^2 clip((s / s_ref)^alpha) I
+  shape     R = sigma^2 V clip((lambda / mean(lambda))^alpha) V^T
+  marginal  R = sigma^2 V clip((lambda / s_ref)^alpha) V^T
+(C = V diag(lambda) V^T, s = trace(C) / 3, s_ref the geometric mean of s over this and all earlier registered scans:
+causal; clip limits each factor to [lo, hi]; a scan without a Hessian keeps sigma^2 I).
+
+Runs: HS-G15g + output_filter_log (runs/g15glog.yaml, ws/rko_g31, offline_node md5 63a485d0..., label hsp_g15glog) on
+the 15 HS development missions. Each must give HS-G15g's trajectory: the real G15g runs byte for byte where they exist
+(spx-3, arc-6), the G15g replays of filter_sweep_2026-10-28/ to 1 um elsewhere.
+Grid (q_a 0.003 and q_b 1e-5 as HS-G15g): mode scalar / shape / marginal x alpha 0.5 / 1 x [lo, hi] [0.25, 4] /
+[0.1, 10] x sigma 0.01 / 0.02 / 0.03 (36 settings), and HS-G15g's own setting first.
+Selection, on the tuning half of filter_sweep_2026-10-28/ only (heap-1, pil-2, con-1, eig-2, arc-3, snow-3, arc-5,
+arc-4), before any held-out mission is replayed: the setting with the lowest mean ATE (without reference spikes);
+among those within 0.1 mm of it the simplest (sigma 0.02 first, then alpha 0.5, then [0.25, 4], then scalar before
+shape before marginal). It is a candidate only if its tuning mean is at least 0.1 mm below HS-G15g's; then it is
+written into rko_lio and judged under a rule fixed before the held-out half (spx-3, spx-1, arc-1, con-2, con-3, ice-1,
+arc-6) is replayed.
+
+Result (2026-10-28; tuning half only, as planned; grid.csv):
+  The eight logged runs give HS-G15g's trajectories (the G15g replays of filter_sweep_2026-10-28/ to 0.5 um).
+  Mean ATE over the tuning half, mm: HS-G15g 20.78; the best adaptive settings are shape with sigma 0.03 (20.78 with
+  alpha 0.5 or 1, either limit pair), then shape with sigma 0.02 (20.80-20.81), marginal sigma 0.03 0.5 [0.25, 4]
+  (20.82); the simplest within 0.1 mm of the best is scalar 0.02 0.5 [0.25, 4] at 20.83. None is 0.1 mm below
+  HS-G15g: no candidate, and the held-out half was not replayed. The remaining seven logged runs were stopped (spx-1's
+  partial run removed).
+Reading: the registration's own Hessian does not tell the filter which scans to trust less. What is left after the
+filter is mostly slow and shared by every method (common_error_2026-10-28.txt); the measurement weighting acts on the
+band below 1 s, which the filter has already reduced to 2-4 mm. rko_lio eebe6e4 keeps the option
+(output_filter_measurement_noise, default "fixed"), unused.

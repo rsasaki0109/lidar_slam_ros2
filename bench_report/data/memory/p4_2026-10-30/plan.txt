@@ -1,0 +1,241 @@
+Phase 4 (resources; SOTA v7 roadmap, docs/roadmap/sota-v7-plan-2026-10.md), step 1: the saved map without the assembled
+map (2026-10-30). Measured with chapter 16's tools (bench_report/scripts/mem_baseline.sh, mem_pipeline.sh,
+pipe_pipeline.sh, mem_sampler.py, mem_peaks.py): the sum of the pipeline's per-process peak RSS (VmHWM), MiB.
+
+Measured first (the baseline, before any change; not a candidate run): lidar_slam_ros2 55a4673 (graph_based_slam and
+lidarslam rebuilt into ws/slam_dev), rko_lio ws/rko_g35, chapter 16's settings (frontend rko_params_*_gyro002, backend
+lidarslam_competitive_v2_loop_ndt1_res2.yaml: loop on, NDT 2 m, map_leaf_size 0.1), one run each, warm caches.
+  run                     pipeline sum  backend peak (when)          backend before the save  frontend
+  exp04                   628           196 (during the run)         196                      363
+  Oxford                  1,885         1,358 (the map save, 436 s)  606                      456
+  Oxford, PCD cache       1,500         984 (the map save)           249                      442
+Oxford's backend peak is the map save, as in chapter 16 (16.6: the assembled map 391 MiB and VoxelGrid's work 316 MiB).
+
+Change (graph_based_slam, this commit; map_save_points_per_pass, default 2,000,000; 0 = the old save):
+  map_saver::voxelGridFilterStreamed: when the map is only saved (not published) and the dynamic object filter is off,
+  it is not assembled. The submap clouds, each moved by its pose as before, are read once for the bounding box and the
+  points per z layer of voxels, then once per pass; a pass takes a range of z layers with at most 2,000,000 points.
+  The voxels and their order are those of one VoxelGrid pass over the assembled map (the same float arithmetic places a
+  point; the 64-bit voxel index grows slowest with the z layer). A voxel's point is the mean of its points, summed in
+  double in the submaps' order; VoxelGrid sums in float in the order of its sort, so the means differ in the last bits
+  and map.pcd is no longer byte-identical. Unit tests: against VoxelGrid over the assembled map (same voxels and order,
+  within 1e-4 m), against voxelGridFilterInParts for a map too large for VoxelGrid's 32-bit index, and the same bytes
+  whatever the passes.
+Runs (candidate: this commit rebuilt into ws/slam_dev; everything else as the baseline): exp04, Oxford, Oxford with the
+PCD cache.
+Reading:
+  (1) the frontend trajectory, trajectory_optimized.tum, pose_graph.g2o and loop_edges.csv byte-identical to the
+      baseline run with the same settings;
+  (2) map.pcd with the same number of points as the baseline's, point i within 1e-3 m (x, y, z) and 1e-2 (intensity)
+      of the baseline's point i for every i; the pointcloud_map tiles: the same files with the same numbers of points,
+      within the same bounds (bench_report/scripts/p4_map_compare.py).
+  Decision: map_save_points_per_pass stays 2,000,000 by default if (1) and (2) hold on the three runs; otherwise 0.
+  Reported besides: the backend's peak and when, the pipeline sum, the time of the save. Expected, not a reading:
+  Oxford's backend near its peak before the save (606 / 249 MiB) plus the passes' work (about 100 MiB).
+
+Step 1 runs (2026-10-30; 42ff730; data/memory/p4_2026-10-30/step1_runs.log) and why the reading could not be read:
+  memory, backend peak (VmHWM, MiB; pipeline sum): exp04 196 -> 224 (628 -> 657); Oxford 1,358 -> 758 (1,885 ->
+    1,272); Oxford with the PCD cache 984 -> 368 (1,500 -> 915). (The 0.2-s samples peak lower, 709 and 335 MiB: the
+    highest point of a pass is short.) The save (map_save call to answer): Oxford 71.7 -> 80.1 s,
+    with the PCD cache 81.7 -> 110.4 s (each pass reads the cached submaps again).
+  (1) not met, and not because of the change: the pipeline does not give the same outputs from run to run. With the
+    frontend output byte-identical in all six runs, Oxford's four runs gave three different trajectories (the
+    candidate's default run is byte-identical to the baseline's PCD cache run, and to chapter 16's baseline); exp04's
+    submaps are cut up to 0.3 s apart in the two runs (the same loop, registered slightly differently). The backend
+    takes the frontend's scans in time, so where its submaps start depends on timing. So (2) compared maps of
+    different trajectories (point counts differ) and says nothing about the save.
+  exp04's backend peak grew (196 -> 224 MiB): its map (1.80 million points) took one pass, and a pass (24 bytes a point
+    and the sort's buffer, about 36) takes more than the old save (16 bytes a point and VoxelGrid's 8).
+
+Step 1b plan (fixed 2026-10-30 before any run with it):
+Change (this commit): (a) a map with at most map_save_points_per_pass points is assembled and downsampled with one
+VoxelGrid as before (the same bytes, and less memory than a pass); (b) each pass reserves its points up front;
+(c) a test hook, debug_map_save_assembled_dir: after a streamed save, the same map is also saved as before into that
+directory, so the two saves of one run (one trajectory) can be compared.
+Runs (this commit rebuilt into ws/slam_dev):
+  with the hook: Oxford, and Oxford with the PCD cache (the two saves of each run compared);
+  without it, for the memory: exp04, Oxford, Oxford with the PCD cache.
+Reading:
+  (2) in both runs with the hook, the streamed map.pcd has the old save's number of points and every point within
+      1e-3 m (x, y, z) and 1e-2 (intensity) of the old save's point with the same index; the tiles: the same files with
+      the same numbers of points, within the same bounds;
+  (3) exp04's map fits in one pass, so it is saved as before (no streamed save in its log).
+  Decision: map_save_points_per_pass stays 2,000,000 by default if (2) and (3) hold; otherwise 0.
+  Reported besides: the memory and the save's time against step 1's baseline. Reading (1) is dropped: the pipeline's
+  outputs differ from run to run with or without the change; the hook runs show the save on one trajectory.
+
+Step 1b result (2026-10-30; lidar_slam_ros2 96cf047; step1b_runs.log).
+  (2) met. The two saves of one run (streamed, and the old one through the hook):
+        Oxford:                   2,823,404 points both; largest difference 3.1e-5 m, intensity 0; tiles: 69 files,
+                                  the same names and point counts, largest difference 3.1e-5 m
+        Oxford with the PCD cache: 2,824,987 points both; largest difference 3.8e-5 m, intensity 0; tiles: 69 files, the
+                                  same names and point counts, 3.8e-5 m
+      (25.6 million points in 14 passes of at most 2,000,000.)
+  (3) met: exp04's map (1.80 million points) is saved as before (no streamed save in its log). This run also happened
+      to give the baseline's trajectory, and its map.pcd is byte-identical to the baseline's.
+Decision: map_save_points_per_pass stays 2,000,000 by default.
+Memory (per-process peak RSS, VmHWM, MiB; baseline -> step 1b, one run each):
+  run                 backend        frontend   pipeline sum
+  exp04               196 -> 202     363 -> 359  628 -> 628
+  Oxford              1,358 -> 758   456 -> 444  1,885 -> 1,270 (-33 %)
+  Oxford, PCD cache   984 -> 339     442 -> 475  1,500 -> 882 (-41 %)
+  Oxford's backend peak is still the save, but now 140 MiB above the running backend (616 MiB before the save; 240 with
+  the PCD cache) instead of 750. With the PCD cache the backend is 339 MiB (355 MB; SOTA v6: 330 MB); the frontend
+  (444-475 MiB) is now the larger process.
+Time of the save (map_save call to answer; it also finishes the loop searches and optimizes): Oxford 71.7 -> 78.8 s,
+with the PCD cache 81.7 -> 114.5 s (each of the 15 reads of the submaps loads the cached files again).
+
+Reproducibility plan (step R, fixed 2026-10-30 before any run with it): why the pipeline's outputs differ from run to
+run, and a default that gives the same outputs.
+Found first, from the runs above (no new run): every difference is at the start. Across the eight Oxford runs and the
+three exp04 runs, the submap stamps differ only in the first submap (0.1-0.3 s later: the backend missed the first one
+or two scans) and, in three Oxford runs, in the next five (one scan earlier each); from submap 6 on they are the same.
+The frontend publishes before graph_based_slam has subscribed. The launch file can wait for it
+(wait_for_output_subscribers, chapter 18.3; the measurements since chapter 18 used it), but not by default, and the
+chapter 16 tools used here (pipe_pipeline.sh without BARRIER=1) did not. The offline node can also wait by itself until
+its odometry and scan publishers have subscribers (output_subscriber_timeout_sec, polled every 10 ms); the launch sets it
+only together with the external barrier script (about 10 s, chapter 18.3).
+Runs (graph_based_slam 958b525 in ws/slam_dev, rko_lio ws/rko_g35, the backend settings of step 1b):
+  A: the frontend's own wait (output_subscriber_timeout_sec 30, no barrier script): exp04 three times, Oxford three
+     times.
+  If A's reading holds, the launch file makes the offline node wait by default (graph_based_slam is always launched),
+  and B: that launch with no extra setting, exp04 twice, Oxford twice.
+Reading:
+  A: within each sequence, the three runs' outputs byte-identical (frontend trajectory, trajectory_optimized.tum,
+     pose_graph.g2o, loop_edges.csv, map.pcd, the tiles);
+  B: the same bytes as A's.
+  Decision: the default wait is kept if A and B hold. If A does not hold, there is another cause; it is looked for
+  before any default changes. Reported besides: the time the wait adds.
+Step R, runs A result (2026-10-30; rko_params_*_gyro002_wait.ros.yaml; stepR_runs.log): met. With the frontend waiting
+for its subscribers, the three exp04 runs give the same bytes (trajectory a4748f73, pose graph f434203a, loop edges
+8ac346d2, map 63e7439e, tiles 12066edb; the baseline's) and so do the three Oxford runs (trajectory cd21af83, pose graph
+edbeeac4, loop edges 895f277e, map 6a4d5c3c, tiles 28e129c6; the trajectory of chapter 16's baseline). The wait ends
+0.02-0.18 s after graph_based_slam starts. So the launch file now makes the offline node wait by default
+(wait_for_backend, this commit); runs B follow.
+Step R, runs B result (2026-10-30; lidarslam b0f93b8 rebuilt into ws/slam_dev; the default launch, no wait setting):
+met. exp04 twice and Oxford twice, every output byte-identical to runs A (the offline node logs that it waited). The
+default wait stays. Since chapter 18 the measurements passed the barrier themselves; the default launch did not wait.
+Step 2 plan (fixed 2026-10-30 before any run with it): the running backend's submap clouds without padding.
+Found first (no new run): the 616 MiB of report 39.6 is not held in a 32-byte point type, as was said when this step was
+chosen. GraphStateStore keeps each submap's cloud as the PointCloud2 the frontend sent: rko_lio's deskewed scan, x, y, z
+FLOAT32 and 4 bytes of padding (16 bytes a point, no intensity). Oxford's 25.6 M stored points take 391 MiB; the backend
+holds about 170 MiB 17 s into the run. There is no 32-byte type to halve. Without the padding a point takes 12 bytes:
+25 % less, 98 MiB on Oxford.
+Lossless compression was measured on 387 deskewed scans of GrandTour con-1 (Hesai, every tenth frame of its backend input,
+points in the frontend's order): per axis, bytes shuffled, zstd level 1 gives 0.57 of the 16-byte size (0.76 of the
+packed size); bytes shuffled without the axis split 0.60; plain zstd 0.70. It would need a codec in the store and a new
+dependency. It is left for a later step.
+Change: when the backend makes a submap from odometry and a scan, the scan is stored with only the fields its reader (the
+conversion to PointXYZI, fromRosMsgWithOptionalIntensity) reads: x, y, z and intensity if there is one, FLOAT32, without
+padding (12 or 16 bytes a point). A scan with a field of another type is stored as it is. The map_array input (the
+scanmatcher frontend) is not changed.
+Runs (graph_based_slam with the change in ws/slam_dev, rko_lio ws/rko_g35, mem_baseline.sh with the default launch as in
+step R's runs B): exp04 twice, Oxford twice.
+Reading:
+  - every output byte-identical to step R (exp04: trajectory a4748f73, pose graph f434203a, loop edges 8ac346d2, map
+    63e7439e, tiles 12066edb; Oxford: cd21af83, edbeeac4, 895f277e, 6a4d5c3c, 28e129c6), the frontend's trajectory too;
+  - in both Oxford runs, the backend's largest RSS while the frontend runs is at least 50 MiB below the lowest of step R's
+    five Oxford runs (583 MiB), so at most 533 MiB.
+  Decision: kept if both hold. Reported besides: the backend's VmHWM and its largest RSS after the frontend ends, against
+  step R's five Oxford runs (722-796 and 679-733 MiB), and exp04's.
+Step 2 result (2026-10-30; graph_based_slam 4a69722 in ws/slam_dev; step2_runs.log): met.
+  - Every output byte-identical to step R in all four runs (exp04 a4748f73 / f434203a / 8ac346d2 / 63e7439e / 12066edb,
+    Oxford cd21af83 / edbeeac4 / 895f277e / 6a4d5c3c / 28e129c6; the frontend's bc231992 and 3fe77723).
+  - Oxford, the backend's largest RSS while the frontend runs: 501 and 500 MiB (step R 583-599; at most 533 needed).
+  The packing stays. Besides:
+  - Oxford backend VmHWM 666 and 654 MiB, against 705-777 MiB in step R's five runs. The plan above gave these as
+    "722-796 MiB": the same values in thousands of KiB, a unit slip in the plan's text. The backend's largest RSS after
+    the frontend ends (the save): 637 and 612 MiB (679-733).
+  - Oxford frontend VmHWM 429 and 482 MiB (step R 450-473); pipeline sum 1,162 and 1,209 MiB (step R 1,249-1,303).
+  - exp04 backend VmHWM 196 and 195 MiB (step R runs B 196 and 199). Its 1.8 M points are 7 MiB smaller.
+  - Times are not compared: the machine restarted between step R (last run 13:42) and these runs (booted 13:50). The
+    frontend, unchanged and with the same output, took 357-388 s here against 311-341 s in step R.
+Step 3 plan (fixed 2026-10-30 before any run with it): the offline launch's LiDAR queue at 10 frames.
+Found first (no new run): report 16.5 measured async.max_lidar_buffer_size 10 (rko_lio's default is 50) in the
+pipeline: the frontend 92 MiB less on Oxford, outputs with the same md5 on exp04, MID-360 and Oxford. The default was
+left because a live node drops the oldest frame when registration falls 10 frames behind. rko_lio_slam.launch.py
+starts only the offline node. There, the bag reader stops at 9 queued frames while registration can run. It reads on
+only while the oldest frame waits for IMU data, and a frame is dropped then only if 11 frames are read before the IMU
+sample past the oldest frame's last point. The setting has no other use.
+Change: rko_lio_slam.launch.py gives the offline node async.max_lidar_buffer_size 10 (launch argument
+max_lidar_buffer_size, default 10). A rko_param_file that sets it still wins.
+Checks:
+  - Bag order (no run): on every bag at hand with LiDAR and IMU (exp04, Oxford, Koide 4, MapsHD 8), for each LiDAR
+    frame, the LiDAR frames read from it until the first IMU sample past its end. The end is taken as the header stamp
+    + 0.2 s, later than these 10 Hz sensors' last point; a later end only makes the count larger. Frames with no IMU
+    sample past their end (the bag's last ones) are left out: they are never registered with either queue size.
+  - Runs (ws/slam_dev with the launch file rebuilt, rko_lio ws/rko_g35, mem_baseline.sh with the default launch as in
+    step 2): exp04 twice, Oxford twice.
+Reading:
+  - bag order: at most 9 frames on every bag (a drop needs 11);
+  - every output byte-identical to step 2 (the hashes of step R), the frontend's trajectory too, and no "Dropping oldest
+    pending frame" in the logs;
+  - in both Oxford runs, the frontend's VmHWM is at least 50 MiB below the lowest of the seven Oxford runs of steps R
+    and 2 (429 MiB), so at most 379 MiB.
+  Decision: kept if all three hold. Reported besides: the backend's VmHWM, the pipeline sum, exp04's frontend.
+Step 3 result (2026-10-30; lidarslam 7e92807 in ws/slam_dev; step3_runs.log, step3_lidar_queue_check.csv): not met.
+  - Bag order: met. At most 7 frames (Koide outdoor_hard_01a, during its one 0.65 s pause of the IMU stream at 108.6 s),
+    3 on exp04, 2 on Oxford and every other bag. Two MapsHD garage bags (trial 1 and 3) end with 101 frames past the
+    last IMU sample; they are never registered with either queue size.
+  - Outputs: met. All four runs byte-identical to step 2 (the frontend's trajectory too), no frame dropped, and the
+    offline node logged max_lidar_buffer_size 10.
+  - Memory: not met. Oxford's frontend VmHWM was 381 and 386 MiB, above the 379 MiB the plan asked for (the seven runs
+    with 50 frames: 429-482 MiB, mean 459).
+  Decision: the launch default is not changed (the launch file and its test are back to 340d4bf; the check script
+  stays). Besides: exp04's frontend 276 and 284 MiB (with 50 frames, seven runs 351-370). Each process's peak with 10
+  frames, against step 2's two runs: Oxford backend 685 and 668 MiB (666, 654), exp04 backend 204 and 211 (196, 195).
+  Pipeline sum, Oxford 1,134 and 1,121 MiB (1,162, 1,209), exp04 547 and 562 (632, 621).
+Step 4 plan (fixed 2026-10-30 before any run with it): the running backend's packed scans kept compressed.
+Found first (no change to the pipeline): every tenth deskewed scan of one default Oxford run (19.5 M points, sampled from
+/rko_lio/frame; outputs byte-identical to step R) compresses to 0.675 of the packed size with the values of each field
+in a plane, their bytes shuffled and zstd level 1 (GrandTour con-1: 0.761). On Oxford's 293 MiB of packed scans that is
+about 95 MiB less. Decompressing (zstd and unshuffling) runs at about 860 MB/s here; the map save reads every submap 16
+times on Oxford (a counting pass and 15 z-layer passes), about 6 s more.
+The machine restarted at 17:11 (after step 3). Since then Oxford's frontend takes 485 s against 350-390 s before, with the
+same output, so these runs are compared only with each other: step 2's backend (graph_based_slam 4a69722, its library
+kept aside) as the baseline A and the change as B, alternating within this boot: exp04 A B A B, then Oxford A B A B.
+Change: GraphStateStore keeps a packed cloud (pointcloud_conversion::isPackedForPointXYZI) compressed
+(cloud_compression::StoredCloud); the backend decompresses it where it loads a submap cloud. zstd comes from zstd_vendor;
+built without it, nothing is compressed. Other clouds (the map_array input) are kept as they are. The map save logs the
+size the clouds are held in.
+Reading:
+  - every output of every run byte-identical to step R, the frontend's trajectory too;
+  - Oxford, in both pairs: B's backend largest RSS while the frontend runs at least 50 MiB below A's;
+  - Oxford, in both pairs: B's save (from the frontend's end to the save's response) at most 15 s longer than A's.
+  Decision: kept if all three hold. Reported besides: the held size the save logs, VmHWM per process, the pipeline sum,
+  the time to the save's response, exp04's.
+Step 4 result (2026-10-30; graph_based_slam 59355c9, A = 4a69722's library; step4_runs.log): met.
+  - A first start of the runs was stopped during its first run (an A run): the change had been built without zstd
+    (zstd_vendor's target is zstd::zstd, which the CMake change did not look for). Fixed in 59355c9 before any B run;
+    all eight runs then started over.
+  - Every output of all eight runs byte-identical to step R, the frontend's trajectory too.
+  - Oxford, the backend's largest RSS while the frontend runs: 512 -> 437 and 499 -> 427 MiB (-75, -72; at least 50
+    needed).
+  - Oxford, the save: 45.8 -> 51.0 and 46.1 -> 52.7 s (+5.2, +6.6; at most 15 needed).
+  The compression stays. Besides:
+  - Held size the save logs: Oxford 198.8 MiB for 293.5 MiB of packed scans (0.677); exp04 15.0 for 20.7 MiB (0.728).
+  - Oxford VmHWM (A -> B, two pairs): backend 668 -> 595 and 649 -> 566 MiB; frontend 474 -> 480 and 446 -> 453;
+    pipeline sum 1,210 -> 1,143 and 1,163 -> 1,087 MiB. Time to the save's response 267.0 -> 266.4 and 270.0 -> 278.3 s.
+  - exp04 backend VmHWM 213, 210, 205, 189 MiB (A1 B1 A2 B2). exp04 A1 ran while a unit test compiled on the machine
+    (its sum counts the compiler's 849 MiB, its frontend took 108 s against 22 s); its outputs are byte-identical, its
+    time and sum are not used.
+  - The plan said the save reads every submap 16 times on Oxford; it is 15 (the counting pass and 14 passes).
+  - Oxford's frontend took 215-226 s in these runs, against 485 s in the ratio run of the same boot: the machine's speed
+    changes even within a boot, which the pairs absorb.
+Step 5 (investigation, no change; 2026-10-30, a boot from 18:23; step5_*): what the frontend's memory is made of.
+  Runs: default runs with the frontend's /proc/<pid>/smaps sampled every 2 s (Oxford; exp04), and default runs with the
+  offline node under heaptrack (exp04, Oxford). Every output of the four runs byte-identical to step R; heaptrack slowed
+  the frontend by less than 1 %. The first heaptrack attempt recorded nothing: the launch file gave the offline node an
+  empty prefix, which overrides ros2 launch --launch-prefix; fixed in 3fb167b (None when there is no barrier).
+  Oxford, at the frontend's RSS peak (446 MiB): heap 416, libraries 27, files 2, shared memory 1 MiB.
+  heaptrack, Oxford, live heap at its peak 363 MiB (MB / 1.048576):
+    local map (VoxelHashMap) 211 MiB: the voxels' points 143, the hash table's 2^20 buckets 48, voxel_fronts_ (2^19
+      entries of 40 bytes) 20; so 262k-524k voxels;
+    LiDAR queue (lidar_callback, its deque) 101 MiB; the queued frames are copies of the converted scan;
+    bag read-ahead (rosbag2 MCAP, the 1 s buffer of BufferableBag) 17 MiB;
+    the rest 34 MiB (scan downsampling 6, MCAP 6, the DDS payload pool 4, ...). The DDS history of depth 128 holds
+      little: 4 MiB.
+  So about 53 MiB of the 416 MiB heap is not live data at the peak (malloc's free memory and the arenas' slack;
+  different runs, approximate).
+  exp04: RSS peak 362 MiB (heap 333, libraries 27); live heap 269 MiB: local map 123, LiDAR queue 85, bag read-ahead 33,
+  the rest 28; about 64 MiB not live.

@@ -47,6 +47,13 @@ def central_directory(size):
     tail = fetch(size - 65536, size - 1)
     i = tail.rfind(b'PK\x05\x06')
     _, _, _, _, entries, cd_size, cd_off, _ = struct.unpack('<IHHHHIIH', tail[i:i + 22])
+    if 0xFFFFFFFF in (cd_size, cd_off) or entries == 0xFFFF:
+        # ZIP64 (an archive past 4 GiB): the locator just before the end record gives the ZIP64 end record
+        j = tail.rfind(b'PK\x06\x07', 0, i)
+        z64_off = struct.unpack('<Q', tail[j + 8:j + 16])[0]
+        z64 = fetch(z64_off, z64_off + 55)
+        assert z64[:4] == b'PK\x06\x06', z64[:4]
+        entries, cd_size, cd_off = struct.unpack('<QQQ', z64[32:56])
     cd = fetch(cd_off, cd_off + cd_size - 1)
     members, pos = [], 0
     while pos + 46 <= len(cd) and cd[pos:pos + 4] == b'PK\x01\x02':
@@ -55,6 +62,19 @@ def central_directory(size):
         n, m, k = struct.unpack('<HHH', cd[pos + 28:pos + 34])
         offset = struct.unpack('<I', cd[pos + 42:pos + 46])[0]
         name = cd[pos + 46:pos + 46 + n].decode()
+        # ZIP64 extra field (id 1): the 64-bit sizes and offset, in this order, of the fields set to 0xFFFFFFFF
+        extra, e = cd[pos + 46 + n:pos + 46 + n + m], 0
+        while e + 4 <= len(extra):
+            eid, elen = struct.unpack('<HH', extra[e:e + 4])
+            if eid == 1:
+                vals, v = extra[e + 4:e + 4 + elen], 0
+                if usize == 0xFFFFFFFF:
+                    usize, v = struct.unpack('<Q', vals[v:v + 8])[0], v + 8
+                if csize == 0xFFFFFFFF:
+                    csize, v = struct.unpack('<Q', vals[v:v + 8])[0], v + 8
+                if offset == 0xFFFFFFFF:
+                    offset = struct.unpack('<Q', vals[v:v + 8])[0]
+            e += 4 + elen
         if name.endswith('.pcd'):
             members.append((name, method, crc, csize, usize, offset))
         pos += 46 + n + m + k
@@ -141,7 +161,12 @@ def main():
         members = members[:int(os.environ['LIMIT'])]
     print(f'archive {size} bytes, {len(members)} scans', flush=True)
     writer = rosbag2_py.SequentialWriter()
-    writer.open(rosbag2_py.StorageOptions(uri=OUT, storage_id='sqlite3'), rosbag2_py.ConverterOptions('', ''))
+    # BAG_STORAGE=mcap writes a zstd-chunked MCAP (about 0.75x the sqlite3 size, read transparently).
+    if os.environ.get('BAG_STORAGE') == 'mcap':
+        storage = rosbag2_py.StorageOptions(uri=OUT, storage_id='mcap', storage_preset_profile='zstd_fast')
+    else:
+        storage = rosbag2_py.StorageOptions(uri=OUT, storage_id='sqlite3')
+    writer.open(storage, rosbag2_py.ConverterOptions('', ''))
     for topic, kind in (('/hesai/pandar', 'sensor_msgs/msg/PointCloud2'),
                         ('/alphasense_driver_ros/imu', 'sensor_msgs/msg/Imu')):
         writer.create_topic(rosbag2_py.TopicMetadata(id=0, name=topic, type=kind, serialization_format='cdr'))

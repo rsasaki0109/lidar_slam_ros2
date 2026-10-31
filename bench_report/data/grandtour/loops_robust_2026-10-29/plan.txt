@@ -1,0 +1,184 @@
+Phase 3 (SOTA v7 roadmap, docs/roadmap/sota-v7-plan-2026-10.md): robust loops, on GrandTour development missions
+(2026-10-29). Not for COMFORT: the deadline work is closed with submission 6. Development data only.
+
+Why GrandTour: its development missions have a reference (the prism's position), revisits, and a frontend (HS-G15g)
+of about 2 cm, so a loop must be better than that to help. The roadmap's three items are: loop registrations as
+accurate as the frontend (GICP instead of NDT), loop information from the registration's Hessian instead of a
+constant or the fitness, and a robust solve instead of hand-set rejection gates.
+
+Tool: scripts/p3_grandtour_loop_errors.py. Each loop edge's translation is compared, in its first submap's frame,
+with the reference's relative position of the two submaps (the reference prism positions fitted to the frontend,
+the lever removed with the frontend's attitude); the frontend's own relative translation is scored the same way.
+Edges whose stamps are more than 0.2 s from a reference sample are left unscored.
+
+Baseline (baseline_ndt2_errors.csv; the runs of loops_2026-10-27/: HS-G15 frontend, walking backend preset, NDT 2 m
+cells, loops after 60 m (walk60) or 20 m (walk20) of travel):
+  walk20: 19 edges, 12 scored; loop error median 29.8 mm, max 1334 mm, 2 above 0.1 m; the frontend's relative error
+          for the same pairs median 19.1 mm, max 50 mm; the loop is better than the frontend on 5 of 12.
+  walk60: 16 edges, 13 scored; loop error median 32.8 mm, max 1334 mm, 3 above 0.1 m; frontend median 28.2 mm,
+          max 40 mm; the loop is better on 5 of 13.
+  The gross errors: spx-1 3-43 (1.33 m, fitness 0.77) and 3-73 (1.21 m, 0.47), con-3 18-70 (0.10 m). The drift gate
+  (0.5 m + 2 % of the travel between the submaps) lets a 1.33-m error through after 64 m of travel; this frontend
+  drifts 2-5 cm there. These edges are why spx-1's causal output was worse (0.0188 -> 0.0263 m).
+Reading: the NDT loop edges are no more accurate than the frontend they should correct, and the gate does not stop the
+gross ones. Both items of the roadmap show here directly.
+
+Step 1 (next): record the backend input of six missions with revisits (arc-1, con-3, heap-1, pil-2, spx-1, con-2)
+with the current frontend HS-G15g (ws/rko_g35; the trajectory must equal HS-G15g's byte for byte), so that loop
+registration variants can be run offline on the same input. Step 2: variants (NDT 2 / 1 / 0.5 m cells, GICP with a
+correspondence distance a parameter instead of 30 m), each scored with the tool above; a plan with its reading is
+written before those runs.
+
+Step 1 (2026-10-29): the backend inputs are recorded with HS-G15g (ws/rko_g35, label rl_g15g, KEEP_BACKEND_INPUT=1;
+spx-1's is 249 MB) and the walk20 backend run on each as the baseline. spx-1's loops repeat the old ones: 3-43 again
+1.37 m off (fitness 0.75), 39-78 33 mm (frontend 5 mm).
+
+Step 2 plan (fixed before its runs). graph_based_slam now takes gicp_max_correspondence_distance (default 30 m, the
+old fixed value; lidar_slam_ros2, this commit), built into its own workspace on top of ws/slam_dev so the baseline
+runner is not touched. Offline runs of graph_slam_offline_runner on the six recorded inputs, the walk20 preset with
+one change each:
+  ndt2    the preset (NDT 2 m cells), the baseline;
+  ndt1    ndt_resolution 1.0;
+  ndt05   ndt_resolution 0.5;
+  gicp1   registration_method GICP, gicp_max_correspondence_distance 1.0;
+  gicp05  the same with 0.5.
+The initial guess of every loop registration is the frontend's relative pose, which is within a few centimetres of
+the truth here, so a short correspondence distance should not cost convergence.
+Reported per variant: loop edges found and scored, the median and largest loop error, how many above 0.1 m, the
+frontend's error for the same pairs, the causal ATE against the frontend's.
+Reading: a variant registers "as accurately as the frontend" if the median error of its scored loop edges is at
+most the frontend's median for the same pairs and none of them is above 0.1 m. Such a variant goes on to the next
+items (information from the registration's Hessian, a robust solve); none is adopted from this step.
+
+Amendment (2026-10-29, before any run with it): the GICP variants made no loop edge, because the registration never
+reported convergence: PCL's GICP requires the transformation to change by less than 1e-8 between iterations within
+100 of them, and with the debug log every candidate on spx-1 is "rejected because registration did not converge".
+graph_based_slam now takes gicp_transformation_epsilon (default 1e-8, as before). Added variants, run once the
+current ones are done (on a rebuild of ws/slam_rl): gicp1e5 (GICP, 1.0 m, epsilon 1e-5) and gicp05e5 (0.5 m, 1e-5).
+The reading is unchanged.
+
+Step 2 result, NDT (2026-10-29; ws/slam_rl, lidar_slam_ros2 9100c1d; the rebuilt runner gives the old runner's ndt2
+loop edges byte for byte on spx-1; six missions):
+  variant  edges scored  loop error median / max  >0.1 m  frontend median  loop better  causal ATE - frontend, mm
+  ndt2      30    19       32.7 / 1366 mm           1       27.9 mm          6/19      spx-1 +6.6 heap-1 -0.7 arc-1 +3.0 pil-2 +1.0 con-2 +1.6 con-3 +1.8
+  ndt1      31    20       26.2 / 1395              1       28.1            11/20      +5.0 -0.5 +1.1 -0.3 +2.0 +0.0
+  ndt05     31    19       22.7 / 1076              1       21.6             9/19      +1.7 -0.5 +1.5 -0.1 +3.1 +1.4
+  (frontend ATE, mm: spx-1 19.6, heap-1 23.3, arc-1 11.7, pil-2 26.1, con-2 20.7, con-3 14.1)
+  Finer cells bring the median down to the frontend's level, but every variant keeps one gross loop on spx-1
+  (1.1-1.4 m, fitness 0.75-0.90). None meets the reading. GICP at epsilon 1e-8 made almost no loop (it never
+  converged): see the amendment above.
+
+Step 3 plan (fixed before its runs): the robust solve the backend already has. loop_edge_robust_kernel_type dcs
+(Dynamic Covariance Scaling, Agarwal et al. 2013) with loop_edge_robust_kernel_delta 1.0 (the default Phi) instead of
+the preset's huber. With the preset's constant loop information (translation 200, rotation 1e5), a loop 1.37 m off
+has chi2 about 375 and DCS scales it by 2 Phi / (Phi + chi2), about 0.005; a loop 3 cm off (chi2 about 0.2) keeps
+its full weight. Variants: ndt1_dcs and ndt05_dcs (and gicp1e5_dcs if gicp1e5 finds loops). The loop measurements
+do not change; what is judged is the causal output.
+Reading: the backend "helps" on these missions if its mean causal ATE over the six is below the frontend's and no
+mission is worse than the frontend by more than 1 mm. A variant that helps is then checked on the other development
+data (MapsHD, Oxford, HILTI exp04 in chapters 25-27) before anything is adopted.
+
+Step 2 result, PCL GICP at epsilon 1e-5 (2026-10-29; ws/slam_rl rebuilt with 75bbc6a, its ndt2 loop edges on spx-1
+byte for byte the old ones): gicp1e5 1 edge on the six missions, gicp05e5 3; they are the edges of the 1e-8 runs
+(the same pairs, fitness and translation), and each loop translation equals the frontend's relative translation (loop
+error = frontend error: 26.4 mm; 36.7, 25.5, 29.3 mm), so the causal output is the frontend's. The epsilon was not
+the cause: PCL's GICP (pclomp, BFGS) leaves the initial guess as it is; on the other candidates the solver breaks
+off (an exception ends the iteration, so convergence is never set). Not pursued further.
+
+Amendment 2 (2026-10-29, before any run with it): small_gicp's GICP (Gauss-Newton, koide3/small_gicp fa0cfc9, built
+into ws/small_gicp) as the loop registration. graph_based_slam takes registration_method SMALL_GICP when built with
+small_gicp (lidar_slam_ros2, this commit): small_gicp::RegistrationPCL with type GICP, gicp_max_correspondence_distance,
+100 iterations, gicp_transformation_epsilon as its step tolerance in translation (m) and rotation (rad), and
+ndt_num_threads as its thread count (the preset's 1: a fixed reduction order). Built on top of ws/slam_dev into its
+own tree (ws/slam_sg) so the running step 3 is not touched. Variants, the walk20 preset with:
+  sgicp1    registration_method SMALL_GICP, gicp_max_correspondence_distance 1.0, gicp_transformation_epsilon 1e-4;
+  sgicp05   the same with 0.5.
+Step 2's reading applies (median loop error at most the frontend's for the same pairs, none above 0.1 m). If a
+variant finds loops, it is also run with step 3's DCS kernel (loop_edge_robust_kernel_type dcs, delta 1.0:
+sgicp1_dcs / sgicp05_dcs), read by step 3's reading.
+Check before those runs: the sg build's runner with the preset (NDT 2 m) gives rl2_ndt2's loop edges on spx-1 byte for
+byte.
+
+Step 3 result, NDT with DCS (2026-10-29; ws/slam_rl, 75bbc6a; the loop edges are those of ndt1 / ndt05, unchanged):
+  variant       causal ATE - frontend, mm (spx-1 heap-1 arc-1 pil-2 con-2 con-3)   mean
+  ndt1_dcs      +0.4 -0.5 +1.6 -0.3 +1.3 -0.3                                      +0.37
+  ndt05_dcs     +1.2 -0.5 +1.4 -0.1 +1.8 -0.3                                      +0.58
+  (huber, step 2: ndt1 +5.0 -0.5 +1.1 -0.3 +2.0 +0.0, mean +1.22; ndt05 +1.7 -0.5 +1.5 -0.1 +3.1 +1.4, mean +1.18)
+  DCS takes out most of what spx-1's gross loop cost (+5.0 -> +0.4 mm), but the NDT loops are not accurate enough for
+  the rest: arc-1 and con-2 stay more than 1 mm worse than the frontend and the mean is above it. Neither helps by
+  the reading.
+
+Tool correction (2026-10-29, after the step 2 and 3 runs; it changes no run, only the scoring): the reference was
+taken at the sample nearest each submap stamp. It is sampled at about 23 Hz (43 ms median, 85 ms at the 90th
+percentile) and the robot walks at 0.6-0.9 m/s, so each end carried up to 2-4 cm of timing error, as large as the
+errors being measured. p3_grandtour_loop_errors.py now interpolates the reference linearly between the two samples
+around the stamp (none if they are more than 0.2 s apart). Every variant is re-scored with it (loops.csv); the old
+scores are kept beside them (loops_nearest.csv). The readings are applied to the corrected scores, and both are
+reported. (The reference time lag is still not applied.)
+
+Amendment 3 (2026-10-29, before any run with it): the roadmap's second item, loop information from the registration's
+Hessian. graph_based_slam takes loop_edge_info_from_registration (default false; lidar_slam_ros2, the commit after
+ebb82ee): with the constant loop information set, a loop edge whose registration reports a Hessian (SMALL_GICP:
+small_gicp's Gauss-Newton Hessian, passed as its inverse in the registration's covariance) gets that Hessian, moved to
+the edge's relative pose, as the shape of its information: in g2o's order, the translation block and the rotation
+block are each scaled so that their mean eigenvalue is the constant (200, 1e5). The weight stays the constants'; what
+changes is which directions the edge constrains and how they couple. Each edge's information is also written to
+loop_edge_information.csv. Built into ws/slam_hi on top of ws/slam_dev.
+Variants (the registration is sgicp05's, the one of step 2 without a gross loop; chosen after its result):
+  sgicp05_hi      sgicp05 with loop_edge_info_from_registration true;
+  sgicp05_hi_dcs  the same with step 3's DCS kernel (dcs, delta 1.0).
+Reading: step 3's (the backend helps if its mean causal ATE over the six is below the frontend's and no mission is
+worse than it by more than 1 mm); reported beside sgicp05 and sgicp05_dcs, which differ only in the information.
+Check before those runs: ws/slam_hi's runner with loop_edge_info_from_registration false gives rl2_sgicp05's
+loop_edges.csv and trajectory_causal.tum on spx-1 byte for byte.
+Check result (2026-10-29): ws/slam_hi's runner gives rl2_sgicp05's loop_edges.csv and trajectory_optimized.tum on
+spx-1 byte for byte, but not its trajectory_causal.tum (6 of 3743 poses differ, by 1.8 mm at most, 0.04 mm RMS). The
+check was ill-posed: the causal output is not reproducible by design. A correction takes effect after the measured
+wall time of the loop search and optimization (graph_slam_offline_runner, causal_trajectory_output), so the poses
+around each correction move with the machine's load. The same runner run twice on the same input differs the same
+way: rl2_ndt2 against its re-runs rl2_ndt2chk and rl2_ndt2sg, 3-7 poses, up to 15 mm, 0.10-0.27 mm RMS, with
+byte-identical loop edges and optimized trajectories. The check is therefore read on loop_edges.csv and
+trajectory_optimized.tum, which it passes, and the runs go ahead. Run-to-run variation of the causal ATE is below 0.1 mm
+here, small against the readings' 1 mm.
+
+Results, small_gicp (2026-10-29; sgicp1 / sgicp05 on ws/slam_sg, lidar_slam_ros2 ebb82ee; the NDT 2 m preset on that
+runner gives rl2_ndt2's loop edges on spx-1 byte for byte). Scores with the interpolated reference (corrected tool);
+with the nearest sample (old tool) in brackets. Loop error and frontend error for the same pairs, mm:
+  variant      edges scored  loop median / max   >0.1 m  frontend median  loop better  causal ATE - frontend, mm    mean
+  ndt2          30    19     26.0 / 1366 [32.7]    1       17.2 [27.9]     3/19 [6/19]   +6.6 -0.7 +3.0 +1.0 +1.6 +1.8  +2.22
+  ndt1          31    20     19.1 / 1395 [26.2]    1       17.4 [28.1]     8/20 [11/20]  +5.0 -0.5 +1.1 -0.3 +2.0 +0.0  +1.22
+  ndt05         31    19     20.7 / 1077 [22.7]    1       17.6 [21.6]     4/19 [9/19]   +1.7 -0.5 +1.5 -0.1 +3.1 +1.4  +1.18
+  sgicp1        30    19     18.6 /  881 [22.5]    1       17.2 [27.9]     6/19 [12/19]  +5.0 +0.1 +1.6 +0.3 +0.4 -0.2  +1.20
+  sgicp05       30    18     17.4 /   40 [21.8]    0       16.2 [28.1]     6/18 [10/18]  -1.3 +0.2 +0.8 +0.3 +0.3 +0.0  +0.05
+  ndt1_dcs      (ndt1's edges)                                                           +0.4 -0.5 +1.6 -0.3 +1.3 -0.3  +0.37
+  ndt05_dcs     (ndt05's edges)                                                          +1.2 -0.5 +1.4 -0.1 +1.8 -0.3  +0.58
+  sgicp1_dcs    (sgicp1's edges)                                                         -0.9 +0.1 +1.1 +0.3 +0.4 +0.0  +0.17
+  sgicp05_dcs   (sgicp05's edges)                                                        -1.3 +0.2 +1.2 +0.0 +0.3 +0.1  +0.08
+  (missions in the order spx-1 heap-1 arc-1 pil-2 con-2 con-3; frontend ATE 19.6 23.3 11.7 26.1 20.7 14.1 mm)
+Reading. Step 2: with the corrected scores no variant meets it; sgicp05 comes closest (no edge above 0.1 m, the
+largest 40 mm, but a median 1.2 mm above the frontend's for the same pairs). With the old scores sgicp05 met it (21.8
+against 28.1 mm): the old tool's timing error, the same size as the edges' own, had hidden that the loops are only
+about as accurate as this frontend over the same stretch (16-17 mm; part of that is the reference itself: its time
+lag is not applied). Step 3: no variant helps; sgicp05 (huber) is the closest, with every mission within 1 mm of the
+frontend and the mean 0.05 mm above it. small_gicp's GICP removes what NDT costs (its causal output is never more than
+0.8 mm worse at 0.5 m) and at 0.5 m makes no gross loop on these inputs; at 1.0 m it keeps spx-1's gross loop 3-43
+(0.88 m, fitness 0.95), which DCS then takes out (+5.0 -> -0.9 mm).
+
+Results, amendment 3 (2026-10-29; ws/slam_hi, lidar_slam_ros2 31d2694; the loop edges are sgicp05's, unchanged):
+  variant          causal ATE - frontend, mm (spx-1 heap-1 arc-1 pil-2 con-2 con-3)   mean
+  sgicp05_hi       -0.7 +0.0 +2.6 +0.1 +0.0 +0.3                                      +0.38
+  sgicp05_hi_dcs   -0.7 +0.0 +2.6 +0.0 +0.0 -0.1                                      +0.30
+  (constant information, for comparison: sgicp05 -1.3 +0.2 +0.8 +0.3 +0.3 +0.0, +0.05; sgicp05_dcs +0.08)
+Reading: neither helps (arc-1 +2.6 mm), and both are worse than the same loops with the constant information. The
+Hessian's shape does point roughly the right way (p3_grandtour_loop_info_check.py, 18 scored edges: the predicted
+sigma along the weakest direction is 1.86 times the strongest's, in the median; the RMS error along them is 15.7 and
+10.6 mm, a ratio of 1.48), but the predicted sigmas (0.7-1.3 mm, unscaled) are 10-20 times smaller than the errors and
+the anisotropy is mild, so the shape adds little and moves weight onto directions where these loops are no better.
+Not adopted; loop_edge_info_from_registration stays off.
+
+Conclusion of the GrandTour part: with this frontend (about 2 cm) the loops can at best not hurt. small_gicp's GICP at
+0.5 m is the first backend setting here that makes no mission more than 1 mm worse (at most +0.8 mm, mean +0.05);
+it does not help because its loops are no more accurate than the frontend over the same stretch. Nothing is adopted.
+Next: the other development data, where drift is larger and the NDT 2 m backend was adopted (MapsHD 8, Oxford, HILTI
+exp04; chapter 25: geometric mean 0.0358 m against the frontend's 0.0348 m): whether small_gicp at 0.5 m (with and
+without DCS) does not hurt there and helps; a plan with its reading is written before those runs.

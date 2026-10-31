@@ -1,0 +1,25 @@
+Twelfth screen on the HS rig: the start hold within a radius (2026-10-28, written before any of these runs).
+
+Why: in the eleventh screen every bias variant of the position-keeping hold gains on SNOW-3 and on average but loses
+ARC-6's first 5 s (+2.2 to +2.7 mm): there the robot shifts 3-5 cm while it stands and the registration, which follows
+that within 1 cm indoors, is frozen by the hold; on SNOW-3 the registration wanders 15-20 cm with the people around the
+robot. rko_lio 07d57b8 adds start_standstill_hold_radius: the standing scan is registered and its position kept within
+that radius of where the robot started standing (not added to the map); tests 113/113.
+Variants (ws/rko_g25; HS-G15c + start_standstill_radius 1.0 + start_standstill_hold + start_standstill_hold_radius
+0.05; the radius set between the sway and the wander seen, not tuned on ATE):
+  r5i = start_standstill_bias interval; r5a = start_standstill_bias average.
+Missions: as the eleventh screen (snow-3, arc-5, ice-1, arc-6, arc-4, heap-1, pil-2, arc-1, arc-3). Compared with HS-G15c
+and the eleventh screen. A screen: a candidate it picks is judged on all 15 HS missions under a rule fixed before
+those runs.
+
+Result (2026-10-28; ws/rko_g25, rko_lio 07d57b8; ATE without reference spikes, m; G15c / r5i / r5a):
+  snow-3  0.0268 / 0.0162 / 0.0166      heap-1  0.0238 / 0.0205 / 0.0224
+  arc-5   0.0152 / 0.0196 / 0.0215      pil-2   0.0262 / 0.0251 / 0.0253
+  ice-1   0.0111 / 0.0144 / 0.0113      arc-1   0.0120 / 0.0117 / 0.0116
+  arc-6   0.0099 / 0.0098 / 0.0102      arc-3   0.0190 / 0.0203 / 0.0206
+  arc-4   0.0178 / 0.0163 / 0.0173      mean    0.0180 / 0.0171 / 0.0174
+The radius repairs ARC-6 (0.0121-0.0126 with the full hold -> 0.0098 / 0.0102) and keeps SNOW-3's gain. What remains
+outside the tolerance comes from the bias update after a moving start: ARC-5 (both; its start is as good as G15c's,
+but the height drifts more later, as the 16-deg tilt taken for a body-frame accelerometer bias turns with the robot)
+and ICE-1 with the per-interval bias (the sway). On the static starts the per-interval bias is the better one
+(heap-1 -3.3 mm). rko_lio 6b0a460 adds start_standstill_bias_static_only: the thirteenth screen.

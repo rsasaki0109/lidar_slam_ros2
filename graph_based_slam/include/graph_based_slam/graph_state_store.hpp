@@ -41,6 +41,8 @@
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <std_msgs/msg/header.hpp>
 
+#include "graph_based_slam/cloud_compression.hpp"
+
 namespace graphslam
 {
 
@@ -49,7 +51,8 @@ class GraphStateStore
 public:
   // A submap's cloud never changes once it is stored, so the store keeps one copy of it and
   // hands out shared pointers: a Snapshot copies the graph's metadata and the pointers only.
-  using CloudPtr = std::shared_ptr<const sensor_msgs::msg::PointCloud2>;
+  // A packed cloud (pointcloud_conversion::packForPointXYZI) is kept compressed.
+  using CloudPtr = std::shared_ptr<const cloud_compression::StoredCloud>;
 
   struct Snapshot
   {
@@ -99,7 +102,7 @@ public:
     }
     map_array = map_array_;
     for (std::size_t i = 0; i < map_array.submaps.size(); ++i) {
-      map_array.submaps[i].cloud = *clouds_[i];
+      map_array.submaps[i].cloud = cloud_compression::restore(*clouds_[i]);
     }
     return true;
   }
@@ -119,7 +122,8 @@ public:
 private:
   static CloudPtr takeCloud(lidarslam_msgs::msg::SubMap & submap)
   {
-    auto cloud = std::make_shared<const sensor_msgs::msg::PointCloud2>(std::move(submap.cloud));
+    auto cloud = std::make_shared<const cloud_compression::StoredCloud>(
+      cloud_compression::store(std::move(submap.cloud)));
     submap.cloud = sensor_msgs::msg::PointCloud2();
     return cloud;
   }

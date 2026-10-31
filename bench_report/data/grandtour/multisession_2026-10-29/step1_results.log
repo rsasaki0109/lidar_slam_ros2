@@ -1,0 +1,5 @@
+{"a": "ms_g15g/con-1", "b": "rl_g15g/con-2", "a_keyframes": 124, "b_keyframes": 125, "candidates": 375, "accepted": 291, "largest_set": 257, "spread_places_found": 3, "joined": true, "load_s": 47.1, "match_s": 69.3, "accepted_right": 257, "set_right": 257, "truth_check_places": 21, "truth_check_median_m": 0.085, "join_error_rms_m": 0.0096, "join_error_deg": 0.031}
+{"a": "ms_g15g/arc-5", "b": "ms_g15g/arc-6", "a_keyframes": 78, "b_keyframes": 43, "candidates": 129, "accepted": 107, "largest_set": 107, "spread_places_found": 3, "joined": true, "load_s": 15.2, "match_s": 3.9, "accepted_right": 107, "set_right": 107, "truth_check_places": 9, "truth_check_median_m": 0.079, "join_error_rms_m": 0.0101, "join_error_deg": 0.136}
+{"a": "rl_g15g/con-2", "b": "ms_g15g/arc-6", "a_keyframes": 125, "b_keyframes": 43, "candidates": 2, "accepted": 0, "largest_set": 0, "spread_places_found": 0, "joined": false, "load_s": 27.9, "match_s": 1.6}
+{"a": "ms_g15g/arc-5", "b": "ms_g15g/con-1", "a_keyframes": 78, "b_keyframes": 124, "candidates": 187, "accepted": 0, "largest_set": 0, "spread_places_found": 0, "joined": false, "load_s": 34.3, "match_s": 136.4}
+MS_FINAL_DONE

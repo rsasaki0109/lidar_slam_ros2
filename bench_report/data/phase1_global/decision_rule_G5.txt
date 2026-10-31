@@ -1,0 +1,14 @@
+Phase 1, candidate G5 (fixed 2026-10-26 before any G5 run).
+
+G5 = V + gravity_window_alignment true, gravity_window_sec 40.0, gravity_alignment_relevel_map true,
+     gravity_alignment_relevel_min_tilt_rad 0.01745 (1 deg instead of 0.29 deg). Existing settings only.
+Reason: with ground-truth attitudes the window tilt stays within 0.3-0.7 deg (median; up to 1.2 deg on Oxford) from the
+accelerometer alone, so a re-level below about 1 deg mostly follows that noise; a drift larger than it (Koide: about
+1 deg against the ground truth) still triggers.
+Rule as for G3/G4: every sequence <= 1.10 x its reference, and not worse than V where V is above 1.10 x.
+Order: Koide 02a, Oxford, MapsHD calib1/flat/garage1/urk, exp04, then the rest.
+
+Result (one run each, frontend only): Koide 02a 0.639 (0.412/0.274/0.404; 5 re-levels), MapsHD calibration-room 1
+0.147 (z 0.146). G5 is NOT adopted (Koide 1.17x; calib1 three times V). The other runs were stopped.
+With the LIO's own attitudes the MapsHD window tilt exceeds 1 deg (the ground-truth attitudes gave at most 0.79 deg),
+so no single re-level threshold separates the accelerometer's own error from a real attitude drift on these rigs.

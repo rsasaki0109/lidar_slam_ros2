@@ -1,0 +1,26 @@
+COMFORT Localization Benchmark, Test Phase (Codabench competition 17505, phase 29180), public leaderboard read
+2026-10-28 through the API (/api/phases/29180/get_leaderboard/). ATE, RTE, LE and per-mission ATE (m); method
+name and sensors from the fact sheets. None of this project's submissions is on it.
+ # method                   ATE   RTE   LE    ARC-2 ARC-7 CON-4 EIG-1 SNOW-2 SPX-2  camera ext.odom realtime
+ 1 SLAMLab                  0.014 0.009 0.011 0.008 0.012 0.018 0.019 0.012 0.014  No     No       True
+ 2 Daystar-SLAM             0.014 0.01  0.016 0.009 0.013 0.016 0.016 0.011 0.019  Yes    No       True
+ 3 SE(3)-LIVOM              0.014 0.015 0.013 0.008 0.012 0.017 0.015 0.014 0.018  Yes    No       True
+ 4 FAST-LIVO2 (baseline)    0.022 0.015 0.021 0.012 0.014 0.031 0.033 0.016 0.023  Yes    No       False
+ 5 BIEVR-LIO                0.022 0.015 0.023 0.014 0.021 0.024 0.035 0.016 0.023  No     No       True
+ 6 EllipseLIO               0.025 0.018 0.015 0.014 0.021 0.033 0.039 0.016 0.026  No     No       True
+ 7 LIO                      0.026 0.009 0.025 0.017 0.039 0.026 0.039 0.012 0.023  No     No       True
+ 8 ANY-KILO                 0.026 0.014 0.022 0.018 0.052 0.019 0.034 0.014 0.021  No     Yes      False
+ 9 Pelorus                  0.028 0.014 0.023 0.015 0.053 0.024 0.034 0.015 0.025  No     No       True
+10 DALI                     0.031 0.016 0.026 0.036 0.053 0.02  0.022 0.016 0.042  No     No       True
+11 SuperOdometry-1.5        0.033 0.017 0.019 0.035 0.053 0.018 0.048 0.02  0.025  No     No       True
+12 FAST-LIO2                0.034 0.016 0.034 0.046 0.054 0.017 0.032 0.015 0.04   No     No       True
+13 MI-LIPO                  0.035 0.017 0.029 0.046 0.052 0.026 0.037 0.015 0.033  No     No       True
+14 MOLA-LIO                 0.036 0.01  0.018 0.014 0.038 0.094 0.033 0.013 0.022  No     No       False
+15 mrslam                   0.04  0.015 0.027 0.012 0.015 0.135 0.038 0.017 0.022  Yes    Yes      False
+16 b-esikf                  0.049 0.022 0.023 0.125 0.055 0.017 0.032 0.016 0.048  No     No       True
+17 PCA2-SLAM                0.058 0.026 0.049 0.149 0.058 0.029 0.04  0.022 0.047  No     Yes      True
+18 ghi                      0.155 0.013 0.216 0.073 0.085 0.302 0.185 0.189 0.099  Yes    Yes      False
+19 t2                       0.17  0.019 0.248 0.078 0.087 0.303 0.212 0.246 0.096  Yes    Yes      False
+20 Chicken_V6.6             0.172 0.015 0.26  0.145 0.058 0.3   0.133 0.334 0.061  No     No       True
+21 MSO                      0.84  0.054 1.016 0.247 0.717 0.587 0.142 0.625 2.722  Yes    No       False
+22 ?                        1.118 0.152 1.211 3.02  0.76  0.502 0.041 0.021 2.365  ?      ?        ?

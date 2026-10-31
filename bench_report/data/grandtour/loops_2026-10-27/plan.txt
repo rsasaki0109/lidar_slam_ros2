@@ -1,0 +1,34 @@
+Loop closure with a causal output on GrandTour (2026-10-27, written before any of these runs). Exploratory: it shows
+whether loops help the COMFORT configuration, it adopts nothing.
+
+Frontend: HS-G15 (configs/sota_v7/rko_lio_grandtour_hs_G15_2026-10-27.yaml, ws/rko_g15), the submission-3 frontend.
+Backend: graph_slam_offline_runner (ws/slam_dev build of lidar_slam_ros2 8f171e9 or later) with
+causal_trajectory_output, through p3_grandtour_backend.sh, which now passes the LiDAR extrinsic to the runner (the first
+SPX-3 test placed every Hesai scan as if it were in the IMU frame, turned by 90 deg; all its loop candidates came out
+2-8 m off and were rejected). Presets: walk60 (lidarslam_mid360_rko_graph_walking.yaml as it is: loops only after 60 m
+of travel) and walk20 (the same with distance_loop_closure 20).
+Missions (development, revisits found without the reference): con-3, heap-1, arc-1, spx-1, pil-2, con-2.
+Reported per run: frontend ATE, causal ATE, the non-causal optimized ATE (for comparison only), loop edges, the worker's
+largest lag behind a submap's stamp.
+
+Amendment (2026-10-27, before any result): the first attempt filled the disk while recording CON-3's backend input
+(8,088 full Hesai scans next to the mission's bag), the recorder stalled and the frontend dropped frames; no run of
+the six gave a result. The backend input is now recorded compressed (zstd_fast) with the scans thinned to 0.1 m (the
+walking preset's map_leaf_size; rko_lio deskewed_scan_voxel_size), and the frontend runs from ws/rko_g17 (rko_lio
+HEAD with that option; its trajectories are checked against the G15 confirmation runs, md5).
+
+Result (2026-10-27; ATE without reference spikes, m; frontend / causal walk60 / causal walk20, loop edges):
+  con-3   0.0139 / 0.0151 / 0.0163   (2 / 4)
+  heap-1  0.0242 / 0.0246 / 0.0235   (3 / 3)
+  arc-1   0.0168 / 0.0183 / 0.0190   (6 / 7)
+  spx-1   0.0188 / 0.0263 / 0.0249   (4 / 4)
+  pil-2   0.0317 / 0.0317 / 0.0317   (1 / 1)
+  con-2   not run (Hugging Face answered 429 to every download attempt; the retries now wait 1-15 min)
+  The frontend trajectories are byte-identical to the G15 confirmation runs on all five. The loop edges are found
+  now (the extrinsic was the reason none was found before), but with this frontend (about 2 cm) the NDT loop
+  registrations (2 m cells) are not accurate enough: the causal output is worse on four of five missions and better
+  only on heap-1 with walk20 (-3 %). The worker stayed within 0.5-7 s of real time, once 11 s (pil-2, walk20).
+  The "optimized" column of results.csv is the non-causal submap trajectory (101 poses on con-3), too sparse for the
+  ATE by interpolation; it differs from the raw submap poses by at most 2 cm there.
+  Next for loops: registrations as accurate as the frontend (GICP or finer NDT on aggregated submaps) and weaker loop
+  information, before any loop goes into a COMFORT configuration.

@@ -1,0 +1,54 @@
+Scale and lag of the remaining error, three methods (2026-10-28; a diagnostic that adopts nothing; development
+references only; scripts/p1_grandtour_scale_lag.py, scripts/p1_grandtour_imu_scale.py).
+
+Question: on heap-1 and eig-2 FAST-LIO2 beats HS-G15g by 5-6 mm, mostly through the trajectory's scale (heap-1: our
+error points outward from the centroid and grows with the distance, +10 mm at 5-10 m to +37 mm at 30-35 m; FAST-LIO2
++3 to +14 mm). Is the scale something our registration gets wrong?
+
+1. Each method's SE(3)-aligned horizontal error fitted as s (p - centroid) + tau v + const: s in ppm (positive: the
+   trajectory too large), tau in ms (positive: the estimate ahead of the reference), ATE before -> after removing both,
+   mm (HS-G15f's outputs, the registration of HS-G15g; FAST-LIO2; BIEVR-LIO):
+   mission   vs ref: scale(ppm) lag(ms) ATE->(mm)  ours | FAST | BIEVR
+   heap-1    +1095   +18  23.7-> 12.0 |   +307   +17  17.2-> 12.2 |  +1272   +25  28.5-> 13.3
+   pil-2       -19    +8  26.2-> 25.7 |   -263   +11  35.6-> 34.4 |   +651   +18  29.7-> 25.3
+   con-1      -319    +6  24.7-> 23.1 |  -1008   +16  37.2-> 25.5 |  -1350    +9  42.6-> 25.2
+   eig-2      -489    +9  25.6-> 22.2 |   +134    +8  20.4-> 19.5 |   -498   +11  27.9-> 24.2
+   arc-3      -903    +3  19.0-> 15.2 |   fail |  -4361   +63 269.8->261.0
+   snow-3     +567   +10  13.8-> 10.7 |   +655   +11  16.4-> 13.4 |   +362   +11  32.4-> 31.3
+   arc-5      +816   +10  16.5-> 14.8 |   -641    +5  24.3-> 24.0 |   +811   +13  14.6-> 11.8
+   arc-4      -263   +10  18.1-> 17.6 |   +227   +13  29.6-> 29.0 |  -1575   +10  16.8-> 14.9
+   spx-1      -703   +11  19.8-> 17.0 |  -1349   +14  42.2-> 38.5 |  -1081   +11  30.2-> 26.9
+   arc-1      +253    +7  12.0-> 10.6 |    +22    +6  15.4-> 14.9 |   +521    +9  15.0-> 11.8
+   con-2      -236    +6  20.9-> 19.8 |   -262    +5  21.4-> 20.3 |  -1292    +8  45.7-> 34.1
+   con-3      +909    -1  15.0-> 13.2 |   +697   +17  55.2-> 54.4 |   +459   +11  16.2-> 15.1
+   ice-1      +879    +2  11.4-> 10.2 |    +44    +4  19.2-> 19.2 |   +223    +4   8.4->  8.1
+   arc-6     +1052   +10   9.9->  7.1 |  -2120    +8  29.8-> 26.8 |  +1285   +11  11.8->  8.2
+   spx-3      +222    +4   7.7->  7.0 |  -1015    +6  12.6-> 11.0 |   -177    +6   8.0->  6.5
+   Mean |s|: HS-G15f 582 ppm, FAST-LIO2 625, BIEVR-LIO 826 (arc-3 excluded). Every method has a per-mission scale of
+   +-0.1 %, of the same sign on most missions for all three (heap-1, snow-3, arc-1, con-3, arc-6 positive; con-1,
+   spx-1, con-2 negative); FAST-LIO2's is not smaller in general, heap-1 is one of its good missions. The lag is
+   +5 to +18 ms for all three (reference_time_offset_2026-10-27.txt).
+2. A GT-free scale from the IMU: a_imu / a_lidar - 1 from band-passed horizontal accelerations (p1_grandtour_imu_scale.py):
+   mission  sim3(ppm)  0.1-0.5Hz: a_imu/a_lidar-1 (ppm), corr  0.2-1.0Hz: a_imu/a_lidar-1 (ppm), corr  0.5-2.0Hz: a_imu/a_lidar-1 (ppm), corr  1.0-3.0Hz: a_imu/a_lidar-1 (ppm), corr
+   heap-1    -1077       +7262 0.997     -20380 0.986    -226976 0.862    -283218 0.628
+   eig-2      +554       -4797 0.996     -24833 0.984    -355076 0.772    -521003 0.434
+   pil-2       +77       -5151 0.993     -51397 0.974    -585268 0.621    -737568 0.338
+   arc-1      -241       -3619 0.997     -16908 0.989    -298454 0.817    -446120 0.522
+   snow-3     -357     -111403 0.947     -47948 0.977    -259292 0.851    -365233 0.660
+   arc-4       -96       -4349 0.984     -34015 0.985    -300344 0.821    -490509 0.494
+   arc-5     -1025       +4302 0.949     -48393 0.969    -330574 0.814    -413562 0.528
+   con-1      +299        +659 0.997      -8733 0.991    -220363 0.886    -282389 0.571
+   con-2      +197       +5951 0.997     -12005 0.986    -289318 0.889    -313571 0.607
+   spx-1      +697      -11209 0.995     -28132 0.986    -212685 0.872    -257546 0.600
+   (0.1, 0.5) correlation with Sim(3) scale 0.04
+   (0.2, 1.0) correlation with Sim(3) scale 0.3
+   (0.5, 2.0) correlation with Sim(3) scale -0.06
+   (1.0, 3.0) correlation with Sim(3) scale -0.07
+   Even at 0.1-0.5 Hz the ratio scatters by +-0.5 %, ten times the scale to be found, and does not follow it
+   (correlation 0.04); above 0.5 Hz the registered positions undershoot the IMU's accelerations by 20-50 % (the
+   registration smooths the gait).
+Reading: the scale is a per-mission property common to the LiDAR methods on this rig, not observable with the IMU;
+nothing to fix in our registration. After removing scale and lag HS-G15f is the best or near it on most missions; the
+exceptions are moving starts, where BIEVR-LIO is 2-3 mm better (arc-5 14.8 vs 11.8, arc-4 17.6 vs 14.9, ice-1 10.2 vs
+8.1 mm), with our height worse there (arc-4 z 14.5 vs 8.5, arc-5 10.1 vs 4.7 mm before the removal): the frame tilted
+by the walking initialization (chapter 34.7).

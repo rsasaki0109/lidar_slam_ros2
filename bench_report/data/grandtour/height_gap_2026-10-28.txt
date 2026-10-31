@@ -1,0 +1,18 @@
+Height error of HS-G15g on arc-4 and arc-5 (2026-10-28; a diagnostic that adopts nothing; development references only).
+
+HS-G15g's height RMS is 13.3 (arc-4) and 11.7 mm (arc-5) on four-run means, BIEVR-LIO's 8.5 and 4.7. It is not the
+gravity the registration uses (screen_hs_q_2026-10-28/). Over time (20-s, then 2-s bins) the height error sits right
+after a gap of the reference (the prism out of the total station's view: arc-4 80-216 s, arc-5 60-206 s after the
+reference starts):
+  arc-4  216-218 s  -63 mm (BIEVR-LIO -2), 219 s -8, then +10 to +16 until 225 s, within 5 mm from 228 s
+  arc-5  206-211 s  -35 to -37 mm (BIEVR-LIO +2 to +9), falling to -17 by 217 s, within 5 mm from 218 s
+The registered positions (the output filter's log, before the filter) carry the same error: it is the registration,
+not the filter. During the gap the robot climbs and descends (arc-5's height 0.77 -> 1.04 -> 0.33 m) and our height
+leaves BIEVR-LIO's by up to 12 cm (part of it may be the two alignments' tilt, which the gap leaves unconstrained);
+on coming back the registration meets the old map and returns to it within 1-10 s (arc-4: 5.4 cm in one second).
+Only the return is scored: removing it would gain about 0.9 mm on each of the two missions. The third screen
+(screen_hs_c_2026-10-27/) already found that taking the height from the point-to-point terms does not stop the bump
+registration's height drift on slopes (Oxford); no fix is tried here. Elsewhere our height is better than BIEVR-LIO's
+(heap-1, eig-2, pil-2, spx-1, con-2, arc-6, snow-3, arc-1, ice-1, spx-3) except con-1 and con-3.
+snow-1 is no robustness gap: its reference is unusable for every method (FAST-LIO2 0.3767, BIEVR-LIO 0.3770,
+HS-G15g's registration 0.3758 m).
