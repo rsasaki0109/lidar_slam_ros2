@@ -8,5 +8,7 @@ BIEVR-LIO   github.com/leggedrobotics/BIEVR-LIO (= ethz-asl/BIEVR-LIO) 21121698f
 FAST-LIO2   github.com/hku-mars/FAST_LIO branch ROS2 cc3c9e8b1469b33b8072764d6db2348ed6dc597f (+ ikd-Tree submodule
             e2e3f4e9), GPL-2.0. Two build-only changes: C++17 for ROS 2 Jazzy (fastlio_jazzy_cxx17.patch), and a
             message-only livox_ros_driver2 package (livox_ros_driver2_msgs_only/, CustomMsg and CustomPoint as in
-            Livox-SDK/livox_ros_driver2) instead of the driver and Livox-SDK2; the bags are PointCloud2.
+            Livox-SDK/livox_ros_driver2) instead of the driver and Livox-SDK2; the bags are PointCloud2. Its manifest
+            and CMake file are kept as package.xml.in and CMakeLists.txt.in, so colcon does not find the package in
+            this repository; copy the directory into the FAST-LIO2 workspace and drop the .in suffixes.
             COMFORT test leaderboard: 0.034 m (parkhaneum, 2026-09-17).
