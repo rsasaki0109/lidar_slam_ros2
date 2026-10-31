@@ -1,0 +1,26 @@
+Backend speed on KITTI 05 (report chapter 41 follow-up). Written 2026-10-31, before any of these runs.
+
+Why: graph_slam_offline_runner with the walking preset took 2640 s (NDT 2 m loops) and 3505 s (small_gicp 0.5 m) for
+287 s of KITTI 05. gdb samples of the NDT run (63 samples over its first ~20 %, prof/p_ndt2) put 82 % of the main
+thread in loop-candidate registration (BackendCore::searchLoopForSubmap -> NdtOmpRegistration::align): pclomp's
+derivative updates 52 %, neighbourhood lookups 14 %. The walking preset runs NDT on one thread (ndt_num_threads 1),
+and loop registration uses the runner's default 0.2 m voxel (voxel_leaf_size), dense for a 64-beam LiDAR.
+
+Input: the KITTI 05 backend input recorded again by p2_kitti_raw.sh prof (frontend md5 f6739b50, the same as g12).
+Runs, one at a time on an otherwise idle VM, same boot, walking preset (lidarslam_mid360_rko_graph_walking.yaml):
+  base   the preset as it is (again, for a paired time)
+  t4     ndt_num_threads 4
+  v05    voxel_leaf_size 0.5 (loop registration's source/target voxel; NDT resolution stays 2 m)
+  t4v05  both
+Measured: wall time of the runner, its user+sys CPU time, APE RMSE / max and KITTI t_rel (p2_kitti_score.py), loop
+edges accepted.
+
+Reading, fixed now
+1. A variant is a candidate for the development screen if its wall time is at most half of base's and its APE RMSE is
+   at most 2 % above base's (it may be lower).
+2. Among candidates, the one with the shortest wall time goes forward; a tie (within 10 %) goes to the one that
+   changes fewer settings.
+3. Nothing changes in a preset on KITTI 05 alone. The candidate is then screened on the walking development data
+   (MapsHD, Oxford, exp04) under the Phase 3 rule (data/loops_robust_dev_2026-10-29/plan.txt) before any adoption.
+4. ndt_num_threads above 1 may make the output vary from run to run; if t4 or t4v05 goes forward, it is run twice and
+   the difference is reported.
