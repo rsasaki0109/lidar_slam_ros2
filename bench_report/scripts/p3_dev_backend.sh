@@ -65,6 +65,7 @@ for v in ${VARIANTS}; do
     sg05) over=(registration_method:=SMALL_GICP gicp_max_correspondence_distance:=0.5 gicp_transformation_epsilon:=1e-4) ;;
     sg05_dcs) over=(registration_method:=SMALL_GICP gicp_max_correspondence_distance:=0.5 gicp_transformation_epsilon:=1e-4
                     loop_edge_robust_kernel_type:=dcs loop_edge_robust_kernel_delta:=1.0) ;;
+    t4v05) over=(ndt_num_threads:=4 voxel_leaf_size:=0.5) ;;  # backend speed screen (data/backend_speed_dev_2026-10-31)
     *) echo "unknown variant ${v}"; continue ;;
   esac
   bargs=(); for kv in "${over[@]}"; do bargs+=(-p "${kv}"); done

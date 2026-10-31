@@ -1,0 +1,37 @@
+Backend speed on the walking development data (rule 3 of data/kitti/raw05_2026-10-31/plan_speed.txt). Written
+2026-10-31, before any of these runs.
+
+Candidate: t4v05 = the walking preset (lidarslam/param/lidarslam_mid360_rko_graph_walking.yaml) with
+ndt_num_threads 4 and voxel_leaf_size 0.5. On KITTI 05 it took 687 / 746 s against the preset's 2799 s, APE 2.92
+against 3.12 m, the same bytes on two runs.
+
+Data: MapsHD (8 trials: calibration-room 1/2, flat-room 1, long-corridor 1, outdoor-urk 1, underground-garage 1/2/3)
+and HILTI 2022 exp04, run as in data/loops_robust_dev_2026-10-29/plan.txt (frontend G12 on the rig files, backend
+input recorded, graph_slam_offline_runner of ws/slam_hi, densified and scored as the frontend). Oxford Keble 05 is left
+out: its ground truth stays sealed in this work. Script: bench_report/scripts/p3_dev_backend.sh <sequence> spd with
+VARIANTS="ndt2 t4v05"; rows of label spd in /home/user/bench/dev_loops/scores.csv.
+
+Reading, fixed now
+1. No regression: on every sequence, t4v05's APE is at most max(2 % , 0.5 mm) above ndt2's.
+2. Not worse overall: the geometric mean of the nine APEs is not above ndt2's.
+3. If 1 and 2 hold, the walking preset takes ndt_num_threads 4 and voxel_leaf_size 0.5. Otherwise it stays as it is,
+   and the speed-up is offered only as an option for dense LiDARs.
+Reported besides: backend wall time per sequence and loop edges. The live pipeline (frontend and backend on the same
+4 cores) is not measured here; 4 NDT threads may contend with the frontend there.
+
+Results (2026-10-31; scores.csv: label,sequence,variant,ape_m,loop_edges,backend_wall_s,frontend md5). The frontends
+equal Phase 1's G10/G12 runs (md5). APE in mm; loop edges and backend wall time in brackets.
+  sequence                    frontend  ndt2 (the preset)      t4v05                  t4v05 - ndt2
+  exp04                        52.72     52.72 (0, 5.4 s)       52.72 (0, 5.4 s)        +0.00 mm
+  flat-room 1                  14.80     14.94 (1, 2.5 s)       14.93 (1, 2.4 s)        -0.00 mm
+  long-corridor 1              71.19     71.19 (0, 1.2 s)       71.19 (0, 1.0 s)        +0.00 mm
+  calibration-room 1           26.15     26.36 (15, 18.4 s)     26.25 (13, 8.6 s)       -0.11 mm (-0.4 %)
+  calibration-room 2           20.73     20.86 (1, 6.5 s)       21.26 (1, 2.8 s)        +0.40 mm (+1.9 %)
+  underground-garage 1         44.00     42.71 (2, 27.2 s)      42.47 (1, 9.2 s)        -0.25 mm (-0.6 %)
+  underground-garage 2         29.34     35.81 (5, 21.4 s)      37.62 (4, 8.7 s)        +1.82 mm (+5.1 %)  rule 1 fails
+  underground-garage 3         26.74     31.09 (1, 18.9 s)      26.74 (0, 8.7 s)        -4.36 mm (-14.0 %)
+  outdoor-urk 1                54.46     53.46 (1, 19.8 s)      56.06 (1, 8.5 s)        +2.59 mm (+4.9 %)  rule 1 fails
+  geometric mean                         34.98                  34.80
+Reading: rule 1 fails on underground-garage 2 and outdoor-urk 1; rule 2 holds. The walking preset stays as it is;
+ndt_num_threads 4 with voxel_leaf_size 0.5 is an option for dense LiDARs (KITTI 05: 2799 -> 687 s, APE 3.12 -> 2.92 m),
+not a default. On these short walking sequences the backend took 1-27 s either way.
