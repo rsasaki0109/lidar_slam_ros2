@@ -1,0 +1,19 @@
+Architecture cleanup 1 (report chapter 40), 2026-10-31: rko_lio keeps only the features of the adopted configurations.
+
+rko_lio (rsasaki0109/rko_lio, branch claude/jolly-gauss-dliz8l): 236cabe removes every switch that neither G12
+(configs/sota_v7/rko_lio_global_G12_2026-10-26.yaml) nor GrandTour HS-G15g (rko_lio_grandtour_hs_G15g_2026-10-28.yaml)
+sets. Builds:
+  base           the branch before the cleanup (d40d3b9), /home/user/ws/rko_base
+  clean          236cabe, BUILD_TESTING off, /home/user/ws/rko_clean (install_off)
+  prod           lidar_slam_ros2's submodule at the time (ec61a3e), /home/user/ws/rko_prod
+  clean_default  the clean build in the shipped-settings runs
+frontend_runs.csv: tag,run,md5 of the frontend TUM trajectory,poses.
+  bench_report/scripts/cleanup_frontend_check.sh: exp04 (HILTI 2022) and Koide outdoor_hard_02b with the rig file and
+    G12 or G15g over it; exp04 with the rig file alone.
+  bench_report/scripts/cleanup_shipped_check.sh: Koide 02b with lidar_slam_ros2's shipped
+    lidarslam/param/rko_lio_mid360_handheld_outdoor.yaml, put in ROS form (rko_lio_mid360_handheld_outdoor.ros.yaml here,
+    base_frame livox_frame added), and exp04 with the rig file alone.
+Result: every pair is byte-identical (base = clean on 5 runs; prod = clean on 2 runs).
+Two first attempts of the shipped-preset run did not start (the preset is not a ROS params file; then base_frame was
+missing); they are not in the table. No GrandTour data was on disk, so the path after a moving start is covered by
+the unit tests only.
