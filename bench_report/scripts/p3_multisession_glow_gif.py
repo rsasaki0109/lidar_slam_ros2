@@ -69,20 +69,37 @@ class Camera:
         return W / 2 + focal * x / np.where(ok, z, 1), H / 2 - focal * y / np.where(ok, z, 1), ok
 
 
-def splat(acc, u, v, ok, color, weight):
+def density(u, v, ok):
     ui, vi = np.round(u).astype(np.int64), np.round(v).astype(np.int64)
     m = ok & (ui >= 0) & (ui < W) & (vi >= 0) & (vi < H)
-    flat = vi[m] * W + ui[m]
-    count = np.bincount(flat, minlength=W * H).reshape(H, W) * weight
-    acc += count[:, :, None] * color[None, None, :]
+    return np.bincount(vi[m] * W + ui[m], minlength=W * H).reshape(H, W).astype(float)
 
 
-def tone(acc):
-    glow = gaussian_filter(acc, sigma=(4, 4, 0))
-    img = 1.0 - np.exp(-(0.55 * acc + 1.6 * glow))
+def tone(dens, colors, gain):
+    """Each session's density to its own color (1 - exp(-gain d), so the hue stays), then a blurred glow screened
+    over it, on a dark gradient."""
+    rgb = np.zeros((H, W, 3))
+    for d, c in zip(dens, colors):  # each session over the ones before, so overlaps keep a session's colour
+        a = (1 - np.exp(-gain * d))[:, :, None]
+        rgb = rgb * (1 - a) + a * c[None, None, :]
+    glow = np.clip(0.45 * gaussian_filter(rgb, sigma=(3, 3, 0)), 0, 1)
+    img = 1 - (1 - rgb) * (1 - glow)
     grad = np.linspace(0, 1, H)[:, None, None]
     bg = BG_TOP * (1 - grad) + BG_BOTTOM * grad
-    return np.clip(bg + img * (1 - bg), 0, 1)
+    return 1 - (1 - bg) * (1 - img)
+
+
+HEADER = 130  # px at the top kept for the titles
+
+
+def fit_top(xy, zc, frac_w=0.9, frac_h=0.86):
+    """A camera from straight above that fits the points xy under the header."""
+    lo, hi = np.percentile(xy, 0.5, axis=0), np.percentile(xy, 99.5, axis=0)
+    focal = 0.5 * H / np.tan(np.radians(40.0) / 2)
+    scale = min(frac_w * W / max(hi[0] - lo[0], 1.0), frac_h * (H - HEADER) / max(hi[1] - lo[1], 1.0))
+    c = (lo + hi) / 2
+    c[1] += 0.5 * HEADER / scale  # the content's centre sits in the middle of the space under the header
+    return dict(target=np.array([c[0], c[1], zc]), dist=focal / scale, pitch=np.radians(89.0), yaw=-np.pi / 2)
 
 
 def main():
@@ -129,7 +146,9 @@ def main():
         M = M2[0].copy() if i == 0 else np.eye(3)
         if i > 0:
             ang = [np.pi, 0.0, -np.pi / 2, np.pi / 2][(i - 1) % 4]
-            M[:2, 2] = center + 0.78 * span * np.array([np.cos(ang), np.sin(ang)]) - own[i][:, :2].mean(0)
+            ext_i = np.percentile(own[i][:, :2], 99, axis=0) - np.percentile(own[i][:, :2], 1, axis=0)
+            gap = 0.5 * (span + ext_i.max()) + 0.12 * span
+            M[:2, 2] = center + gap * np.array([np.cos(ang), np.sin(ang)]) - own[i][:, :2].mean(0)
         start.append(M)
 
     def move(p, M):
@@ -161,8 +180,9 @@ def main():
         others = np.concatenate([route_fin[j][:, :2] for j in range(n) if j != i])
         overlap.append(float((cKDTree(others).query(route_fin[i][:, :2])[0] < 5.0).mean()))
 
-    top_dist = 1.15 * span / np.tan(np.radians(20)) * 1.15
-    cam_top = dict(target=np.array([center[0], center[1], zc]), dist=top_dist, pitch=np.radians(89.0), yaw=-np.pi / 2)
+    shown = np.concatenate([move(own[i], start[i])[:, :2] for i in range(1, n)] + [fin[0][:, :2]])
+    cam_top = fit_top(shown, zc)
+    cam_map = fit_top(allfin[:, :2], zc)
     font_t = ImageFont.truetype(FONT, 30)
     font_s = ImageFont.truetype(FONT, 17)
     font_l = ImageFont.truetype(FONT, 16)
@@ -171,16 +191,24 @@ def main():
     os.makedirs(frames_dir)
     count = [0]
 
+    preview = {int(v) for v in os.environ.get('GLOW_PREVIEW', '').split(',') if v}
+
     def frame(state, cam, subtitle, links=None, flash=None, heads=None):
-        acc = np.zeros((H, W, 3))
+        if preview and count[0] not in preview:  # GLOW_PREVIEW: only these frames, as PNG
+            count[0] += 1
+            return
         c = Camera(**cam)
+        dens = []
         for i in range(n):
             pts, reveal, order_of = state[i]
             u, v, ok = c.project(pts)
             if reveal is not None:
                 ok &= order_of <= reveal
-            splat(acc, u, v, ok, COLORS[i % len(COLORS)], 0.35)
-        img = tone(acc)
+            dens.append(density(u, v, ok))
+        total = np.sum(dens, axis=0)
+        nz = total[total > 0]
+        gain = 0.5 / np.median(nz) if len(nz) else 1.0
+        img = tone(dens, [COLORS[i % len(COLORS)] for i in range(n)], gain)
         im = Image.fromarray((img * 255).astype(np.uint8))
         d = ImageDraw.Draw(im, 'RGBA')
         if links is not None:
@@ -206,12 +234,13 @@ def main():
                 for rr, aa in ((10, 60), (6, 120), (3, 255)):
                     d.ellipse([hx - rr, hy - rr, hx + rr, hy + rr], fill=rgb + (aa,))
         d.text((28, 22), title, font=font_t, fill=(255, 255, 255, 255))
-        d.text((30, 64), subtitle, font=font_s, fill=(200, 212, 225, 255))
+        for li, line in enumerate(subtitle.split('\n')):
+            d.text((30, 62 + 22 * li), line, font=font_s, fill=(200, 212, 225, 255))
         x = 30
         for i in range(n):
             rgb = tuple(int(255 * v) for v in COLORS[i % len(COLORS)])
-            d.ellipse([x, 96, x + 12, 108], fill=rgb + (255,))
-            d.text((x + 18, 92), labels[i], font=font_l, fill=rgb + (255,))
+            d.ellipse([x, 112, x + 12, 124], fill=rgb + (255,))
+            d.text((x + 18, 108), labels[i], font=font_l, fill=rgb + (255,))
             x += 30 + int(d.textlength(labels[i], font=font_l)) + 10
         im.save(f'{frames_dir}/{count[0]:05d}.png')
         count[0] += 1
@@ -221,7 +250,7 @@ def main():
     if joined[0]:
         placed[0], placed_idx[0] = fin[0], fin_idx[0]
     # 1. each run painted along its route, where it was recorded
-    sub0 = '別々に歩いた走行。互いの位置関係は分からない（表示のため離して置いた。方法は位置の手がかりを使わない）'
+    sub0 = '別々に歩いた走行。互いの位置関係は分からない\n（表示のため離して置いた。方法は位置の手がかりを使わない）'
     N1 = int(3.2 * FPS)
     for k in range(N1):
         s = ease((k + 1) / N1)
@@ -264,22 +293,33 @@ def main():
                   flash=((u[0], v[0]), 40 + 260 * s, 1.0 - s))
     # 3. the joined map in 3-D: tilt down from above, then turn around it
     total = sum(length)
-    sub_f = f'{n} 回の走行を 1 枚の地図に：合計 {total:.0f} m、' + '、'.join(
-        f'{labels[i]} の {100 * (1 - overlap[i]):.0f}% は自分だけの場所' for i in range(n))
-    N5, N6, N7 = int(1.6 * FPS), int(4.0 * FPS), int(0.8 * FPS)
-    target = np.array([center[0], center[1], zc + 4.0])
-    for k in range(N5):
-        s = ease((k + 1) / N5)
-        cam = dict(target=target, dist=top_dist * (1 - 0.32 * s), pitch=np.radians(89.0 - 54.0 * s),
-                   yaw=-np.pi / 2 + np.radians(20) * s)
+    sub_f = f'{n} 回の走行を 1 枚の地図に（合計 {total:.0f} m）\n' + '、'.join(
+        f'{labels[i]} は {100 * (1 - overlap[i]):.0f}% が自分だけの場所' for i in range(n))
+    N4b, N5, N6, N7 = int(0.9 * FPS), int(1.6 * FPS), int(4.0 * FPS), int(0.8 * FPS)
+    for k in range(N4b):  # zoom onto the joined map
+        s = ease((k + 1) / N4b)
+        cam = dict(target=(1 - s) * cam_top['target'] + s * cam_map['target'],
+                   dist=(1 - s) * cam_top['dist'] + s * cam_map['dist'], pitch=np.radians(89.0), yaw=-np.pi / 2)
         frame({j: (placed[j], None, None) for j in range(n)}, cam, sub_f)
-    for k in range(N6):
+    target = np.array([center[0], center[1], zc + 4.0])
+    for k in range(N5):  # tilt down
+        s = ease((k + 1) / N5)
+        cam = dict(target=(1 - s) * cam_map['target'] + s * target, dist=cam_map['dist'] * (1 - 0.38 * s),
+                   pitch=np.radians(89.0 - 54.0 * s), yaw=-np.pi / 2 + np.radians(20) * s)
+        frame({j: (placed[j], None, None) for j in range(n)}, cam, sub_f)
+    for k in range(N6):  # turn around it
         s = (k + 1) / N6
-        cam = dict(target=target, dist=top_dist * 0.68, pitch=np.radians(35.0),
+        cam = dict(target=target, dist=cam_map['dist'] * 0.62, pitch=np.radians(35.0),
                    yaw=-np.pi / 2 + np.radians(20) + np.radians(80) * ease(s))
         frame({j: (placed[j], None, None) for j in range(n)}, cam, sub_f)
     for _ in range(N7):
         frame({j: (placed[j], None, None) for j in range(n)}, cam, sub_f)
+    if preview:
+        for f in sorted(os.listdir(frames_dir)):
+            shutil.move(f'{frames_dir}/{f}', f'{stem}_frame{int(f[:5])}.png')
+        shutil.rmtree(frames_dir)
+        print(f'{count[0]} frames; previews of {sorted(preview)} written')
+        return
     # GIF (one palette over all frames) and MP4
     pal = f'{frames_dir}/palette.png'
     subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-framerate', str(FPS), '-i', f'{frames_dir}/%05d.png',
