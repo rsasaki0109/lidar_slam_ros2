@@ -39,7 +39,7 @@ def test_capture_wraps_arbitrary_command_and_records_both_backend_topics():
 
     assert 'COMMAND=("$@")' in source
     assert '--include-unpublished-topics' in source
-    assert '--storage-preset-profile fastwrite' in source
+    assert '--storage-preset-profile "${BACKEND_CAPTURE_STORAGE_PRESET:-fastwrite}"' in source
     assert '--max-cache-size 1073741824' in source
     assert '--qos-profile-overrides-path' in source
     assert '/rko_lio/odometry /rko_lio/frame' in source
