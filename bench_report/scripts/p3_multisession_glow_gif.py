@@ -32,6 +32,22 @@ ZMIN, ZMAX = -1.1, 16.0  # m, relative to the sensor: walls, trees and roofs, no
 COLORS = np.array([[77, 163, 255], [255, 154, 60], [91, 227, 125], [232, 107, 255], [255, 216, 77]]) / 255.0
 BG_TOP, BG_BOTTOM = np.array([10, 16, 26]) / 255.0, np.array([4, 6, 10]) / 255.0
 FONT = '/usr/share/fonts/opentype/ipafont-gothic/ipag.ttf'
+FONT_EN = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
+# captions: GIF_LANG=en (the default) or ja
+TEXT = {
+    'en': dict(
+        apart='Separate runs; how they relate is not known\n(set apart for display; the method uses no position hint)',
+        first='the first run', map='the joined map',
+        join='Joining {label} to {where}: {count} matched places',
+        final='{n} runs, one map ({total:.0f} m walked)',
+        own='{label}: {pct:.0f}% seen by no other run', sep=', '),
+    'ja': dict(
+        apart='別々に歩いた走行。互いの位置関係は分からない\n（表示のため離して置いた。方法は位置の手がかりを使わない）',
+        first='最初の走行', map='結合済みの地図',
+        join='{label} を{where}に結合：{count} か所で一致',
+        final='{n} 回の走行を 1 枚の地図に（合計 {total:.0f} m）',
+        own='{label} は {pct:.0f}% が自分だけの場所', sep='、'),
+}
 
 
 def ease(s):
@@ -184,9 +200,12 @@ def main():
     shown = np.concatenate([move(own[i], start[i])[:, :2] for i in range(1, n)] + [fin[0][:, :2]])
     cam_top = fit_top(shown, zc)
     cam_map = fit_top(allfin[:, :2], zc)
-    font_t = ImageFont.truetype(FONT, 30)
-    font_s = ImageFont.truetype(FONT, 17)
-    font_l = ImageFont.truetype(FONT, 16)
+    lang = os.environ.get('GIF_LANG', 'en')
+    txt = TEXT[lang]
+    face = FONT_EN if lang == 'en' and os.path.exists(FONT_EN) else FONT
+    font_t = ImageFont.truetype(face, 28)
+    font_s = ImageFont.truetype(face, 16)
+    font_l = ImageFont.truetype(face, 15)
     frames_dir = f'{stem}_frames'
     shutil.rmtree(frames_dir, ignore_errors=True)
     os.makedirs(frames_dir)
@@ -251,7 +270,7 @@ def main():
     if joined[0]:
         placed[0], placed_idx[0] = fin[0], fin_idx[0]
     # 1. each run painted along its route, where it was recorded
-    sub0 = '別々に歩いた走行。互いの位置関係は分からない\n（表示のため離して置いた。方法は位置の手がかりを使わない）'
+    sub0 = txt['apart']
     N1 = int(3.2 * FPS)
     for k in range(N1):
         s = ease((k + 1) / N1)
@@ -273,8 +292,8 @@ def main():
             continue
         pb_own, pa = pairs[i]
         cnt = len(pa)
-        where = '最初の走行' if done == {0} else '結合済みの地図'
-        sub = f'{labels[i]} を{where}に結合：{cnt} か所で一致'
+        where = txt['first'] if done == {0} else txt['map']
+        sub = txt['join'].format(label=labels[i], where=where, count=cnt)
         N2, N3, N4 = int(1.1 * FPS), int(1.4 * FPS), int(0.5 * FPS)
         for k in range(N2):
             a = 0.5 + 0.5 * np.sin(np.pi * (k + 1) / N2)
@@ -294,8 +313,8 @@ def main():
                   flash=((u[0], v[0]), 40 + 260 * s, 1.0 - s))
     # 3. the joined map in 3-D: tilt down from above, then turn around it
     total = sum(length)
-    sub_f = f'{n} 回の走行を 1 枚の地図に（合計 {total:.0f} m）\n' + '、'.join(
-        f'{labels[i]} は {100 * (1 - overlap[i]):.0f}% が自分だけの場所' for i in range(n))
+    sub_f = txt['final'].format(n=n, total=total) + '\n' + txt['sep'].join(
+        txt['own'].format(label=labels[i], pct=100 * (1 - overlap[i])) for i in range(n))
     N4b, N5, N6, N7 = int(0.9 * FPS), int(1.6 * FPS), int(4.0 * FPS), int(0.8 * FPS)
     for k in range(N4b):  # zoom onto the joined map
         s = ease((k + 1) / N4b)
