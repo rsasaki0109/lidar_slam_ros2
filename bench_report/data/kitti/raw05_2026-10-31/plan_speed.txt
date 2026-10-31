@@ -24,3 +24,14 @@ Reading, fixed now
    (MapsHD, Oxford, exp04) under the Phase 3 rule (data/loops_robust_dev_2026-10-29/plan.txt) before any adoption.
 4. ndt_num_threads above 1 may make the output vary from run to run; if t4 or t4v05 goes forward, it is run twice and
    the difference is reported.
+
+Results (2026-10-31, one boot, runs one at a time; speed.csv: variant,wall_s,user_s,sys_s,max_rss_kb,matched,missing,
+ape_rmse,ape_max,t_rel_percent,r_rel_deg_per_m,loop_edges)
+  variant  wall      share of base  APE RMSE          loops  output
+  base     2798.6 s  100 %          3.1208 m          6      = t4 (dense.tum md5 18b42720)
+  t4       1952.1 s   70 %          3.1208 m (+0 %)   6      = base
+  v05      1044.0 s   37 %          2.9199 m (-6.4 %) 3      = t4v05 (dense.tum md5 64114762)
+  t4v05     686.6 s   25 %          2.9199 m (-6.4 %) 3      = v05; run again: 745.8 s, the same bytes
+Reading: v05 and t4v05 are candidates (rule 1); t4v05 goes forward (rule 2, 34 % faster than v05). The thread count
+does not change the output here (base = t4, v05 = t4v05, t4v05 twice the same; rule 4). t4 alone saves 30 % of the
+wall time at 2.3 times the CPU time. Peak RSS 4.8-4.9 GB in every run. Next (rule 3): the walking development screen.
