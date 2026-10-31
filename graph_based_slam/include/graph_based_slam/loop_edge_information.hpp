@@ -104,33 +104,6 @@ inline Matrix6d inverseEdgeInformation(
   return a.transpose() * information * a;
 }
 
-// In g2o EdgeSE3's error order [t; q.vec] (q.vec = w / 2 for a small error),
-// with the translation block's and the rotation block's mean eigenvalue set
-// to the constant loop information (trans, rot): the Hessian gives only the
-// shape (which directions the registration constrains, and how they couple),
-// the constants keep the weight. Zero if the information is not usable.
-inline Matrix6d g2oShapedInformation(
-  const Matrix6d & information, double constant_trans, double constant_rot)
-{
-  // [w; v] = J [t; q]: w = 2 q, v = t.
-  Matrix6d j = Matrix6d::Zero();
-  j.block<3, 3>(0, 3) = 2.0 * Eigen::Matrix3d::Identity();
-  j.block<3, 3>(3, 0) = Eigen::Matrix3d::Identity();
-  const Matrix6d g = j.transpose() * information * j;
-  const double mean_trans = g.topLeftCorner<3, 3>().trace() / 3.0;
-  const double mean_rot = g.bottomRightCorner<3, 3>().trace() / 3.0;
-  if (!g.allFinite() || !(mean_trans > 0.0) || !(mean_rot > 0.0) ||
-    !(constant_trans > 0.0) || !(constant_rot > 0.0))
-  {
-    return Matrix6d::Zero();
-  }
-  Eigen::Matrix<double, 6, 1> d;
-  d.head<3>().setConstant(std::sqrt(constant_trans / mean_trans));
-  d.tail<3>().setConstant(std::sqrt(constant_rot / mean_rot));
-  const Matrix6d shaped = d.asDiagonal() * g * d.asDiagonal();
-  return 0.5 * (shaped + shaped.transpose());
-}
-
 }  // namespace loop_information
 }  // namespace graphslam
 

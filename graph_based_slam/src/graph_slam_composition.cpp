@@ -182,7 +182,6 @@ PoseGraphConfigBundle makePoseGraphConfig(
   result.loop.info_weight = config.loop_edge_info_weight_;
   result.loop.constant_info_trans = config.loop_edge_info_constant_trans_;
   result.loop.constant_info_rot = config.loop_edge_info_constant_rot_;
-  result.loop.information_from_registration = config.loop_edge_info_from_registration_;
   result.loop.robust_kernel_type = config.loop_edge_robust_kernel_type_;
   result.loop.robust_kernel_delta = config.loop_edge_robust_kernel_delta_;
   result.imu.info_roll_pitch = config.imu_rotation_info_roll_pitch_;

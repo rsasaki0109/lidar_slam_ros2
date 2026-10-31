@@ -100,7 +100,6 @@ GraphSlamConfig loadGraphSlamConfig(rclcpp::Node & node)
   LOAD(loop_edge_info_weight_, "loop_edge_info_weight");
   LOAD(loop_edge_info_constant_trans_, "loop_edge_info_constant_trans");
   LOAD(loop_edge_info_constant_rot_, "loop_edge_info_constant_rot");
-  LOAD(loop_edge_info_from_registration_, "loop_edge_info_from_registration");
   LOAD(loop_edge_robust_kernel_delta_, "loop_edge_robust_kernel_delta");
   LOAD(loop_edge_robust_kernel_type_, "loop_edge_robust_kernel_type");
   LOAD(use_scan_context_, "use_scan_context");
@@ -211,7 +210,6 @@ GraphSlamConfig loadGraphSlamConfig(rclcpp::Node & node)
   LOAD(map_grid_size_y_, "map_grid_size_y");
   LOAD(map_leaf_size_, "map_leaf_size");
   LOAD(map_save_points_per_pass_, "map_save_points_per_pass");
-  LOAD(debug_map_save_assembled_dir_, "debug_map_save_assembled_dir");
   LOAD(use_gnss_, "use_gnss");
   LOAD(gnss_topic_, "gnss_topic");
   LOAD(gnss_info_weight_, "gnss_info_weight");

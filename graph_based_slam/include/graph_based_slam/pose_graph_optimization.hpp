@@ -139,11 +139,6 @@ struct LoopEdgeConfig
   // (bench_report chapter 19). 0 keeps the fitness-based information.
   double constant_info_trans {0.0};
   double constant_info_rot {0.0};
-  // With the constant information above: a loop edge whose registration
-  // reports a Hessian takes its shape (loop_information::g2oShapedInformation),
-  // scaled so that its translation and rotation blocks keep the constants'
-  // mean; the other edges keep the constants.
-  bool information_from_registration {false};
 };
 
 // Information matrix of one loop edge (g2o EdgeSE3 order: translation first).
@@ -163,14 +158,6 @@ inline Eigen::Matrix<double, 6, 6> loopEdgeInformation(
 inline Eigen::Matrix<double, 6, 6> loopEdgeInformation(
   const LoopEdgeConfig & loop_cfg, const LoopConstraint & loop_constraint)
 {
-  if (loop_cfg.information_from_registration && loop_constraint.registration_information_valid) {
-    const Eigen::Matrix<double, 6, 6> shaped = loop_information::g2oShapedInformation(
-      loop_constraint.registration_information, loop_cfg.constant_info_trans,
-      loop_cfg.constant_info_rot);
-    if (!shaped.isZero(0.0)) {
-      return shaped;
-    }
-  }
   return loopEdgeInformation(loop_cfg, loop_constraint.fitness_score);
 }
 

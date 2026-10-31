@@ -90,7 +90,6 @@ struct GraphSlamConfig
   double loop_edge_info_weight_ {100.0};
   double loop_edge_info_constant_trans_ {0.0};
   double loop_edge_info_constant_rot_ {0.0};
-  bool loop_edge_info_from_registration_ {false};
   double loop_edge_robust_kernel_delta_ {1.0};
   std::string loop_edge_robust_kernel_type_ {"huber"};
 
@@ -185,8 +184,6 @@ struct GraphSlamConfig
   // downsample it with one VoxelGrid, as before Phase 4. Not used when the map is also published
   // or the dynamic object filter is on (both need the whole map).
   int map_save_points_per_pass_ {2000000};
-  // Test only: with a streamed save, the same map also saved as before into this directory.
-  std::string debug_map_save_assembled_dir_ {""};
 
   // Optional absolute and inertial constraints.
   bool use_gnss_ {false};
