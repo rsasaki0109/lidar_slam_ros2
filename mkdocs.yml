@@ -92,6 +92,7 @@ nav:
   - Guides:
       - Degeneracy Resilience Guide: degeneracy-guide.md
       - Graph SLAM Architecture: graph-slam-architecture.md
+      - Graph SLAM Parameters: graph-slam-parameters.md
       - Registration Plugin Authoring: registration-plugin-authoring.md
       - Registration Plugin API: architecture/registration-plugin-api.md
       - 3DGS Photoreal Map: 3dgs-map-tutorial.md
