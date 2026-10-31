@@ -1,0 +1,20 @@
+Multi-session GIF (report 38.10), 2026-10-30/31. Oxford Spires, LiDAR and IMU only; no ground truth was fetched or read.
+Sessions (bench_report/scripts/p3_spires_session.sh: the frontend with the Phase 1 configuration G12 on the Oxford rig
+file, its deskewed scans thinned to 0.1 m recorded as the backend input, graph_slam_offline_runner with the walking
+preset):
+  Keble College 05 / 02 / 03:  693.4 / 286.4 / 275.5 m, 444 / 185 / 179 submaps, 14 / 2 / 3 loop edges
+  Christ Church 02 / 04 / 05:  644.0 / 725.6 / 791.7 m, 414 / 463 / 511 submaps, 9 / 10 / 13 loop edges
+Joins (bench_report/scripts/p3_spires_join.sh: graph_slam_multisession_join, the first session the reference, each
+joining to the map, self-similarity checked for every session):
+  Keble 05 + 02 + 03 (1098 s): both joined in the first pass (02: 180 places, 03: 179 places; no ambiguity, no session
+    self-similar). Every point of 02's and 03's routes lies within 5 m of another run's: they walk round the quad that 05
+    also walks round, so this is not a set with little overlap. Not used for the GIF.
+  Christ Church 02 + 04 + 05 (1978 s): 04 joined in the first pass (114 inter-session edges, the largest set 291
+    matches at 192 places). 05 not joined: two agreeing sets passed the whole-map check, but 05 joins itself (its
+    self-similarity check, "self_similar: b"), so the tool refuses it. Shares of each route within 5 m of the other's
+    (joined frame): 02 68 %, 04 50 %.
+GIF: bench_report/scripts/p3_multisession_glow_gif.py on the Christ Church join with sessions 02 and 04; 720 px, 15 fps,
+128 colours: docs/assets/images/multisession_oxford_christ_church.gif (4.6 MB).
+Christ Church 05's first backend input was written while the disk was full and could not be read (zstd data
+corruption); it was recorded again before the join above. A first two-session join (02 + 04) was killed by the
+memory limit while the three-session join ran beside it.
