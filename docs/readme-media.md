@@ -110,3 +110,50 @@ ffmpeg -framerate 15 -i stairs/frame_%04d.png \
 - The current scan is drawn with every eighth point (`--scan-stride 8`). Drawn in full, the OS1-64's scan hides the map.
 - Points more than 1.0 m (stairs) or 0.8 m (tunnel) above the sensor at insertion time are hidden, so ceilings do not cover the walk.
 - The ground truth is used only for the metrics above. It is not drawn.
+
+## Three walks joined into one map (`docs/assets/images/multisession_oxford_new_college.gif`)
+
+**Data:** [Oxford Spires](https://huggingface.co/datasets/ori-drs/oxford_spires_dataset) (CC BY-NC-SA 4.0), sequences `2024-07-09-new-college-03`, `-04` and `-01`.
+- Handheld rig: Hesai LiDAR (`/hesai/pandar`) and Alphasense IMU.
+- Only the LiDAR clouds and the IMU file were fetched. No ground truth was fetched or used.
+- The GIF is made from the dataset, so it carries the dataset's licence (CC BY-NC-SA 4.0), not the repository's BSD-2.
+
+**Run:** each walk alone, then the join. These are bench scripts with the development machine's paths (`/home/user/...`):
+
+```bash
+for s in 03 04 01; do
+  WORKERS=12 DROP_BAG=1 bash bench_report/scripts/p3_spires_session.sh 2024-07-09-new-college-$s nc$s
+done
+cd /home/user/bench/spires_ms
+bash /home/user/lidar_slam_ros2/bench_report/scripts/p3_spires_join.sh join_nc03_nc04_nc01 nc03 nc04 nc01
+```
+
+- `p3_spires_session.sh` converts the sequence to a ROS 2 bag (`bench_report/scripts/oxford_to_ros2.py`). It then runs the RKO-LIO frontend with the Phase 1 configuration and records its odometry and deskewed scans (thinned to 0.1 m) as the backend input. Last, it runs `graph_slam_offline_runner` with `lidarslam/param/lidarslam_mid360_rko_graph_walking.yaml`.
+- `p3_spires_join.sh` runs [`graph_slam_multisession_join`](architecture/multisession-join.md) with the same parameter file. Walk 03 is the reference, and each walk joins the map built so far. The tool is given nothing about where the walks start relative to each other.
+
+**Result** (`bench_report/data/oxford/multisession_gif_2026-10-31/new_college_join_report.yaml`):
+
+| | 03 | 04 | 01 |
+| --- | ---: | ---: | ---: |
+| Length (odometry) | 799 m | 368 m | 221 m |
+| Submaps | 512 | 236 | 142 |
+| Joined | reference | first try, to 03 at 87 places | first try, to 03 and 04 at 123 places |
+| Route within 5 m of another walk | 43 % | 82 % | 100 % |
+
+- No set was ambiguous and no walk joined itself. Either one would have made the tool refuse the join.
+- Walk 01 follows routes that 03 and 04 also walk. 04 adds about 70 m of route that the other walks do not cover.
+- New College 02 was tried first. Only 22 of its 474 candidate matches with 03 and 04 were accepted, too few for a set, so it was not joined. Other sites are in report 38.10.
+
+**Render:**
+
+```bash
+python3 bench_report/scripts/p3_multisession_glow_gif.py join_nc03_nc04_nc01/join \
+  "Three separate walks through New College, Oxford" nc_glow_en3 \
+  "New College 03=nc03" "New College 04=nc04" "New College 01=nc01"
+```
+
+- Points are every fifth deskewed scan of each walk's backend input, from 1.1 m below to 16 m above the sensor, thinned to 0.2 m. Each walk has its own colour.
+- Each walk is first drawn in its own odometry frame, painted along its route. The walks are set apart only for display.
+- The walks then move onto the map in the order the tool joined them. The lines show the matched places. At the end, the joined map is shown in 3-D.
+- The GIF is 720 px, 15 fps and 128 colours (4.4 MB). The script also writes a 960×540 MP4.
+- The captions are in English (`GIF_LANG=ja` gives Japanese).

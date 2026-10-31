@@ -5,7 +5,7 @@ sessions relate: place recognition finds the transform between their odometry fr
 when the evidence does not hold over the whole map. A wrong cross-session join breaks the whole
 map, so when the matches are in doubt the tool leaves the sessions apart.
 
-![Two runs of Oxford Spires Christ Church (blue: 02, orange: 04), each first drawn where it was recorded, then joined; the joined map in 3-D at the end](../assets/images/multisession_oxford_christ_church.gif)
+![Three runs of Oxford Spires New College (blue: 03, orange: 04, green: 01), each first drawn where it was recorded, then joined; the joined map in 3-D at the end](../assets/images/multisession_oxford_new_college.gif)
 
 Status: offline tool, development stage (SOTA v7 Phase 3). The method, its evaluation on
 GrandTour and its limits are in `bench_report/REPORT.md` chapter 38 and
@@ -163,10 +163,18 @@ were each cut into three parts. Each part was joined as a session, and the truth
   With the map optimized after each join, the transform is 0.064 m off. The final map does not
   change.
 
-Oxford Spires (report 38.10; LiDAR and IMU only): Christ Church 04 joins 02 at 114 matched places (68 % of 02's
-route and 50 % of 04's lie within 5 m of the other's). Christ Church 05 is refused because it joins itself. Keble
-College 02 and 03 join 05, but only walk round a quad that 05 also covers. The GIF above is made with
-`bench_report/scripts/p3_multisession_glow_gif.py`.
+Oxford Spires (report 38.10; LiDAR and IMU only):
+
+- New College: 04 joins 03 at 87 matched places, and 01 joins both at 123. The routes overlap a lot: 43 % of 03's
+  route, 82 % of 04's and all of 01's lie within 5 m of another run's. New College 02 is not joined (22 of 474
+  candidates accepted, too few for a set).
+- Christ Church: 04 joins 02 at 114 matched places (68 % of 02's route and 50 % of 04's lie within 5 m of the
+  other's). 05 and 06 are refused because each joins itself. 03, a long hall that also fits turned round, is
+  refused as ambiguous.
+- Keble College: 02 and 03 join 05, but only walk round a quad that 05 also covers.
+
+The GIF above shows New College. It is made with `bench_report/scripts/p3_multisession_glow_gif.py`; the steps are
+in [README media](../readme-media.md).
 
 Limits:
 

@@ -4,6 +4,10 @@ file, its deskewed scans thinned to 0.1 m recorded as the backend input, graph_s
 preset):
   Keble College 05 / 02 / 03:  693.4 / 286.4 / 275.5 m, 444 / 185 / 179 submaps, 14 / 2 / 3 loop edges
   Christ Church 02 / 04 / 05:  644.0 / 725.6 / 791.7 m, 414 / 463 / 511 submaps, 9 / 10 / 13 loop edges
+  Christ Church 03 / 06:       254.5 / 1010.7 m, 165 / 651 submaps, 9 / 29 loop edges (06 thinned to 0.2 m,
+                               DESKEW_VOXEL, to fit the disk)
+  New College 03 / 04 / 01 / 02: 799.3 / 368.1 / 220.5 / 284.5 m, 512 / 236 / 142 / 184 submaps,
+                               8 / 6 / 4 / 3 loop edges
 Joins (bench_report/scripts/p3_spires_join.sh: graph_slam_multisession_join, the first session the reference, each
 joining to the map, self-similarity checked for every session):
   Keble 05 + 02 + 03 (1098 s): both joined in the first pass (02: 180 places, 03: 179 places; no ambiguity, no session
@@ -13,8 +17,22 @@ joining to the map, self-similarity checked for every session):
     matches at 192 places). 05 not joined: two agreeing sets passed the whole-map check, but 05 joins itself (its
     self-similarity check, "self_similar: b"), so the tool refuses it. Shares of each route within 5 m of the other's
     (joined frame): 02 68 %, 04 50 %.
-GIF: bench_report/scripts/p3_multisession_glow_gif.py on the Christ Church join with sessions 02 and 04; 720 px, 15 fps,
-128 colours: docs/assets/images/multisession_oxford_christ_church.gif (4.6 MB).
+  Christ Church 02 + 04 + 03 (christ_church_with_03_join_report.yaml): 03 not joined. It is a long hall that also fits
+    turned round: two sets with different transforms pass the whole-map check, so the join is ambiguous and refused.
+  Christ Church 02 + 04 + 06 (christ_church_with_06_join_report.yaml): 06 not joined. Three sets pass (the largest 325
+    matches at 387 places), but 06 joins itself ("self_similar: b"), so the tool refuses it, as for 05.
+  New College 03 + 02 + 04 (new_college_03_02_04_join_report.yaml, 890 s): 04 joined in the first pass. 02 not joined:
+    19 of 457 candidates accepted in pass 1 (map of 03), 22 of 474 in pass 2 (map of 03 and 04); no set to try.
+  New College 03 + 04 + 01 (new_college_join_report.yaml, new_college_inter_session_edges.csv, 144 s with the
+    self-similarity of 03 and 04 stored by the join before): all joined in the first pass. 04 joins 03 at 87 places
+    (largest set 175 matches at 130 places), 01 joins 03 and 04 at 40 + 83 places (largest set 263 matches at 142
+    places). No ambiguity, no session self-similar. Shares of each route within 5 m of another run's (joined frame):
+    03 43 %, 04 82 %, 01 100 %. Route lengths along the odometry (every fifth pose) 801 / 370 / 226 m, 1397 m in all.
+GIF: bench_report/scripts/p3_multisession_glow_gif.py on the New College 03 + 04 + 01 join, English captions; 720 px,
+15 fps, 128 colours: docs/assets/images/multisession_oxford_new_college.gif (4.4 MB), shown in the README's first
+images. It replaced the Christ Church 02 + 04 GIF (docs/assets/images/multisession_oxford_christ_church.gif, 4.6 MB,
+Japanese captions), which was removed. The set with the least overlap is Christ Church 02 + 04, but no third Christ
+Church run joined.
 Christ Church 05's first backend input was written while the disk was full and could not be read (zstd data
 corruption); it was recorded again before the join above. A first two-session join (02 + 04) was killed by the
 memory limit while the three-session join ran beside it.

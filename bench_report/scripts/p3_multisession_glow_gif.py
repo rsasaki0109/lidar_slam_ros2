@@ -40,13 +40,13 @@ TEXT = {
         first='the first run', map='the joined map',
         join='Joining {label} to {where}: {count} matched places',
         final='{n} runs, one map ({total:.0f} m walked)',
-        own='{label}: {pct:.0f}% seen by no other run', sep=', '),
+        own='Share of each route no other run walked: {pcts}'),
     'ja': dict(
         apart='別々に歩いた走行。互いの位置関係は分からない\n（表示のため離して置いた。方法は位置の手がかりを使わない）',
         first='最初の走行', map='結合済みの地図',
         join='{label} を{where}に結合：{count} か所で一致',
         final='{n} 回の走行を 1 枚の地図に（合計 {total:.0f} m）',
-        own='{label} は {pct:.0f}% が自分だけの場所', sep='、'),
+        own='ほかの走行が通らなかった道の割合：{pcts}'),
 }
 
 
@@ -313,8 +313,8 @@ def main():
                   flash=((u[0], v[0]), 40 + 260 * s, 1.0 - s))
     # 3. the joined map in 3-D: tilt down from above, then turn around it
     total = sum(length)
-    sub_f = txt['final'].format(n=n, total=total) + '\n' + txt['sep'].join(
-        txt['own'].format(label=labels[i], pct=100 * (1 - overlap[i])) for i in range(n))
+    sub_f = txt['final'].format(n=n, total=total) + '\n' + txt['own'].format(
+        pcts=' / '.join(f'{100 * (1 - overlap[i]):.0f}%' for i in range(n)))  # in the legend's order
     N4b, N5, N6, N7 = int(0.9 * FPS), int(1.6 * FPS), int(4.0 * FPS), int(0.8 * FPS)
     for k in range(N4b):  # zoom onto the joined map
         s = ease((k + 1) / N4b)
