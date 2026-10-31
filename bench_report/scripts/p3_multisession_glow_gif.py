@@ -8,7 +8,8 @@ the end the joined map in 3-D, the camera tilting down from above and turning ar
 Points: every STEP-th deskewed scan of each session's backend input, from just above the ground to ZMAX above the sensor,
 thinned to VOXEL; drawn additively (density, then a blurred copy as glow). Joined poses as p3_multisession_map_gif.py.
 Usage: p3_multisession_glow_gif.py <join dir> <title> <out stem> <label>=<session dir> ...
-  writes <out stem>.gif and <out stem>.mp4 (frames in <out stem>_frames/, deleted afterwards)
+  writes <out stem>.gif (GIF_WIDTH, default 720 px; GIF_FPS, default 15) and <out stem>.mp4 (960x540, 20 fps); the
+  frames go through <out stem>_frames/, deleted afterwards
 """
 import os
 import shutil
@@ -320,12 +321,16 @@ def main():
         shutil.rmtree(frames_dir)
         print(f'{count[0]} frames; previews of {sorted(preview)} written')
         return
-    # GIF (one palette over all frames) and MP4
+    # GIF, kept light (GIF_WIDTH px wide, GIF_FPS frames a second, 128 colours, ordered dither, only the changed
+    # rectangle of each frame stored: about 4-5 MB for 14 s), and the MP4 at full size
+    gw, gf = int(os.environ.get('GIF_WIDTH', '720')), int(os.environ.get('GIF_FPS', '15'))
+    scale = f'fps={gf},scale={gw}:-1:flags=lanczos'
     pal = f'{frames_dir}/palette.png'
     subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-framerate', str(FPS), '-i', f'{frames_dir}/%05d.png',
-                    '-vf', 'palettegen=max_colors=256:stats_mode=full', pal], check=True)
+                    '-vf', f'{scale},palettegen=max_colors=128:stats_mode=diff', pal], check=True)
     subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-framerate', str(FPS), '-i', f'{frames_dir}/%05d.png',
-                    '-i', pal, '-lavfi', 'paletteuse=dither=sierra2_4a', '-loop', '0', f'{stem}.gif'], check=True)
+                    '-i', pal, '-lavfi', f'{scale}[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle',
+                    '-loop', '0', f'{stem}.gif'], check=True)
     subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-framerate', str(FPS), '-i', f'{frames_dir}/%05d.png',
                     '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '20', f'{stem}.mp4'], check=True)
     shutil.rmtree(frames_dir)
