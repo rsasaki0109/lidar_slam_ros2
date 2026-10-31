@@ -8,4 +8,5 @@ Script: bench_report/scripts/cleanup_runner_check.sh <runner> <tag>; md5_<tag>.t
 Result: 48 of 50 files byte-identical between base1 and split1. The other two are trajectory_causal.tum of the runs
 with loops (cal1_causal, kitti_t4v05). That file depends on the measured wall time of the loop work, so it changes from
 run to run of the same build: base1 vs base2 on cal1_causal, 18 of 3910 poses differ, at most 31.26 mm; base1 vs
-split1, 16 poses, at most 28.03 mm (KITTI: base1 vs split1, 13 of 2761 poses, at most 1.37 m).
+split1, 16 poses, at most 28.03 mm. KITTI: base1 vs a third base run, 33 of 2761 poses, at most 1.31 m; base1 vs
+split1, 13 poses, at most 1.37 m (loop_edges.csv and both other trajectories byte-identical in all three).
