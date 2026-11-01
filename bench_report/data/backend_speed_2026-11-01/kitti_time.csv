@@ -1,0 +1,6 @@
+run,build,log_span_s,bag_pass_s,final_copy_s,refinement_s,max_rss_kb,note
+s1base,before,872.0,525.0,7.2,339.8,1734628,eight-run check
+time_s1base_alone,before,864.3,525.5,6.4,332.3,1736652,alone
+s1new,after (no reserve),657.1,513.6,6.7,136.8,2074892,eight-run check; result not reserved
+time_s1new_alone,after (no reserve),661.6,514.2,6.6,140.8,2058724,alone; result not reserved
+s2new,after,680.9,533.0,5.4,142.4,1746908,eight-run check; 15b10947
