@@ -13,28 +13,28 @@ the header, then run the script; a test fails while the page is out of date.
 
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
-| `registration_method` | `std::string` | `"NDT"` |  |
-| `voxel_leaf_size` | `double` | `0.2` |  |
-| `ndt_resolution` | `double` | `5.0` |  |
-| `ndt_num_threads` | `int` | `0` |  |
+| `registration_method` | `std::string` | `"NDT"` | Loop-closure registration: "NDT" (pclomp NDT), "GICP" (pclomp GICP) or "SMALL_GICP" (builds with small_gicp only). Case-sensitive; any other value stops the node at startup. |
+| `voxel_leaf_size` | `double` | `0.2` | Voxel size (m) of the loop registration's source and target aggregates and of the clouds the place-recognition descriptors are computed from. The saved map uses map_leaf_size. |
+| `ndt_resolution` | `double` | `5.0` | NDT cell size (m) of the loop registration (registration_method NDT). |
+| `ndt_num_threads` | `int` | `0` | Threads of the NDT and SMALL_GICP loop registration; 0 or less leaves the library default (all OpenMP threads for NDT). GICP does not use it. |
 | `gicp_max_correspondence_distance` | `double` | `30.0` | GICP loop registration: largest point-to-point distance taken as a correspondence (m). |
 | `gicp_transformation_epsilon` | `double` | `1e-8` | GICP loop registration: converged once the transformation changes by less than this between iterations. |
-| `threshold_loop_closure_score` | `double` | `1.0` |  |
+| `threshold_loop_closure_score` | `double` | `1.0` | A loop candidate is accepted only if its registration fitness (mean squared distance of the aligned source points to the target, m^2) is below this; the lowest fitness among the accepted candidates wins. |
 | `scan_context_loop_closure_score_threshold` | `double` | `-1.0` |  |
-| `distance_loop_closure` | `double` | `20.0` |  |
-| `range_of_searching_loop_closure` | `double` | `20.0` |  |
-| `search_submap_num` | `int` | `3` |  |
-| `loop_search_query_stride` | `int` | `1` |  |
-| `max_loop_candidate_count` | `int` | `3` |  |
-| `loop_edge_dedup_index_window` | `int` | `8` |  |
-| `loop_max_translation_delta` | `double` | `15.0` |  |
-| `loop_max_rotation_delta_deg` | `double` | `45.0` |  |
+| `distance_loop_closure` | `double` | `20.0` | A submap is a loop candidate only if the trajectory travelled more than this (m) since it. |
+| `range_of_searching_loop_closure` | `double` | `20.0` | Distance candidates must lie closer than this (m) to the query submap's estimated position. ScanContext and triangle candidates are not limited by it. |
+| `search_submap_num` | `int` | `3` | Submaps aggregated for loop registration: the query and the N-1 before it as the source, the candidate and N on each side as the target. Each descriptor is computed on a submap and its N-1 predecessors. |
+| `loop_search_query_stride` | `int` | `1` | Loop search runs for every N-th new submap; descriptors are still computed for all. |
+| `max_loop_candidate_count` | `int` | `3` | Nearest distance candidates registered per query (also the ScanContext query's top-K; BEV and SOLiD rerank the nearest 4 x this). |
+| `loop_edge_dedup_index_window` | `int` | `8` | An accepted loop edge whose two submap indices are both within this many of an existing edge's replaces that edge only if its fitness is lower; otherwise it is dropped. |
+| `loop_max_translation_delta` | `double` | `15.0` | Rejects a loop whose registration correction translates by more than this (m). The correction is a world-frame transform, so its rotation also moves it in proportion to the distance from the map origin. |
+| `loop_max_rotation_delta_deg` | `double` | `45.0` | Rejects a loop whose registration correction rotates by more than this (deg). |
 | `loop_min_overlap_ratio` | `double` | `0.0` |  |
 | `loop_min_overlap_ratio_large_correction` | `double` | `0.0` |  |
 | `loop_overlap_large_correction_translation_m` | `double` | `0.0` |  |
 | `loop_overlap_max_distance_m` | `double` | `0.5` |  |
-| `loop_max_drift_ratio` | `double` | `0.0` |  |
-| `loop_max_drift_offset_m` | `double` | `0.5` |  |
+| `loop_max_drift_ratio` | `double` | `0.0` | If above 0, rejects a loop that moves the query submap by more than loop_max_drift_offset_m + this x the distance travelled between the two submaps. |
+| `loop_max_drift_offset_m` | `double` | `0.5` | Constant term (m) of the drift check (loop_max_drift_ratio). |
 | `loop_max_translation_delta_descriptor` | `double` | `-1.0` |  |
 | `loop_max_rotation_delta_deg_descriptor` | `double` | `-1.0` |  |
 
@@ -42,34 +42,34 @@ the header, then run the script; a test fails while the page is out of date.
 
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
-| `num_adjacent_pose_cnstraints` | `int` | `5` |  |
-| `use_save_map_in_loop` | `bool` | `true` |  |
-| `debug_flag` | `bool` | `false` |  |
-| `adjacent_edge_info_weight` | `double` | `1000.0` |  |
+| `num_adjacent_pose_cnstraints` | `int` | `5` | Each submap gets odometry edges to its previous N submaps; an edge across k submaps has 1/k of the information. |
+| `use_save_map_in_loop` | `bool` | `true` | Write the whole map bundle (map, pose graph, trajectory, loop edges) to map_save_dir after every accepted loop edge, not only on the map_save service. |
+| `debug_flag` | `bool` | `false` | Extra loop-search logging; it changes no result. |
+| `adjacent_edge_info_weight` | `double` | `1000.0` | Information (times the identity) of an odometry edge between neighbouring submaps. The starting value when adjacent_edge_info_auto_scale is on. |
 | `adjacent_edge_info_auto_scale` | `bool` | `false` |  |
 | `adjacent_edge_info_auto_scale_target_nis` | `double` | `6.0` |  |
 | `adjacent_edge_info_auto_scale_ema_alpha` | `double` | `0.3` |  |
 | `adjacent_edge_info_auto_scale_min` | `double` | `1.0` |  |
 | `adjacent_edge_info_auto_scale_max` | `double` | `1.0e6` |  |
-| `adjacent_edge_info_auto_scale_split_trans_rot` | `bool` | `false` |  |
-| `adjacent_edge_info_weight_trans` | `double` | `-1.0` |  |
-| `adjacent_edge_info_weight_rot` | `double` | `-1.0` |  |
+| `adjacent_edge_info_auto_scale_split_trans_rot` | `bool` | `false` | Odometry edges take separate translation and rotation information (adjacent_edge_info_weight_trans / _rot), each auto-scaled on its own when adjacent_edge_info_auto_scale is on. |
+| `adjacent_edge_info_weight_trans` | `double` | `-1.0` | Translation information of odometry edges with split_trans_rot; 0 or less: adjacent_edge_info_weight. |
+| `adjacent_edge_info_weight_rot` | `double` | `-1.0` | Rotation information of odometry edges with split_trans_rot; 0 or less: adjacent_edge_info_weight. |
 | `adjacent_edge_info_auto_scale_target_nis_trans` | `double` | `3.0` |  |
 | `adjacent_edge_info_auto_scale_target_nis_rot` | `double` | `3.0` |  |
-| `loop_edge_info_weight` | `double` | `100.0` |  |
-| `loop_edge_info_constant_trans` | `double` | `0.0` |  |
-| `loop_edge_info_constant_rot` | `double` | `0.0` |  |
-| `loop_edge_robust_kernel_delta` | `double` | `1.0` |  |
-| `loop_edge_robust_kernel_type` | `std::string` | `"huber"` |  |
+| `loop_edge_info_weight` | `double` | `100.0` | Loop edge information: this / the registration fitness (times the identity), unless both loop_edge_info_constant_* are above 0. |
+| `loop_edge_info_constant_trans` | `double` | `0.0` | If this and loop_edge_info_constant_rot are both above 0, loop edges take this fixed translation information instead of the fitness-based one. |
+| `loop_edge_info_constant_rot` | `double` | `0.0` | Fixed rotation information of loop edges; see loop_edge_info_constant_trans. |
+| `loop_edge_robust_kernel_delta` | `double` | `1.0` | Delta of the robust kernel on loop edges (g2o setDelta). |
+| `loop_edge_robust_kernel_type` | `std::string` | `"huber"` | Robust kernel on loop edges: "huber", "dcs" or "cauchy" (any case); any other value means huber. |
 
 ## Place recognition and verification
 
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
-| `use_scan_context` | `bool` | `false` |  |
-| `use_bev_descriptor` | `bool` | `false` |  |
-| `use_solid_descriptor` | `bool` | `false` |  |
-| `use_triangle_descriptor` | `bool` | `false` |  |
+| `use_scan_context` | `bool` | `false` | Adds at most one ScanContext candidate per query (not range-limited), registered with its yaw hint. |
+| `use_bev_descriptor` | `bool` | `false` | Reranks the nearest distance candidates by a bird's-eye-view descriptor once there are more than 50 submaps; adds no candidates of its own. |
+| `use_solid_descriptor` | `bool` | `false` | Adds SOLiD candidates from the nearest distance-pool submaps once there are more than 50, registered with their yaw hint. |
+| `use_triangle_descriptor` | `bool` | `false` | Adds at most one triangle-descriptor candidate per query, from a vote over all earlier submaps verified by RANSAC (not range-limited). |
 | `triangle_descriptor_grid_size_m` | `double` | `60.0` |  |
 | `triangle_descriptor_grid_cells` | `int` | `100` |  |
 | `triangle_descriptor_max_keypoints` | `int` | `40` |  |
@@ -136,11 +136,11 @@ the header, then run the script; a test fails while the page is out of date.
 
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
-| `use_dynamic_object_filter` | `bool` | `false` |  |
-| `dynamic_object_filter_voxel_size` | `double` | `0.3` |  |
-| `dynamic_object_filter_min_observations` | `int` | `2` |  |
-| `dynamic_object_filter_temporal_window` | `int` | `5` |  |
-| `dynamic_object_filter_max_range_from_sensor_m` | `double` | `30.0` |  |
+| `use_dynamic_object_filter` | `bool` | `false` | When the map is saved, drops voxels that too few submaps saw within a short index window (transient objects). Not applied to the published map. |
+| `dynamic_object_filter_voxel_size` | `double` | `0.3` | Voxel size (m) of the dynamic object filter; the saved points become voxel centroids. |
+| `dynamic_object_filter_min_observations` | `int` | `2` | A voxel within range is kept only if at least this many submaps saw it within the temporal window. |
+| `dynamic_object_filter_temporal_window` | `int` | `5` | Window of that count, in submap indices (not seconds). |
+| `dynamic_object_filter_max_range_from_sensor_m` | `double` | `30.0` | Points farther than this (m) from their submap's origin are always kept. |
 | `use_planar_map_filter` | `bool` | `false` |  |
 | `planar_map_filter_voxel_size` | `double` | `0.1` |  |
 | `planar_map_filter_min_neighbors` | `int` | `3` |  |
@@ -153,7 +153,7 @@ the header, then run the script; a test fails while the page is out of date.
 | `save_pose_graph_path` | `std::string` | `"pose_graph.g2o"` |  |
 | `map_grid_size_x` | `double` | `20.0` |  |
 | `map_grid_size_y` | `double` | `20.0` |  |
-| `map_leaf_size` | `double` | `0.2` |  |
+| `map_leaf_size` | `double` | `0.2` | Voxel size (m) the saved map is downsampled to. |
 | `map_save_points_per_pass` | `int` | `2000000` | The saved map is downsampled from the submap clouds in passes of at most this many points, without assembling the whole map (map_saver::voxelGridFilterStreamed). 0: assemble it and downsample it with one VoxelGrid, as before Phase 4. Not used when the map is also published or the dynamic object filter is on (both need the whole map). |
 
 ## Optional absolute and inertial constraints
@@ -184,11 +184,11 @@ the header, then run the script; a test fails while the page is out of date.
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
 | `use_odom_input` | `bool` | `false` |  |
-| `submap_distance_threshold` | `double` | `1.5` |  |
-| `odom_cloud_sync_queue_size` | `int` | `100` |  |
-| `odom_cloud_sync_use_exact_time` | `bool` | `false` |  |
-| `cloud_subscriber_qos_reliable` | `bool` | `true` |  |
-| `extrinsic_lidar2base_quat_xyzw_xyz` | `std::vector<double>` | `[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]` | LiDAR-to-base extrinsic of cloud_input, [qx, qy, qz, qw, x, y, z] as in RKO-LIO: its deskewed scan is in the LiDAR frame while the odometry pose is the base frame's. The identity keeps the cloud unchanged. |
+| `submap_distance_threshold` | `double` | `1.5` | Odometry input (use_odom_input): a scan becomes a new submap once the odometry has moved this far (m) from the last submap. |
+| `odom_cloud_sync_queue_size` | `int` | `100` | Odometry input: queue size of the odometry/cloud synchronizer and history depth of both subscriptions. |
+| `odom_cloud_sync_use_exact_time` | `bool` | `false` | Odometry input: pair odometry and cloud only by identical stamps (ExactTime); false: ApproximateTime. |
+| `cloud_subscriber_qos_reliable` | `bool` | `true` | Odometry input: subscribe to the cloud with reliable QoS; false: best effort (sensor data). |
+| `extrinsic_lidar2base_quat_xyzw_xyz` | `std::vector<double>` | `[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]` | LiDAR-to-base extrinsic of cloud_input, [qx, qy, qz, qw, x, y, z] as in RKO-LIO: its deskewed scan is in the LiDAR frame while the odometry pose is the base frame's (base_from_lidar: p_base = R p_lidar + t). The identity keeps the cloud unchanged. |
 | `degeneracy_diagnostics_csv_path` | `std::string` | `""` |  |
 | `save_degeneracy_report` | `bool` | `false` |  |
 
