@@ -10,3 +10,14 @@ with loops (cal1_causal, kitti_t4v05). That file depends on the measured wall ti
 run to run of the same build: base1 vs base2 on cal1_causal, 18 of 3910 poses differ, at most 31.26 mm; base1 vs
 split1, 16 poses, at most 28.03 mm. KITTI: base1 vs a third base run, 33 of 2761 poses, at most 1.31 m; base1 vs
 split1, 13 poses, at most 1.37 m (loop_edges.csv and both other trajectories byte-identical in all three).
+
+Backend memory (report chapter 44), 2026-11-01: commit 517db759 holds the submap clouds once, not three times, at the
+plane-BA refinement.
+Builds: membase = develop 6af709dc (/home/user/ws/mem_base, Release, small_gicp and zstd found, BUILD_TESTING off);
+mem1 = 517db759 (/home/user/ws/cleanup3_build, the same configuration with tests).
+md5_membase.txt and md5_mem1.txt: the same eight runs as above. membase = clean3 and mem1 = membase on 48 of 50 files;
+the other two are trajectory_causal.tum of cal1_causal and kitti_t4v05 (wall-time dependent, see above).
+peak_rss.csv: each run's maximum RSS (/usr/bin/time %M) before and after.
+heaptrack on KITTI 05 (t4v05, no causal output): before, peak heap 4.88 GB at the refinement (bag-pass PCL clouds
+2.01 GB, their Vector3d copy 1.50 GB, the refiner's downsampled copy 1.30 GB); after, 2.07 GB at the end of the bag
+pass (the PCL clouds, 2.01 GB). heaptrack wall time 1530.7 s before, 1523 s after.
