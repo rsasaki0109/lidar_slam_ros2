@@ -1,0 +1,6 @@
+run,build,log_span_s,bag_pass_s,after_bag_pass_s,max_rss_kb,note
+membase,before,670.6,418.8,251.9,4826744,eight-run check
+time_base2,before,677.7,423.1,254.6,4828172,alone
+mem1,after,812.8,571.5,241.3,2112880,eight-run check; a build ran at the same time
+mem1b,after,784.1,539.8,244.3,2112356,alone
+time_mem2,after,640.4,402.1,238.3,2108588,alone

@@ -1895,7 +1895,7 @@ void writePlaneRevisitReport(
 // accumulated loop edges, exactly like the live doPoseAdjustment with
 // IMU / GNSS off.
 void optimizeFinalPoseGraph(
-  const RunnerConfig & config, const BagPassResult & bag, const rclcpp::Logger & logger,
+  const RunnerConfig & config, BagPassResult & bag, const rclcpp::Logger & logger,
   FinalPoseGraph & graph)
 {
   graph.submap_nodes.reserve(bag.records.size());
@@ -1918,8 +1918,10 @@ void optimizeFinalPoseGraph(
   }
 
   if (config.use_plane_revisit_constraints || config.refine) {
+    // The submap clouds are not read after this copy, so each is released as
+    // it is copied: the two are not held whole at the same time.
     graph.local_clouds.reserve(bag.records.size());
-    for (const auto & record : bag.records) {
+    for (auto & record : bag.records) {
       std::vector<Eigen::Vector3d> points;
       points.reserve(record.cloud->size());
       for (const auto & point : record.cloud->points) {
@@ -1929,6 +1931,7 @@ void optimizeFinalPoseGraph(
         points.emplace_back(point.x, point.y, point.z);
       }
       graph.local_clouds.push_back(std::move(points));
+      record.cloud.reset();
     }
   }
 
@@ -2646,7 +2649,7 @@ void writeGlobalSurfaceBaSurfelMap(
 // trajectory_refined.tum and its report, then the optional
 // global-surface-BA surfel map and before/after maps.
 void runMapRefinement(
-  const RunnerConfig & config, const BagPassResult & bag, const FinalPoseGraph & graph,
+  const RunnerConfig & config, const BagPassResult & bag, FinalPoseGraph & graph,
   const rclcpp::Logger & logger)
 {
   graphslam::map_refinement::MapRefinerConfig refiner_config;
@@ -2676,9 +2679,13 @@ void runMapRefinement(
     initial_matrices.push_back(pose.matrix());
   }
 
-  const graphslam::map_refinement::MapRefinerResult refined =
+  // Without the before/after maps, nothing reads the submap clouds after the
+  // refinement, so it takes them over and frees each once downsampled.
+  const graphslam::map_refinement::MapRefinerResult refined = config.refine_save_maps ?
     graphslam::map_refinement::refineSubmapPoses(
-    graph.local_clouds, initial_matrices, refiner_config);
+    graph.local_clouds, initial_matrices, refiner_config) :
+    graphslam::map_refinement::refineSubmapPoses(
+    std::move(graph.local_clouds), initial_matrices, refiner_config);
 
   std::vector<Eigen::Isometry3d> refined_poses;
   refined_poses.reserve(refined.poses.size());

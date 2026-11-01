@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # cleanup_runner_check.sh <runner binary> <tag> (architecture cleanup 2, report chapter 42): graph_slam_offline_runner
 # on recorded backend inputs with several option sets; every output file's md5 goes to
-# /home/user/bench/cleanup2/<tag>/md5.txt, so two runner builds can be compared file by file.
+# /home/user/bench/cleanup2/<tag>/md5.txt, so two runner builds can be compared file by file, and each run's peak RSS
+# to <tag>/<run>.max_rss_kb.
 #   exp04_*: HILTI 2022 exp04 (dev_loops/rb/exp04/backend_input), the walking preset plus
 #     default | causal (causal_trajectory_output) | sg05 (SMALL_GICP 0.5 m) | t4v05 (4 NDT threads, 0.5 m loop voxel)
 #   cal1_*: MapsHD calibration-room trial 1 (15 loop edges with the preset), default | causal | sg05
@@ -20,9 +21,10 @@ run() {  # run <name> <input> <extrinsic> [overrides...]
   local name=$1 in=$2 ext=$3; shift 3
   local a=(); for kv in "$@"; do a+=(-p "$kv"); done
   local t0=$(date +%s)
-  "${runner}" --ros-args --params-file "${PRESET}" -p bag_path:="${in}" -p output_dir:="$O/${name}" \
+  /usr/bin/time -f "%M" -o "$O/${name}.max_rss_kb" \
+    "${runner}" --ros-args --params-file "${PRESET}" -p bag_path:="${in}" -p output_dir:="$O/${name}" \
     -p "extrinsic_lidar2base_quat_xyzw_xyz:=${ext}" "${a[@]}" > "$O/${name}.log" 2>&1
-  echo "${name} exit $? $(( $(date +%s) - t0 )) s"
+  echo "${name} exit $? $(( $(date +%s) - t0 )) s, max RSS $(cat "$O/${name}.max_rss_kb") KB"
   (cd "$O/${name}" && find . -type f | sort | xargs md5sum) | sed "s|  \./|  ${name}/|" >> "$O/md5.txt"
 }
 E=/home/user/bench/dev_loops/rb/exp04/backend_input; M=/home/user/bench/dev_loops/rb/calibration-room_trial-1/backend_input
