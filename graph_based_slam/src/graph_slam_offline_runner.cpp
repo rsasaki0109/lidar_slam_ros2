@@ -74,6 +74,7 @@
 
 #include "graph_based_slam/backend_core.hpp"
 #include "graph_based_slam/backend_registration_preflight.hpp"
+#include "graph_based_slam/cloud_compression.hpp"
 #include "graph_based_slam/cloud_input_extrinsic.hpp"
 #include "graph_based_slam/degeneracy_diagnostics_csv.hpp"
 #include "graph_based_slam/degeneracy_report_summary.hpp"
@@ -86,6 +87,7 @@
 #include "graph_based_slam/plane_feature_association.hpp"
 #include "graph_based_slam/plane_revisit_constraints.hpp"
 #include "graph_based_slam/pointcloud2_conversion.hpp"
+#include "graph_based_slam/pointcloud_conversion.hpp"
 #include "graph_based_slam/pose_graph_optimization.hpp"
 #include "graph_based_slam/probabilistic_surfel_map.hpp"
 #include "graph_based_slam/registration_factory.hpp"
@@ -123,8 +125,56 @@ struct SubmapRecord
   graphslam::backend_core::SubmapMeta meta;
   double stamp_sec{0.0};
   std::array<double, 36> odometry_covariance {};
+  // The submap's scan message, packed and compressed as the live node keeps it
+  // (GraphStateStore). `cloud` is its PCL cloud, kept only while the submap is
+  // one of the latest search_submap_num: the descriptors and the loop-search
+  // source of every new submap read exactly those.
+  std::shared_ptr<const graphslam::cloud_compression::StoredCloud> stored_cloud;
   CloudPtr cloud;
 };
+
+// What keeping the submap clouds compressed costs, for the run log.
+struct SubmapCloudStats
+{
+  std::size_t stored_bytes = 0U;
+  std::size_t pcl_bytes = 0U;  // what the PCL clouds would take
+  std::size_t restored = 0U;
+  double store_sec = 0.0;
+  double restore_sec = 0.0;
+};
+
+// Keeps `message` (the scan the submap's PCL cloud was converted from) the way
+// the live node does: only what the conversion reads, compressed.
+std::shared_ptr<const graphslam::cloud_compression::StoredCloud> storeSubmapCloud(
+  sensor_msgs::msg::PointCloud2 message, SubmapCloudStats & stats)
+{
+  const auto start = std::chrono::steady_clock::now();
+  graphslam::pointcloud_conversion::packForPointXYZI(message);
+  auto stored = std::make_shared<const graphslam::cloud_compression::StoredCloud>(
+    graphslam::cloud_compression::store(std::move(message)));
+  stats.stored_bytes += graphslam::cloud_compression::storedBytes(*stored);
+  stats.store_sec +=
+    std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+  return stored;
+}
+
+// The submap's PCL cloud: the kept one, or the stored message restored and
+// converted as the kept one was (pointcloud2_conversion::fromRosMsgPointXYZI
+// reads x, y, z and intensity, which packing keeps), so the two are the same.
+CloudPtr submapCloud(const SubmapRecord & record, SubmapCloudStats & stats)
+{
+  if (record.cloud) {
+    return record.cloud;
+  }
+  const auto start = std::chrono::steady_clock::now();
+  CloudPtr cloud(new pcl::PointCloud<pcl::PointXYZI>);
+  graphslam::pointcloud2_conversion::fromRosMsgPointXYZI(
+    graphslam::cloud_compression::restore(*record.stored_cloud), *cloud);
+  ++stats.restored;
+  stats.restore_sec +=
+    std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+  return cloud;
+}
 
 struct ScanAttributionRecord
 {
@@ -1292,6 +1342,7 @@ struct BagPassResult
 {
   graphslam::backend_core::LoopEdgeSet edge_set;
   std::vector<SubmapRecord> records;
+  SubmapCloudStats cloud_stats;
   std::size_t attribution_raw_finite_points = 0U;
   std::size_t attribution_retained_points = 0U;
   std::vector<ScanAttributionRecord> attribution_scans;
@@ -1407,6 +1458,12 @@ struct BagPass
       "(%zu odom / %zu cloud messages left unpaired)",
       paired_count, bag.records.size(), accumulated_distance, bag.edge_set.edges().size(),
       pending_odoms.size(), pending_clouds.size());
+    RCLCPP_INFO(
+      logger,
+      "Submap clouds kept compressed: %.1f MiB (%.1f MiB as PCL clouds), stored in %.3f s; "
+      "%zu restored in %.3f s",
+      bag.cloud_stats.stored_bytes / 1048576.0, bag.cloud_stats.pcl_bytes / 1048576.0,
+      bag.cloud_stats.store_sec, bag.cloud_stats.restored, bag.cloud_stats.restore_sec);
     if (config.causal_trajectory_output) {
       causal_tum.close();
       RCLCPP_INFO(
@@ -1471,7 +1528,15 @@ struct BagPass
       record.stamp_sec = rclcpp::Time(odom.header.stamp).seconds();
       record.odometry_covariance = odom.pose.covariance;
       record.cloud = scan_cloud;
+      record.stored_cloud = storeSubmapCloud(cloud_msg, bag.cloud_stats);
+      bag.cloud_stats.pcl_bytes += scan_cloud->size() * sizeof(pcl::PointXYZI);
       bag.records.push_back(record);
+      // Only the latest search_submap_num submaps keep their PCL cloud.
+      const std::size_t kept = static_cast<std::size_t>(
+        std::max(1, config.search_config.search_submap_num));
+      if (bag.records.size() > kept) {
+        bag.records[bag.records.size() - 1U - kept].cloud.reset();
+      }
 
       const auto work_start = std::chrono::steady_clock::now();
       drainQueries();
@@ -1550,7 +1615,7 @@ struct BagPass
         const Eigen::Affine3d & reference_affine = records[ref_idx].meta.pose;
         for (int k = 0; k < config.search_config.search_submap_num && (ref_idx - k) >= 0; ++k) {
           const int src_idx = ref_idx - k;
-          const CloudPtr & cloud = records[src_idx].cloud;
+          const CloudPtr cloud = submapCloud(records[src_idx], bag.cloud_stats);
           if (!cloud || cloud->empty()) {
             continue;
           }
@@ -1569,7 +1634,7 @@ struct BagPass
         return filtered_cloud;
       };
     const auto raw_cloud_provider = [&](int idx) -> CloudPtr {
-        return records[idx].cloud;
+        return submapCloud(records[idx], bag.cloud_stats);
       };
 
     const int num_submaps = static_cast<int>(records.size());
@@ -1921,10 +1986,13 @@ void optimizeFinalPoseGraph(
     // The submap clouds are not read after this copy, so each is released as
     // it is copied: the two are not held whole at the same time.
     graph.local_clouds.reserve(bag.records.size());
+    const std::size_t restored_before = bag.cloud_stats.restored;
+    const double restore_sec_before = bag.cloud_stats.restore_sec;
     for (auto & record : bag.records) {
+      const CloudPtr cloud = submapCloud(record, bag.cloud_stats);
       std::vector<Eigen::Vector3d> points;
-      points.reserve(record.cloud->size());
-      for (const auto & point : record.cloud->points) {
+      points.reserve(cloud->size());
+      for (const auto & point : cloud->points) {
         if (!std::isfinite(point.x) || !std::isfinite(point.y) || !std::isfinite(point.z)) {
           continue;
         }
@@ -1932,7 +2000,12 @@ void optimizeFinalPoseGraph(
       }
       graph.local_clouds.push_back(std::move(points));
       record.cloud.reset();
+      record.stored_cloud.reset();
     }
+    RCLCPP_INFO(
+      logger, "Submap clouds restored for the final copy: %zu in %.3f s",
+      bag.cloud_stats.restored - restored_before,
+      bag.cloud_stats.restore_sec - restore_sec_before);
   }
 
   PlaneRevisitFactors plane_revisit;

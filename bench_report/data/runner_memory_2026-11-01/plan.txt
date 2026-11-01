@@ -1,0 +1,29 @@
+Offline runner: keep the submap clouds compressed (follow-up to report chapter 44). Written 2026-11-01, before any
+run of the changed runner.
+
+Why: after 517db759, graph_slam_offline_runner's peak heap on KITTI 05 (t4v05) is 2.07 GB at the end of the bag pass,
+almost all of it the submaps' PCL PointXYZI clouds (32 bytes a point, 1,132 submaps). The live node keeps its submap
+clouds packed (pointcloud_conversion::packForPointXYZI) and compressed (cloud_compression, zstd), and restores one when
+it reads it; the runner keeps every PCL cloud whole.
+
+Change (one candidate):
+- Each SubmapRecord keeps its scan message packed and compressed (cloud_compression::store), as the live node does.
+- The latest search_submap_num submaps also keep their PCL cloud, because the descriptor and source aggregation of each
+  new submap read exactly those; a submap's PCL cloud is released when it leaves that window.
+- Any other read (loop candidates' target clouds, the copy for the refinement) restores the cloud with the same
+  conversion as now (pointcloud2_conversion::fromRosMsgPointXYZI on the restored message).
+- The runner logs how many clouds it restored, the time spent storing and restoring, and the stored bytes.
+
+Runs: bench_report/scripts/cleanup_runner_check.sh (the eight runs of chapter 42: exp04 x4, MapsHD calibration-room 1
+x3, KITTI 05 t4v05 with causal output) with the develop runner (0339b8dc, /home/user/ws/mem2_base) and the changed
+runner; then KITTI 05 alone with each, and heaptrack on KITTI 05 with the changed runner.
+
+Reading, fixed now
+1. Identity: every output file except trajectory_causal.tum of the runs with loops (wall-time dependent, chapter 42)
+   must be byte-identical to the develop runner's. Any other difference stops the change until it is explained and
+   removed.
+2. Memory: the peak RSS of each run is reported before and after; heaptrack says where the new peak is.
+3. Time: on KITTI 05 the time spent storing and restoring clouds (the runner's own count) must be at most 5 % of the
+   run's wall time. Wall time of both runners is reported too, without a rule (the bag pass varied 402-572 s across
+   runs of identical code, chapter 44).
+4. If 1 and 3 hold, the change goes to a PR. Nothing else changes in the runner's behaviour or outputs.

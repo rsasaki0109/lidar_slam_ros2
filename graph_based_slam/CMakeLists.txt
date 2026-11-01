@@ -1113,6 +1113,7 @@ ament_target_dependencies(graph_slam_offline_runner
 target_link_libraries(graph_slam_offline_runner
   graph_slam_application
   graph_slam_io_adapters
+  graph_slam_cloud_compression
   ${PCL_LIBRARIES}
   g2o::core
   g2o::types_slam3d
