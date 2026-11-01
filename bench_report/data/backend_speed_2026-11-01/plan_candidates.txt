@@ -1,0 +1,32 @@
+Backend speed, step 2: register one loop candidate per query instead of three (a candidate; results change).
+Written 2026-11-01, before any run of it.
+
+Why: timers in the KITTI 05 bag pass (t4v05, 540 s on this VM today) put 459 s (87 %) in NDT alignment of loop
+candidates: 753 alignments for the 252 of 1,131 queries that had candidates, because the aggregator passes up to
+max_loop_candidate_count = 3 distance candidates per query (the nearest first). 3 loop edges were accepted.
+Candidate c1: max_loop_candidate_count 1 (only the nearest distance candidate is registered). Nothing else changes.
+
+Runs (graph_slam_offline_runner of /home/user/ws/cleanup3_build, the code of rsasaki0109/lidar_slam_ros2#574):
+- KITTI 05: bench_report/scripts/p2_kitti_backend_speed.sh t4v05 and t4v05c1 (t4v05 + max_loop_candidate_count 1),
+  one after the other on an otherwise idle VM; scored with p2_kitti_score.py (APE of the optimized poses).
+- Walking development data: MapsHD 8 trials and HILTI 2022 exp04 (Oxford stays out: its ground truth is sealed),
+  bench_report/scripts/p3_speed_dev_queue.sh with VARIANTS="ndt2 c1", label cand: the walking preset (ndt2) against
+  the preset with max_loop_candidate_count 1 (c1); frontend G12 as in chapter 41.1.
+
+Reading, fixed now
+K. KITTI 05: c1 is acceptable there if t4v05c1's APE RMSE is at most 2 % above t4v05's. Wall time, bag-pass time,
+   alignments and loop edges are reported.
+W1. Walking, no regression: on every sequence, c1's APE is at most max(2 %, 0.5 mm) above ndt2's.
+W2. Walking, not worse overall: the geometric mean of the nine APEs is not above ndt2's.
+Decision: K, W1 and W2 hold -> the walking preset takes max_loop_candidate_count 1. K holds but W1 or W2 fails ->
+the preset stays; c1 is documented beside t4v05 as an option for dense LiDARs. K fails -> nothing changes.
+
+Results (2026-11-01; /home/user/bench/kitti_raw/speed.csv rows t4v05_c3 and t4v05c1_c3; runner = the code of #574,
+copied to /home/user/ws/cand_runner; one after the other on this VM, which ran slow all day)
+  variant     wall      bag pass   after it   APE RMSE           APE max   t_rel     loops
+  t4v05       763.3 s   590.2 s    172.0 s    2.9199 m           10.77 m   0.887 %   3 (249-560, 311-615, 629-1041)
+  t4v05c1     414.5 s   234.9 s    179.3 s    3.1510 m (+7.9 %)  10.63 m   0.933 %   2 (250-560, 310-615)
+The bag pass took 60 % less time, but the loop 629 -> 1041 was not found: its accepted candidate was not the nearest
+one, so registering only the nearest misses it.
+Reading: K fails (+7.9 % > 2 %). Nothing changes; the walking screen (W1, W2) is not run, because it could not change
+the decision.
