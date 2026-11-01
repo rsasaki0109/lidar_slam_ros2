@@ -25,3 +25,16 @@ If both hold, KITTI's data preparation deskews the rotation (the converter does 
 rig notes say so); G and the presets do not change, and nothing else uses this converter. Otherwise nothing changes.
 This uses the IMU, so it does not carry over to KITTI Odometry's LiDAR-only track (Phase 5, C4), which would need the
 odometry's own yaw rate instead.
+
+Results (2026-11-01; front_diag.csv rows base and rotdeskew; the deskewed bag has the same 2,762 frames)
+                         base (as recorded)   rotdeskew
+  frontend md5           f6739b50             d0de2103
+  sharp-turn yaw error   3.754 deg            0.499 deg  (-87 %)
+  total yaw error        4.537 deg            1.391 deg
+  APE RMSE / max         3.562 / 11.28 m      2.109 / 5.25 m  (-41 %)
+  t_rel / r_rel          1.0245 % / 0.0042    0.8444 % / 0.0034 deg/m
+Reading: R1 holds (-87 %), R2 holds (both improve). KITTI's data preparation deskews the rotation from now on:
+p2_kitti_raw.sh builds the bag with ROTATION_DESKEW=1, and /home/user/data/kitti_raw_05/ros2 is that bag. G and the
+presets do not change. error_breakdown_rotdeskew.txt: yaw drift +0.0006 deg/m (from +0.0021); left are the constant
+frame rotation (yaw +0.28, pitch +0.31 deg; it takes the 100 m error from 0.78 to 0.44 %) and a vertical bias of
+-0.47 to -0.81 % of the distance.

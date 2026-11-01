@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # p2_kitti_raw.sh <label> (Phase 2, a long vehicle development sequence; plan in data/kitti/raw05_2026-10-31/plan.txt):
 # KITTI Odometry 05 from its raw drive 2011_09_30_drive_0018 (2761 scans, 2.2 km) with the OXTS unit's 100 Hz IMU.
-#   1. the bag (bench_report/scripts/kitti_raw_to_ros2.py) into /home/user/data/kitti_raw_05/ros2, if not there;
+#   1. the bag (bench_report/scripts/kitti_raw_to_ros2.py, with the scans' rotation deskewed from the OXTS gyro since
+#      2026-11-01: data/kitti/front_diag_2026-11-01) into /home/user/data/kitti_raw_05/ros2, if not there;
 #   2. the frontend with the Phase 1 global configuration G12 (WS, default ws/rko_g35) on the KITTI rig file
 #      (data/kitti/raw05_2026-10-31/rig_kitti_raw.yaml: topics, frames, the IMU-Velodyne extrinsic, and deskew off
 #      because KITTI's scans are already motion-compensated), its odometry and scans (thinned to 0.1 m) recorded as
@@ -26,7 +27,8 @@ G12=(close_scene_max_median_range:=12.0 close_scene_max_correspondence_distance:
 set +u; source /opt/ros/jazzy/setup.bash; set -u
 if [[ ! -e ${BAG}/metadata.yaml ]]; then
   mkdir -p "${D}"
-  /usr/bin/python3 "${REPO}/bench_report/scripts/kitti_raw_to_ros2.py" 2011_09_30 0018 "${BAG}" "${WORKERS:-8}" \
+  # Rotation deskew from the OXTS gyro (data/kitti/front_diag_2026-11-01/plan_rotation_deskew.txt).
+  ROTATION_DESKEW=1 /usr/bin/python3 "${REPO}/bench_report/scripts/kitti_raw_to_ros2.py" 2011_09_30 0018 "${BAG}" "${WORKERS:-8}" \
     > "${D}/convert.log" 2>&1 || { echo "${label},convert failed"; exit 1; }
 fi
 O=/home/user/bench/kitti_raw/${label}
