@@ -1,0 +1,40 @@
+KITTI 05 frontend: where the yaw drift in sharp turns comes from (diagnostics, nothing is adopted). Written
+2026-11-01, before any of these runs.
+
+What is known (bench_report/scripts/p2_kitti_error_breakdown.py on G12's frontend, error_breakdown_front.txt in
+data/kitti/raw05_2026-10-31): the frontend's yaw drifts +4.5 deg (to the left) over 2.2 km. About 3.8 deg of it
+comes from the 237 scans that turn faster than 0.3 rad/s, in left and right turns alike (+0.013 / +0.018 deg per
+scan); straight driving adds almost nothing. A drift that does not change sign with the turn rules out a gyro scale
+error and a constant time offset (whose errors cancel between left and right turns, or between window ends).
+
+Runs: the frontend of /home/user/ws/rko_g35 (the build behind G12's KITTI result, md5 f6739b50) on the recreated bag
+(/home/user/data/kitti_raw_05/ros2, the same frames), the KITTI rig file and G12, with one change each:
+  base     none (must reproduce f6739b50, or the comparison below is void)
+  noclose  close_scene_max_median_range 0 (G12's close-scene handling off: narrow intersections may trigger it)
+  lever0   the LiDAR-to-base extrinsic's translation set to 0 (the lever arm between the OXTS and the Velodyne)
+  icp      max_iterations 100 and convergence_criterion 1e-6 (registration stopping early in fast turns)
+Measured per run: APE RMSE, t_rel, and the yaw error carried by the scans turning faster than 0.3 rad/s.
+
+Reading, fixed now: a diagnostic points at a cause if it removes at least half of the sharp-turn yaw error (3.8 deg)
+without raising the straight-driving part. Nothing changes in G or the rig file from this; a cause found here
+becomes a candidate with its own plan and the Phase 1 screen on all development data.
+
+Results (2026-11-01; /home/user/bench/kitti_raw/front_diag.csv: variant,md5,matched,missing,APE RMSE,APE max,t_rel,
+r_rel,yaw total deg,yaw in sharp turns deg,wall s)
+  base     f6739b50  APE 3.5624 m  t_rel 1.0245 %  yaw 4.537 / sharp 3.754 deg   (reproduces G12's KITTI run)
+  noclose  f6739b50  identical to base: the close-scene handling never triggers on KITTI 05
+  lever0   ff5a3b54  APE 3.6145 m  t_rel 1.0387 %  yaw 4.571 / sharp 3.779 deg
+  icp      494dc9b5  APE 3.5812 m  t_rel 1.0309 %  yaw 4.577 / sharp 3.767 deg
+Reading: none points at a cause (no variant removes half of the 3.75 deg).
+
+Follow-up, not in the plan above (written after these runs; diagnostics only, outside the frontend): consecutive
+scans registered to each other with small_gicp, no IMU, initial guess = ground truth (0.25 m voxels, 1.0 m
+correspondences), 106 sharp left, 131 sharp right and 150 straight pairs. Yaw found minus ground truth, per pair:
+  as recorded                       straight +0.0006   left +0.0167   right +0.0218 deg   (frontend: +0.0011 / +0.0130 / +0.0181)
+  rotation deskew, factor 1 (+)     straight +0.0010   left +0.0049   right +0.0059
+  rotation deskew, factor -1        straight +0.0003   left +0.0300   right +0.0362
+  rotation deskew, factor 1.5       straight +0.0012   left -0.0050   right -0.0018
+  rotation deskew, factor 2         straight +0.0014   left -0.0124   right -0.0104
+(rotation deskew: each point rotated about z by factor * w * (t - 0.5) * 0.1 s, t from the azimuth, w the pair's
+ground-truth yaw rate). The bias is in the scans, not in RKO-LIO, and a missing rotation compensation explains about
+70 % of it. Next: plan_rotation_deskew.txt.

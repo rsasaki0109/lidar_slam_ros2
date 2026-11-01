@@ -41,3 +41,8 @@ Reading, fixed now
    hurts if it is more than 2 % higher, and is neutral otherwise. Its t_rel is reported beside it.
 4. Nothing changes in G or the presets on this run alone. A change it suggests is screened on all development data
    under the Phase 1 rule first.
+
+Note added 2026-11-01 (data/kitti/front_diag_2026-11-01): the seam check above looked at translation only. KITTI's
+scans turn out to be hardly compensated for rotation, which biases yaw in sharp turns. Since then the bag is built with
+the rotation deskewed from the OXTS gyro (kitti_raw_to_ros2.py ROTATION_DESKEW=1, by p2_kitti_raw.sh); the frontend
+on it: APE RMSE 2.11 m (from 3.56), t_rel 0.84 % (from 1.02). The results above are on the bag as first recorded.

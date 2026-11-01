@@ -15,8 +15,15 @@ and writes
   <out_bag_dir>.frames.txt  one line per scan: frame number, header stamp and end stamp (ns), for scoring.
 Only the inertial fields of the OXTS packets are written; its GNSS/INS position and attitude are not.
 FRAMES=a:b keeps scans a..b-1 (the IMU from 1 s before the first to the last). The archives are only read.
+ROTATION_DESKEW=1 (data/kitti/front_diag_2026-11-01/plan_rotation_deskew.txt): KITTI's scans are compensated for the
+car's translation but hardly for its rotation, which biases yaw in sharp turns. Each point is then rotated by
+exp([w * (t - 0.5) * T]): t = 0.5 * (-atan2(y, x) / pi + 1) is its time in the scan from the azimuth (0.5 facing
+forward, as in KISS-ICP's KITTI loader), T the scan's end minus start time, and w the mean OXTS angular rate over the
+scan in the Velodyne frame (ROTATION_DESKEW_EXTRINSIC: the rig's LiDAR-to-IMU qx,qy,qz,qw; the KITTI rig's by
+default). Only the gyro is used, no ground truth.
 Usage: kitti_raw_to_ros2.py <date> <drive number> <out_bag_dir> [workers]   (e.g. 2011_09_30 0018 out 8)
 """
+import bisect
 import concurrent.futures
 import datetime
 import os
@@ -137,8 +144,20 @@ def text_member(url, members, suffix):
     return load_group(url, entry)[0][1].decode()
 
 
-def cloud_message(raw, header_ns):
+def deskew_rotation(pts, w_velo, period_s):
+    # Rotate each point by the rotation vector w_velo * (t - 0.5) * period_s, t from its azimuth.
+    from scipy.spatial.transform import Rotation
+    t = 0.5 * (-np.arctan2(pts[:, 1], pts[:, 0]) / np.pi + 1.0)
+    rotvec = np.outer((t - 0.5) * period_s, w_velo)
+    out = pts.copy()
+    out[:, :3] = Rotation.from_rotvec(rotvec).apply(pts[:, :3].astype(np.float64)).astype(np.float32)
+    return out
+
+
+def cloud_message(raw, header_ns, w_velo=None, period_s=0.0):
     pts = np.frombuffer(raw, dtype=np.float32).reshape(-1, 4)
+    if w_velo is not None:
+        pts = deskew_rotation(pts, w_velo, period_s)
     msg = PointCloud2()
     msg.header.stamp = stamp(header_ns)
     msg.header.frame_id = 'velo_link'
@@ -156,6 +175,14 @@ def main():
     extract = central_directory(EXTRACT)
     t_mid = [stamp_ns(s) for s in text_member(SYNC, sync, 'velodyne_points/timestamps.txt').splitlines() if s]
     t_end = [stamp_ns(s) for s in text_member(SYNC, sync, 'velodyne_points/timestamps_end.txt').splitlines() if s]
+    deskew = os.environ.get('ROTATION_DESKEW') == '1'
+    if deskew:
+        t_start = [stamp_ns(s) for s in text_member(SYNC, sync, 'velodyne_points/timestamps_start.txt').splitlines()
+                   if s]
+        from scipy.spatial.transform import Rotation
+        q = [float(v) for v in os.environ.get(
+            'ROTATION_DESKEW_EXTRINSIC', '-0.007412088,0.001015086,0.000385188,0.999971941').split(',')]
+        R_imu_velo = Rotation.from_quat(q).as_matrix()  # Velodyne vectors -> IMU (the rig's LiDAR-to-base rotation)
     scans = sorted((e for e in sync if '/velodyne_points/data/' in e[0] and e[0].endswith('.bin')),
                    key=lambda e: e[0])
     assert len(scans) == len(t_mid) == len(t_end), (len(scans), len(t_mid), len(t_end))
@@ -186,6 +213,7 @@ def main():
         msg.linear_acceleration.x, msg.linear_acceleration.y, msg.linear_acceleration.z = r[11], r[12], r[13]
         msg.angular_velocity.x, msg.angular_velocity.y, msg.angular_velocity.z = r[17], r[18], r[19]
         imu.append((t_imu[i], msg))
+    imu_ns = [t for t, _ in imu]
     gaps = np.diff([t for t, _ in imu]) * 1e-9
     print(f'imu: {len(imu)} samples ({dropped} with a stamp not after the one before dropped), '
           f'interval median {np.median(gaps) * 1e3:.2f} ms, max {gaps.max() * 1e3:.1f} ms', flush=True)
@@ -203,7 +231,14 @@ def main():
             idx = list(range(begin, min(b, begin + 4 * WORKERS)))
             for i, (_, raw) in zip(idx, pool.map(lambda j: load_group(SYNC, [scans[j]])[0], idx)):
                 assert t_end[i] > t_mid[i] and (i == a or t_end[i] > t_end[i - 1]), i
-                msg = cloud_message(raw, t_mid[i])
+                if deskew:
+                    lo_k = bisect.bisect_left(imu_ns, t_start[i])
+                    hi_k = bisect.bisect_right(imu_ns, t_end[i])
+                    rates = [imu[j][1].angular_velocity for j in range(lo_k, hi_k)]
+                    w_imu = np.mean([[r.x, r.y, r.z] for r in rates], axis=0) if rates else np.zeros(3)
+                    msg = cloud_message(raw, t_mid[i], R_imu_velo.T @ w_imu, (t_end[i] - t_start[i]) * 1e-9)
+                else:
+                    msg = cloud_message(raw, t_mid[i])
                 while k < len(imu) and imu[k][0] <= t_end[i]:
                     writer.write('/kitti/oxts/imu', rclpy.serialization.serialize_message(imu[k][1]), imu[k][0])
                     k += 1

@@ -1,0 +1,37 @@
+frames 2761, GT path 2205.2 m, estimate path 2211.7 m (+0.295 %)
+
+L=100 m, 202 windows: t_err 0.777 %  | mean signed: along +0.313 % lateral +0.455 % vertical -0.468 % ; RMS: along 0.349 lateral 0.512 vertical 0.513
+  rot err deg/m RMS: yaw 0.00220 pitch 0.00448 roll 0.00270
+
+L=200 m, 192 windows: t_err 0.929 %  | mean signed: along +0.276 % lateral +0.443 % vertical -0.717 % ; RMS: along 0.309 lateral 0.514 vertical 0.774
+  rot err deg/m RMS: yaw 0.00123 pitch 0.00361 roll 0.00261
+  straight (<10 deg): n=35 t_err 1.235 % along +0.320 lateral RMS 0.716 vertical RMS 0.976
+  turning (>45 deg): n=144 t_err 0.839 % along +0.257 lateral RMS 0.448 vertical RMS 0.703
+  speed 6-9 m/s: n=165 t_err 0.892 % along(scale) +0.285 %
+  speed 9-20 m/s: n=27 t_err 1.158 % along(scale) +0.221 %
+  by position along the drive (200 m windows every ~200 m): d0, t_err %, along %, lateral %, vertical %, yaw deg/m, turn deg, v m/s
+         0   0.61  +0.03  +0.05  -0.61 +0.00102   97.5   7.4
+       210   0.67  +0.25  +0.05  -0.62 -0.00075  179.8   6.1
+       418   1.06  +0.38  +0.79  -0.59 +0.00064   82.0   7.7
+       629   0.93  +0.44  +0.61  -0.55 +0.00053  101.4   7.3
+       838   0.58  +0.23  +0.34  -0.40 +0.00167  176.2   6.9
+      1046   1.25  +0.42  +0.68  -0.97 +0.00120    6.9   8.2
+      1257   0.52  +0.27  +0.18  -0.40 -0.00019   85.9   7.9
+      1466   0.74  +0.16  +0.42  -0.59 -0.00018  123.9   8.4
+      1676   1.02  +0.26  +0.54  -0.82 +0.00140   61.6   6.4
+      1885   1.24  +0.17  +0.72  -1.00 +0.00089    0.4  10.1
+
+L=400 m, 173 windows: t_err 0.941 %  | mean signed: along +0.171 % lateral +0.381 % vertical -0.808 % ; RMS: along 0.213 lateral 0.471 vertical 0.947
+  rot err deg/m RMS: yaw 0.00089 pitch 0.00242 roll 0.00242
+
+L=800 m, 135 windows: t_err 0.677 %  | mean signed: along +0.057 % lateral +0.289 % vertical -0.580 % ; RMS: along 0.132 lateral 0.367 vertical 0.651
+  rot err deg/m RMS: yaw 0.00072 pitch 0.00137 roll 0.00122
+
+best constant rotation (est = C gt), yaw +0.281 pitch +0.313 roll -0.008 deg
+  L=100: mean translation error 0.777 % -> 0.436 % after removing C
+  L=200: mean translation error 0.929 % -> 0.594 % after removing C
+  L=400: mean translation error 0.941 % -> 0.807 % after removing C
+  L=800: mean translation error 0.677 % -> 0.632 % after removing C
+  L=100: signed mean yaw +0.00059 pitch +0.00398 roll +0.00027 deg/m
+  L=400: signed mean yaw +0.00063 pitch +0.00115 roll +0.00100 deg/m
+  L=800: signed mean yaw +0.00064 pitch +0.00050 roll +0.00018 deg/m
