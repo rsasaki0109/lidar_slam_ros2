@@ -1,0 +1,30 @@
+Backend speed, step 1: the map refinement (plane BA). Written 2026-11-01, after the timing below and before any
+change to the refinement code.
+
+Why: on KITTI 05 (t4v05, graph_slam_offline_runner after rsasaki0109/lidar_slam_ros2#573) the bag pass takes about
+409 s and the refinement after it about 239 s of a 652 s run for 287 s of data. A replay of the refinement alone (its
+input dumped once from the runner: 1,132 submaps, 62.6 M points, the poses and the refiner settings) put, over the
+first 21 of 141 windows: plane BA 36.3 s, plane association 3.4 s; and 38.4 s for the per-submap voxel downsample of
+all submaps.
+Seen in the code:
+- solvePlaneBa evaluates every plane feature into a full 6P-vector and (6P x 6P) matrix (P = 16 poses: 96 x 96),
+  allocated and zeroed per feature and evaluation, then added whole into the system, although a feature fills only
+  the blocks of the poses that observe it. The cost-only evaluation (evaluateTotalCost) builds them too and discards
+  them.
+- downsampleByVoxelCentroid inserts every point into a std::map.
+
+Candidate (one change set, results meant to be bit-identical):
+- The cost-only evaluation stops before the derivatives.
+- The system is assembled from each feature's observed-pose blocks only (the skipped entries are exact zeros: adding
+  +0.0 to an accumulator that started at +0.0 never changes it), with the same per-entry order of additions.
+- The voxel downsample sorts (voxel, index) pairs instead of using a std::map, and sums each voxel's points in
+  ascending index order as now; the output stays in voxel order.
+
+Checks and reading, fixed now
+1. Identity: the replay's digest (every refined pose's bytes and the report lines) must equal the current code's on
+   the KITTI 05 dump; the unit tests of the refinement pass; and the eight runs of chapter 42
+   (cleanup_runner_check.sh) give byte-identical outputs except the wall-time dependent trajectory_causal.tum.
+   Anything else stops the change until explained.
+2. Worth: the change is kept if the refinement on the KITTI 05 replay takes at least 20 % less time. The runner's
+   KITTI 05 time before and after is reported.
+3. Nothing about what the refinement computes changes; parameters and outputs stay as they are.

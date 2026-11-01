@@ -1,0 +1,20 @@
+Backend speed step 1: the map refinement (report chapter 46), 2026-11-01. Plan and reading: plan.txt.
+
+Replay: bench_report/scripts/refiner_replay.cpp on the KITTI 05 (t4v05) refinement input, dumped once from the runner
+(/home/user/bench/refiner_replay/kitti05_t4v05.bin, 751 MB, not kept in the repository).
+  digest of refined poses + report lines: 28b283e0a032413d before and after (869be6a5, 15b10947).
+  full refinement, run alone: 315.2 s before, 128.3 s after (124.4 / 124.6 s in two more runs after).
+  first 21 windows (profile): plane BA 36.3 -> 13.5 s (85 iterations, 60,239 features in both); downsample of all
+  submaps 38.4 -> 16.8 s; plane association 3.4 -> 3.0 s. (The 21-window figures ran beside another replay.)
+Runner: before = develop d13d9e7b (/home/user/ws/speed_base, Release, small_gicp and zstd), after = 869be6a5 and then
+15b10947 (/home/user/ws/cleanup3_build).
+md5_base.txt, md5_after.txt: cleanup_runner_check.sh with the before build and with 15b10947. 48 of 50 files
+byte-identical; the other two are trajectory_causal.tum of cal1_causal (9 of 3910 poses differ, at most 31.3 mm) and
+kitti_t4v05 (53 of 2761, at most 0.80 m), wall-time dependent as before. 869be6a5 alone gave the same 48 of 50.
+kitti_time.csv: KITTI 05 time split at "Offline run complete" (end of the bag pass) and at the final-copy log line
+(the refinement follows it). The VM was slower this session than in chapters 44-45 (the bag pass, which none of
+this changes, took 514-533 s in all five runs against 402-453 s before), so before and after are compared within
+this session only.
+peak_rss.csv: maximum RSS before and after (15b10947). 869be6a5 had raised KITTI 05 to 2.06-2.07 GB because the
+sorted downsample did not reserve its result; 15b10947 reserves it to the voxel count, and the peak is back to
+1.75 GB (1.73 GB before).
