@@ -1,0 +1,24 @@
+# KITTI 05 bag pass timers (t4v05, refine false), before (#574 code) and after (loop source built only with candidates)
+## before
+PROF align                       459.326 s      753
+PROF candidates                    0.047 s     1131
+PROF convert_pcl                   0.811 s     1132
+PROF drain_total                 525.658 s     1132
+PROF filter_local                 11.647 s     1131
+PROF filter_local_bbs              7.877 s     1131
+PROF filter_source                11.819 s     1131
+PROF filter_source_sc              7.896 s     1131
+PROF ingest_descriptors            0.004 s     1131
+PROF queries_without_candidates      0.000 s      879
+PROF search_total                525.593 s     1131
+PROF set_target                    1.004 s      753
+PROF src_aggregate                13.693 s     1131
+PROF target_build                 11.515 s      220
+## after
+PROF align                       472.646 s      753
+PROF filter_local                  2.770 s      252
+PROF filter_local_bbs              1.850 s      252
+PROF filter_source                 2.848 s      252
+PROF filter_source_sc              1.889 s      252
+PROF search_total                496.398 s     1131
+PROF src_aggregate                 2.549 s      252

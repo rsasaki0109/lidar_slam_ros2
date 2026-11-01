@@ -1,0 +1,35 @@
+Backend speed, step 3: build the loop-search source only when a query has candidates. Written 2026-11-01, before any
+run of the changed code.
+
+Why: timers in the KITTI 05 bag pass (t4v05, 540 s today) found 879 of the 1,131 loop-search queries without a
+candidate, yet every query first aggregated the latest submaps (13.7 s in all) and voxel-filtered them four ways
+(39.2 s in all: the registration source, its 3D-BBS subset, the latest-frame copy and its 3D-BBS subset). None of
+that feeds candidate generation, which uses the descriptor databases and the submap positions only.
+Change: BackendCore::searchLoopForSubmap generates the candidates first and builds the source after, only when there
+is at least one candidate. The same clouds are built the same way in the same order, with the same early returns;
+an early return on an empty source drops the candidate-generation log lines, as the old order (which returned before
+generating candidates) gave none. The one difference left is in log lines only: when there are no candidates AND the
+source would have been empty, the old code returned without the candidate-generation lines and the new code keeps
+them (descriptor-based candidate generation is off in the presets; an empty source needs the latest submaps to hold no
+finite point).
+
+Reading, fixed now
+1. Identity: the eight runs of chapter 42 (cleanup_runner_check.sh) give byte-identical outputs to the code of
+   rsasaki0109/lidar_slam_ros2#574 except the wall-time dependent trajectory_causal.tum; the unit tests of the backend
+   core pass.
+2. Worth: with the same timers as before, the time spent building the source (aggregation plus the four filters) in
+   the KITTI 05 bag pass must fall by at least 50 %; otherwise the change is not kept.
+
+Results (2026-11-01)
+1. Identity: cleanup_runner_check.sh with the changed runner (/home/user/ws/reorder_build, the code of #574 plus
+   this change) against the #574 runner (md5_after.txt): 48 of 50 files byte-identical, the other two the
+   wall-time dependent trajectory_causal.tum. test_backend_core: 19 tests pass. -> holds.
+2. Worth: the same timers on the KITTI 05 bag pass (refinement off), before / after:
+     source aggregation        13.693 s (1131 queries)   2.549 s (252)
+     filter: source            11.819 s                  2.848 s
+     filter: 3D-BBS source      7.896 s                  1.889 s
+     filter: latest frame      11.647 s                  2.770 s
+     filter: its 3D-BBS subset  7.877 s                  1.850 s
+     in all                    52.932 s                 11.906 s  (-77.5 %)
+   NDT alignment (753 calls) took 459.3 / 472.6 s in the two runs; loop_edges.csv is the same bytes. -> holds.
+The change is kept.
