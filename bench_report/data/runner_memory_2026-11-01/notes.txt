@@ -1,0 +1,15 @@
+Offline runner keeps the submap clouds compressed (report chapter 45), 2026-11-01. Plan and reading: plan.txt.
+
+Builds: before = the develop runner (0339b8dc; the binary of /home/user/ws/cleanup3_build at 517db759, whose runner
+sources 0339b8dc does not change, copied to /home/user/ws/mem2_base); after = 068837cf (/home/user/ws/cleanup3_build).
+md5_base.txt, md5_compressed.txt: bench_report/scripts/cleanup_runner_check.sh with each build (the eight runs of
+chapter 42). 48 of 50 files byte-identical; the other two are trajectory_causal.tum of cal1_causal (11 of 3910 poses
+differ, at most 8.5 mm) and kitti_t4v05 (60 of 2761 poses, at most 1.46 m), which depends on the wall time of the loop
+work (chapter 42). loop_edges.csv and the raw, optimized and refined trajectories are byte-identical.
+peak_rss.csv: maximum RSS of each run before and after.
+kitti_time.csv: KITTI 05 time split at "Offline run complete" (end of the bag pass), the eight-run check and one run
+of each build alone.
+The runner's own count (KITTI 05, alone): 536.2 MiB stored (1910.7 MiB as PCL clouds), stored in 1.488 s; 1534 clouds
+restored during the bag pass in 1.287 s, 1129 for the final copy in 1.181 s; 3.96 s in all, 0.6 % of 651.8 s.
+heaptrack (KITTI 05 t4v05, no causal output, /home/user/bench/kitti_mem3): peak heap 1.55 GB, now at the end of the
+final copy (graph.local_clouds, the Vector3d copy for the refinement, 1.50 GB); 2.07 GB before (chapter 44).
