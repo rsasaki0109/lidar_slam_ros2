@@ -21,3 +21,7 @@ peak_rss.csv: each run's maximum RSS (/usr/bin/time %M) before and after.
 heaptrack on KITTI 05 (t4v05, no causal output): before, peak heap 4.88 GB at the refinement (bag-pass PCL clouds
 2.01 GB, their Vector3d copy 1.50 GB, the refiner's downsampled copy 1.30 GB); after, 2.07 GB at the end of the bag
 pass (the PCL clouds, 2.01 GB). heaptrack wall time 1530.7 s before, 1523 s after.
+kitti_time.csv: KITTI 05 (t4v05, causal output) time from the first to the last log line, split at "Offline run
+complete" (the end of the bag pass, which 517db759 does not touch); time_base2 / time_mem2 are one more run of each
+build alone. The bag pass varied 402-572 s across runs of identical code; the part after it, where the change acts,
+took 252 / 255 s before and 241 / 244 / 238 s after.
