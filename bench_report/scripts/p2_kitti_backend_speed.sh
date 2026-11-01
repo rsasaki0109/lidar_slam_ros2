@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # p2_kitti_backend_speed.sh <variant> (plan: data/kitti/raw05_2026-10-31/plan_speed.txt): graph_slam_offline_runner on
 # the KITTI 05 backend input (/home/user/bench/kitti_raw/prof/backend_input) with the walking preset and one variant
-# (base, t4, v05, t4v05), timed with /usr/bin/time, scored with p2_kitti_score.py; appends
+# (base, t4, v05, t4v05, t4v05c1), timed with /usr/bin/time, scored with p2_kitti_score.py; appends
 # variant,wall_s,user_s,sys_s,max_rss_kb,matched,missing,ape_rmse,ape_max,t_rel,r_rel,loop_edges to
 # /home/user/bench/kitti_raw/speed.csv.
 set -uo pipefail
@@ -17,6 +17,7 @@ case ${v} in
   t4) over=(ndt_num_threads:=4) ;;
   v05) over=(voxel_leaf_size:=0.5) ;;
   t4v05) over=(ndt_num_threads:=4 voxel_leaf_size:=0.5) ;;
+  t4v05c1) over=(ndt_num_threads:=4 voxel_leaf_size:=0.5 max_loop_candidate_count:=1) ;;  # data/backend_speed_2026-11-01/plan_candidates.txt
   *) echo "unknown variant ${v}"; exit 1 ;;
 esac
 O=/home/user/bench/kitti_raw/speed/${v}${RUN_SUFFIX:-}

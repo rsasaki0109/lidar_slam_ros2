@@ -410,78 +410,10 @@ public:
     const int num_submaps = static_cast<int>(submaps.size());
     const Eigen::Affine3d & latest_affine = submaps[latest_idx].pose;
 
-    // Aggregate latest N submaps as source (improves matching quality)
-    pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_latest_submap_cloud_ptr(
-      new pcl::PointCloud<pcl::PointXYZI>);
-    pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_latest_submap_cloud_sc_ptr(
-      new pcl::PointCloud<pcl::PointXYZI>);
-    pcl::PointCloud<pcl::PointXYZI>::Ptr latest_submap_cloud_local_ptr(
-      new pcl::PointCloud<pcl::PointXYZI>);
-    pcl::PointCloud<pcl::PointXYZI>::Ptr latest_submap_cloud_local_bbs_ptr(
-      new pcl::PointCloud<pcl::PointXYZI>);
-    for (int k = 0; k < search_config.search_submap_num && (latest_idx - k) >= 0; k++) {
-      int src_idx = latest_idx - k;
-      pcl::PointCloud<pcl::PointXYZI>::Ptr src_cloud = raw_cloud_provider(src_idx);
-      if (src_cloud->empty()) {
-        continue;
-      }
-      pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_src(new pcl::PointCloud<pcl::PointXYZI>);
-      const Eigen::Affine3d & src_affine = submaps[src_idx].pose;
-      pcl::transformPointCloud(*src_cloud, *transformed_src, src_affine.matrix().cast<float>());
-      *transformed_latest_submap_cloud_ptr += *transformed_src;
-      if (k < search_config.three_d_bbs_source_submap_num) {
-        *transformed_latest_submap_cloud_sc_ptr += *transformed_src;
-      }
-
-      pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_src_local(
-        new pcl::PointCloud<pcl::PointXYZI>);
-      const Eigen::Matrix4f latest_frame_transform =
-        (latest_affine.inverse() * src_affine).matrix().cast<float>();
-      pcl::transformPointCloud(*src_cloud, *transformed_src_local, latest_frame_transform);
-      *latest_submap_cloud_local_ptr += *transformed_src_local;
-      if (k < search_config.three_d_bbs_source_submap_num) {
-        *latest_submap_cloud_local_bbs_ptr += *transformed_src_local;
-      }
-    }
-    if (
-      transformed_latest_submap_cloud_ptr->empty() ||
-      transformed_latest_submap_cloud_sc_ptr->empty() ||
-      latest_submap_cloud_local_ptr->empty() ||
-      latest_submap_cloud_local_bbs_ptr->empty())
-    {
-      return output;
-    }
-
-    pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_source(new pcl::PointCloud<pcl::PointXYZI>);
-    voxelgrid.setInputCloud(transformed_latest_submap_cloud_ptr);
-    voxelgrid.filter(*filtered_source);
-    if (filtered_source->empty()) {
-      return output;
-    }
-    pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_source_sc(
-      new pcl::PointCloud<pcl::PointXYZI>);
-    voxelgrid.setInputCloud(transformed_latest_submap_cloud_sc_ptr);
-    voxelgrid.filter(*filtered_source_sc);
-    if (filtered_source_sc->empty()) {
-      return output;
-    }
-    pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_source_local(
-      new pcl::PointCloud<pcl::PointXYZI>);
-    voxelgrid.setInputCloud(latest_submap_cloud_local_ptr);
-    voxelgrid.filter(*filtered_source_local);
-    if (filtered_source_local->empty()) {
-      return output;
-    }
-    pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_source_local_bbs(
-      new pcl::PointCloud<pcl::PointXYZI>);
-    voxelgrid.setInputCloud(latest_submap_cloud_local_bbs_ptr);
-    voxelgrid.filter(*filtered_source_local_bbs);
-    if (filtered_source_local_bbs->empty()) {
-      return output;
-    }
     const double latest_moving_distance = submaps[latest_idx].travel_distance;
     const Eigen::Vector3d latest_submap_pos = latest_affine.translation();
 
+    const std::size_t logs_before_candidates = output.logs.size();
     std::vector<LoopCandidate> candidates;
 
     std::vector<Eigen::Vector3d> submap_positions;
@@ -549,6 +481,84 @@ public:
         output.logs);
     }
     if (candidates.empty()) {
+      return output;
+    }
+    // The loop-search source (the latest submaps, aggregated and voxel-filtered) is
+    // built only when there are candidates to register; it does not feed candidate
+    // generation. An empty source returns with the logs as the old order gave them
+    // (before candidate generation).
+    // Aggregate latest N submaps as source (improves matching quality)
+    pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_latest_submap_cloud_ptr(
+      new pcl::PointCloud<pcl::PointXYZI>);
+    pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_latest_submap_cloud_sc_ptr(
+      new pcl::PointCloud<pcl::PointXYZI>);
+    pcl::PointCloud<pcl::PointXYZI>::Ptr latest_submap_cloud_local_ptr(
+      new pcl::PointCloud<pcl::PointXYZI>);
+    pcl::PointCloud<pcl::PointXYZI>::Ptr latest_submap_cloud_local_bbs_ptr(
+      new pcl::PointCloud<pcl::PointXYZI>);
+    for (int k = 0; k < search_config.search_submap_num && (latest_idx - k) >= 0; k++) {
+      int src_idx = latest_idx - k;
+      pcl::PointCloud<pcl::PointXYZI>::Ptr src_cloud = raw_cloud_provider(src_idx);
+      if (src_cloud->empty()) {
+        continue;
+      }
+      pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_src(new pcl::PointCloud<pcl::PointXYZI>);
+      const Eigen::Affine3d & src_affine = submaps[src_idx].pose;
+      pcl::transformPointCloud(*src_cloud, *transformed_src, src_affine.matrix().cast<float>());
+      *transformed_latest_submap_cloud_ptr += *transformed_src;
+      if (k < search_config.three_d_bbs_source_submap_num) {
+        *transformed_latest_submap_cloud_sc_ptr += *transformed_src;
+      }
+
+      pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_src_local(
+        new pcl::PointCloud<pcl::PointXYZI>);
+      const Eigen::Matrix4f latest_frame_transform =
+        (latest_affine.inverse() * src_affine).matrix().cast<float>();
+      pcl::transformPointCloud(*src_cloud, *transformed_src_local, latest_frame_transform);
+      *latest_submap_cloud_local_ptr += *transformed_src_local;
+      if (k < search_config.three_d_bbs_source_submap_num) {
+        *latest_submap_cloud_local_bbs_ptr += *transformed_src_local;
+      }
+    }
+    if (
+      transformed_latest_submap_cloud_ptr->empty() ||
+      transformed_latest_submap_cloud_sc_ptr->empty() ||
+      latest_submap_cloud_local_ptr->empty() ||
+      latest_submap_cloud_local_bbs_ptr->empty())
+    {
+      output.logs.resize(logs_before_candidates);
+      return output;
+    }
+
+    pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_source(new pcl::PointCloud<pcl::PointXYZI>);
+    voxelgrid.setInputCloud(transformed_latest_submap_cloud_ptr);
+    voxelgrid.filter(*filtered_source);
+    if (filtered_source->empty()) {
+      output.logs.resize(logs_before_candidates);
+      return output;
+    }
+    pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_source_sc(
+      new pcl::PointCloud<pcl::PointXYZI>);
+    voxelgrid.setInputCloud(transformed_latest_submap_cloud_sc_ptr);
+    voxelgrid.filter(*filtered_source_sc);
+    if (filtered_source_sc->empty()) {
+      output.logs.resize(logs_before_candidates);
+      return output;
+    }
+    pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_source_local(
+      new pcl::PointCloud<pcl::PointXYZI>);
+    voxelgrid.setInputCloud(latest_submap_cloud_local_ptr);
+    voxelgrid.filter(*filtered_source_local);
+    if (filtered_source_local->empty()) {
+      output.logs.resize(logs_before_candidates);
+      return output;
+    }
+    pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_source_local_bbs(
+      new pcl::PointCloud<pcl::PointXYZI>);
+    voxelgrid.setInputCloud(latest_submap_cloud_local_bbs_ptr);
+    voxelgrid.filter(*filtered_source_local_bbs);
+    if (filtered_source_local_bbs->empty()) {
+      output.logs.resize(logs_before_candidates);
       return output;
     }
 
