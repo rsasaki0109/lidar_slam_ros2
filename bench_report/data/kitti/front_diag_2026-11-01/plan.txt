@@ -1,0 +1,20 @@
+KITTI 05 frontend: where the yaw drift in sharp turns comes from (diagnostics, nothing is adopted). Written
+2026-11-01, before any of these runs.
+
+What is known (bench_report/scripts/p2_kitti_error_breakdown.py on G12's frontend, error_breakdown_front.txt in
+data/kitti/raw05_2026-10-31): the frontend's yaw drifts +4.5 deg (to the left) over 2.2 km. About 3.8 deg of it
+comes from the 237 scans that turn faster than 0.3 rad/s, in left and right turns alike (+0.013 / +0.018 deg per
+scan); straight driving adds almost nothing. A drift that does not change sign with the turn rules out a gyro scale
+error and a constant time offset (whose errors cancel between left and right turns, or between window ends).
+
+Runs: the frontend of /home/user/ws/rko_g35 (the build behind G12's KITTI result, md5 f6739b50) on the recreated bag
+(/home/user/data/kitti_raw_05/ros2, the same frames), the KITTI rig file and G12, with one change each:
+  base     none (must reproduce f6739b50, or the comparison below is void)
+  noclose  close_scene_max_median_range 0 (G12's close-scene handling off: narrow intersections may trigger it)
+  lever0   the LiDAR-to-base extrinsic's translation set to 0 (the lever arm between the OXTS and the Velodyne)
+  icp      max_iterations 100 and convergence_criterion 1e-6 (registration stopping early in fast turns)
+Measured per run: APE RMSE, t_rel, and the yaw error carried by the scans turning faster than 0.3 rad/s.
+
+Reading, fixed now: a diagnostic points at a cause if it removes at least half of the sharp-turn yaw error (3.8 deg)
+without raising the straight-driving part. Nothing changes in G or the rig file from this; a cause found here
+becomes a candidate with its own plan and the Phase 1 screen on all development data.

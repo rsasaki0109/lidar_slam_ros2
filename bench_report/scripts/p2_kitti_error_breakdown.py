@@ -10,10 +10,13 @@ rotation error per metre (yaw, pitch, roll), the 200 m windows by turning, speed
 rotation C that best maps the ground-truth relative translations onto the estimate's (a frame offset: the same
 angle at every length) and the error left after removing it. Development data only (reads the ground truth).
 """
+import os
 import sys
 import numpy as np
 from scipy.spatial.transform import Rotation
-EXT = [-0.007412088, 0.001015086, 0.000385188, 0.999971941, 0.810543972, -0.307054372, 0.802723995]
+# The LiDAR-to-base extrinsic the trajectory was made with (qx qy qz qw x y z); EXT in the environment overrides it.
+EXT = ([float(v) for v in os.environ['EXT'].split(',')] if os.environ.get('EXT') else
+       [-0.007412088, 0.001015086, 0.000385188, 0.999971941, 0.810543972, -0.307054372, 0.802723995])
 est_path = sys.argv[1]
 GT = '/home/user/data/kitti_raw_05/gt'
 def se3(q, t):
