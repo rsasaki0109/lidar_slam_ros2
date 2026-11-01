@@ -8,7 +8,7 @@ set -uo pipefail
 v=$1
 REPO=/home/user/lidar_slam_ros2; PY=/home/user/mapshd/venv/bin/python
 WS=${WS:-/home/user/ws/rko_g35}
-D=/home/user/data/kitti_raw_05; BAG=${D}/ros2; GT=${D}/gt
+D=/home/user/data/kitti_raw_05; BAG=${BAG:-${D}/ros2}; GT=${D}/gt  # BAG: another bag of the same frames
 RIG=${REPO}/bench_report/data/kitti/raw05_2026-10-31/rig_kitti_raw.yaml
 EXT="-0.007412088,0.001015086,0.000385188,0.999971941,0.810543972,-0.307054372,0.802723995"
 G12=(close_scene_max_median_range:=12.0 close_scene_max_correspondence_distance:=0.25
@@ -16,6 +16,7 @@ G12=(close_scene_max_median_range:=12.0 close_scene_max_correspondence_distance:
      close_scene_min_inlier_fraction:=0.6 min_icp_keypoints:=100 keypoint_shortfall_voxel_multiplier:=1.0)
 case ${v} in
   base) over=() ;;
+  rotdeskew) over=() ;;  # base on the rotation-deskewed bag (BAG=.../ros2_rotdeskew, plan_rotation_deskew.txt)
   noclose) over=(close_scene_max_median_range:=0.0) ;;
   lever0) EXT="-0.007412088,0.001015086,0.000385188,0.999971941,0.0,0.0,0.0"
           over=("extrinsic_lidar2base_quat_xyzw_xyz:=[${EXT}]") ;;

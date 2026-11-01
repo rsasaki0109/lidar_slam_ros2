@@ -1,0 +1,27 @@
+KITTI 05: deskew the scans' rotation from the OXTS gyro (a candidate for KITTI's data preparation; G does not
+change). Written 2026-11-01, before the run of the frontend on the deskewed bag.
+
+Why (plan.txt in this folder, results below it): the frontend's +4.5 deg yaw drift comes from sharp turns. A
+registration of consecutive scans without the IMU shows the same bias against the ground truth (+0.0167 / +0.0218
+deg per scan in sharp left / right turns, +0.0006 driving straight), so it is in the scans, not in RKO-LIO. Rotating
+each point about z by w * (t - 0.5) * 0.1 s, with t from the azimuth (KISS-ICP's KITTI convention, 0.5 facing
+forward) and w the pair's yaw rate, leaves +0.0049 / +0.0059 deg (the opposite sign doubles the bias; straight
+driving is unchanged). KITTI's scans are compensated for translation (the seam check of data/kitti/raw05_2026-10-31/
+plan.txt) but, it appears, hardly for rotation. A factor of about 1.3 on the rotation would cancel the bias on these
+pairs; it is not used: the correction is the physical one (factor 1).
+
+Candidate: kitti_raw_to_ros2.py with ROTATION_DESKEW=1 rotates each scan's points by exp([w_velo * (t - 0.5) * T])
+where T is the scan's end time minus its start time (velodyne_points/timestamps_start.txt, _end.txt), w_velo the mean
+OXTS angular rate over the scan mapped into the Velodyne frame with the rig's extrinsic, and t the azimuth time
+above. Only the gyro is used, as an online system could; no ground truth. Everything else in the bag is unchanged.
+
+Run: the frontend diagnostic of this folder (p2_kitti_front_diag.sh base) on the deskewed bag, against the base run on
+the original bag (md5 f6739b50).
+
+Reading, fixed now
+R1. The sharp-turn yaw error (scans turning faster than 0.3 rad/s) falls by at least half (from 3.75 deg).
+R2. APE RMSE and t_rel get no more than 2 % worse.
+If both hold, KITTI's data preparation deskews the rotation (the converter does it for KITTI development runs and the
+rig notes say so); G and the presets do not change, and nothing else uses this converter. Otherwise nothing changes.
+This uses the IMU, so it does not carry over to KITTI Odometry's LiDAR-only track (Phase 5, C4), which would need the
+odometry's own yaw rate instead.
