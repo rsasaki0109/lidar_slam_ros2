@@ -157,21 +157,35 @@ inline std::vector<Eigen::Vector3d> downsampleByVoxelCentroid(
   const std::vector<Eigen::Vector3d> & points, double voxel_size)
 {
   if (voxel_size <= 0.0) {return points;}
-  struct Accumulator
-  {
-    Eigen::Vector3d sum {Eigen::Vector3d::Zero()};
-    size_t count {0};
-  };
-  std::map<detail::VoxelKey, Accumulator> buckets;
-  for (int i = 0; i < static_cast<int>(points.size()); ++i) {
-    auto & bucket = buckets[detail::keyOf(points[i], voxel_size)];
-    bucket.sum += points[i];
-    ++bucket.count;
+  // (voxel, index) pairs sorted by voxel, then index: the voxels come out in
+  // the order a std::map of them would give, and each voxel's points are
+  // summed in ascending index order.
+  std::vector<std::pair<detail::VoxelKey, std::size_t>> keyed;
+  keyed.reserve(points.size());
+  for (std::size_t i = 0; i < points.size(); ++i) {
+    keyed.emplace_back(detail::keyOf(points[i], voxel_size), i);
   }
+  std::sort(
+    keyed.begin(), keyed.end(),
+    [](const std::pair<detail::VoxelKey, std::size_t> & lhs,
+    const std::pair<detail::VoxelKey, std::size_t> & rhs) {
+      if (lhs.first < rhs.first) {return true;}
+      if (rhs.first < lhs.first) {return false;}
+      return lhs.second < rhs.second;
+    });
   std::vector<Eigen::Vector3d> result;
-  result.reserve(buckets.size());
-  for (auto it = buckets.begin(); it != buckets.end(); ++it) {
-    result.push_back(it->second.sum / static_cast<double>(it->second.count));
+  std::size_t begin = 0;
+  while (begin < keyed.size()) {
+    std::size_t end = begin + 1;
+    while (end < keyed.size() && !(keyed[begin].first < keyed[end].first)) {
+      ++end;
+    }
+    Eigen::Vector3d sum = Eigen::Vector3d::Zero();
+    for (std::size_t k = begin; k < end; ++k) {
+      sum += points[keyed[k].second];
+    }
+    result.push_back(sum / static_cast<double>(end - begin));
+    begin = end;
   }
   return result;
 }

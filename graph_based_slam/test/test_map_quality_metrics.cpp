@@ -30,6 +30,7 @@
 #include <gtest/gtest.h>
 
 #include <cstring>
+#include <map>
 #include <random>
 #include <string>
 #include <vector>
@@ -198,6 +199,40 @@ TEST(MapQualityMetrics, YamlHasFixedKeyOrderAndMeaningfulFlag) {
     if (lines[i] == "    meaningful: true") {found_meaningful = true;}
   }
   EXPECT_TRUE(found_meaningful);
+}
+
+// The downsample sorts (voxel, index) pairs; it must give bitwise what a
+// std::map of the voxels, summed in index order, gives.
+TEST(MapQualityMetrics, DownsampleIsBitwiseTheMapReference) {
+  std::mt19937 rng(7);
+  std::uniform_real_distribution<double> coordinate(-3.0, 3.0);
+  std::vector<Eigen::Vector3d> points;
+  for (int i = 0; i < 20000; ++i) {
+    points.emplace_back(coordinate(rng), coordinate(rng), coordinate(rng));
+  }
+  const double voxel = 0.25;
+  struct Accumulator
+  {
+    Eigen::Vector3d sum {Eigen::Vector3d::Zero()};
+    size_t count {0};
+  };
+  std::map<graphslam::map_quality::detail::VoxelKey, Accumulator> buckets;
+  for (const auto & point : points) {
+    auto & bucket = buckets[graphslam::map_quality::detail::keyOf(point, voxel)];
+    bucket.sum += point;
+    ++bucket.count;
+  }
+  std::vector<Eigen::Vector3d> reference;
+  for (const auto & entry : buckets) {
+    reference.push_back(entry.second.sum / static_cast<double>(entry.second.count));
+  }
+
+  const auto result = graphslam::map_quality::downsampleByVoxelCentroid(points, voxel);
+  ASSERT_EQ(result.size(), reference.size());
+  ASSERT_LT(result.size(), points.size());
+  for (size_t i = 0; i < result.size(); ++i) {
+    EXPECT_EQ(0, std::memcmp(result[i].data(), reference[i].data(), 3 * sizeof(double)));
+  }
 }
 
 }  // namespace

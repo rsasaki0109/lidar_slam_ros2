@@ -139,8 +139,9 @@ inline CostEvaluation evaluateTotalCost(
   CostEvaluation evaluation;
   const int pose_count = static_cast<int>(poses.size());
   for (size_t f = 0; f < features.size(); ++f) {
-    const PlaneCostResult result =
-      evaluatePlaneCost(features[f].observations, poses, pose_count, config.cost);
+    // Only the cost is read here, so the derivatives are not computed.
+    const PlaneCostBlocks result = evaluatePlaneCostBlocks(
+      features[f].observations, poses, pose_count, config.cost, false);
     if (!result.valid) {
       ++evaluation.invalid_features;
       continue;
@@ -177,14 +178,29 @@ inline bool assembleSystem(
   hessian->setZero(size, size);
   bool any_valid = false;
   for (size_t f = 0; f < features.size(); ++f) {
-    const PlaneCostResult result =
-      evaluatePlaneCost(features[f].observations, poses, pose_count, config.cost);
+    const PlaneCostBlocks result =
+      evaluatePlaneCostBlocks(features[f].observations, poses, pose_count, config.cost);
     if (!result.valid) {
       continue;
     }
     any_valid = true;
-    *gradient += result.gradient;
-    *hessian += result.hessian;
+    // Only the blocks of the observing poses: every other entry of this
+    // feature's full gradient and Hessian is +0.0, and adding +0.0 does not
+    // change an accumulator that started at +0.0, so the sums are the same as
+    // adding the full vectors and matrices, in the same feature order.
+    const int block_size = static_cast<int>(result.gradient.size());
+    std::vector<int> variable(static_cast<std::size_t>(block_size));
+    for (int a = 0; a < block_size; ++a) {
+      variable[static_cast<std::size_t>(a)] =
+        6 * result.pose_indices[static_cast<std::size_t>(a / 6)] + a % 6;
+    }
+    for (int a = 0; a < block_size; ++a) {
+      const int row = variable[static_cast<std::size_t>(a)];
+      (*gradient)(row) += result.gradient(a);
+      for (int b = 0; b < block_size; ++b) {
+        (*hessian)(row, variable[static_cast<std::size_t>(b)]) += result.hessian(a, b);
+      }
+    }
   }
   if (!any_valid) {
     return false;

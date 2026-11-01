@@ -300,4 +300,44 @@ TEST(PlaneBa, CostNeverIncreases) {
   EXPECT_GE(result.accepted_steps, 1);
 }
 
+// The system is assembled from each feature's observed-pose blocks; it must be
+// bitwise the sum of the features' full gradients and Hessians.
+TEST(PlaneBa, BlockAssemblyIsBitwiseTheDenseSum) {
+  const auto world = makeOrthogonalPlaneWorld(0.005);
+  const auto ground_truth = makeGroundTruthPoses();
+  auto features = makeFeatures(world, ground_truth);
+  // Not every pose sees every plane, so the blocks are sparse.
+  features[0].observations.erase(features[0].observations.begin() + 2);
+  features[1].observations.erase(features[1].observations.begin());
+  const auto poses = perturbPoses(ground_truth, 0.05, 0.02);
+  PlaneBaConfig config;
+  config.prior_translation_sigma = 0.0;  // the plane terms only
+  const int size = 6 * static_cast<int>(poses.size());
+
+  Eigen::VectorXd gradient;
+  Eigen::MatrixXd hessian;
+  ASSERT_TRUE(
+    graphslam::map_refinement::detail::assembleSystem(
+      features, poses, poses, config, &gradient, &hessian));
+
+  Eigen::VectorXd dense_gradient = Eigen::VectorXd::Zero(size);
+  Eigen::MatrixXd dense_hessian = Eigen::MatrixXd::Zero(size, size);
+  double dense_cost = 0.0;
+  for (const auto & feature : features) {
+    const auto result = graphslam::map_refinement::evaluatePlaneCost(
+      feature.observations, poses, static_cast<int>(poses.size()), config.cost);
+    ASSERT_TRUE(result.valid);
+    dense_gradient += result.gradient;
+    dense_hessian += result.hessian;
+    dense_cost += result.cost;
+  }
+  EXPECT_EQ(0, std::memcmp(gradient.data(), dense_gradient.data(), size * sizeof(double)));
+  EXPECT_EQ(
+    0, std::memcmp(hessian.data(), dense_hessian.data(), size * size * sizeof(double)));
+
+  const auto evaluation =
+    graphslam::map_refinement::detail::evaluateTotalCost(features, poses, poses, config);
+  EXPECT_EQ(0, std::memcmp(&evaluation.total_cost, &dense_cost, sizeof(double)));
+}
+
 }  // namespace

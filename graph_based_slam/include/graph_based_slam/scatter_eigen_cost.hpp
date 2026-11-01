@@ -192,6 +192,23 @@ inline double eigenvectorCurvatureTerm(
 
 }  // namespace detail
 
+/// The plane cost of one feature with its derivatives restricted to the poses
+/// that observe it: `pose_indices` lists them in ascending order, and entry
+/// 6 * i + axis of `gradient` and of each `hessian` dimension belongs to
+/// pose_indices[i]. Every other entry of the full problem's gradient and
+/// Hessian is exactly zero for this feature.
+struct PlaneCostBlocks
+{
+  bool valid {false};
+  double cost {0.0};
+  double normalized_cost {0.0};
+  Eigen::Vector3d normal {Eigen::Vector3d::Zero()};
+  double eigen_gap {0.0};
+  std::vector<int> pose_indices;
+  Eigen::VectorXd gradient;
+  Eigen::MatrixXd hessian;
+};
+
 /// Exact gradient/Hessian of the eliminated plane cost lambda_min(scatter) for
 /// one plane feature observed by multiple poses, in point-cluster coordinates.
 /// This is the v0.7 Phase 2 plane-BA cost layer described by
@@ -199,18 +216,15 @@ inline double eigenvectorCurvatureTerm(
 /// Accumulation is deterministic: combined clusters are summed in observation
 /// order, then derivatives are assembled in fixed ascending (pose, axis) order.
 /// No robust loss is applied here; rho(mu_0 / n) belongs to the problem layer.
-inline PlaneCostResult evaluatePlaneCost(
+/// With `derivatives` false it stops once the cost and validity are known.
+inline PlaneCostBlocks evaluatePlaneCostBlocks(
   const std::vector<PlaneFeatureObservation> & observations,
   const std::vector<Eigen::Matrix4d> & poses,
   int pose_count,
-  const PlaneCostConfig & config)
+  const PlaneCostConfig & config,
+  bool derivatives = true)
 {
-  PlaneCostResult result;
-  const int safe_pose_count = std::max(0, pose_count);
-  const int variable_count = 6 * safe_pose_count;
-  result.gradient = Eigen::VectorXd::Zero(variable_count);
-  result.hessian = Eigen::MatrixXd::Zero(variable_count, variable_count);
-
+  PlaneCostBlocks result;
   if (pose_count < 0) {
     return result;
   }
@@ -271,17 +285,23 @@ inline PlaneCostResult evaluatePlaneCost(
   }
 
   result.valid = true;
+  if (!derivatives) {
+    return result;
+  }
 
-  std::vector<int> observed_pose_indices;
+  std::vector<int> & observed_pose_indices = result.pose_indices;
   observed_pose_indices.reserve(static_cast<std::size_t>(pose_count));
   for (int pose_index = 0; pose_index < pose_count; ++pose_index) {
     if (pose_observed[static_cast<std::size_t>(pose_index)] != 0) {
       observed_pose_indices.push_back(pose_index);
     }
   }
+  const int block_size = 6 * static_cast<int>(observed_pose_indices.size());
+  result.gradient = Eigen::VectorXd::Zero(block_size);
+  result.hessian = Eigen::MatrixXd::Zero(block_size, block_size);
 
-  std::vector<detail::PlaneDerivativeCache> derivatives;
-  derivatives.reserve(observed_pose_indices.size() * 6U);
+  std::vector<detail::PlaneDerivativeCache> derivatives_cache;
+  derivatives_cache.reserve(observed_pose_indices.size() * 6U);
 
   for (std::size_t i = 0; i < observed_pose_indices.size(); ++i) {
     const int pose_index = observed_pose_indices[i];
@@ -300,17 +320,17 @@ inline PlaneCostResult evaluatePlaneCost(
       derivative.axis = axis;
       derivative.a = detail::firstScatterDerivative(h_derivative, s, n, &derivative.s);
 
-      const int variable_index = 6 * pose_index + axis;
-      result.gradient(variable_index) = detail::quadraticForm(derivative.a, u0);
-      derivatives.push_back(derivative);
+      result.gradient(static_cast<int>(derivatives_cache.size())) =
+        detail::quadraticForm(derivative.a, u0);
+      derivatives_cache.push_back(derivative);
     }
   }
 
-  for (std::size_t i = 0; i < derivatives.size(); ++i) {
-    const detail::PlaneDerivativeCache & row_derivative = derivatives[i];
+  for (std::size_t i = 0; i < derivatives_cache.size(); ++i) {
+    const detail::PlaneDerivativeCache & row_derivative = derivatives_cache[i];
 
-    for (std::size_t j = i; j < derivatives.size(); ++j) {
-      const detail::PlaneDerivativeCache & column_derivative = derivatives[j];
+    for (std::size_t j = i; j < derivatives_cache.size(); ++j) {
+      const detail::PlaneDerivativeCache & column_derivative = derivatives_cache[j];
       Eigen::Matrix3d second_derivative = Eigen::Matrix3d::Zero();
 
       if (row_derivative.pose_index == column_derivative.pose_index) {
@@ -346,13 +366,48 @@ inline PlaneCostResult evaluatePlaneCost(
         eigenvectors,
         eigenvalues);
 
-      const int row = 6 * row_derivative.pose_index + row_derivative.axis;
-      const int column = 6 * column_derivative.pose_index + column_derivative.axis;
+      const int row = static_cast<int>(i);
+      const int column = static_cast<int>(j);
       result.hessian(row, column) = hessian_value;
       result.hessian(column, row) = hessian_value;
     }
   }
 
+  return result;
+}
+
+/// The same cost with the derivatives over the full problem: gradient of size
+/// 6 * pose_count and a (6 pose_count) x (6 pose_count) Hessian, zero outside
+/// the blocks of the observing poses.
+inline PlaneCostResult evaluatePlaneCost(
+  const std::vector<PlaneFeatureObservation> & observations,
+  const std::vector<Eigen::Matrix4d> & poses,
+  int pose_count,
+  const PlaneCostConfig & config)
+{
+  PlaneCostResult result;
+  const int safe_pose_count = std::max(0, pose_count);
+  const int variable_count = 6 * safe_pose_count;
+  result.gradient = Eigen::VectorXd::Zero(variable_count);
+  result.hessian = Eigen::MatrixXd::Zero(variable_count, variable_count);
+
+  const PlaneCostBlocks blocks =
+    evaluatePlaneCostBlocks(observations, poses, pose_count, config);
+  result.valid = blocks.valid;
+  result.cost = blocks.cost;
+  result.normalized_cost = blocks.normalized_cost;
+  result.normal = blocks.normal;
+  result.eigen_gap = blocks.eigen_gap;
+
+  const int block_size = static_cast<int>(blocks.gradient.size());
+  for (int a = 0; a < block_size; ++a) {
+    const int row = 6 * blocks.pose_indices[static_cast<std::size_t>(a / 6)] + a % 6;
+    result.gradient(row) = blocks.gradient(a);
+    for (int b = 0; b < block_size; ++b) {
+      const int column = 6 * blocks.pose_indices[static_cast<std::size_t>(b / 6)] + b % 6;
+      result.hessian(row, column) = blocks.hessian(a, b);
+    }
+  }
   return result;
 }
 
