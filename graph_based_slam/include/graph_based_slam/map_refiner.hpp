@@ -42,6 +42,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <Eigen/Core>  // NOLINT(build/include_order)
@@ -72,10 +73,17 @@ struct MapRefinerResult
   HbaPyramidResult pyramid_result;
 };
 
-inline MapRefinerResult refineSubmapPoses(
+namespace detail
+{
+
+// owned_clouds: the same clouds as local_clouds when the caller handed them
+// over (nullptr otherwise); each submap's points are then freed once
+// downsampled, so the input and its downsampled copy are not held whole at
+// the same time.
+inline MapRefinerResult refineSubmapPosesImpl(
   const std::vector<std::vector<Eigen::Vector3d>> & local_clouds,
-  const std::vector<Eigen::Matrix4d> & initial_poses,
-  const MapRefinerConfig & config)
+  std::vector<std::vector<Eigen::Vector3d>> * owned_clouds,
+  const std::vector<Eigen::Matrix4d> & initial_poses, const MapRefinerConfig & config)
 {
   MapRefinerResult result;
   result.poses = initial_poses;
@@ -91,6 +99,9 @@ inline MapRefinerResult refineSubmapPoses(
     downsampled.push_back(
       map_quality::downsampleByVoxelCentroid(local_clouds[i], config.cloud_downsample_voxel));
     result.downsampled_points += static_cast<std::int64_t>(downsampled.back().size());
+    if (owned_clouds != nullptr) {
+      std::vector<Eigen::Vector3d>().swap((*owned_clouds)[i]);
+    }
   }
 
   result.pyramid_result =
@@ -109,6 +120,27 @@ inline MapRefinerResult refineSubmapPoses(
   result.accepted = true;
   result.status = "refined";
   return result;
+}
+
+}  // namespace detail
+
+inline MapRefinerResult refineSubmapPoses(
+  const std::vector<std::vector<Eigen::Vector3d>> & local_clouds,
+  const std::vector<Eigen::Matrix4d> & initial_poses,
+  const MapRefinerConfig & config)
+{
+  return detail::refineSubmapPosesImpl(local_clouds, nullptr, initial_poses, config);
+}
+
+// The same, taking the clouds over: each submap's points are freed once
+// downsampled. The result is the same as the overload above.
+inline MapRefinerResult refineSubmapPoses(
+  std::vector<std::vector<Eigen::Vector3d>> && local_clouds,
+  const std::vector<Eigen::Matrix4d> & initial_poses,
+  const MapRefinerConfig & config)
+{
+  std::vector<std::vector<Eigen::Vector3d>> owned = std::move(local_clouds);
+  return detail::refineSubmapPosesImpl(owned, &owned, initial_poses, config);
 }
 
 namespace detail

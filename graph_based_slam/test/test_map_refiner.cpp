@@ -167,6 +167,24 @@ TEST(MapRefiner, FeaturelessCloudsReturnInputBitwise) {
   }
 }
 
+TEST(MapRefiner, TakingTheCloudsOverGivesTheSameResult) {
+  // The overload that takes the clouds over frees each once downsampled;
+  // poses and report must be the same as with the clouds kept.
+  const Fixture fixture = makeRoomFixture();
+  const MapRefinerConfig config = smallConfig();
+  const MapRefinerResult kept =
+    refineSubmapPoses(fixture.local_clouds, fixture.initial, config);
+  std::vector<std::vector<Eigen::Vector3d>> clouds = fixture.local_clouds;
+  const MapRefinerResult taken =
+    refineSubmapPoses(std::move(clouds), fixture.initial, config);
+  EXPECT_EQ(refinerReportYamlLines(kept, config), refinerReportYamlLines(taken, config));
+  ASSERT_EQ(kept.poses.size(), taken.poses.size());
+  for (size_t p = 0; p < kept.poses.size(); ++p) {
+    EXPECT_EQ(
+      0, std::memcmp(kept.poses[p].data(), taken.poses[p].data(), 16 * sizeof(double)));
+  }
+}
+
 TEST(MapRefiner, ReportBytesAreDeterministic) {
   const Fixture fixture = makeRoomFixture();
   const MapRefinerConfig config = smallConfig();
