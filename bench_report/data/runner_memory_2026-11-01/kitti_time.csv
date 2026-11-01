@@ -1,0 +1,5 @@
+run,build,log_span_s,bag_pass_s,after_bag_pass_s,max_rss_kb,note
+m2base,before,695.4,452.9,242.4,2114516,eight-run check
+time_m2base_alone,before,647.7,407.9,239.8,2112784,alone
+m2new,after,660.0,420.3,239.7,1743124,eight-run check
+time_m2new_alone,after,651.6,409.0,242.6,1738532,alone
