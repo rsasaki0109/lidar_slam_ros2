@@ -173,7 +173,16 @@ inline std::vector<Eigen::Vector3d> downsampleByVoxelCentroid(
       if (rhs.first < lhs.first) {return false;}
       return lhs.second < rhs.second;
     });
+  // Reserved to the voxel count, as the std::map version did: the downsampled
+  // clouds of a whole run are held together (map refinement).
+  std::size_t voxel_count = keyed.empty() ? 0U : 1U;
+  for (std::size_t k = 1; k < keyed.size(); ++k) {
+    if (keyed[k - 1].first < keyed[k].first) {
+      ++voxel_count;
+    }
+  }
   std::vector<Eigen::Vector3d> result;
+  result.reserve(voxel_count);
   std::size_t begin = 0;
   while (begin < keyed.size()) {
     std::size_t end = begin + 1;
