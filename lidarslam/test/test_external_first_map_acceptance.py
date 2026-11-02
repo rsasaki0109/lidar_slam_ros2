@@ -78,6 +78,13 @@ def _load(path: Path) -> dict:
     return json.loads(path.read_text(encoding='utf-8'))
 
 
+def _empty_ledger() -> dict:
+    """Return the tracked ledger's header with no accepted validations."""
+    ledger = _load(LEDGER_PATH)
+    ledger['validations'] = []
+    return ledger
+
+
 def _entry() -> dict:
     return {
         'id': 'validation-501',
@@ -175,7 +182,7 @@ def _receipt() -> dict:
 
 def _prepare(module, entry=None, receipt=None, ledger=None):
     return module.prepare_acceptance(
-        ledger or _load(LEDGER_PATH),
+        ledger or _empty_ledger(),
         entry or _entry(),
         receipt or _receipt(),
         _load(LEDGER_SCHEMA_PATH),
@@ -191,7 +198,7 @@ def _write(path: Path, payload: dict) -> None:
 def test_valid_receipt_prepares_one_entry_without_mutating_ledger():
     """Valid evidence should produce a separate one-entry proposal."""
     module = _load_module()
-    ledger = _load(LEDGER_PATH)
+    ledger = _empty_ledger()
     original = copy.deepcopy(ledger)
 
     report, proposal = _prepare(module, ledger=ledger)
@@ -271,7 +278,7 @@ def test_acceptance_blocks_unbound_or_unreviewed_evidence(
 def test_duplicate_evidence_is_blocked_by_proposed_ledger_validation():
     """Existing ledger identities must not count twice."""
     module = _load_module()
-    ledger = _load(LEDGER_PATH)
+    ledger = _empty_ledger()
     ledger['validations'] = [_entry()]
 
     with pytest.raises(module.AcceptanceError, match='duplicate'):
@@ -283,14 +290,18 @@ def test_cli_writes_only_a_new_proposal_file(tmp_path, capsys):
     module = _load_module()
     entry_path = tmp_path / 'entry.json'
     receipt_path = tmp_path / 'receipt.json'
+    ledger_path = tmp_path / 'ledger.json'
     output_path = tmp_path / 'proposal.json'
     _write(entry_path, _entry())
     _write(receipt_path, _receipt())
+    _write(ledger_path, _empty_ledger())
     args = [
         '--entry',
         str(entry_path),
         '--receipt',
         str(receipt_path),
+        '--ledger',
+        str(ledger_path),
         '--output-ledger',
         str(output_path),
     ]
@@ -311,7 +322,8 @@ def test_cli_refuses_to_overwrite_authoritative_ledger(tmp_path, capsys):
     ledger_path = tmp_path / 'ledger.json'
     _write(entry_path, _entry())
     _write(receipt_path, _receipt())
-    _write(ledger_path, _load(LEDGER_PATH))
+    _write(ledger_path, _empty_ledger())
+    original = _load(ledger_path)
 
     result = module.main([
         '--entry',
@@ -325,5 +337,5 @@ def test_cli_refuses_to_overwrite_authoritative_ledger(tmp_path, capsys):
     ])
 
     assert result == 2
-    assert _load(ledger_path)['validations'] == []
+    assert _load(ledger_path) == original
     assert 'authoritative input ledger' in capsys.readouterr().err

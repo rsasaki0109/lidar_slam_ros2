@@ -135,7 +135,7 @@
         "docs/schemas/external-first-map-acceptance-v1.schema.json"
       ],
       "blockers": [
-        "Accept three distinct independent-user first-map reports; the tracked ledger currently has zero."
+        "Accept three distinct independent-user first-map reports; the tracked ledger has one (#576), so two more are needed."
       ]
     },
     {

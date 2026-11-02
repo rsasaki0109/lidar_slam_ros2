@@ -135,12 +135,14 @@ def _write_ledger(tmp_path: Path, payload: dict) -> Path:
 def test_tracked_ledger_is_valid_and_honestly_not_ready():
     module = _load_module()
     report = module.validate_ledger(LEDGER, SCHEMA)
+    accepted = len(json.loads(LEDGER.read_text(encoding='utf-8'))['validations'])
 
+    assert accepted < 3
     assert report['status'] == 'NOT_READY'
     assert report['required_validations'] == 3
-    assert report['accepted_validations'] == 0
-    assert report['remaining_validations'] == 3
-    assert report['distinct_reporters'] == 0
+    assert report['accepted_validations'] == accepted
+    assert report['remaining_validations'] == 3 - accepted
+    assert report['distinct_reporters'] == accepted
     assert set(report['documentation_path_counts']) == {
         'docker-first-map',
         'source-quickstart',

@@ -40,6 +40,10 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / 'scripts' / 'collect_growth_snapshot.py'
+TRACKED_ACCEPTED_VALIDATIONS = len(json.loads(
+    (ROOT / 'docs' / 'evidence' / 'external-first-map-validations.json')
+    .read_text(encoding='utf-8')
+)['validations'])
 SPEC = importlib.util.spec_from_file_location('collect_growth_snapshot', SCRIPT)
 assert SPEC is not None and SPEC.loader is not None
 GROWTH = importlib.util.module_from_spec(SPEC)
@@ -344,7 +348,7 @@ def test_live_local_product_metrics_include_fail_closed_cohort_state():
         captured_at=datetime(2026, 8, 13, tzinfo=timezone.utc),
     )
 
-    assert first_map['accepted_validations'] == 0
+    assert first_map['accepted_validations'] == TRACKED_ACCEPTED_VALIDATIONS
     assert cohort['status'] == 'WAITING_FOR_PUBLIC_GATES'
     assert cohort['attempt_count'] == 0
     assert cohort['github_writes_authorized'] is False
