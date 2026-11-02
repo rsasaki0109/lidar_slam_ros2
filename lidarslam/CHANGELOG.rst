@@ -2,6 +2,20 @@
 Changelog for package lidarslam
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.11.0 (2026-11-02)
+-------------------
+* Add ``--motion walking`` to the MID-360 preset (``lidarslam-map start`` and
+  ``setup``).
+* The RKO-LIO launch waits for graph_based_slam by default, passes RKO-LIO's
+  LiDAR extrinsic to the backend, keeps the deskewed scan topic that official
+  RKO-LIO 0.4.1 renamed, rounds the subscriber-wait timeout up to whole
+  seconds, and lets ``--launch-prefix`` reach the offline node.
+* ``lidarslam-map``: ``edit``, ``view`` and ``inspect`` work on the session
+  directories ``start`` creates; a 120 s RKO-LIO startup timeout; free-space
+  check before ``start`` writes; progress while ``doctor`` reads a large bag;
+  copy-ready commands that work from a source checkout.
+* Contributors: Ryohei Sasaki
+
 0.10.1 (2026-10-14)
 -------------------
 * Version aligned with the 0.10.1 candidate; the first-map handoff contract

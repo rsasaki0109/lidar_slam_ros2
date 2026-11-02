@@ -1,5 +1,100 @@
 # Changelog
 
+## 0.11.0 - 2026-11-02 (candidate)
+
+The next release candidate after v0.10.0. It is not tagged; v0.10.0 is the
+latest published release. The 0.10.1 release candidate below was never
+tagged; its changes ship in 0.11.0.
+
+### Added
+
+- **Multi-session join** — `graph_slam_multisession_join` joins several runs
+  of one site into one pose graph, with no prior on how they relate. It finds
+  Scan Context candidates, registers them with small_gicp, keeps the largest
+  set of agreeing transforms and checks the whole map before it joins. It
+  refuses ambiguous sets and self-similar places. Each session joins the map
+  built so far, the map is re-optimized after each join, and each session's
+  self-similarity is stored for later joins. Built only when small_gicp is
+  found. See `docs/architecture/multisession-join.md`.
+- **`SMALL_GICP` loop registration** — `registration_method: SMALL_GICP`
+  registers loops with small_gicp's GICP when the backend is built with it,
+  with `gicp_max_correspondence_distance` and
+  `gicp_transformation_epsilon`. The default registration is unchanged.
+- **Opt-in loop safeguards** — a drift gate (`loop_max_drift_ratio`,
+  `loop_max_drift_offset_m`) rejects a loop whose correction exceeds the
+  offset plus a share of the frontend travel between its two submaps, and
+  `loop_edge_info_constant_trans` / `loop_edge_info_constant_rot` give loop
+  edges a fixed information instead of one derived from the fitness. Both
+  are off by default.
+- **Causal trajectory output** — `graph_slam_offline_runner` can also write
+  each pose as a live system would have published it
+  (`causal_trajectory_output`).
+- **Backend parameter reference** — `docs/graph-slam-parameters.md`, generated
+  from the configuration header's comments
+  (`scripts/generate_graph_slam_parameter_reference.py`), describes the
+  parameters the presets set.
+
+### Changed
+
+- **Loop search on a worker thread** — with loop closure on, the backend used
+  to drop input while it searched: 28–29 of 40 submaps on HILTI exp04, 548–551
+  of 639 on a MID-360 drive, and a different result on every run. It now
+  builds every submap and repeats its output. Runs with loop closure therefore
+  differ from v0.10.0.
+- **LiDAR-to-base extrinsic for the backend's input cloud** — RKO-LIO
+  publishes its scan in the LiDAR frame and its pose in the base frame;
+  `extrinsic_lidar2base_quat_xyzw_xyz` places the scan correctly, and the
+  RKO-LIO launch passes RKO-LIO's own extrinsic. With a non-identity
+  extrinsic (HILTI, for example) backend outputs change: exp04 end to end
+  with loop closure went from 105.0 to 49.0 s. With an identity extrinsic
+  outputs are byte-identical.
+- **Default runs repeat** — the offline node waits for graph_based_slam
+  before it publishes (`wait_for_backend`, default `true`), so the backend no
+  longer misses the first scans by a different amount on every run.
+- **Lower memory, same outputs** — graph snapshots share the submap clouds;
+  stored scans are packed and compressed with zstd (lossless, through
+  `zstd_vendor`; uncompressed without zstd); a map too large for one pass is
+  saved in z slabs without assembling it (`map_save_points_per_pass`, default
+  2,000,000; smaller maps are saved as before); and the offline runner keeps
+  its submap clouds compressed. Sum of per-process peaks on Oxford Spires
+  Keble 05: 3,028 → 1,849 MiB; offline runner peak on KITTI 05: 4.83 →
+  1.74 GB. Outputs are byte-identical.
+- **Faster backend, same outputs** — the final map refinement is 2.4 times
+  faster with bitwise-identical results, and the loop search builds its
+  source cloud only when a query has candidates.
+- **Thirdparty/rko_lio** moves to `7e91814`, which carries the frontend keys
+  the `configs/sota_v7` configurations set. Every added key is opt-in; the
+  shipped settings produce byte-identical trajectories.
+- **`lidarslam-map` usability** — `doctor` reports progress while it reads a
+  large bag; `start` checks the output's free space before writing anything;
+  a workspace sourced from elsewhere is accepted, and the source launcher
+  notes when the installed runtime differs from the checkout; copy-ready
+  commands work when pasted from a source checkout; the top-level help is
+  aligned.
+
+### Fixed
+
+- **`lidarslam-map` on maps made by `start`** — `edit` refused every such map
+  because of the `.ros_log/latest` symlink, and `view` and `inspect` reported
+  a session directory as an incomplete map. `inspect`'s next steps are now
+  product commands.
+- **First start after a boot** — RKO-LIO's startup timeout is 120 s instead of
+  30 s, the concise runner keeps the child's stderr in `map_workflow.log`, and
+  the diagnosis names a startup timeout.
+- **Launch** — `wait_for_output_subscribers:=true` with the default
+  `subscriber_wait_timeout_sec` (`30.0`) stopped the offline node from
+  starting, because the barrier accepts whole seconds only; the timeout is
+  now rounded up. `ros2 launch --launch-prefix` now reaches the offline node.
+
+### Evidence
+
+- **First independent first-map validation** — an outside user completed
+  Docker First Map with the published `v0.10.0-humble` image and attached a
+  PASS receipt ([#576](https://github.com/rsasaki0109/lidar_slam_ros2/issues/576)).
+  It is the first entry in `docs/evidence/external-first-map-validations.json`,
+  so the v1.0 external-adoption gate stands at 1/3. Its one finding, a slow
+  download of the 517 MB Zenodo bag, is already documented in Docker First Map.
+
 ## 0.10.1 - 2026-10-14 (candidate)
 
 The next release candidate after v0.10.0. It is not tagged; v0.10.0 is the
@@ -48,15 +143,6 @@ latest published release.
   sequences, while the rivals ran their own configurations, so these numbers do not
   compare the methods on unseen data. On GEODE's held-out Metro Tunneling bags RKO-LIO
   has no failure, but BIEVR-LIO's median ATE is lower. See `docs/comparison.md`.
-
-### Evidence
-
-- **First independent first-map validation** — an outside user completed
-  Docker First Map with the published `v0.10.0-humble` image and attached a
-  PASS receipt ([#576](https://github.com/rsasaki0109/lidar_slam_ros2/issues/576)).
-  It is the first entry in `docs/evidence/external-first-map-validations.json`,
-  so the v1.0 external-adoption gate stands at 1/3. Its one finding, a slow
-  download of the 517 MB Zenodo bag, is already documented in Docker First Map.
 
 ### Known limitations
 
