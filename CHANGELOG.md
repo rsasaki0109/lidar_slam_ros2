@@ -49,6 +49,15 @@ latest published release.
   compare the methods on unseen data. On GEODE's held-out Metro Tunneling bags RKO-LIO
   has no failure, but BIEVR-LIO's median ATE is lower. See `docs/comparison.md`.
 
+### Evidence
+
+- **First independent first-map validation** — an outside user completed
+  Docker First Map with the published `v0.10.0-humble` image and attached a
+  PASS receipt ([#576](https://github.com/rsasaki0109/lidar_slam_ros2/issues/576)).
+  It is the first entry in `docs/evidence/external-first-map-validations.json`,
+  so the v1.0 external-adoption gate stands at 1/3. Its one finding, a slow
+  download of the 517 MB Zenodo bag, is already documented in Docker First Map.
+
 ### Known limitations
 
 - RTK-SLAM Construction Hall 2 scores 0.165 m against 0.086 m in v0.9.0. It

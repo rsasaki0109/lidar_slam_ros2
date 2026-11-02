@@ -49,6 +49,10 @@ PACKAGE_MANAGER_REPORT_SCHEMA = (
     / 'package-manager-release-readiness-v1.schema.json'
 )
 CURRENT_VERSION = (ROOT / 'VERSION').read_text(encoding='utf-8').strip()
+TRACKED_ACCEPTED_VALIDATIONS = len(json.loads(
+    (ROOT / 'docs' / 'evidence' / 'external-first-map-validations.json')
+    .read_text(encoding='utf-8')
+)['validations'])
 SPEC = importlib.util.spec_from_file_location('v1_readiness', SCRIPT)
 assert SPEC is not None and SPEC.loader is not None
 READINESS = importlib.util.module_from_spec(SPEC)
@@ -74,7 +78,9 @@ def test_tracked_contract_reports_exact_open_product_gates():
         'distribution',
         'external-adoption',
     }
-    assert report['external_first_map']['accepted_validations'] == 0
+    assert report['external_first_map']['accepted_validations'] == (
+        TRACKED_ACCEPTED_VALIDATIONS
+    )
     assert report['release'] == {
         'expected_tag': 'v0.9.0',
         'minimum_version_met': True,

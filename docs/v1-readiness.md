@@ -130,7 +130,7 @@ state, not malformed evidence.
 | Open gate | Remaining proof |
 | --- | --- |
 | Distribution | `ndt_omp_ros2` is `BLOCKED`: answer the lineage question and converge on canonical `ndt_omp` or a fully isolated fork before replacing rosdistro PRs [#52949](https://github.com/ros/rosdistro/pull/52949) and [#52950](https://github.com/ros/rosdistro/pull/52950); their current heads each have one failed stale-base rosdep check, so require a current-base green replacement, then wait for Jazzy RKO-LIO 0.3.2 main sync and run package-manager E2E |
-| External adoption | Accept three distinct independent first-map validations; current ledger is 0/3 |
+| External adoption | Accept three distinct independent first-map validations; current ledger is 1/3 ([#576](https://github.com/rsasaki0109/lidar_slam_ros2/issues/576), Docker First Map) |
 
 The reliability and release-publication gates closed when the immutable
 [`v0.9.0` release](https://github.com/rsasaki0109/lidar_slam_ros2/releases/tag/v0.9.0)

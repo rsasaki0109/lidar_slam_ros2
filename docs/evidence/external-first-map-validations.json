@@ -1,7 +1,44 @@
 {
-  "schema_version": 1,
-  "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/external-first-map-validations-v1.schema.json",
-  "required_validations": 3,
   "program_url": "https://rsasaki0109.github.io/lidar_slam_ros2/external-first-map-validation.html",
-  "validations": []
+  "required_validations": 3,
+  "schema_uri": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/external-first-map-validations-v1.schema.json",
+  "schema_version": 1,
+  "validations": [
+    {
+      "acceptance": {
+        "findings_status": "documented",
+        "resolution_urls": [
+          "https://rsasaki0109.github.io/lidar_slam_ros2/getting-started.html#docker-first-map-no-ros-2-workspace"
+        ],
+        "review_url": "https://github.com/rsasaki0109/lidar_slam_ros2/issues/576#issuecomment-6566533789",
+        "reviewed_at": "2026-11-02T00:57:57Z",
+        "reviewed_by": "@rsasaki0109",
+        "status": "accepted"
+      },
+      "documentation_path": "docker-first-map",
+      "environment": {
+        "architecture": "amd64",
+        "install_method": "ghcr",
+        "os": "Ubuntu 22.04.5 LTS",
+        "ros_distro": "container-managed"
+      },
+      "exact_command": "mkdir -p \"$PWD/lidarslam_output\"\nsudo docker run --rm \\\n  -e LIDARSLAM_HOST_UID=\"$(id -u)\" \\\n  -e LIDARSLAM_HOST_GID=\"$(id -g)\" \\\n  -v \"$PWD/lidarslam_output:/lidarslam_ws/output\" \\\n  ghcr.io/rsasaki0109/lidar_slam_ros2:v0.10.0-humble",
+      "findings": [
+        "The rosbag2_2024_04_16-14_17_01.zip download was a bit slow."
+      ],
+      "id": "shubhamkalantri-docker-humble-2026-11-01",
+      "independent_attestation": true,
+      "issue_url": "https://github.com/rsasaki0109/lidar_slam_ros2/issues/576",
+      "release_ref": "ghcr.io/rsasaki0109/lidar_slam_ros2@sha256:816bd7feaa5fce1c950f5ef799674cc72643468bb8bf5cfa72e07ba3d028b014",
+      "reporter": "@shubhamkalantri",
+      "result": "passed",
+      "submitted_at": "2026-11-01T11:57:06Z",
+      "verification": {
+        "autoware_status": "PASS",
+        "diagnosis_status": "success",
+        "manifest_sha256": "759c4004d6f732174cca6f7b92cc05ea1406ccc4f025b5dc7865d2fa113be426",
+        "manifest_status": "succeeded"
+      }
+    }
+  ]
 }
