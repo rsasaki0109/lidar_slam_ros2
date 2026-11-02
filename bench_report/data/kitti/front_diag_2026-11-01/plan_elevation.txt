@@ -29,3 +29,14 @@ Estimate (2026-11-01, p2_kitti_elevation_offset.py on the rotation-deskewed bag,
 used; median slope b = -0.002106, delta = +0.1206 deg (interquartile +0.0119 .. +0.1872 deg; the mean of b gives
 +0.0237 deg, pulled by outlying scans). The sign is the literature's (beams lower than calibrated); the size is about
 60 % of 0.205 deg. delta = 0.1206 deg is used, as fixed above.
+
+Results (2026-11-01; front_diag.csv rows rotdeskew and elev; the bag has the same 2,762 frames)
+                                   rotdeskew            elev (+ delta 0.1206 deg)
+  frontend md5                     d0de2103             8648613f
+  vertical, signed mean, 200 m     -0.717 %             -0.278 %  (-61 %)
+  APE RMSE / max                   2.109 / 5.25 m       1.960 / 4.59 m  (-7 %)
+  t_rel / r_rel                    0.8444 % / 0.0034    0.5789 % / 0.0019 deg/m  (-31 %)
+  constant frame rotation C        yaw +0.28 pitch +0.31  yaw +0.28 pitch +0.13 deg
+Reading: R1 holds (-61 %, beyond the -0.36 % mark), R2 holds (both improve). KITTI's data preparation applies
+ELEVATION_CORRECTION_DEG=0.1206 with the rotation deskew (p2_kitti_raw.sh); /home/user/data/kitti_raw_05/ros2 is that
+bag. Most of the frame rotation's pitch was this offset; its yaw (+0.28 deg) is left. error_breakdown_elev.txt.

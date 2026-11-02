@@ -46,3 +46,5 @@ Note added 2026-11-01 (data/kitti/front_diag_2026-11-01): the seam check above l
 scans turn out to be hardly compensated for rotation, which biases yaw in sharp turns. Since then the bag is built with
 the rotation deskewed from the OXTS gyro (kitti_raw_to_ros2.py ROTATION_DESKEW=1, by p2_kitti_raw.sh); the frontend
 on it: APE RMSE 2.11 m (from 3.56), t_rel 0.84 % (from 1.02). The results above are on the bag as first recorded.
+Since 2026-11-01 the bag also corrects the Velodyne's elevation offset (+0.1206 deg, estimated from the scans alone,
+ELEVATION_CORRECTION_DEG; data/kitti/front_diag_2026-11-01/plan_elevation.txt): frontend APE RMSE 1.96 m, t_rel 0.58 %.
