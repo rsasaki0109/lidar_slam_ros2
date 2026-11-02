@@ -12,7 +12,6 @@ not belong at the root.
 | `lidarslam_msgs/` | ROS 2 interfaces |
 | `lidarslam_*_plugins/` | Registration plugin interfaces and implementations |
 | `scripts/` | Maintained command-line workflows and automation |
-| `scripts/recovery/` | Historical or incident-specific recovery commands |
 | `tools/` | Offline processing libraries and specialized tooling |
 | `configs/` | Versioned runtime and benchmark configurations |
 | `docs/research/` | Research records and historical plans |

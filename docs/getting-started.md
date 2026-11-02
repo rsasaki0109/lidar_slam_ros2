@@ -261,8 +261,8 @@ inventory. It builds `graph_based_slam`, `lidarslam`, `lidarslam_msgs`,
 `ndt_omp_ros2`, `rko_lio`, `scanmatcher` and the registration plugin packages they
 depend on (`lidarslam_plugin_interfaces`, `lidarslam_default_plugins`,
 `lidarslam_registration_loader`, `lidarslam_fake_registration_plugins`), passing
-that explicit list to `--packages-select`. `glim_clean_room_adapter` and
-`lidarslam_registration_plugin_template` are expected but not built. An omitted
+that explicit list to `--packages-select`. `lidarslam_registration_plugin_template`
+is expected but not built. An omitted
 package or an unexpected experimental package fails as
 `[source-package-inventory-mismatch]` instead of silently expanding or weakening
 the beginner build.

@@ -108,7 +108,7 @@ def resolve_benchmark_resource(resource: str, *, executable: bool = False) -> Pa
     """Resolve one canonical benchmark resource in source or install mode.
 
     Resource names are repository-relative (for example,
-    ``scripts/sample_container_process_rss.py``).  In a source checkout the
+    ``scripts/ape_from_tum.py``).  In a source checkout the
     name is resolved below ``scripts/``; in an installed package it is
     resolved below the installed package directory.  The resolver rejects
     absolute/traversal names, symlinks, missing files, and paths that resolve

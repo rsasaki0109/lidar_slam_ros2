@@ -98,16 +98,15 @@ def test_installed_launch_target_uses_ros2_package_and_file_arguments():
     assert 'RKO_LAUNCH_TARGET="lidarslam/rko_lio_slam.launch.py"' not in script
 
 
-def test_ordinary_completion_does_not_treat_pending_as_v2_corruption():
+def test_offline_completion_uses_the_result_dump_or_completion_log():
     script = BENCHMARK_SCRIPT.read_text(encoding='utf-8')
-    ordinary_branch = script.split(
-        '    else\n      if [[ -s "$RKO_RESULT_TUM" ]]; then', 1)[1]
-    ordinary_branch = ordinary_branch.split(
-        '    fi\n\n    if [[ -n "$LAUNCH_PID" ]]', 1)[0]
+    wait_loop = script.split('wait_for_offline_completion() {', 1)[1]
+    wait_loop = wait_loop.split('\n}\n', 1)[0]
 
-    assert 'if offline_completion_recorded; then' in ordinary_branch
-    assert 'v2 consumer evidence is invalid or malformed' not in ordinary_branch
-    assert 'completion_state' not in ordinary_branch
+    assert 'if [[ -s "$RKO_RESULT_TUM" ]]; then' in wait_loop
+    assert 'if offline_completion_recorded; then' in wait_loop
+    assert 'M6A10' not in script
+    assert 'consumer evidence' not in script
 
 
 def test_sparse_graph_path_is_densified_before_scoring():

@@ -42,7 +42,7 @@ def main() -> int:
         description='run a lidarslam_benchmark_tools module from the install')
     parser.add_argument(
         "module",
-        help='module basename, for example evaluate_competitive_suite_gate')
+        help='module basename, for example ape_from_tum')
     parser.add_argument("arguments", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     module = args.module

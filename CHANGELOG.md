@@ -5,8 +5,23 @@
 The next release candidate after v0.11.0. It is not tagged; v0.11.0 is the
 latest published release.
 
+### Removed
+
+- **Two-system comparison tooling** — the competitive benchmark stack
+  (evidence bundles, GT-blind holdouts, execution selection, rival source
+  closure), the M6a10 runtime phase contract, the GLIM clean-room adapter,
+  the GLIM and FAST-LIVO2 comparison runners and the `voxel_slam_dev` patches
+  are gone, with their tests and documentation (482 files). No release gate
+  used them. The README and comparison results stay; their reproduction now
+  starts from the `v0.11.0` tag.
+
 ### Changed
 
+- `run_rko_lio_graph_benchmark.sh` keeps its ordinary completion path only.
+  `--skip-map-save` still suppresses the graph's own map writes, now through
+  `LIDARSLAM_BENCHMARK_NO_MAP_ARTIFACTS`.
+- The default CI gate and the product Python test runner no longer exclude
+  the removed tests.
 - The README, Getting Started (EN/JA) and the map authoring, index,
   comparison and external-validation pages point at the published
   `v0.11.0-humble` and `v0.11.0-jazzy` images.

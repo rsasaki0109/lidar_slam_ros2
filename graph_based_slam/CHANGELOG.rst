@@ -4,7 +4,9 @@ Changelog for package graph_based_slam
 
 0.12.0 (2026-11-03)
 -------------------
-* No source changes yet; version aligned with the 0.12.0 candidate.
+* Drop the tests of the retired two-system comparison tooling; the no-map
+  benchmark test is now ``test_benchmark_no_map_artifacts``. No source
+  changes.
 * Contributors: Ryohei Sasaki
 
 0.11.0 (2026-11-02)

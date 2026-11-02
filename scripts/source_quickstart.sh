@@ -132,7 +132,6 @@ EXPECTED_SOURCE_PACKAGES=(
 )
 # Present in the repository but outside the beginner build.
 UNBUILT_SOURCE_PACKAGES=(
-  glim_clean_room_adapter
   lidarslam_registration_plugin_template
 )
 

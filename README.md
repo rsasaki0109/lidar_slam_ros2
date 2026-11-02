@@ -106,7 +106,7 @@ profile recorded **44.1% lower median APE RMSE than GLIM** over three runs:
 | **lidarslam_ros2** | **0.0482 m** | **0.194** | **369.4 MB** |
 | GLIM CPU | 0.0863 m | 0.218 | 696.0 MB |
 
-This is a scoped HILTI `exp04` result from one 4-vCPU cloud VM (2026-10-19, three alternated runs per system, GLIM v1.2.2 built natively because the VM has no Docker daemon). There, lidarslam_ros2 has the lower median APE, processing RTF and peak RSS; the RTF ranges barely separate. It is not an overall best-system claim. Commands, scoring rules, the earlier Docker-based record and map-quality limits: [Comparison](docs/comparison.md#same-input-hilti-2022-exp04-vs-glim-cpu).
+This is a scoped HILTI `exp04` result from one 4-vCPU cloud VM (2026-10-19, three alternated runs per system, GLIM v1.2.2 built natively because the VM has no Docker daemon). There, lidarslam_ros2 has the lower median APE, processing RTF and peak RSS; the RTF ranges barely separate. It is not an overall best-system claim. Commands, scoring rules, the earlier Docker-based record and map-quality limits: [Comparison](docs/comparison.md#same-input-hilti-2022-exp04-vs-glim-cpu). The two-system comparison runners were retired after `v0.11.0`; rerun them from that tag.
 
 The separate Voxel-SLAM `v17` research candidate also achieved the lowest
 geometric-mean APE across NavINST, Oxford, and UrbanNav: **2.2836 m**, versus
@@ -120,9 +120,6 @@ Development-data results with loop closure on the MapsHD humanoid MID-360
 trials, Oxford Spires Keble 05 and HILTI `exp04`, with settings chosen on those
 same sequences, are in
 [Comparison](docs/comparison.md#development-data-results-mapshd-humanoid-trials-oxford-spires-and-exp04).
-
-<!-- BEGIN GENERATED COMPETITIVE CLAIM PUBLICATION -->
-<!-- END GENERATED COMPETITIVE CLAIM PUBLICATION -->
 
 ## Accuracy
 

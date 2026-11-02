@@ -4,8 +4,10 @@ Changelog for package lidarslam
 
 0.12.0 (2026-11-03)
 -------------------
-* Docs point at the published v0.11.0 images; version aligned with the
-  0.12.0 candidate.
+* The RKO-LIO launch reads ``LIDARSLAM_BENCHMARK_NO_MAP_ARTIFACTS`` for the
+  benchmark no-map mode and no longer bridges the retired M6a10 benchmark
+  parameters.
+* Docs point at the published v0.11.0 images.
 * Contributors: Ryohei Sasaki
 
 0.11.0 (2026-11-02)

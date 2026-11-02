@@ -698,21 +698,12 @@ if(BUILD_TESTING)
     test_map_bundle_verifier
     test_map_edit
     test_map_merge
-    test_competitive_slam_profile
-    test_competitive_candidate_provenance
-    test_fast_livo2_benchmark_runner
-    test_glim_benchmark_runner
     test_convert_ply_xyz_to_pcd
-    test_freeze_hilti2022_holdout_inputs
     test_compare_rosbag_semantic_inputs
-    test_validate_fast_livo2_processing_rtf
     test_compare_checkpoint_trajectory_errors
     test_summarize_repeated_map_quality
     test_summarize_repeated_visual_quality
     test_repose_posed_images
-    test_evaluate_competitive_sequence_gate
-    test_compose_competitive_result
-    test_evaluate_competitive_suite_gate
     test_map_quality_profiles
     test_summarize_degeneracy_csv
     test_mid360_robot_tools
@@ -812,7 +803,6 @@ if(BUILD_TESTING)
     test_colored_map_appearance
     test_colored_map_pipeline
     test_colorize_from_bag
-    test_compare_fast_livo2
     test_cross_repo_slam_benchmark
     test_densify_corrected_trajectory
     test_docker_demo_script
@@ -839,7 +829,6 @@ if(BUILD_TESTING)
     test_normalize_ntu_viral_rosbag
     test_ntu_viral_download_script
     test_offline_determinism_script
-    test_ours_competitive_benchmark_runner
     test_pcd_sequence_to_rosbag2
     test_plane_patch_warp
     test_pose_graph_loop_residuals
@@ -850,53 +839,15 @@ if(BUILD_TESTING)
     test_rko_lio_graph_benchmark_script
     test_rtk_slam_download_script
     test_run_lidar_slam
-    test_run_ntu_viral_formal_measurements
     test_runtime_report
     test_select_rosbag_topic
     test_slice_rosbag2
-    test_benchmark_phase_contract
-    test_bind_fast_livo2_v10_consumer_evidence
-    test_bind_fast_livo2_v12_consumer_evidence
-    test_competitive_container_recipes
-    test_competitive_execution_identity_capture
-    test_competitive_execution_r3_source_worktree
-    test_competitive_holdout_authorization
-    test_competitive_memory_gate
-    test_competitive_rival_legal_provenance_capture
-    test_competitive_rival_source_closure
-    test_compose_competitive_evidence_bundle
-    test_compose_fast_livo2_terminal_evidence
-    test_compose_fast_livo2_v12_terminal_evidence
-    test_container_memory_evidence
-    test_fast_livo2_m6a10_v22_container_run
-    test_fast_livo2_m6a10_v22_synthetic_gate
-    test_fast_livo2_python38_compat
-    test_freeze_competitive_fresh_holdouts
-    test_m6a10_fixed10_v7_launcher
-    test_m6a10_no_map_artifacts
-    test_m6a10_quiescence
-    test_m6a10_synchronized_tail
-    test_m6a10_terminal_support_context_v10
+    test_benchmark_no_map_artifacts
     test_map_quality_regression
     test_map_run_manifest
     test_map_support_bundle
-    test_materialize_m6a10_ros1_equivalent
-    test_materialize_m6a10_synchronized_tail
-    test_monitor_m6a10_host_interference
-    test_mount_competitive_ssd
-    test_ntu_viral_acquisition_pipeline
-    test_ours_competitive_benchmark
-    test_ours_competitive_benchmark_cli
-    test_ours_m6a10_consumer_hook
-    test_prepare_competitive_evidence_bundle_handoff
-    test_prepare_competitive_fresh_ros_inputs
-    test_publish_competitive_claim
     test_registration_contract_cmake_smoke
     test_registration_plugin_dso_gate
-    test_run_competitive_gt_blind_benchmark
-    test_sample_container_process_rss
-    test_verify_competitive_evidence_bundle
-    test_verify_competitive_frozen_holdouts
     test_verify_map_run_manifest
   )
   foreach(PYTEST_NAME IN LISTS GRAPH_BASED_SLAM_ADDITIONAL_PYTESTS)
