@@ -1,10 +1,11 @@
 # Changelog
 
-## 0.11.0 - 2026-11-02 (candidate)
+## 0.11.0 - 2026-11-02
 
-The next release candidate after v0.10.0. It is not tagged; v0.10.0 is the
-latest published release. The 0.10.1 release candidate below was never
-tagged; its changes ship in 0.11.0.
+The first published release since v0.10.0. The 0.10.1 release candidate below
+was never tagged; its changes ship in 0.11.0. The `newer_college_math_hard`
+release profile was not measured for this release (a one-time exception; see
+the release notes).
 
 ### Added
 
