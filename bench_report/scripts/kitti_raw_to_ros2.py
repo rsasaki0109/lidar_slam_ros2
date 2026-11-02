@@ -21,6 +21,9 @@ exp([w * (t - 0.5) * T]): t = 0.5 * (-atan2(y, x) / pi + 1) is its time in the s
 forward, as in KISS-ICP's KITTI loader), T the scan's end minus start time, and w the mean OXTS angular rate over the
 scan in the Velodyne frame (ROTATION_DESKEW_EXTRINSIC: the rig's LiDAR-to-IMU qx,qy,qz,qw; the KITTI rig's by
 default). Only the gyro is used, no ground truth.
+ELEVATION_CORRECTION_DEG=d (data/kitti/front_diag_2026-11-01/plan_elevation.txt): before the rotation deskew, each
+point is rotated by d about the axis (p x z) / |p x z|, raising its elevation by d (KISS-ICP's correct_kitti_scan with
+its own value). d comes from the scans alone (p2_kitti_elevation_offset.py).
 Usage: kitti_raw_to_ros2.py <date> <drive number> <out_bag_dir> [workers]   (e.g. 2011_09_30 0018 out 8)
 """
 import bisect
@@ -154,8 +157,22 @@ def deskew_rotation(pts, w_velo, period_s):
     return out
 
 
+def correct_elevation(pts, delta_rad):
+    # Raise each point's elevation by delta_rad: rotate it about (p x z) / |p x z| (points on the z axis stay).
+    from scipy.spatial.transform import Rotation
+    xyz = pts[:, :3].astype(np.float64)
+    axis = np.cross(xyz, np.array([0.0, 0.0, 1.0]))
+    norm = np.linalg.norm(axis, axis=1, keepdims=True)
+    ok = norm[:, 0] > 1e-9
+    out = pts.copy()
+    out[ok, :3] = Rotation.from_rotvec(delta_rad * axis[ok] / norm[ok]).apply(xyz[ok]).astype(np.float32)
+    return out
+
+
 def cloud_message(raw, header_ns, w_velo=None, period_s=0.0):
     pts = np.frombuffer(raw, dtype=np.float32).reshape(-1, 4)
+    if os.environ.get('ELEVATION_CORRECTION_DEG'):
+        pts = correct_elevation(pts, np.radians(float(os.environ['ELEVATION_CORRECTION_DEG'])))
     if w_velo is not None:
         pts = deskew_rotation(pts, w_velo, period_s)
     msg = PointCloud2()

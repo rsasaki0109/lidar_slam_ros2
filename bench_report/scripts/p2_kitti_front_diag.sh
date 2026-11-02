@@ -17,6 +17,7 @@ G12=(close_scene_max_median_range:=12.0 close_scene_max_correspondence_distance:
 case ${v} in
   base) over=() ;;
   rotdeskew) over=() ;;  # base on the rotation-deskewed bag (plan_rotation_deskew.txt; it is ros2 since then)
+  elev) over=() ;;  # base on the bag with the elevation correction too (plan_elevation.txt)
   noclose) over=(close_scene_max_median_range:=0.0) ;;
   lever0) EXT="-0.007412088,0.001015086,0.000385188,0.999971941,0.0,0.0,0.0"
           over=("extrinsic_lidar2base_quat_xyzw_xyz:=[${EXT}]") ;;
