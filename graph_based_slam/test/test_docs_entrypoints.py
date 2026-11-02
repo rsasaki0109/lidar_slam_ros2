@@ -2283,7 +2283,7 @@ def test_source_quickstart_bootstraps_dependencies_and_keeps_dev_tests():
         encoding='utf-8'
     ).strip() + "'" in onboarding
     assert (
-        "SOURCE_COMMIT='c4cf7075ed28585748c6c30a968c49086cee05c4'"
+        "SOURCE_COMMIT='ebc7c348e1510a3069a3d74542df12eebb8857db'"
         in onboarding
     )
     assert onboarding.count('--product-version "$SOURCE_VERSION"') == 3
