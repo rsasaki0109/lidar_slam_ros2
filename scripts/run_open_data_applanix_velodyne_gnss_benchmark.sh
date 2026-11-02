@@ -872,7 +872,9 @@ if [[ "${USE_GNSS,,}" == "true" ]]; then
   then
     GNSS_FROM_MAIN="true"
   else
-    NATIVE_GNSS_TOPIC="$(detect_topic_by_type "${BAG_PATH}" "sensor_msgs/msg/NavSatFix")"
+    # select_rosbag_topic.py exits 1 when the bag has no such topic; under
+    # set -e that ended the run before the GSOF fallback below.
+    NATIVE_GNSS_TOPIC="$(detect_topic_by_type "${BAG_PATH}" "sensor_msgs/msg/NavSatFix" || true)"
     if [[ -n "${NATIVE_GNSS_TOPIC}" ]]; then
       GNSS_TOPIC="${NATIVE_GNSS_TOPIC}"
       GNSS_FROM_MAIN="true"
@@ -905,7 +907,7 @@ if [[ "${USE_IMU,,}" == "true" ]]; then
   then
     IMU_FROM_MAIN="true"
   else
-    NATIVE_IMU_TOPIC="$(detect_topic_by_type "${BAG_PATH}" "sensor_msgs/msg/Imu")"
+    NATIVE_IMU_TOPIC="$(detect_topic_by_type "${BAG_PATH}" "sensor_msgs/msg/Imu" || true)"
     if [[ -n "${NATIVE_IMU_TOPIC}" ]]; then
       IMU_TOPIC="${NATIVE_IMU_TOPIC}"
       IMU_FROM_MAIN="true"
