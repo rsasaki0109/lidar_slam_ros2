@@ -1,0 +1,42 @@
+KITTI 05: correct the Velodyne's elevation offset, estimated from the scans alone (a candidate for KITTI's data
+preparation; G does not change). Written 2026-11-01, before the estimate and before any run.
+
+Why (chapter 48, error_breakdown_rotdeskew.txt): after the rotation deskew the frontend still drifts down by 0.47 to
+0.81 % of the distance (signed mean vertical error -0.717 % over 200 m windows, about equal to its RMS). A Velodyne
+whose beams all point lower than their calibration says makes flat ground look like a cone falling away from the
+sensor (z measured = z true - r tan(delta)), and scan-to-map registration then drifts vertically. Such an offset on
+KITTI's HDL-64 is known (IMLS-SLAM 0.22 deg, KISS-ICP's KITTI loader 0.205 deg); those values are context only and are
+not used.
+
+Estimate (bench_report/scripts/p2_kitti_elevation_offset.py, on the deskewed bag, no ground truth): every 5th scan;
+points of the ground along the car, |y| < 3 m and 5 m < |x| < 40 m with z within [-2.2, -1.2] m of the sensor, fitted
+by z = a + c x + b |x| with three rounds of keeping the points within 0.15 m of the fit. |x| is even and x odd in
+the driving direction, so b is the cone and c the tilt of the car or road; the road's camber across it is left out by
+the narrow band. A scan counts if at least 300 points remain on each side of the car. delta = -atan(median of b over
+the scans). Whatever delta comes out is used; it is not adjusted afterwards.
+
+Candidate: kitti_raw_to_ros2.py with ELEVATION_CORRECTION_DEG=delta as well as ROTATION_DESKEW=1 rotates each point
+by delta about the axis (p x z) / |p x z| (raising its elevation by delta, as KISS-ICP's correct_kitti_scan does),
+before the rotation deskew. The frontend diagnostic (p2_kitti_front_diag.sh) runs on that bag.
+
+Reading, fixed now
+R1. The signed mean vertical error over 200 m windows (p2_kitti_error_breakdown.py) falls by at least half (from
+    -0.717 % to -0.36 % or closer to 0).
+R2. APE RMSE and t_rel get no more than 2 % worse than the rotation-deskewed run (2.109 m, 0.8444 %).
+If both hold, KITTI's data preparation applies the estimated delta (p2_kitti_raw.sh); otherwise nothing changes.
+
+Estimate (2026-11-01, p2_kitti_elevation_offset.py on the rotation-deskewed bag, every 5th scan): 553 of 2,762 scans
+used; median slope b = -0.002106, delta = +0.1206 deg (interquartile +0.0119 .. +0.1872 deg; the mean of b gives
++0.0237 deg, pulled by outlying scans). The sign is the literature's (beams lower than calibrated); the size is about
+60 % of 0.205 deg. delta = 0.1206 deg is used, as fixed above.
+
+Results (2026-11-01; front_diag.csv rows rotdeskew and elev; the bag has the same 2,762 frames)
+                                   rotdeskew            elev (+ delta 0.1206 deg)
+  frontend md5                     d0de2103             8648613f
+  vertical, signed mean, 200 m     -0.717 %             -0.278 %  (-61 %)
+  APE RMSE / max                   2.109 / 5.25 m       1.960 / 4.59 m  (-7 %)
+  t_rel / r_rel                    0.8444 % / 0.0034    0.5789 % / 0.0019 deg/m  (-31 %)
+  constant frame rotation C        yaw +0.28 pitch +0.31  yaw +0.28 pitch +0.13 deg
+Reading: R1 holds (-61 %, beyond the -0.36 % mark), R2 holds (both improve). KITTI's data preparation applies
+ELEVATION_CORRECTION_DEG=0.1206 with the rotation deskew (p2_kitti_raw.sh); /home/user/data/kitti_raw_05/ros2 is that
+bag. Most of the frame rotation's pitch was this offset; its yaw (+0.28 deg) is left. error_breakdown_elev.txt.
