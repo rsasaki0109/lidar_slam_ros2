@@ -2,6 +2,29 @@
 Changelog for package graph_based_slam
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.11.0 (2026-11-02)
+-------------------
+* Add ``graph_slam_multisession_join``: join several runs of one site into one
+  pose graph by place recognition, with refusals for ambiguous sets and
+  self-similar places (built when small_gicp is found).
+* Run the loop search on a worker thread, so loop closure no longer drops
+  input and outputs repeat from run to run.
+* Place the input cloud with the LiDAR-to-base extrinsic
+  (``extrinsic_lidar2base_quat_xyzw_xyz``); scans already stamped with the base
+  frame (official RKO-LIO 0.4.1 and later) are used as they are.
+* Add ``SMALL_GICP`` loop registration, an opt-in loop drift gate and opt-in
+  fixed loop-edge information.
+* Lower the backend's memory with byte-identical outputs: shared submap clouds,
+  packed and zstd-compressed stored scans, a map save in z slabs without an
+  assembled map, and compressed submap clouds in the offline runner.
+* Make the final map refinement 2.4 times faster with bitwise-identical
+  results, and build the loop source cloud only when a query has candidates.
+* Add a causal trajectory output to ``graph_slam_offline_runner``.
+* Downsample maps whose extent overflows PCL VoxelGrid's 32-bit voxel index.
+* Document the parameters the presets set (generated reference); remove the
+  leftover ``loop_edge_info_from_registration`` from the default parameters.
+* Contributors: Ryohei Sasaki
+
 0.10.1 (2026-10-14)
 -------------------
 * Version aligned with the 0.10.1 candidate; the documentation tests follow the

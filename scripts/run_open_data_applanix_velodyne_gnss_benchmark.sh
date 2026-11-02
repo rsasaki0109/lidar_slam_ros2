@@ -68,6 +68,7 @@ Options:
   --rate FLOAT                ros2 bag play rate (default: 1.0).
   --play-wall-sec SEC         Playback timeout. If omitted, derived from bag duration and rate.
   --drain-sec SEC             Extra wait before /map_save (default: 8).
+  --map-save-timeout-sec SEC  Time one /map_save call may take (default: 300).
   --use-gnss BOOL             Enable backend GNSS constraints (default: true).
   --verify-map                Run verify_autoware_map.py after /map_save.
   --ros-domain-id ID          Export ROS_DOMAIN_ID for this benchmark run.
@@ -468,7 +469,7 @@ PY
 call_map_save_with_retry() {
   local log_file="$1"
   for _ in $(seq 1 5); do
-    if timeout 20 ros2 service call /map_save std_srvs/srv/Empty "{}" >"${log_file}" 2>&1; then
+    if timeout "${MAP_SAVE_TIMEOUT_SEC}" ros2 service call /map_save std_srvs/srv/Empty "{}" >"${log_file}" 2>&1; then
       return 0
     fi
     sleep 2
@@ -624,6 +625,9 @@ OUTPUT_DIR=""
 RATE="1.0"
 PLAY_WALL_SEC=""
 DRAIN_SEC="8"
+# A correctly downsampled Leo Drive map takes about 30 s to save, so a
+# 20 s call timed out on every attempt (each retry saved the map again).
+MAP_SAVE_TIMEOUT_SEC="300"
 USE_GNSS="true"
 VERIFY_MAP="false"
 ROS_DOMAIN_ID_OVERRIDE=""
@@ -712,6 +716,8 @@ while [[ $# -gt 0 ]]; do
       PLAY_WALL_SEC="${2:-}"; shift 2 ;;
     --drain-sec)
       DRAIN_SEC="${2:-}"; shift 2 ;;
+    --map-save-timeout-sec)
+      MAP_SAVE_TIMEOUT_SEC="${2:-}"; shift 2 ;;
     --use-gnss)
       USE_GNSS="${2:-}"; shift 2 ;;
     --verify-map)
@@ -866,7 +872,9 @@ if [[ "${USE_GNSS,,}" == "true" ]]; then
   then
     GNSS_FROM_MAIN="true"
   else
-    NATIVE_GNSS_TOPIC="$(detect_topic_by_type "${BAG_PATH}" "sensor_msgs/msg/NavSatFix")"
+    # select_rosbag_topic.py exits 1 when the bag has no such topic; under
+    # set -e that ended the run before the GSOF fallback below.
+    NATIVE_GNSS_TOPIC="$(detect_topic_by_type "${BAG_PATH}" "sensor_msgs/msg/NavSatFix" || true)"
     if [[ -n "${NATIVE_GNSS_TOPIC}" ]]; then
       GNSS_TOPIC="${NATIVE_GNSS_TOPIC}"
       GNSS_FROM_MAIN="true"
@@ -899,7 +907,7 @@ if [[ "${USE_IMU,,}" == "true" ]]; then
   then
     IMU_FROM_MAIN="true"
   else
-    NATIVE_IMU_TOPIC="$(detect_topic_by_type "${BAG_PATH}" "sensor_msgs/msg/Imu")"
+    NATIVE_IMU_TOPIC="$(detect_topic_by_type "${BAG_PATH}" "sensor_msgs/msg/Imu" || true)"
     if [[ -n "${NATIVE_IMU_TOPIC}" ]]; then
       IMU_TOPIC="${NATIVE_IMU_TOPIC}"
       IMU_FROM_MAIN="true"

@@ -87,6 +87,10 @@ def test_open_data_benchmark_script_supports_gnss_toggle_and_packet_conversion()
     assert 'topic_exists_by_name_and_type()' in script
     assert 'detect_topic_by_type "${BAG_PATH}" "sensor_msgs/msg/NavSatFix"' in script
     assert 'detect_topic_by_type "${BAG_PATH}" "sensor_msgs/msg/Imu"' in script
+    # A bag without a native topic must reach the GSOF sidecar fallback; the
+    # selector exits 1 when it finds nothing, which set -e would make fatal.
+    assert '"sensor_msgs/msg/NavSatFix" || true)"' in script
+    assert '"sensor_msgs/msg/Imu" || true)"' in script
     assert 'GNSS_FROM_MAIN="false"' in script
     assert 'USE_ODOM_PRIOR="false"' in script
     assert 'ODOM_BAG=""' in script

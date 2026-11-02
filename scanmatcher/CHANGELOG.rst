@@ -2,6 +2,11 @@
 Changelog for package scanmatcher
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.11.0 (2026-11-02)
+-------------------
+* No source changes; version aligned with the 0.11.0 candidate.
+* Contributors: Ryohei Sasaki
+
 0.10.1 (2026-10-14)
 -------------------
 * No source changes; version aligned with the 0.10.1 candidate.

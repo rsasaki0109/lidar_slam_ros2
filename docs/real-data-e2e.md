@@ -48,7 +48,7 @@ commands. `validate_real_data_e2e.py` then requires:
 - at least 2500 raw poses, 500 corrected poses, 300 pointcloud tiles, and
   20 MB of tiled pointcloud evidence. The map is saved at a 0.2 m leaf, which
   gives about 25 to 27 MB on this bag with both the maintained RKO-LIO fork and
-  official RKO-LIO 0.4.2. (Before 0.10.1, a map whose bounding box held more
+  official RKO-LIO 0.4.2. (Before 0.11.0, a map whose bounding box held more
   0.2 m voxels than PCL's 32-bit index was saved undownsampled, about 65 MB;
   the fork's map on this bag just crosses that limit.)
 
