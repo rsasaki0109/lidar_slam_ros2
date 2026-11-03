@@ -254,3 +254,16 @@ Include at least:
 - the current comparison page and benchmark snapshot
 - the benchmark / release-readiness artifacts
 - current limitations, especially around lanelets and full production support
+
+## Recorded exceptions
+
+Each entry is a one-time decision for one release. It does not relax any rule
+above for a later release.
+
+- **v0.11.0: `newer_college_math_hard` was not measured.** Google Drive
+  answered "Quota exceeded" for the official Maths-Hard recording throughout
+  the release window (2026-11-02, last check 23:38 UTC). The maintainer chose
+  to release with the other four blocking profiles measured at the carrier
+  commit `520c5972`; `run_release_readiness_checks.sh --fail-on-profiles`
+  exited 2 with `NO_DATA` for this profile only. The
+  [v0.11.0 release notes](docs/releases/v0.11.0.md) record the gap.
