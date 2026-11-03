@@ -234,7 +234,7 @@ K4 採用構成の地図形状（4.9M 点）と posed images（260 view）を固
 
 ## README の着色フライスルー（RTK-SLAM Stadtgarten 2）
 
-`lidarslam/images/map_flythrough_stadtgarten.{webp,mp4,gif}` は stadtgarten_seq2 の
+`lidarslam/images/map_flythrough_stadtgarten.{webp,mp4}` は stadtgarten_seq2 の
 20–180 s（公園の約 110 m）から次の手順で作った。`refine_camera_poses.py` の held-out
 エピポーラ誤差は 4.02 → 0.67 px（640 view、447 ペア）。
 
@@ -275,7 +275,7 @@ python3 tools/colored_map/render_map_flythrough.py --pointcloud colored.ply \
   --surface-splat --loop-fade 12 --label "Camera-coloured LiDAR map (RTK-SLAM Stadtgarten 2)" \
   --mp4 master.mp4
 ffmpeg -i master.mp4 -vf "fps=15,scale=600:-2:flags=lanczos" -loop 0 \
-  -c:v libwebp -quality 78 map_flythrough_stadtgarten.webp   # + crf26 mp4 / palette gif
+  -c:v libwebp -quality 78 map_flythrough_stadtgarten.webp   # + crf26 mp4
 ```
 
 既知の残差: 経路上に立っていた人物は残像除去で消えたが、その陰で地面が測れなかった場所が小さな穴になる。水平線から 2° 以内でしか見えない遠景の樹冠は白が残る。

@@ -14,6 +14,17 @@ latest published release.
   are gone, with their tests and documentation (482 files). No release gate
   used them. The README and comparison results stay; their reproduction now
   starts from the `v0.11.0` tag.
+- **Orphaned research files** — the `configs/sota_v6/` audits and
+  `scripts/audit_v44g_raw_shadow_failure_profile.py`, the
+  `configs/voxel_slam_v33`–`v41` run configurations whose patches went with
+  the comparison tooling, and five scripts nothing called
+  (`run_ape_cycle.sh`, `check_ours_trajectory_hash_equivalence.py`,
+  `score_repeated_trajectory_benchmark.py`, `run_isuzu_3dgs_viewcount.sh`,
+  `docker/ouster_sensor_sync_replay.Dockerfile`). The research records that
+  name them point at the `v0.11.0` tag.
+- **Duplicate and unused media** — the Stadtgarten and RTK-SLAM flythrough
+  GIFs (their WebP and MP4 copies stay), the koide 3DGS MP4 (its GIF stays),
+  and eight images nothing references; about 29 MB off the checkout.
 
 ### Changed
 
