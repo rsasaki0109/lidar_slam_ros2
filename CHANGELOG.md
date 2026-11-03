@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.12.0 - 2026-11-03 (candidate)
+
+The next release candidate after v0.11.0. It is not tagged; v0.11.0 is the
+latest published release.
+
+### Changed
+
+- The README, Getting Started (EN/JA) and the map authoring, index,
+  comparison and external-validation pages point at the published
+  `v0.11.0-humble` and `v0.11.0-jazzy` images.
+
 ## 0.11.0 - 2026-11-02
 
 The first published release since v0.10.0. The 0.10.1 release candidate below

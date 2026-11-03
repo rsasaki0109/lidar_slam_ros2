@@ -178,6 +178,7 @@ nav:
               - RKO-LIO voxel compatibility: evidence/rko-voxel-compatibility-2026-07-31.md
               - Leo Drive packet benchmark: evidence/leo-drive-packet-benchmark-2026-07-30.md
       - Releases:
+          - v0.12.0: releases/v0.12.0.md
           - v0.11.0: releases/v0.11.0.md
           - v0.10.1: releases/v0.10.1.md
           - v0.10.0: releases/v0.10.0.md
@@ -191,4 +192,4 @@ nav:
           - v0.2.1: releases/v0.2.1.md
           - v0.2.0: releases/v0.2.0.md
       - Social:
-          - v0.11.0 Media Kit: social/autoware_map_authoring_post_v0.11.0.md
+          - v0.12.0 Media Kit: social/autoware_map_authoring_post_v0.12.0.md

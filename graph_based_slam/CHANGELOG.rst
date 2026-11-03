@@ -2,6 +2,11 @@
 Changelog for package graph_based_slam
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.12.0 (2026-11-03)
+-------------------
+* No source changes yet; version aligned with the 0.12.0 candidate.
+* Contributors: Ryohei Sasaki
+
 0.11.0 (2026-11-02)
 -------------------
 * Add ``graph_slam_multisession_join``: join several runs of one site into one
