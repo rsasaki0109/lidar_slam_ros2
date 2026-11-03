@@ -199,7 +199,7 @@ python3 tools/gaussian_splatting/render_path.py \
   3DGS は学習視点クラスタから ~0.4m 離れると崩壊し俯瞰ではコンフェッティ状になるため
   「地図の中を移動する」絵は点群側で作る — 経緯と知見は
   `docs/research/3dgs-trajectory-flythrough-notes.md`）、
-  `lidarslam/images/3dgs_koide_flythrough.gif` / `.mp4`（koide 近接シーン）。
+  `lidarslam/images/3dgs_koide_flythrough.gif`（koide 近接シーン）。
   左右並べの photoreal 比較は `tools/gaussian_splatting/render_slam_3dgs_sidebyside.py` +
   `scripts/run_rtkslam_3dgs_flythrough.sh` で生成できる（README からは置き換え済み）。
 

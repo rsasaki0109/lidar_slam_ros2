@@ -85,7 +85,7 @@ flowchart LR
 
 ## Camera-coloured point-cloud maps
 
-The pipeline refines each camera pose against the LiDAR map, then projects the pixels onto it. On the park walk at the top (RTK-SLAM Stadtgarten 2; [MP4](lidarslam/images/map_flythrough_stadtgarten.mp4) · [GIF](lidarslam/images/map_flythrough_stadtgarten.gif)) the refinement cuts the held-out epipolar error from 4.02 to 0.67 px ([tool](tools/colored_map/README.md), [release reference](docs/research/colored-map-release-readiness-2026-07.md)).
+The pipeline refines each camera pose against the LiDAR map, then projects the pixels onto it. On the park walk at the top (RTK-SLAM Stadtgarten 2; [MP4](lidarslam/images/map_flythrough_stadtgarten.mp4)) the refinement cuts the held-out epipolar error from 4.02 to 0.67 px ([tool](tools/colored_map/README.md), [release reference](docs/research/colored-map-release-readiness-2026-07.md)).
 
 ```bash
 python3 tools/colored_map/colored_map_pipeline.py \

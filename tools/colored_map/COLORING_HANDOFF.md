@@ -111,7 +111,7 @@ python3 tools/colored_map/render_map_flythrough.py \
   --color-mode rgb --frames 240 --fps 30 --point-size 0.02 --scale 0.375 \
   --loop-fade 12 --device cpu --mp4 master.mp4
 ffmpeg -i master.mp4 -vf "fps=15,scale=600:-2:flags=lanczos" -loop 0 \
-  -c:v libwebp -quality 78 map_flythrough_rtkslam.webp   # + crf26 mp4 / palette gif
+  -c:v libwebp -quality 78 map_flythrough_rtkslam.webp   # + crf26 mp4
 ```
 
 ## 5. データ・成果物の所在
@@ -129,7 +129,7 @@ ffmpeg -i master.mp4 -vf "fps=15,scale=600:-2:flags=lanczos" -loop 0 \
 - **exp04 検証一式**:
   `/media/user/aiueo/datasets/public_validation/hilti_exp04_colored_map_recolor_20260718/`
   (README.md に A/B 表、旧着色との比較 ply、heldout/app json)。
-- README アセット: `lidarslam/images/map_flythrough_rtkslam.{webp,mp4,gif}`。
+- README アセット: `lidarslam/images/map_flythrough_rtkslam.{webp,mp4}`。
 - 経緯の一次資料: `docs/research/3dgs-trajectory-flythrough-notes.md` 追補3、
   `docs/3dgs-map-tutorial.md` の成果物例(再現コマンド)。
 
