@@ -1,5 +1,10 @@
 # v44f raw shadow replay execution result (2026-08-10)
 
+> Files this record names under `configs/sota_v6/`, `configs/voxel_slam_v33`–`v41`
+> and `scripts/audit_v44g_raw_shadow_failure_profile.py` were removed after
+> v0.11.0. They remain in the
+> [`v0.11.0` tag](https://github.com/rsasaki0109/lidar_slam_ros2/tree/v0.11.0).
+
 ## Decision
 
 The first authorized v44e raw-shadow run failed the frozen processing-resource
