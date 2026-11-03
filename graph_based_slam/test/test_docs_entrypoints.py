@@ -271,7 +271,7 @@ RELEASE_PROMOTION_SCHEMA = (
 )
 V09_ROADMAP_DOC = REPO_ROOT / 'docs' / 'roadmap' / 'v0.9.md'
 SOCIAL_POST_DOC = (
-    REPO_ROOT / 'docs' / 'social' / 'autoware_map_authoring_post_v0.11.0.md'
+    REPO_ROOT / 'docs' / 'social' / 'autoware_map_authoring_post_v0.12.0.md'
 )
 ISSUE_TEMPLATE_DIR = REPO_ROOT / '.github' / 'ISSUE_TEMPLATE'
 PUBLIC_AUTOWARE_ENTRYPOINT = REPO_ROOT / 'scripts' / 'run_autoware_quickstart.sh'
@@ -1343,7 +1343,7 @@ def test_release_metadata_and_core_package_versions_match(tmp_path: Path):
         'docs/rosdistro-release.md',
         'docs/roadmap/v0.9.md',
         'docs/autoware-foxglove.md',
-        'docs/social/autoware_map_authoring_post_v0.11.0.md',
+        'docs/social/autoware_map_authoring_post_v0.12.0.md',
         'docs/workflows.md',
         'lidarslam/images/dynamic_object_filter_bag6_summary.svg',
         'lidarslam/images/social_autoware_map_authoring.png',
@@ -1475,8 +1475,8 @@ def test_release_metadata_and_core_package_versions_match(tmp_path: Path):
     assert f'v{version}: releases/v{version}.md' in mkdocs_config
     assert 'v0.2.2: releases/v0.2.2.md' in mkdocs_config
     assert (
-        'v0.11.0 Media Kit: '
-        'social/autoware_map_authoring_post_v0.11.0.md'
+        'v0.12.0 Media Kit: '
+        'social/autoware_map_authoring_post_v0.12.0.md'
         in mkdocs_config
     )
     assert 'v0.2.2 Post Kit:' not in mkdocs_config
@@ -2283,7 +2283,7 @@ def test_source_quickstart_bootstraps_dependencies_and_keeps_dev_tests():
         encoding='utf-8'
     ).strip() + "'" in onboarding
     assert (
-        "SOURCE_COMMIT='ebc7c348e1510a3069a3d74542df12eebb8857db'"
+        "SOURCE_COMMIT='570c26d46055f86683df4ab19e2387669ec24c47'"
         in onboarding
     )
     assert onboarding.count('--product-version "$SOURCE_VERSION"') == 3

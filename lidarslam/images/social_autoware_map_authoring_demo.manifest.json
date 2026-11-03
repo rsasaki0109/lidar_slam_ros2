@@ -1,7 +1,7 @@
 {
   "canonical_docs": {
     "source_path": "docs/getting-started.md",
-    "url": "https://github.com/rsasaki0109/lidar_slam_ros2/blob/ebc7c348e1510a3069a3d74542df12eebb8857db/docs/getting-started.md"
+    "url": "https://github.com/rsasaki0109/lidar_slam_ros2/blob/570c26d46055f86683df4ab19e2387669ec24c47/docs/getting-started.md"
   },
   "captions": {
     "cue_count": 4,
@@ -23,7 +23,7 @@
   },
   "content_contract": {
     "path": "docs/contracts/social-demo-media-v1.json",
-    "sha256": "4c3ed4788593ae62dfaa0c4f4dc3c3ffb06d4c2857885bf18899419eac63d1c1",
+    "sha256": "1cc0860d4386929ebb5bc3716d445b7c189ba67e25ea0c2e0f524598c7791538",
     "size_bytes": 3033
   },
   "post_copy": {
@@ -31,11 +31,11 @@
       "ja",
       "en"
     ],
-    "path": "autoware_map_authoring_post_v0.11.0.md",
-    "sha256": "e70bb9b22e0bc06a73fd4ed266f95e37b24c64d4ab7733b3c313a54d8516acb6",
+    "path": "autoware_map_authoring_post_v0.12.0.md",
+    "sha256": "1316a2f1f7a4f8f12c8dd8cf161e919b488653fc4b5465d359985d78715fc29b",
     "size_bytes": 1954
   },
-  "product_version": "0.11.0",
+  "product_version": "0.12.0",
   "publication_boundary": {
     "external_publication_authorized": false,
     "writes_performed": false
@@ -55,7 +55,7 @@
       "size_bytes": 40036
     }
   ],
-  "source_revision": "ebc7c348e1510a3069a3d74542df12eebb8857db",
+  "source_revision": "570c26d46055f86683df4ab19e2387669ec24c47",
   "status": "PUBLICATION_CANDIDATE",
   "video": {
     "codec": "h264",
@@ -63,8 +63,8 @@
     "fps": 24,
     "height": 720,
     "path": "social_autoware_map_authoring_demo.mp4",
-    "sha256": "189c3f5566937cf30177f3354d4bad88b7b4b15a71dd3851f590819f7653c101",
-    "size_bytes": 372422,
+    "sha256": "c2546703ce6a525cfe482dc38b4a74174c15c2c41e40a761463f8692a1238bbb",
+    "size_bytes": 372007,
     "width": 1280
   }
 }

@@ -2,6 +2,12 @@
 Changelog for package lidarslam
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.12.0 (2026-11-03)
+-------------------
+* Docs point at the published v0.11.0 images; version aligned with the
+  0.12.0 candidate.
+* Contributors: Ryohei Sasaki
+
 0.11.0 (2026-11-02)
 -------------------
 * Add ``--motion walking`` to the MID-360 preset (``lidarslam-map start`` and
