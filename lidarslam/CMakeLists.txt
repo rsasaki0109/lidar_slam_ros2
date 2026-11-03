@@ -420,10 +420,6 @@ foreach(_SUBPACKAGE gaussian_splatting lidarslam_tools)
   )
 endforeach()
 install(
-  PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/container_phase_evidence.sh
-  DESTINATION ${_BENCHMARK_PYTHON_DIR}/lidarslam_benchmark_tools
-)
-install(
   DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/
   DESTINATION ${_BENCHMARK_PYTHON_DIR}/lidarslam_benchmark_tools
   FILES_MATCHING

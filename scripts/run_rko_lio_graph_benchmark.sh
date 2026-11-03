@@ -70,8 +70,6 @@ parse_bool() {
 }
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-source "${SCRIPT_DIR}/container_phase_evidence.sh"
-source "${SCRIPT_DIR}/m6a10_completion_contract.sh"
 REPO_ROOT=$(cd "${SCRIPT_DIR}/.." && pwd)
 WS_ROOT="${REPO_ROOT}"
 if [[ -n "${LIDARSLAM_WS_ROOT:-}" ]]; then
@@ -305,55 +303,6 @@ if [[ -z "${ROS_LOG_DIR:-}" ]]; then
 fi
 mkdir -p "$ROS_LOG_DIR"
 
-# A v2 run crosses two shell/process boundaries before it reaches the
-# application-owned OfflineNode.  Assert and export the contract at this
-# boundary, and leave a small machine-readable receipt in the attempt output.
-# This prevents the historical trajectory-quiescence fallback from being
-# mistaken for v2 consumer acknowledgement evidence when a child loses the
-# environment bridge.
-M6A10_CHILD_STARTUP_ENV="${OUTPUT_DIR}/m6a10_child_startup_env.json"
-if [[ "${M6A10_PHASE_CONTRACT_VERSION:-}" == "m6a10-online-compute-v2" ]]; then
-  [[ "${M6A10_PHASE_MODE:-}" == "paced_1x" ||
-     "${M6A10_PHASE_MODE:-}" == "unpaced_ack" ]] ||
-    die "v2 phase mode is missing or unsupported"
-  [[ -n "${M6A10_CONSUMER_EVIDENCE:-}" ]] ||
-    die "v2 consumer evidence path is missing"
-  case "${M6A10_CONSUMER_EVIDENCE}" in
-    "${OUTPUT_DIR}"/*) ;;
-    *) die "v2 consumer evidence path must stay inside output directory" ;;
-  esac
-  export M6A10_PHASE_CONTRACT_VERSION M6A10_PHASE_MODE M6A10_CONSUMER_EVIDENCE
-  python3 - "$M6A10_CHILD_STARTUP_ENV" \
-    "$M6A10_PHASE_CONTRACT_VERSION" "$M6A10_PHASE_MODE" \
-    "$M6A10_CONSUMER_EVIDENCE" <<'PY'
-import json
-import os
-import sys
-from pathlib import Path
-
-target = Path(sys.argv[1])
-if target.exists() or target.with_name(target.name + '.part').exists():
-    raise SystemExit(f'startup receipt already exists: {target}')
-document = {
-    'schema_version': 1,
-    'kind': 'm6a10_child_startup_environment',
-    'status': 'pass',
-    'contract_version': sys.argv[2],
-    'phase_mode': sys.argv[3],
-    'consumer_evidence_path': sys.argv[4],
-    'environment_exported': True,
-    'v2_barrier_required': True,
-    'gt_mounted': False,
-    'scorer_invoked': False,
-}
-part = target.with_name(target.name + '.part')
-part.write_text(json.dumps(document, sort_keys=True) + '\n', encoding='utf-8')
-os.replace(part, target)
-PY
-else
-  M6A10_CHILD_STARTUP_ENV=""
-fi
-
 STARTED_AT="$(date -Iseconds)"
 STARTED_AT_UNIX="$(date +%s)"
 BENCH_T0="$(python3 - <<'PY'
@@ -534,58 +483,12 @@ print("|".join(parts))
 PY
 }
 
-v2_consumer_evidence_state() {
-  # Return 0=pass, 1=invalid/malformed, 2=pending, 124=terminal drain
-  # timeout.  The validator owns the JSON schema; this shell only preserves
-  # its fail-closed state across the launch/map-save boundary.
-  if [[ "${M6A10_PHASE_CONTRACT_VERSION:-}" != "m6a10-online-compute-v2" ]]; then
-    return 0
-  fi
-  [[ -n "${M6A10_CONSUMER_EVIDENCE:-}" ]] || return 1
-  [[ -s "${M6A10_CHILD_STARTUP_ENV:-}" ]] || return 1
-  [[ ! -e "${M6A10_CONSUMER_EVIDENCE}.part" ]] || return 1
-  local diagnostic_base="${M6A10_DRAIN_DIAGNOSTIC:-${OUTPUT_DIR}/m6a10_drain_diagnostic.json}"
-  local state
-  # Keep errexit state untouched.  A `set -e` toggled inside this helper
-  # would leak back to callers and abort before they can preserve 1/2/124.
-  if python3 "${M6A10_PHASE_SCRIPT}" consumer-state \
-      --input "${M6A10_CONSUMER_EVIDENCE}" \
-      --diagnostic-base "${diagnostic_base}" >/dev/null; then
-    state=0
-  else
-    state=$?
-  fi
-  return "${state}"
-}
-
-v2_consumer_evidence_ready() {
-  # The v2 application evidence is the authoritative EOF/ack boundary.  A
-  # trajectory reaching the bag end is not sufficient: the graph wrapper can
-  # observe a long writer stall while OfflineNode is still draining.  Keep
-  # ordinary (non-v2) runs byte-for-byte on their historical completion path.
-  # Preserve the validator's complete state space.  In particular, 1 is an
-  # invalid/malformed terminal document, 2 is still pending, and 124 is a
-  # valid drain-timeout diagnostic.  Collapsing these into boolean failure
-  # would make the wait loop either spin on a terminal error or turn a timeout
-  # into a successful map-save path.
-  v2_consumer_evidence_state
-}
-
 offline_completion_recorded() {
-  if [[ "${M6A10_PHASE_CONTRACT_VERSION:-}" == "m6a10-online-compute-v2" ]]; then
-    local evidence_state
-    v2_consumer_evidence_ready
-    evidence_state=$?
-    [[ "${evidence_state}" -eq 0 ]] || return "${evidence_state}"
-  fi
   if grep -Fq "RKO LIO Offline Node took" "$LAUNCH_LOG" 2>/dev/null; then
     return 0
   fi
   if [[ -f "$OUTPUT_DIR/rko_lio.log" ]] && grep -Fq "RKO LIO Offline Node took" "$OUTPUT_DIR/rko_lio.log" 2>/dev/null; then
     return 0
-  fi
-  if [[ "${M6A10_PHASE_CONTRACT_VERSION:-}" == "m6a10-online-compute-v2" ]]; then
-    return 2
   fi
   return 1
 }
@@ -604,50 +507,15 @@ wait_for_offline_completion() {
   local stall_secs=$((QUIESCENCE_SECS * 10))
 
   while (( SECONDS < deadline )); do
-    if [[ "${M6A10_PHASE_CONTRACT_VERSION:-}" == "m6a10-online-compute-v2" ]]; then
-      # v2 requires both application EOF/drain evidence and the launch-side
-      # completion log.  The first proves that all input callbacks returned;
-      # the second keeps graph fixed-lag post-processing out of the map-save
-      # phase.  Do not use the historical TUM shortcut for v2.
-      if offline_completion_recorded; then
-        return 0
-      else
-        local completion_state=$?
-        if [[ "${completion_state}" -eq 124 ]]; then
-          echo "v2 consumer evidence recorded a terminal drain timeout" >&2
-          return 124
-        fi
-        if [[ "${completion_state}" -eq 1 ]]; then
-          echo "v2 consumer evidence is invalid or malformed" >&2
-          return 125
-        fi
-      fi
-    else
-      if [[ -s "$RKO_RESULT_TUM" ]]; then
-        return 0
-      fi
-      if offline_completion_recorded; then
-        return 0
-      fi
+    if [[ -s "$RKO_RESULT_TUM" ]]; then
+      return 0
+    fi
+    if offline_completion_recorded; then
+      return 0
     fi
 
     if [[ -n "$LAUNCH_PID" ]] && ! kill -0 "$LAUNCH_PID" 2>/dev/null; then
-      if [[ "${M6A10_PHASE_CONTRACT_VERSION:-}" != "m6a10-online-compute-v2" ]]; then
-        return 0
-      fi
-      if offline_completion_recorded; then
-        return 0
-      else
-        local exited_state=$?
-        if [[ "${exited_state}" -eq 124 ]]; then
-          return 124
-        fi
-        if [[ "${exited_state}" -eq 1 ]]; then
-          return 125
-        fi
-      fi
-      echo "OfflineNode exited before v2 consumer evidence/completion was finalized" >&2
-      return 125
+      return 0
     fi
 
     local current_signature
@@ -658,29 +526,15 @@ wait_for_offline_completion() {
       fi
       if (( SECONDS - stable_since >= QUIESCENCE_SECS )); then
         # Some generic bags retain non-LiDAR topics after the sensor stream,
-        # so the historical default is 120 s. Competitive profiles set a
-        # dataset-specific tight margin and record it in their provenance.
+        # so the default margin is 120 s; profiles may set a dataset-specific
+        # tighter margin with --completion-end-margin-secs.
         if [[ -n "$end_stamp" ]] && \
           raw_tum_reached "$end_stamp" "$COMPLETION_END_MARGIN_SECS" && \
           raw_tum_reached_fraction 0.8; then
-          if m6a10_completion_barrier_allows; then
-            :
-          else
-            # Do not let the historical trajectory-stall fallback trigger
-            # map-save/cleanup before OfflineNode has written its atomic
-            # consumer counters/EOF proof and completed graph post-processing.
-            stable_since=$SECONDS
-            sleep 2
-            continue
-          fi
           echo "Trajectory reached the bag end and stayed quiet for ${QUIESCENCE_SECS}s; treating benchmark run as complete"
           return 0
         fi
         if (( SECONDS - stable_since >= stall_secs )); then
-          if [[ "${M6A10_PHASE_CONTRACT_VERSION:-}" == "m6a10-online-compute-v2" ]]; then
-            echo "Trajectory stalled before v2 consumer evidence/completion was finalized" >&2
-            return 1
-          fi
           echo "Warning: trajectory stalled for ${stall_secs}s before the bag end; treating benchmark run as aborted-but-scoreable" >&2
           return 0
         fi
@@ -712,9 +566,8 @@ assert_no_map_artifacts() {
   # ``--skip-map-save`` is a fail-closed contract, not merely a skipped
   # service call.  Accepted loop closures can otherwise invoke
   # doPoseAdjustment(..., true) and write the same map bundle asynchronously.
-  # Keep this list explicit and narrow: trajectory dumps, phase evidence, and
-  # consumer proofs remain valid outputs, while every map/bundle path is
-  # forbidden in the benchmark-only no-map mode.
+  # Keep this list explicit and narrow: trajectory dumps remain valid outputs,
+  # while every map/bundle path is forbidden in the benchmark-only no-map mode.
   local forbidden_path
   while IFS= read -r -d '' forbidden_path; do
     echo "error: forbidden map artifact present in --skip-map-save output: ${forbidden_path}" >&2
@@ -735,8 +588,6 @@ assert_no_map_artifacts() {
 }
 
 python3 - "$RKO_PARAM" "$RKO_ROS_PARAM_FILE" <<'PY'
-import os
-import shutil
 import sys
 from pathlib import Path
 
@@ -746,33 +597,16 @@ src_path = Path(sys.argv[1])
 dst_path = Path(sys.argv[2])
 data = yaml.safe_load(src_path.read_text()) or {}
 
-phase_contract = os.environ.get("M6A10_PHASE_CONTRACT_VERSION", "")
-phase_mode = os.environ.get("M6A10_PHASE_MODE", "")
-consumer_evidence = os.environ.get("M6A10_CONSUMER_EVIDENCE", "")
-
-def add_benchmark_parameters(parameters):
-    if phase_contract == "m6a10-online-compute-v2":
-        parameters["m6a10_phase_contract_version"] = phase_contract
-        parameters["m6a10_phase_mode"] = phase_mode
-        parameters["m6a10_consumer_evidence_path"] = consumer_evidence
-        parameters["m6a10_drain_timeout_seconds"] = float(
-            os.environ.get("M6A10_DRAIN_TIMEOUT_SECONDS", "30"))
-        parameters["m6a10_drain_diagnostic_path"] = os.environ.get(
-            "M6A10_DRAIN_DIAGNOSTIC",
-            str(dst_path.parent / "m6a10_drain_diagnostic.json"))
-
 if isinstance(data, dict):
     parameter_blocks = [
         value["ros__parameters"] for value in data.values()
         if isinstance(value, dict) and isinstance(value.get("ros__parameters"), dict)
     ]
     if parameter_blocks:
-        add_benchmark_parameters(parameter_blocks[0])
         dst_path.write_text(yaml.safe_dump(data, sort_keys=False))
         sys.exit(0)
 
-add_benchmark_parameters(data)
-wrapped = {"/**": {"ros__parameters": data}}
+wrapped ={"/**": {"ros__parameters": data}}
 dst_path.write_text(yaml.safe_dump(wrapped, sort_keys=False))
 PY
 
@@ -793,8 +627,8 @@ if [[ "$SKIP_MAP_SAVE" == "true" ]]; then
   # The no-map contract also covers the graph's own writes: with
   # use_save_map_in_loop an accepted loop closure writes the full map bundle
   # and pose_graph.g2o, which assert_no_map_artifacts then rejects. The launch
-  # file turns both off under this marker (as the container wrapper sets it).
-  export M6A10_BENCHMARK_NO_MAP_ARTIFACTS=1
+  # file turns both off under this marker.
+  export LIDARSLAM_BENCHMARK_NO_MAP_ARTIFACTS=1
 fi
 
 echo "Running RKO-LIO benchmark"
@@ -811,15 +645,7 @@ echo "  rko_yaml:       $RKO_PARAM"
 echo "  output_dir:     $OUTPUT_DIR"
 echo "  run_name:       $RUN_NAME"
 
-# The additive v2 phase contract must use the harness launch source mounted by
-# the wrapper, because the pinned image's installed launch file predates the
-# explicit environment-to-parameter bridge.  Ordinary runs retain the
-# installed package launch path and therefore remain unchanged.
 RKO_LAUNCH_TARGET=(lidarslam rko_lio_slam.launch.py)
-if [[ "${M6A10_PHASE_CONTRACT_VERSION:-}" == "m6a10-online-compute-v2" &&
-      -f "${REPO_ROOT}/lidarslam/launch/rko_lio_slam.launch.py" ]]; then
-  RKO_LAUNCH_TARGET=("${REPO_ROOT}/lidarslam/launch/rko_lio_slam.launch.py")
-fi
 
 if command -v setsid >/dev/null 2>&1; then
     setsid bash "${SCRIPT_DIR}/run_with_resource_report.sh" \
@@ -886,12 +712,6 @@ if ! wait_for_log_pattern "[graph_based_slam]: initialization end" "$STARTUP_TIM
 fi
 
 echo "SLAM launch is up"
-M6A10_PHASE_STARTUP_MARKED=0
-if [[ -n "${M6A10_PHASE_EVENTS:-}" ]]; then
-  m6a10_phase_mark startup_end || true
-  m6a10_phase_mark input_start || true
-  M6A10_PHASE_STARTUP_MARKED=1
-fi
 if wait_for_offline_completion "$OFFLINE_TIMEOUT_SECS"; then
   :
 else
@@ -901,26 +721,7 @@ else
   exit "${completion_status}"
 fi
 
-if [[ -n "${M6A10_PHASE_EVENTS:-}" ]]; then
-  m6a10_phase_mark input_end || true
-  m6a10_phase_mark drain_start || true
-  M6A10_PHASE_END_STAMP="${M6A10_SENSOR_END_TIMESTAMP_SECONDS:-}"
-  if [[ -z "${M6A10_PHASE_END_STAMP}" ]]; then
-    M6A10_PHASE_END_STAMP="$(bag_end_stamp 2>/dev/null || true)"
-  fi
-  if [[ -n "${M6A10_PHASE_END_STAMP}" ]]; then
-    m6a10_phase_record_trajectory_coverage \
-      "${RAW_TUM}" "${M6A10_PHASE_END_STAMP}" || true
-  fi
-  m6a10_phase_mark drain_end || true
-  m6a10_phase_mark postprocess_start || true
-  m6a10_phase_mark postprocess_end || true
-fi
-
 if [[ "$SKIP_MAP_SAVE" == "false" ]]; then
-  if [[ -n "${M6A10_PHASE_EVENTS:-}" ]]; then
-    m6a10_phase_mark save_start || true
-  fi
   echo "Calling /map_save ..."
   if ! call_map_save_with_retry; then
     echo "map_save service call failed. Recent launch log:" >&2
@@ -933,14 +734,6 @@ if [[ "$SKIP_MAP_SAVE" == "false" ]]; then
     tail -n 120 "$LAUNCH_LOG" >&2 || true
     exit 1
   fi
-  if [[ -n "${M6A10_PHASE_EVENTS:-}" ]]; then
-    m6a10_phase_mark save_end || true
-  fi
-else
-  if [[ -n "${M6A10_PHASE_EVENTS:-}" ]]; then
-    m6a10_phase_mark save_start || true
-    m6a10_phase_mark save_end || true
-  fi
 fi
 
 for pid in "$RAW_LOGGER_PID" "$CORRECTED_LOGGER_PID"; do
@@ -948,19 +741,6 @@ for pid in "$RAW_LOGGER_PID" "$CORRECTED_LOGGER_PID"; do
 done
 RAW_LOGGER_PID=""
 CORRECTED_LOGGER_PID=""
-
-# Logger termination flushes the final trajectory sample. Re-record coverage
-# after that flush so a slow writer cannot leave a stale end-gap proof behind.
-if [[ -n "${M6A10_PHASE_EVENTS:-}" ]]; then
-  M6A10_PHASE_END_STAMP="${M6A10_SENSOR_END_TIMESTAMP_SECONDS:-}"
-  if [[ -z "${M6A10_PHASE_END_STAMP}" ]]; then
-    M6A10_PHASE_END_STAMP="$(bag_end_stamp 2>/dev/null || true)"
-  fi
-  if [[ -n "${M6A10_PHASE_END_STAMP}" ]]; then
-    m6a10_phase_record_trajectory_coverage \
-      "${RAW_TUM}" "${M6A10_PHASE_END_STAMP}" || true
-  fi
-fi
 
 if [[ -n "$LAUNCH_PGID" ]]; then
   terminate_process_group "$LAUNCH_PGID" "$LAUNCH_PID"

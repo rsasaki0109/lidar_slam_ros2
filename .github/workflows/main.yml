@@ -68,14 +68,6 @@ jobs:
           # fail-closed on every public candidate.
           python3 scripts/check_g0_readiness.py --json
 
-      - name: Verify generated competitive claim publication boundary
-        shell: bash
-        run: |
-          PYTHONDONTWRITEBYTECODE=1 python3 scripts/verify_competitive_claim_readme.py \
-            --repo-root "$PWD" \
-            --readme README.md \
-            --config configs/slam_benchmark_profiles/competitive_claim_readme_publication_v1.json
-
       - name: Validate public shell entrypoints
         shell: bash
         run: |

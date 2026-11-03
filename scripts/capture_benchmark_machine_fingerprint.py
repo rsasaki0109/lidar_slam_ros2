@@ -1,15 +1,62 @@
 #!/usr/bin/env python3
-"""Capture the non-secret hardware fingerprint used by competition runners."""
+"""Capture the non-secret hardware fingerprint of a benchmark host."""
 
 from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import json
+import os
 from pathlib import Path
+import platform
 import sys
+from typing import Any
 
-from lidarslam_benchmark_tools.run_fast_livo2_benchmark import benchmark_machine_fingerprint
+
+def benchmark_machine_fingerprint() -> dict[str, Any]:
+    """Return a stable, non-secret fingerprint of the benchmark host."""
+    private_values = []
+    for path in (Path('/etc/machine-id'),
+                 Path('/sys/class/dmi/id/product_uuid'),
+                 Path('/sys/class/dmi/id/board_serial')):
+        try:
+            value = path.read_text().strip()
+        except OSError:
+            value = ''
+        if value:
+            private_values.append(value)
+
+    cpu_model = ''
+    try:
+        for line in Path('/proc/cpuinfo').read_text().splitlines():
+            if line.lower().startswith('model name') and ':' in line:
+                cpu_model = line.split(':', 1)[1].strip()
+                break
+    except OSError:
+        pass
+    memory_total_kb = None
+    try:
+        for line in Path('/proc/meminfo').read_text().splitlines():
+            if line.startswith('MemTotal:'):
+                memory_total_kb = int(line.split()[1])
+                break
+    except (OSError, ValueError, IndexError):
+        pass
+
+    public = {
+        'architecture': platform.machine(),
+        'cpu_model': cpu_model,
+        'logical_cpu_count': os.cpu_count(),
+        'memory_total_kb': memory_total_kb,
+    }
+    identity_payload = {
+        'private_identifiers': private_values,
+        **public,
+    }
+    machine_id = hashlib.sha256(json.dumps(
+        identity_payload, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+    return {'machine_id': machine_id, **public}
 
 
 def main() -> int:

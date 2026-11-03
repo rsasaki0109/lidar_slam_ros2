@@ -164,9 +164,10 @@ How it was measured:
 - **GLIM CPU:**
   - build: a native build of the pinned core v1.2.2 (`faa264a`) with the four
     `configs/glim/hilti2022_cpu` overrides;
-  - command: the v1 command of `scripts/glim_container_run.sh`
-    (`glim_rosbag ... auto_quit:=true` under `/usr/bin/time -v`), run without
-    Docker because the VM has no Docker daemon;
+  - command: the v1 command of
+    [`scripts/glim_container_run.sh`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/v0.11.0/scripts/glim_container_run.sh)
+    at the `v0.11.0` tag (`glim_rosbag ... auto_quit:=true` under
+    `/usr/bin/time -v`), run without Docker because the VM has no Docker daemon;
   - processing time: the wall time of that command.
 - **RTF:** processing time divided by the 125.814 s bag duration.
 - **Peak RSS:** the `/usr/bin/time -v` maximum resident set size, the largest
@@ -230,11 +231,14 @@ Reproducibility identifiers:
 - GLIM core v1.2.2: `faa264a1bce1bda406f73457e35511f56cdc2eaa`
 - GLIM ROS 2: `4a9e7a4cb084967c8525a1be529ad3ba2a118ae7`
 - runner and complete research record:
-  [`competitive-slam-plan-2026-07.md`](research/competitive-slam-plan-2026-07.md#glim-cpu-exp04-baseline)
+  [`competitive-slam-plan-2026-07.md`](https://github.com/rsasaki0109/lidar_slam_ros2/blob/v0.11.0/docs/research/competitive-slam-plan-2026-07.md#glim-cpu-exp04-baseline)
+  at the `v0.11.0` tag
 
-One new run of each system (the README used to list these):
+The two-system comparison runners were retired after `v0.11.0`. One new run of
+each system therefore starts from that tag:
 
 ```bash
+git checkout v0.11.0
 python3 scripts/run_ours_competitive_benchmark.py \
   --bag <hilti-exp04-ros2-bag> \
   --reference-tum <common-six-checkpoints.tum> \

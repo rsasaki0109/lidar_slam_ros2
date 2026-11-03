@@ -2604,8 +2604,6 @@ def test_repository_root_has_no_ad_hoc_code_or_generated_artifacts():
     )
 
     assert misplaced == []
-    assert (REPO_ROOT / 'scripts' / 'recovery'
-            / 'sota_v2_resume_after_stage_failure.py').is_file()
     assert (REPO_ROOT / 'docs' / 'research'
             / 'project-plan-archive.md').is_file()
     assert (REPO_ROOT / 'docs' / 'research' / 'artifacts'

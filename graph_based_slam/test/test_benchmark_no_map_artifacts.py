@@ -24,7 +24,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-"""Fail-closed source and shell fixtures for M6a10 no-map replay mode."""
+"""Fail-closed source and shell fixtures for the benchmark no-map mode."""
 
 from __future__ import annotations
 
@@ -34,7 +34,6 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[2]
 RUNNER = ROOT / 'scripts' / 'run_rko_lio_graph_benchmark.sh'
-WRAPPER = ROOT / 'scripts' / 'ours_container_gt_blind_run.sh'
 LAUNCH = ROOT / 'lidarslam' / 'launch' / 'rko_lio_slam.launch.py'
 GRAPH_COMPONENT = ROOT / 'graph_based_slam' / 'src' / 'graph_based_slam_component.cpp'
 GRAPH_COMPONENT_IMPL = ROOT / 'graph_based_slam' / 'src' / 'graph_slam_ros_adapter.cpp'
@@ -62,11 +61,10 @@ assert_no_map_artifacts
     )
 
 
-def test_no_map_assertion_accepts_trajectory_and_phase_outputs(tmp_path: Path):
+def test_no_map_assertion_accepts_trajectory_outputs(tmp_path: Path):
     output = tmp_path / 'out'
-    (output / 'm6a_0').mkdir(parents=True)
-    (output / 'm6a_0' / 'm6a_tum_0.txt').write_text('trajectory\n')
-    (output / 'phase_evidence.json').write_text('{}\n')
+    (output / 'run_0').mkdir(parents=True)
+    (output / 'run_0' / 'run_tum_0.txt').write_text('trajectory\n')
 
     result = _run_map_assertion(output)
 
@@ -87,16 +85,13 @@ def test_no_map_assertion_rejects_map_bundle_and_pointcloud_tree(tmp_path: Path)
 
 def test_skip_map_is_an_explicit_benchmark_only_launch_override():
     launch = LAUNCH.read_text(encoding='utf-8')
-    wrapper = WRAPPER.read_text(encoding='utf-8')
 
-    assert "M6A10_BENCHMARK_NO_MAP_ARTIFACTS'" in launch
+    assert "LIDARSLAM_BENCHMARK_NO_MAP_ARTIFACTS'" in launch
     assert "overrides['use_save_map_in_loop'] = False" in launch
     assert "overrides['save_pose_graph_path'] = ''" in launch
-    assert 'export M6A10_BENCHMARK_NO_MAP_ARTIFACTS=1' in wrapper
-    assert 'unset M6A10_BENCHMARK_NO_MAP_ARTIFACTS' in wrapper
 
 
-def test_v1_failure_origin_is_loop_pose_adjustment_map_save_branch():
+def test_loop_pose_adjustment_is_the_graph_map_save_branch():
     component = GRAPH_COMPONENT_IMPL.read_text(encoding='utf-8')
 
     assert 'doPoseAdjustment(snapshot.map_array, snapshot.clouds, true);' in component
@@ -123,9 +118,9 @@ def test_no_map_runner_marks_the_launch_to_skip_graph_map_writes():
     source = RUNNER.read_text(encoding='utf-8')
     start = source.index('if [[ "$SKIP_MAP_SAVE" == "true" ]]; then\n  # The no-map contract')
     block = source[start:source.index('\nfi\n', start)]
-    assert 'export M6A10_BENCHMARK_NO_MAP_ARTIFACTS=1' in block
+    assert 'export LIDARSLAM_BENCHMARK_NO_MAP_ARTIFACTS=1' in block
     # The launch file is what turns the marker into graph parameters.
     launch = LAUNCH.read_text(encoding='utf-8')
-    assert "os.environ.get('M6A10_BENCHMARK_NO_MAP_ARTIFACTS') == '1'" in launch
+    assert "os.environ.get('LIDARSLAM_BENCHMARK_NO_MAP_ARTIFACTS') == '1'" in launch
     assert "overrides['use_save_map_in_loop'] = False" in launch
     assert "overrides['save_pose_graph_path'] = ''" in launch

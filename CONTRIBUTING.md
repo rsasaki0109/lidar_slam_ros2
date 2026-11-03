@@ -38,10 +38,9 @@ not silently become the default path.
 ## Repository Layout
 
 Keep the repository root limited to project metadata and primary entry-point
-documents. Place commands under `scripts/`, incident-specific utilities under
-`scripts/recovery/`, offline libraries under `tools/`, and small research
-outputs under `docs/research/artifacts/`. Do not commit colcon manifests or
-other generated build products. See the
+documents. Place commands under `scripts/`, offline libraries under `tools/`,
+and small research outputs under `docs/research/artifacts/`. Do not commit
+colcon manifests or other generated build products. See the
 [repository layout guide](docs/repository-layout.md) for the complete map.
 
 ## Autoware Naming And Trademark Guidance

@@ -316,10 +316,8 @@ for name in (
         raise RuntimeError('module escaped install prefix: ' + name)
 from lidarslam_benchmark_tools import resolve_benchmark_resource
 for resource in (
-    'scripts/benchmark_phase_contract.py',
-    'scripts/container_phase_evidence.sh',
-    'scripts/sample_container_process_rss.py',
-    'scripts/container_memory_evidence.py',
+    'scripts/check_mid360_robot_production_readiness.py',
+    'scripts/ape_from_tum.py',
 ):
     resolve_benchmark_resource(resource)
 '''

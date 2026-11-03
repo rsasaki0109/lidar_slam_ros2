@@ -117,36 +117,14 @@ TEST_TARGETS=(
 
 # Tests excluded from the default permissive-license gate.
 #
-# The sota-v6 recovery merge unioned two competing benchmark subsystems whose
-# preregistration receipts pin source-tree SHA-256 hashes.  The merge
-# invalidated those hashes and the re-freeze tool was removed in the Python
-# cleanup, so the experimental competitive/benchmark contracts cannot pass
-# until the receipts are regenerated with maintained tooling.  The uncrustify
-# style check is excluded separately: Humble and Jazzy ship different
-# uncrustify versions whose preferred formatting for the same source differs,
-# so it cannot be satisfied on both supported distros at once.  Keep the core
-# product regression suite and the remaining linters in the gate.
+# test_fast_gicp_selector and test_ndt_omp_registration have been outside the
+# gate since it was scoped to the core product suite; re-enabling them is
+# separate work.  The uncrustify style check is excluded because Humble and
+# Jazzy ship different uncrustify versions whose preferred formatting for the
+# same source differs, so it cannot be satisfied on both supported distros at
+# once.  Keep the core product regression suite and the remaining linters in
+# the gate.
 DEFAULT_CI_EXCLUDED_TESTS='^('\
-'test_competitive_slam_profile|'\
-'test_competitive_container_recipes|'\
-'test_competitive_execution_identity_capture|'\
-'test_competitive_execution_r3_source_worktree|'\
-'test_competitive_holdout_authorization|'\
-'test_competitive_rival_legal_provenance_capture|'\
-'test_competitive_rival_source_closure|'\
-'test_compose_competitive_result|'\
-'test_compose_competitive_evidence_bundle|'\
-'test_evaluate_competitive_sequence_gate|'\
-'test_evaluate_competitive_suite_gate|'\
-'test_ours_competitive_benchmark|'\
-'test_ours_competitive_benchmark_cli|'\
-'test_ours_competitive_benchmark_runner|'\
-'test_prepare_competitive_evidence_bundle_handoff|'\
-'test_publish_competitive_claim|'\
-'test_run_competitive_gt_blind_benchmark|'\
-'test_verify_competitive_evidence_bundle|'\
-'test_glim_benchmark_runner|'\
-'test_ntu_viral_acquisition_pipeline|'\
 'test_fast_gicp_selector|'\
 'test_ndt_omp_registration|'\
 'uncrustify'\
