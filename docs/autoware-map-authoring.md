@@ -33,12 +33,12 @@ docker run --rm \
   -e LIDARSLAM_HOST_UID="$(id -u)" \
   -e LIDARSLAM_HOST_GID="$(id -g)" \
   -v "$PWD/lidarslam_output:/lidarslam_ws/output" \
-  ghcr.io/rsasaki0109/lidar_slam_ros2:v0.10.0-humble
+  ghcr.io/rsasaki0109/lidar_slam_ros2:v0.11.0-humble
 ```
 
-This route is pinned to the published `v0.10.0-humble` image and writes the
+This route is pinned to the published `v0.11.0-humble` image and writes the
 verified demo to `lidarslam_output/mid360_demo/`. Jazzy users can select the
-published `v0.10.0-jazzy` image. See [Getting Started](getting-started.md) for
+published `v0.11.0-jazzy` image. See [Getting Started](getting-started.md) for
 platform notes and the source route.
 
 ## Map Your Own Bag
@@ -82,7 +82,7 @@ detected PointCloud2 topic into verified hardware support or an accuracy claim.
 For Docker without a ROS installation, follow
 [Docker Own-Bag Map](getting-started.md#docker-own-bag-map). Its launcher checks
 that the selected image supports this same `start` contract before creating an
-output directory. The published v0.10.0 images carry that contract; the older
+output directory. The published v0.11.0 images carry that contract; the older
 v0.9.0 images predate it and are rejected.
 
 ## What Success Looks Like
@@ -164,13 +164,13 @@ interfaces, not additional beginner routes.
 
 ## Current Publication Boundary
 
-`v0.10.0` is the latest published stable release. Its `v0.10.0-humble` and
-`v0.10.0-jazzy` images carry the same `lidarslam-map` contract as the
-`v0.10.0` source tag. Therefore:
+`v0.11.0` is the latest published stable release. Its `v0.11.0-humble` and
+`v0.11.0-jazzy` images carry the same `lidarslam-map` contract as the
+`v0.11.0` source tag. Therefore:
 
-- use the pinned `v0.10.0-humble` or `v0.10.0-jazzy` image for the published
+- use the pinned `v0.11.0-humble` or `v0.11.0-jazzy` image for the published
   fixed demo and the Docker own-bag route;
-- build the `v0.10.0` tag, or a reviewed later revision, from source;
+- build the `v0.11.0` tag, or a reviewed later revision, from source;
 - do not assume that a moving development image is a stable release.
 
 ## Advanced Paths

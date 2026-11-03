@@ -1188,7 +1188,7 @@ def test_japanese_recovery_card_explains_version_identity_boundary():
 
     assert 'versionとsupport境界を記録する' in source
     assert 'lidarslam-map --version' in source
-    assert '公開済み安定版`v0.10.0-humble`または`v0.10.0-jazzy`' in source
+    assert '公開済み安定版`v0.11.0-humble`または`v0.11.0-jazzy`' in source
     assert 'source helperの\n結果はcheckoutしたexact commit/revisionをidentityとして記録' in source
     assert 'そのversionとexact revisionを報告' in source
     assert '`develop`の移動tagを使ったり' in source
@@ -1419,8 +1419,8 @@ def test_japanese_recovery_card_explains_docker_source_route_choice():
     assert '最初のfirst-mapでは、Dockerまたはsourceのどちらか1つだけ' in card
     assert 'Docker fixed first-map' in card
     assert 'source quickstart' in card
-    assert 'v0.10.0-humble' in card
-    assert 'v0.10.0-jazzy' in card
+    assert 'v0.11.0-humble' in card
+    assert 'v0.11.0-jazzy' in card
     assert 'docker run --rm' in card
     assert 'bash scripts/source_quickstart.sh --dry-run' in card
     assert 'map_verify: PASS' in card
@@ -1449,7 +1449,7 @@ def test_japanese_recovery_card_explains_fresh_output_route_switch():
     assert 'fresh outputで新しいrunを開始する' in card
     assert '古いmap、session、receipt、manifestを新runへコピー・再利用せず' in card
     assert '`--resume`は既存sessionの安全なterminal post-processing用' in card
-    assert '`v0.10.0` Dockerまたは\nsourceのexact commit/revision' in card
+    assert '`v0.11.0` Dockerまたは\nsourceのexact commit/revision' in card
     assert '旧runと新runのreceiptやhashを混ぜません' in card
     assert 'privacy-bounded support reportだけを使います' in card
 
@@ -1475,8 +1475,8 @@ def test_japanese_recovery_card_separates_support_and_validation_reports():
     assert 'recovery JSON' in card
     assert '`map_session_recovery.json`' in card
     assert 'session bundle全体は貼りません' in card
-    assert '`v0.10.0-humble`または`v0.10.0-jazzy`' in card
-    assert '`v0.10.0`以降の' in card
+    assert '`v0.11.0-humble`または`v0.11.0-jazzy`' in card
+    assert '`v0.11.0`以降の' in card
     assert '別runのreceiptやhashを1つの報告へ混ぜず' in card
 
 
@@ -1507,8 +1507,8 @@ def test_japanese_recovery_card_explains_report_field_provenance():
     assert 'example-only' in card
     assert 'viewer-only' in card
     assert 'Details:' in card
-    assert '`v0.10.0-humble`または`v0.10.0-jazzy`' in card
-    assert '`v0.10.0`以降のexact commit/revision' in card
+    assert '`v0.11.0-humble`または`v0.11.0-jazzy`' in card
+    assert '`v0.11.0`以降のexact commit/revision' in card
     assert '`develop` tag' in card
     assert 'session bundle全体' in card
 
@@ -1565,8 +1565,8 @@ def test_japanese_recovery_card_explains_validation_finding_follow_up():
     assert '`reason.code`' in normalized
     assert 'private pathを除いた保存済みの説明' in normalized
     assert 'review status: unresolved / retrying — not accepted validation' in normalized
-    assert '`v0.10.0-humble`または`v0.10.0-jazzy`' in normalized
-    assert '`v0.10.0`以降のexact commit/revision' in normalized
+    assert '`v0.11.0-humble`または`v0.11.0-jazzy`' in normalized
+    assert '`v0.11.0`以降のexact commit/revision' in normalized
     assert 'identity、session、または 同じrunへの結び付きを確認できない場合は停止' in normalized
     assert '一つのrunにつきreportとreceiptは1組だけ' in normalized
     assert '複数issueへ重複添付しません' in normalized
@@ -1606,8 +1606,8 @@ def test_japanese_recovery_card_explains_follow_up_evidence_pairing():
     assert 'duplicate check: <no duplicate issue or session artifact>' in normalized
     assert '同じrunのsupport follow-up' in normalized
     assert 'fresh-output facts`だけを新しいoutputから追記' in normalized
-    assert '`v0.10.0-humble`または`v0.10.0-jazzy`' in normalized
-    assert '`v0.10.0`以降のexact commit/revision' in normalized
+    assert '`v0.11.0-humble`または`v0.11.0-jazzy`' in normalized
+    assert '`v0.11.0`以降のexact commit/revision' in normalized
     assert 'identity、session、output、またはreportとreceiptが同じrunに結び付く' in normalized
     assert 'acceptedや independent validationとも書きません' in normalized
     assert '公開validation evidence の一組に昇格させません' in normalized

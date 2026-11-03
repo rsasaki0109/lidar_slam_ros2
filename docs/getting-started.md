@@ -7,9 +7,9 @@ to a working map.
 
 | Goal | First safe action | Safety and cost boundary |
 | --- | --- | --- |
-| See a verified map, no build | **Default if unsure:** follow [Docker First Map](#docker-first-map-no-ros-2-workspace) | Stable `v0.10.0-humble`; needs Docker; host writes stay in `./lidarslam_output`. |
+| See a verified map, no build | **Default if unsure:** follow [Docker First Map](#docker-first-map-no-ros-2-workspace) | Stable `v0.11.0-humble`; needs Docker; host writes stay in `./lidarslam_output`. |
 | Map my own rosbag | Run `lidarslam-map doctor /path/to/rosbag2`, then follow [Run Your Own Bag](#3-run-your-own-bag) | Diagnosis uses no network and writes no files; `start` creates a new output only after input and calibration review. |
-| Build from source or contribute | After cloning, preview [Install And Build From Source](#1-install-and-build-from-source) with `bash scripts/source_quickstart.sh --dry-run` | Release `v0.10.0`; needs ROS 2, 8 GiB, and roughly 30 minutes. |
+| Build from source or contribute | After cloning, preview [Install And Build From Source](#1-install-and-build-from-source) with `bash scripts/source_quickstart.sh --dry-run` | Release `v0.11.0`; needs ROS 2, 8 GiB, and roughly 30 minutes. |
 
 <details markdown="1">
 <summary>Already installed, or continuing after your first map?</summary>
@@ -97,11 +97,11 @@ docker run --rm \
   -e LIDARSLAM_HOST_UID="$(id -u)" \
   -e LIDARSLAM_HOST_GID="$(id -g)" \
   -v "$PWD/lidarslam_output:/lidarslam_ws/output" \
-  ghcr.io/rsasaki0109/lidar_slam_ros2:v0.10.0-humble
+  ghcr.io/rsasaki0109/lidar_slam_ros2:v0.11.0-humble
 ```
 
 This command is intentionally pinned to the latest published stable image,
-`v0.10.0-humble`, so a clean first run does not silently follow `develop`.
+`v0.11.0-humble`, so a clean first run does not silently follow `develop`.
 
 The first run downloads the tracked 517 MB MID-360 bag and prints periodic
 byte, percentage and transfer-rate updates. The map is written to
@@ -114,7 +114,7 @@ used by a sourced source workspace. Both paths use the fixed MID-360 dataset,
 the `rko_lio_graph_mid360_preset`, and the same manifest, verifier, diagnosis,
 and first-map receipt artifacts.
 On Ubuntu 24.04, use
-`ghcr.io/rsasaki0109/lidar_slam_ros2:v0.10.0-jazzy`; the entrypoint and first-map
+`ghcr.io/rsasaki0109/lidar_slam_ros2:v0.11.0-jazzy`; the entrypoint and first-map
 contract are unchanged.
 
 After the demo, print the copy-ready validation handoff from the same image
@@ -123,11 +123,11 @@ without writing to the output or using the network:
 ```bash
 docker run --rm --network none \
   -v "$PWD/lidarslam_output:/output:ro" \
-  ghcr.io/rsasaki0109/lidar_slam_ros2:v0.10.0-humble \
+  ghcr.io/rsasaki0109/lidar_slam_ros2:v0.11.0-humble \
   bash -lc 'lidarslam-map report /output/mid360_demo'
 ```
 
-Use the `v0.10.0-jazzy` image in that command on Ubuntu 24.04. Review the
+Use the `v0.11.0-jazzy` image in that command on Ubuntu 24.04. Review the
 printed PASS summary and attach only the already-generated JSON receipt. The
 older `v0.9.0` images predate `report`; with one of those, review
 `lidarslam_output/mid360_demo/first_map_validation_receipt.json` or print it
@@ -139,7 +139,7 @@ Record the immutable image identity after the pull:
 ```bash
 docker image inspect \
   --format='{{index .RepoDigests 0}}' \
-  ghcr.io/rsasaki0109/lidar_slam_ros2:v0.10.0-humble
+  ghcr.io/rsasaki0109/lidar_slam_ros2:v0.11.0-humble
 ```
 
 If this prints no `ghcr.io/...@sha256:...` value, stop and report that the
@@ -215,7 +215,7 @@ the asset and has passed the published-release audit; v0.9.0 does not.
 The verified route is:
 
 ```bash
-RELEASE=v0.10.0
+RELEASE=v0.11.0
 curl --fail --location --proto '=https' --tlsv1.2 \
   "https://github.com/rsasaki0109/lidar_slam_ros2/releases/download/${RELEASE}/lidarslam-map-docker" \
   --output lidarslam-map-docker

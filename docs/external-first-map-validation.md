@@ -46,14 +46,14 @@ complete enough for an external validation attempt.
    validates the receipt-bound manifest, diagnosis, and verification log in
    place and produces the same read-only handoff.
 
-   With the published `v0.10.0-{humble,jazzy}` images, run the same command
+   With the published `v0.11.0-{humble,jazzy}` images, run the same command
    inside the image without writing or networking (use the `jazzy` tag on
    Ubuntu 24.04):
 
    ```bash
    docker run --rm --network none \
      -v "$PWD/lidarslam_output:/output:ro" \
-     ghcr.io/rsasaki0109/lidar_slam_ros2:v0.10.0-humble \
+     ghcr.io/rsasaki0109/lidar_slam_ros2:v0.11.0-humble \
      bash -lc 'lidarslam-map report /output/mid360_demo'
    ```
 
@@ -68,7 +68,7 @@ complete enough for an external validation attempt.
    ```bash
    docker image inspect \
      --format='{{index .RepoDigests 0}}' \
-     ghcr.io/rsasaki0109/lidar_slam_ros2:v0.10.0-humble
+     ghcr.io/rsasaki0109/lidar_slam_ros2:v0.11.0-humble
    ```
 
    If no `ghcr.io/...@sha256:...` value is returned, stop rather than
