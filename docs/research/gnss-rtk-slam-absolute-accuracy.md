@@ -100,6 +100,25 @@ refinement starts closer and keeps almost every view; the colours follow, modest
 camera time shift (−0.0206 s) instead of the recipe's 0 made it worse (2.29 px before refinement, held-out
 mean 45.9), so the recipe keeps 0.
 
+## The construction presets (release gates)
+
+Deskew and the static initialisation on the shared construction preset
+(`configs/mid360_robot/rko_lio_rtk_slam_mid360.yaml`), same commit, the gate command of
+`scripts/run_rtk_slam_accuracy_suite.py` with the map saved, map quality with the blocking
+`indoor_construction` profile:
+
+| Sequence | preset | SE3 RMSE (median, max) | thickness mean / p95 | planar coverage | entropy |
+| --- | --- | ---: | ---: | ---: | ---: |
+| construction_seq2 | deskew off, init off | 0.165 m (0.091, 0.526) | 0.082 / 0.123 m | 0.46 | −0.94 |
+| | deskew only | 0.062 m (0.058, 0.122) | — | — | — |
+| | **deskew + init** | **0.062 m (0.059, 0.110)** | **0.049 / 0.095 m** | **0.77** | **−1.59** |
+| construction_seq1 | deskew off, init off | 0.280 m (0.145, 0.666) | 0.080 / 0.123 m | 0.40 | −0.90 |
+| | **deskew + init** | **0.205 m (0.095, 0.640)** | **0.051 / 0.095 m** | **0.73** | **−1.59** |
+
+Both sequences start static with the rig pitched ~19°. The published construction_seq2 baselines
+are FAST-LIO-SAM 0.086 m and OKVIS 0.075 m. With the map saved the trajectory RMSE is unchanged to the last digit
+(0.06219702536 m both ways), so the gate numbers come from the same deterministic run.
+
 ## Product changes
 
 - RKO-LIO (fork): `offset_time` is a per-point time field; the offline node passes a bag NavSatFix topic
@@ -115,6 +134,5 @@ mean 45.9), so the recipe keeps 0.
 ## Open
 
 - `stadtgarten_seq1` (and any other RTK site) to check the weights were not fitted to seq2's 19 checkpoints.
-- The construction presets still run deskew off; they are release gates and need their own before/after.
 - Loop closure is off in effect here (no loop found); the route passes within 9 m of an RTK-fixed stretch at
   750 s, which would bound the end segment without GNSS.

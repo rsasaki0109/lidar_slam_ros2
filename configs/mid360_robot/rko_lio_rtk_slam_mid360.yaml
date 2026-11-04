@@ -6,16 +6,21 @@
 # Extrinsics are identity: the gate scores the SE(3)-aligned checkpoint RMSE, so
 # a constant livox_frame -> base offset is absorbed by the Umeyama alignment.
 #
-# deskew is OFF: the dataset's /livox/points carries a Livox `offset_time` field
-# rather than the per-point timestamp RKO-LIO deskew expects, so RKO-LIO falls
-# back to the scan header time anyway. voxel/range follow the validated MID-360
-# low-voxel preset. Keep the second downsample disabled: clean full-sequence
-# validation improved Construction Hall 1 from 0.569 m to 0.321 m RMSE and the
-# seq2 holdout from 0.125 m to 0.086 m, without sequence-specific tuning.
+# deskew and initialization_phase are on (2026-11): RKO-LIO reads the Livox
+# `offset_time` per-point time (before, deskew dropped every frame, so it ran
+# off), and the handheld rig starts static but pitched ~19 deg, so the static
+# gravity initialisation levels the odometry frame. On the same commit:
+#   construction_seq2  0.165 -> 0.062 m RMSE, map thickness 0.082 -> 0.049 m
+#   construction_seq1  0.280 -> 0.205 m RMSE, map thickness 0.080 -> 0.051 m
+# (docs/research/gnss-rtk-slam-absolute-accuracy.md). voxel/range follow the
+# validated MID-360 low-voxel preset. Keep the second downsample disabled: clean
+# full-sequence validation improved Construction Hall 1 from 0.569 m to 0.321 m
+# RMSE and the seq2 holdout from 0.125 m to 0.086 m, without sequence-specific
+# tuning.
 extrinsic_imu2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
 extrinsic_lidar2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
-initialization_phase: false
-deskew: false
+initialization_phase: true
+deskew: true
 voxel_size: 0.5
 min_range: 1.0
 max_range: 100.0
