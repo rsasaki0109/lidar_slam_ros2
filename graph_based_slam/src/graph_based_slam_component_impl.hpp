@@ -44,6 +44,7 @@
 #include <cstddef>
 #include <functional>
 #include <memory>
+#include <atomic>
 #include <mutex>
 #include <string>
 #include <utility>
@@ -209,6 +210,10 @@ private:
   bool last_submap_position_valid_ {false};
   double accumulated_distance_ {0.0};
   bool first_synced_input_logged_ {false};
+  // Stamp of the latest odometry the backend took in (sensor time); 0 = none yet.
+  // GNSS header stamps are checked against it, so a recorded bag replayed offline
+  // (wall clock a year later) keeps its fix stamps.
+  std::atomic<double> latest_odom_stamp_sec_ {0.0};
   void receiveSyncedOdomCloud(
     const nav_msgs::msg::Odometry::ConstSharedPtr & odom_msg,
     const sensor_msgs::msg::PointCloud2::ConstSharedPtr & cloud_msg);

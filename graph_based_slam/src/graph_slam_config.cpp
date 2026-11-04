@@ -221,12 +221,17 @@ GraphSlamConfig loadGraphSlamConfig(rclcpp::Node & node)
     "gnss_rtk_fix_max_horizontal_stddev_m");
   LOAD(gnss_rtk_fix_weight_scale_, "gnss_rtk_fix_weight_scale");
   LOAD(gnss_non_rtk_weight_scale_, "gnss_non_rtk_weight_scale");
+  LOAD(gnss_vertical_weight_scale_, "gnss_vertical_weight_scale");
   LOAD(gnss_header_stamp_max_skew_sec_, "gnss_header_stamp_max_skew_sec");
   LOAD(gnss_align_yaw_, "gnss_align_yaw");
   LOAD(gnss_yaw_alignment_min_anchors_, "gnss_yaw_alignment_min_anchors");
   LOAD(gnss_yaw_alignment_min_baseline_m_, "gnss_yaw_alignment_min_baseline_m");
   LOAD(gnss_origin_min_samples_, "gnss_origin_min_samples");
   LOAD(gnss_origin_consistency_threshold_m_, "gnss_origin_consistency_threshold_m");
+  LOAD(gnss_antenna_offset_xyz_, "gnss_antenna_offset_xyz");
+  LOAD(gnss_interpolation_max_gap_sec_, "gnss_interpolation_max_gap_sec");
+  LOAD(gnss_robust_kernel_delta_, "gnss_robust_kernel_delta");
+  LOAD(gravity_prior_info_, "gravity_prior_info");
   LOAD(use_imu_preintegration_, "use_imu_preintegration");
   LOAD(imu_rotation_info_roll_pitch_, "imu_rotation_info_roll_pitch");
   LOAD(imu_rotation_info_yaw_, "imu_rotation_info_yaw");
@@ -297,6 +302,7 @@ ConfigNormalization normalizeGraphSlamConfig(GraphSlamConfig & config)
     "gnss_rtk_fix_max_horizontal_stddev_m");
   positiveOr(config.gnss_rtk_fix_weight_scale_, 3.0, "gnss_rtk_fix_weight_scale");
   positiveOr(config.gnss_non_rtk_weight_scale_, 1.0, "gnss_non_rtk_weight_scale");
+  positiveOr(config.gnss_vertical_weight_scale_, 0.1, "gnss_vertical_weight_scale");
   positiveOr(config.gnss_header_stamp_max_skew_sec_, 30.0, "gnss_header_stamp_max_skew_sec");
 
   atLeastOne(config.search_submap_num_, "search_submap_num");
@@ -524,6 +530,24 @@ std::vector<std::string> validateGraphSlamConfig(const GraphSlamConfig & config)
   }
   if (config.use_pcd_cache_ && config.pcd_cache_dir_.empty()) {
     errors.emplace_back("pcd_cache_dir must not be empty when use_pcd_cache is true");
+  }
+  const std::vector<double> & antenna = config.gnss_antenna_offset_xyz_;
+  if (
+    antenna.size() != 3 ||
+    !std::all_of(antenna.begin(), antenna.end(), [](double v) {return std::isfinite(v);}))
+  {
+    errors.emplace_back("gnss_antenna_offset_xyz must be 3 finite values [x, y, z]");
+  }
+  if (!std::isfinite(config.gnss_interpolation_max_gap_sec_) ||
+    config.gnss_interpolation_max_gap_sec_ < 0.0)
+  {
+    errors.emplace_back("gnss_interpolation_max_gap_sec must be finite and >= 0");
+  }
+  if (!std::isfinite(config.gnss_robust_kernel_delta_) || config.gnss_robust_kernel_delta_ < 0.0) {
+    errors.emplace_back("gnss_robust_kernel_delta must be finite and >= 0");
+  }
+  if (!std::isfinite(config.gravity_prior_info_) || config.gravity_prior_info_ < 0.0) {
+    errors.emplace_back("gravity_prior_info must be finite and >= 0");
   }
   const std::vector<double> & extrinsic = config.extrinsic_lidar2base_quat_xyzw_xyz_;
   if (

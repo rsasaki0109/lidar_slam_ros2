@@ -5,12 +5,18 @@
 # sampler as the product default and opt only this measured profile into the
 # pre-v0.3 unordered-map representative order. The current voxel map prunes at
 # exact voxel granularity, unlike the older block-granular map; extending the
-# active range from 100 m to 105 m restores that boundary headroom. Measured
-# sequence-2 validation: 0.426 m RMSE, 19/19 checkpoints.
+# active range from 100 m to 105 m restores that boundary headroom.
+#
+# deskew and initialization_phase are on (2026-11): RKO-LIO now reads the Livox
+# `offset_time` field, and the rig is lifted onto every checkpoint (up to
+# 3-4 rad/s) and starts static but pitched ~20 deg. Measured sequence-2
+# validation: 0.296 m RMSE, 19/19 checkpoints. With both off the same commit
+# gives 1.594 m; the 0.426 m recorded in July 2026 did not reproduce.
+# Map thickness and GNSS results: docs/research/gnss-rtk-slam-absolute-accuracy.md.
 extrinsic_imu2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
 extrinsic_lidar2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
-initialization_phase: false
-deskew: false
+initialization_phase: true
+deskew: true
 voxel_size: 0.5
 min_range: 1.0
 max_range: 105.0

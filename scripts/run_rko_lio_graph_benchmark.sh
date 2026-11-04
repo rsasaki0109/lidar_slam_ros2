@@ -25,6 +25,8 @@ Options:
   --completion-end-margin-secs <sec>
                                  Required trajectory proximity to bag end (default: 120)
   --skip-map-save                Do not call /map_save or verify the map bundle
+  --bag-gnss                     Pass the bag's /gnss/fix (NavSatFix) through the offline node to
+                                 graph_based_slam (the --lidarslam-param file must set use_gnss: true)
   --gt-blind                     Run trajectory/map generation without any GT/APE access
   --skip-reference-gen           Reuse an existing reference TUM/meta without regenerating it
   --publish-static-tf BOOL       static_transform_publisher (default: true)
@@ -108,6 +110,7 @@ COMPLETION_END_MARGIN_SECS=120
 # below real time; raise this so the run is not cut off mid-bag.
 OFFLINE_TIMEOUT_SECS=1800
 SKIP_MAP_SAVE=false
+BAG_GNSS=false
 SKIP_REFERENCE_GEN=false
 GT_BLIND=false
 PUBLISH_STATIC_TF=true
@@ -198,6 +201,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --skip-map-save)
       SKIP_MAP_SAVE=true
+      shift
+      ;;
+    --bag-gnss)
+      BAG_GNSS=true
       shift
       ;;
     --gt-blind)
@@ -663,6 +670,7 @@ if command -v setsid >/dev/null 2>&1; then
     "run_name:=${RUN_NAME}" \
     "dump_results:=true" \
     "use_rviz:=false" \
+    "bag_gnss:=${BAG_GNSS}" \
     >"${LAUNCH_LOG}" 2>&1 &
   LAUNCH_PID="$!"
   LAUNCH_PGID="$LAUNCH_PID"
@@ -682,6 +690,7 @@ else
     "run_name:=${RUN_NAME}" \
     "dump_results:=true" \
     "use_rviz:=false" \
+    "bag_gnss:=${BAG_GNSS}" \
     >"${LAUNCH_LOG}" 2>&1 &
   LAUNCH_PID="$!"
 fi

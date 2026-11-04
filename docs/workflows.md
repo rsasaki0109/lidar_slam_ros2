@@ -518,8 +518,9 @@ The default acceptance criteria are:
 deskew and `34.089 m` with `--imu-rotation-use-orientation false`. That is why
 the public packet path still keeps `--use-imu false` by default.
 
-If a bag carries NavSatFix messages whose header stamps do not track ROS time,
-the backend now falls back to receive time when the skew exceeds
+If a bag carries NavSatFix messages whose header stamps do not track sensor time,
+the backend falls back to sensor time (the latest odometry stamp, or the node
+clock before the first one) when the skew exceeds
 `gnss_header_stamp_max_skew_sec` (default `30 s`). That makes `all-sensors-bag6`
 attach GNSS edges again, but its native `/gnss/fix` still disagrees with the
 `GSOF49` reference enough that it is better suited to georeferenced smoke tests

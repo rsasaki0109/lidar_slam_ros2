@@ -242,6 +242,13 @@ if(BUILD_TESTING)
     target_include_directories(test_gnss_geometry PRIVATE include ${EIGEN3_INCLUDE_DIR})
   endif()
   ament_add_gtest(
+    test_gnss_anchor_matching
+    test/test_gnss_anchor_matching.cpp
+  )
+  if(TARGET test_gnss_anchor_matching)
+    target_include_directories(test_gnss_anchor_matching PRIVATE include ${EIGEN3_INCLUDE_DIR})
+  endif()
+  ament_add_gtest(
     test_gnss_origin_accumulator
     test/test_gnss_origin_accumulator.cpp
   )

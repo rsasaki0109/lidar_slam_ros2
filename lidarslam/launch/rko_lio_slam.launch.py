@@ -86,6 +86,12 @@ def create_rko_offline_node(context, *args, **kwargs):
         'initialization_phase': LaunchConfiguration('initialization_phase'),
         'skip_to_time': LaunchConfiguration('skip_to_time'),
         'publish_deskewed_scan': True,
+        # Pass the bag's NavSatFix topic through to graph_based_slam (bag_gnss:=true);
+        # the offline node otherwise reads the bag on its own and no GNSS reaches the graph.
+        'gnss_topic': (
+            LaunchConfiguration('gnss_topic').perform(context)
+            if _parse_bool_arg(LaunchConfiguration('bag_gnss').perform(context)) else ''
+        ),
         # The upstream-integrated rko_lio defaults to "rko_lio/odom"; the
         # graph backend below (and the record_backend_input tooling) expect
         # the fork's historical "/rko_lio/odometry".
@@ -313,6 +319,15 @@ def generate_launch_description():
             'gnss_topic',
             default_value='/gnss/fix',
             description='NavSatFix topic for graph_based_slam when use_gnss:=true.',
+        ),
+        DeclareLaunchArgument(
+            'bag_gnss',
+            default_value='false',
+            description=(
+                'Have the offline node publish the bag\'s gnss_topic NavSatFix messages '
+                'so graph_based_slam can anchor the map (set use_gnss: true in '
+                'main_param_dir). The offline node then also waits for the GNSS subscriber.'
+            ),
         ),
         DeclareLaunchArgument(
             'base_frame',

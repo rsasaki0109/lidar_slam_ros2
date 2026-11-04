@@ -169,12 +169,17 @@ the header, then run the script; a test fails while the page is out of date.
 | `gnss_rtk_fix_max_horizontal_stddev_m` | `double` | `0.3` |  |
 | `gnss_rtk_fix_weight_scale` | `double` | `3.0` |  |
 | `gnss_non_rtk_weight_scale` | `double` | `1.0` |  |
+| `gnss_vertical_weight_scale` | `double` | `0.1` | Vertical GNSS information relative to horizontal (on top of the covariance): RTK height is about 2x noisier than position (~0.25); 0.1 trusts it less. |
 | `gnss_header_stamp_max_skew_sec` | `double` | `30.0` |  |
 | `gnss_align_yaw` | `bool` | `true` |  |
 | `gnss_yaw_alignment_min_anchors` | `int` | `10` |  |
 | `gnss_yaw_alignment_min_baseline_m` | `double` | `5.0` |  |
 | `gnss_origin_min_samples` | `int` | `3` |  |
 | `gnss_origin_consistency_threshold_m` | `double` | `20.0` |  |
+| `gnss_antenna_offset_xyz` | `std::vector<double>` | `[0.0, 0.0, 0.0]` | GNSS antenna phase centre in the base frame [x, y, z] (m); the anchor then constrains that point of each submap instead of the base origin. |
+| `gnss_interpolation_max_gap_sec` | `double` | `0.0` | Interpolate the anchor between the fixes either side of a submap stamp when they are at most this far apart (s); 0 keeps the nearest fix within 1 s. |
+| `gnss_robust_kernel_delta` | `double` | `0.0` | > 0: Huber kernel on each GNSS anchor, in sigmas of its covariance (a wrong fix then pulls linearly instead of quadratically); 0 = no kernel. |
+| `gravity_prior_info` | `double` | `0.0` | > 0: absolute roll/pitch prior on every submap from its odometry attitude (the frontend's frame must be gravity-aligned, as LIO's is), information per axis of the up-vector error (~rad^-2; 3300 ~ 1 deg). Keeps GNSS anchors from tilting the graph. 0 = off. |
 | `use_imu_preintegration` | `bool` | `false` |  |
 | `imu_rotation_info_roll_pitch` | `double` | `100.0` |  |
 | `imu_rotation_info_yaw` | `double` | `10.0` |  |
@@ -192,4 +197,4 @@ the header, then run the script; a test fails while the page is out of date.
 | `degeneracy_diagnostics_csv_path` | `std::string` | `""` |  |
 | `save_degeneracy_report` | `bool` | `false` |  |
 
-153 parameters.
+158 parameters.

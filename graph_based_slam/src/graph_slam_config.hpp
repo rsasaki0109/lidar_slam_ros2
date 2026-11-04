@@ -261,12 +261,29 @@ struct GraphSlamConfig
   double gnss_rtk_fix_max_horizontal_stddev_m_ {0.3};
   double gnss_rtk_fix_weight_scale_ {3.0};
   double gnss_non_rtk_weight_scale_ {1.0};
+  // Vertical GNSS information relative to horizontal (on top of the covariance):
+  // RTK height is about 2x noisier than position (~0.25); 0.1 trusts it less.
+  double gnss_vertical_weight_scale_ {0.1};
   double gnss_header_stamp_max_skew_sec_ {30.0};
   bool gnss_align_yaw_ {true};
   int gnss_yaw_alignment_min_anchors_ {10};
   double gnss_yaw_alignment_min_baseline_m_ {5.0};
   int gnss_origin_min_samples_ {3};
   double gnss_origin_consistency_threshold_m_ {20.0};
+  // GNSS antenna phase centre in the base frame [x, y, z] (m); the anchor then
+  // constrains that point of each submap instead of the base origin.
+  std::vector<double> gnss_antenna_offset_xyz_ {0.0, 0.0, 0.0};
+  // Interpolate the anchor between the fixes either side of a submap stamp when
+  // they are at most this far apart (s); 0 keeps the nearest fix within 1 s.
+  double gnss_interpolation_max_gap_sec_ {0.0};
+  // > 0: Huber kernel on each GNSS anchor, in sigmas of its covariance (a wrong
+  // fix then pulls linearly instead of quadratically); 0 = no kernel.
+  double gnss_robust_kernel_delta_ {0.0};
+  // > 0: absolute roll/pitch prior on every submap from its odometry attitude
+  // (the frontend's frame must be gravity-aligned, as LIO's is), information
+  // per axis of the up-vector error (~rad^-2; 3300 ~ 1 deg). Keeps GNSS anchors
+  // from tilting the graph. 0 = off.
+  double gravity_prior_info_ {0.0};
   bool use_imu_preintegration_ {false};
   double imu_rotation_info_roll_pitch_ {100.0};
   double imu_rotation_info_yaw_ {10.0};

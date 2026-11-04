@@ -54,6 +54,7 @@
 #include "graph_based_slam/degeneracy_diagnostics_csv.hpp"
 #include "graph_based_slam/dynamic_object_filter.hpp"
 #include "graph_based_slam/gnss_alignment.hpp"
+#include "graph_based_slam/gnss_anchor_matching.hpp"
 #include "graph_based_slam/gnss_geometry.hpp"
 #include "graph_based_slam/gnss_weighting.hpp"
 #include "graph_based_slam/graph_slam_application.hpp"
@@ -305,7 +306,9 @@ void GraphBasedSlamComponent::Impl::initializePubSub()
 
   if (config_.use_gnss_) {
     gnss_sub_ = node_.create_subscription<sensor_msgs::msg::NavSatFix>(
-      config_.gnss_topic_, rclcpp::SensorDataQoS(),
+      // Best effort (matches any publisher) with a deep queue: an offline bag
+      // pass-through publishes much faster than real time.
+      config_.gnss_topic_, rclcpp::SensorDataQoS().keep_last(1000),
       [this](const sensor_msgs::msg::NavSatFix::SharedPtr msg) {receiveNavSatFix(*msg);});
     RCLCPP_INFO(
       node_.get_logger(),
@@ -460,6 +463,10 @@ void GraphBasedSlamComponent::Impl::doPoseAdjustment(
     Eigen::fromMsg(map_array_msg.submaps[i].pose, affine);
     pose_graph::SubmapNode node;
     node.pose = Eigen::Isometry3d(affine.matrix());
+    if (config_.gravity_prior_info_ > 0.0) {
+      node.gravity_prior_info = config_.gravity_prior_info_;
+      node.gravity_up_body = node.pose.linear().transpose() * Eigen::Vector3d::UnitZ();
+    }
     submap_nodes.push_back(node);
   }
 
@@ -492,36 +499,49 @@ void GraphBasedSlamComponent::Impl::doPoseAdjustment(
     }
   }
 
-  /* GNSS anchors (pre-pass: nearest-measurement match over the buffer) */
+  /* GNSS anchors (pre-pass: match each submap stamp against the buffer) */
   std::vector<pose_graph::GnssConstraint> gnss_constraints;
   if (config_.use_gnss_ && isGnssOriginSet()) {
-    std::lock_guard<std::mutex> gnss_lock(gnss_mtx_);
+    std::vector<detail::GnssSample> gnss_samples;
+    {
+      std::lock_guard<std::mutex> gnss_lock(gnss_mtx_);
+      gnss_samples.reserve(gnss_buffer_.size());
+      for (const auto & g : gnss_buffer_) {
+        detail::GnssSample sample;
+        sample.stamp = g.stamp;
+        sample.position = Eigen::Vector3d(g.x, g.y, g.z);
+        sample.info = Eigen::Vector3d(g.info_x, g.info_y, g.info_z);
+        sample.rtk_like = g.rtk_like;
+        gnss_samples.push_back(sample);
+      }
+    }
+    std::stable_sort(gnss_samples.begin(), gnss_samples.end(), detail::gnssSampleStampLess);
+    detail::GnssAnchorMatchConfig match_config;
+    match_config.max_interpolation_gap_sec = config_.gnss_interpolation_max_gap_sec_;
+    const Eigen::Vector3d antenna_offset(
+      config_.gnss_antenna_offset_xyz_[0], config_.gnss_antenna_offset_xyz_[1],
+      config_.gnss_antenna_offset_xyz_[2]);
     int gnss_rtk_like_edges_added = 0;
+    int gnss_interpolated_edges = 0;
 
     for (int i = 0; i < submaps_size; i++) {
-      double submap_time = rclcpp::Time(map_array_msg.submaps[i].header.stamp).seconds();
-      // Find nearest GNSS measurement
-      double best_dt = std::numeric_limits<double>::max();
-      GnssEnu best_gnss;
-      bool found = false;
-      for (const auto & g : gnss_buffer_) {
-        double dt = std::abs(g.stamp - submap_time);
-        if (dt < best_dt) {
-          best_dt = dt;
-          best_gnss = g;
-          found = true;
-        }
-      }
-      if (!found || best_dt > 1.0) {continue;}  // Skip if no GNSS within 1 second
+      const double submap_time = rclcpp::Time(map_array_msg.submaps[i].header.stamp).seconds();
+      const detail::GnssAnchorMatch match =
+        detail::matchGnssAnchor(gnss_samples, submap_time, match_config);
+      if (!match.valid) {continue;}
 
       pose_graph::GnssConstraint gnss_constraint;
       gnss_constraint.submap_index = i;
-      gnss_constraint.position = Eigen::Vector3d(best_gnss.x, best_gnss.y, best_gnss.z);
-      gnss_constraint.info_diag =
-        Eigen::Vector3d(best_gnss.info_x, best_gnss.info_y, best_gnss.info_z);
+      gnss_constraint.position = match.position;
+      gnss_constraint.info_diag = match.info;
+      gnss_constraint.antenna_offset = antenna_offset;
+      gnss_constraint.robust_kernel_delta = config_.gnss_robust_kernel_delta_;
       gnss_constraints.push_back(gnss_constraint);
-      if (best_gnss.rtk_like) {
+      if (match.rtk_like) {
         gnss_rtk_like_edges_added++;
+      }
+      if (match.interpolated) {
+        gnss_interpolated_edges++;
       }
     }
     if (config_.debug_flag_) {
@@ -529,6 +549,11 @@ void GraphBasedSlamComponent::Impl::doPoseAdjustment(
         node_.get_logger(),
         "Added %zu GNSS position constraint edges (%d RTK-like by covariance)",
         gnss_constraints.size(), gnss_rtk_like_edges_added);
+      if (match_config.max_interpolation_gap_sec > 0.0) {
+        RCLCPP_INFO(
+          node_.get_logger(), "GNSS anchors interpolated between fixes: %d of %zu",
+          gnss_interpolated_edges, gnss_constraints.size());
+      }
     }
   }
 
@@ -544,7 +569,8 @@ void GraphBasedSlamComponent::Impl::doPoseAdjustment(
     odom_xy.reserve(gnss_constraints.size());
     enu_xy.reserve(gnss_constraints.size());
     for (const auto & gnss_constraint : gnss_constraints) {
-      const Eigen::Vector3d p = submap_nodes[gnss_constraint.submap_index].pose.translation();
+      const Eigen::Vector3d p =
+        submap_nodes[gnss_constraint.submap_index].pose * gnss_constraint.antenna_offset;
       odom_xy.emplace_back(p.x(), p.y());
       enu_xy.emplace_back(gnss_constraint.position.x(), gnss_constraint.position.y());
     }
@@ -825,7 +851,11 @@ void GraphBasedSlamComponent::Impl::receiveNavSatFix(const sensor_msgs::msg::Nav
   Eigen::Vector3d enu = geodeticToEnu(msg.latitude, msg.longitude, msg.altitude);
   const detail::GnssConstraintWeights gnss_weights =
     detail::computeGnssConstraintWeights(msg, makeGnssWeightingConfig(config_));
-  const double receive_time_sec = io_ports_.clock->nowSeconds();
+  // The skew guard compares the fix's header with sensor time: the latest odometry
+  // stamp, or the node clock before the first one.
+  const double latest_odom_stamp_sec = latest_odom_stamp_sec_.load();
+  const double receive_time_sec =
+    latest_odom_stamp_sec > 0.0 ? latest_odom_stamp_sec : io_ports_.clock->nowSeconds();
   const double header_time_sec = rclcpp::Time(msg.header.stamp).seconds();
   const detail::GnssTimestampResolution stamp_resolution =
     detail::resolveGnssMeasurementStamp(
@@ -848,8 +878,8 @@ void GraphBasedSlamComponent::Impl::receiveNavSatFix(const sensor_msgs::msg::Nav
       node_.get_logger(),
       *node_.get_clock(),
       5000,
-      "GNSS header stamp %.3f s differs from receive time %.3f s by more than "
-      "%.3f s; using receive time",
+      "GNSS header stamp %.3f s differs from sensor time %.3f s (latest odometry "
+      "stamp, or the node clock before it) by more than %.3f s; using sensor time",
       header_time_sec, receive_time_sec, config_.gnss_header_stamp_max_skew_sec_);
   }
 
@@ -991,6 +1021,7 @@ void GraphBasedSlamComponent::Impl::receiveSyncedOdomCloud(
       node_.get_logger(), "First synced odom+cloud pair: (%.2f, %.2f, %.2f), %zu bytes", pos.x(),
       pos.y(), pos.z(), cloud_msg->data.size());
   }
+  latest_odom_stamp_sec_.store(rclcpp::Time(odom_msg->header.stamp).seconds());
   recordScanDegeneracy(*odom_msg);
   tryCreateSubmap(*odom_msg, *cloud_msg);
 }
