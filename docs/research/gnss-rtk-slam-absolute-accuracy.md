@@ -78,6 +78,28 @@ The same runs through `scripts/run_map_quality_check.sh` (frozen profile, `--dow
 Deskew removes most of the blur; the stiffer odometry edges remove the bending the anchors used to put
 between submaps that see the same surface.
 
+## Coloured map
+
+The README's Stadtgarten 2 recipe (`tools/colored_map/README.md`: 20–180 s, 640 views, pose refinement,
+corridor carving, the K4 colouring settings with sky rejection; no dynamic-object cleaner on either side) run
+on the old trajectory (deskew off, init off) and on the `lidarslam_rtk_gnss.yaml` one:
+
+| Metric | old trajectory | new trajectory |
+| --- | ---: | ---: |
+| held-out epipolar error before pose refinement | 4.20 px | **1.09 px** |
+| after pose refinement (views reset to the recorded pose) | 0.66 px (61) | **0.33 px (4)** |
+| held-out colour error, RGB L2 mean / median / p90 | 47.6 / 32.9 / 108.6 | **45.1 / 30.7 / 103.1** |
+| held-out points within 20 | 0.339 | **0.363** |
+| coverage | 0.928 | **0.946** |
+| chroma retention | 1.039 | **1.068** |
+| colour roughness, planar voxels median / p90 | 5.42 / 12.59 | **4.65 / 11.84** |
+| colour roughness, all voxels median / p90 | 4.73 / **12.89** | **4.56** / 13.65 |
+
+The camera poses the trajectory hands to the colouring are about four times more consistent, so the pose
+refinement starts closer and keeps almost every view; the colours follow, modestly. The calibration file's
+camera time shift (−0.0206 s) instead of the recipe's 0 made it worse (2.29 px before refinement, held-out
+mean 45.9), so the recipe keeps 0.
+
 ## Product changes
 
 - RKO-LIO (fork): `offset_time` is a per-point time field; the offline node passes a bag NavSatFix topic

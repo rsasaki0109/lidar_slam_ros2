@@ -281,6 +281,17 @@ ffmpeg -i master.mp4 -vf "fps=15,scale=600:-2:flags=lanczos" -loop 0 \
 既知の残差: 経路上に立っていた人物は残像除去で消えたが、その陰で地面が測れなかった場所が小さな穴になる。水平線から 2° 以内でしか見えない遠景の樹冠は白が残る。
 カメラは前向き 1 台なので、経路から外れた範囲は色が付かない。
 
+### 軌跡を改善したとき（2026-11）
+
+RKO-LIO が Livox の `offset_time` を読めるようになり、Stadtgarten 2 の RKO-LIO プリセットは
+deskew と静止時の重力初期化を有効にした（19 測量点への SE(3) ATE 0.296 m）。この軌跡に
+`lidarslam/param/lidarslam_rtk_gnss.yaml` の GNSS 補正を加えたもの（絶対誤差 0.100 m）で
+同じ手順（動的物体除去なし）を回すと、姿勢補正前のエピポーラ誤差が 4.20 → 1.09 px、
+補正後が 0.66 → 0.33 px（記録姿勢に戻した view 61 → 4）、held-out 色誤差（RGB L2 平均）が
+47.6 → 45.1、coverage が 0.928 → 0.946 になった。カメラ時刻を較正ファイルの −0.0206 s に
+すると悪化した（補正前 2.29 px）ので `--time-offset 0` のままにする。詳細は
+`docs/research/gnss-rtk-slam-absolute-accuracy.md`。
+
 ## 空の色の混入除去（`--sky-rejection`、既定オフ）
 
 屋外では細い枝や樹冠の縁が、姿勢のわずかなずれで枝の間の空に投影され、白や青で

@@ -54,7 +54,9 @@ latest published release.
 
 - The RTK-SLAM Stadtgarten 2 RKO-LIO preset turns deskew and the static
   gravity initialisation on: 0.296 m checkpoint RMSE (1.594 m with both off on
-  the same commit), map thickness 0.072 → 0.044 m with the GNSS preset.
+  the same commit), map thickness 0.072 → 0.044 m with the GNSS preset. The
+  coloured map recipe on that trajectory: camera poses 4.20 → 1.09 px held-out
+  epipolar error before refinement, held-out colour error 47.6 → 45.1.
 - `run_rko_lio_graph_benchmark.sh` keeps its ordinary completion path only.
   `--skip-map-save` still suppresses the graph's own map writes, now through
   `LIDARSLAM_BENCHMARK_NO_MAP_ARTIFACTS`.
