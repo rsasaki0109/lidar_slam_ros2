@@ -58,13 +58,13 @@ until a yaw alignment lands.** Design sketch for the follow-up:
 ## Replay pitfalls worth keeping (cost a run each)
 
 - The RKO-LIO offline node reads the bag internally — `/gnss/fix` never
-  enters the ROS graph. Replay it alongside
-  (`ros2 bag play <bag> --topics /gnss/fix --rate 5`); matching is by message
-  stamp so the rate is free.
-- `gnss_header_stamp_max_skew_sec` (default 30 s) re-stamps fixes with the
-  receive time when the header is "too old" — on a recorded bag that is
-  *every* fix, silently producing 0 edges. Override it to a huge value for
-  replays (the experiment used 1e12).
+  entered the ROS graph. Since 2026-11 the offline node passes it through
+  (`bag_gnss:=true`, runner `--bag-gnss`).
+- `gnss_header_stamp_max_skew_sec` (default 30 s) re-stamped fixes with the
+  receive time when the header was "too old" — on a recorded bag that was
+  *every* fix, silently producing 0 edges. Since 2026-11 the check compares
+  against the latest odometry stamp instead. Absolute accuracy:
+  [gnss-rtk-slam-absolute-accuracy.md](gnss-rtk-slam-absolute-accuracy.md).
 - A benchmark `--output-dir` whose basename is `on`/`off` becomes a boolean
   `run_name` parameter via YAML and aborts RKO-LIO; name arms `gnss_on`-style.
 - The corrected (submap-node) trajectory still cannot be scored against the

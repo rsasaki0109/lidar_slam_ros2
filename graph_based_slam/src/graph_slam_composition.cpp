@@ -229,7 +229,7 @@ detail::GnssWeightingConfig makeGnssWeightingConfig(const GraphSlamConfig & conf
 {
   detail::GnssWeightingConfig result;
   result.base_info_weight = config.gnss_info_weight_;
-  result.vertical_weight_scale = 0.1;
+  result.vertical_weight_scale = config.gnss_vertical_weight_scale_;
   result.use_covariance_weighting = config.gnss_use_covariance_weighting_;
   result.covariance_min_variance_m2 = config.gnss_covariance_min_variance_m2_;
   result.covariance_max_variance_m2 = config.gnss_covariance_max_variance_m2_;

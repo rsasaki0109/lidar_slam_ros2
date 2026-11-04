@@ -32,6 +32,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstring>
@@ -254,6 +255,134 @@ TEST(PoseGraphOptimization, FreeGaugeLetsAnchorsGovernTheGlobalPose)
   const double length_free =
     (free_gauge.poses[10].translation() - free_gauge.poses[0].translation()).norm();
   EXPECT_NEAR(length_free, 10.0, 0.5);
+}
+
+TEST(PoseGraphOptimization, GnssAntennaOffsetAnchorsTheAntennaNotTheOrigin)
+{
+  // A chain whose nodes are pitched 20 deg (a tilted handheld rig) and an
+  // antenna 0.3 m up the body z axis. The anchors are the true antenna
+  // positions shifted by (0, 0.5, 0): the graph must move so the antenna
+  // (pose * offset), not the node origin, lands on the anchors.
+  const Eigen::Vector3d offset(0.0, 0.0, 0.3);
+  const Eigen::Matrix3d pitch =
+    Eigen::AngleAxisd(20.0 * M_PI / 180.0, Eigen::Vector3d::UnitY()).toRotationMatrix();
+  std::vector<SubmapNode> submaps;
+  for (int i = 0; i <= 10; ++i) {
+    SubmapNode node;
+    node.pose = Eigen::Isometry3d::Identity();
+    node.pose.linear() = pitch;
+    node.pose.translation() = Eigen::Vector3d(static_cast<double>(i), 0.0, 0.0);
+    submaps.push_back(node);
+  }
+  std::vector<GnssConstraint> anchors;
+  for (int i = 0; i <= 10; i += 2) {
+    GnssConstraint g;
+    g.submap_index = i;
+    g.position = submaps[i].pose * offset + Eigen::Vector3d(0.0, 0.5, 0.0);
+    g.info_diag = Eigen::Vector3d(1000.0, 1000.0, 1000.0);
+    g.antenna_offset = offset;
+    anchors.push_back(g);
+  }
+  const auto result = optimizePoseGraph(
+    submaps, {}, {}, anchors,
+    AdjacentEdgeConfig{}, LoopEdgeConfig{}, ImuEdgeConfig{}, Chi2Collection::NONE,
+    /*fix_first_vertex=*/ false, /*iterations=*/ 50);
+  for (const auto & g : anchors) {
+    const Eigen::Vector3d antenna = result.poses[g.submap_index] * offset;
+    EXPECT_LT((antenna - g.position).norm(), 0.01) << "submap " << g.submap_index;
+  }
+  // Without the offset the node origin is pulled onto the anchor instead and
+  // the antenna ends up the lever arm (0.3 m) away from it.
+  std::vector<GnssConstraint> origin_anchors = anchors;
+  for (auto & g : origin_anchors) {
+    g.antenna_offset.setZero();
+  }
+  const auto origin_result = optimizePoseGraph(
+    submaps, {}, {}, origin_anchors,
+    AdjacentEdgeConfig{}, LoopEdgeConfig{}, ImuEdgeConfig{}, Chi2Collection::NONE,
+    /*fix_first_vertex=*/ false, /*iterations=*/ 50);
+  const Eigen::Vector3d antenna4 = origin_result.poses[4] * offset;
+  EXPECT_GT((antenna4 - anchors[2].position).norm(), 0.25);
+}
+
+TEST(PoseGraphOptimization, GnssRobustKernelLimitsAWrongFix)
+{
+  // Eleven consistent anchors on a straight chain and one fix 20 m off. The
+  // Huber kernel keeps the chain on the consistent anchors.
+  std::vector<SubmapNode> submaps;
+  for (int i = 0; i <= 10; ++i) {
+    SubmapNode node;
+    node.pose = Eigen::Isometry3d::Identity();
+    node.pose.translation() = Eigen::Vector3d(static_cast<double>(i), 0.0, 0.0);
+    submaps.push_back(node);
+  }
+  auto make_anchors = [](double delta) {
+      std::vector<GnssConstraint> anchors;
+      for (int i = 0; i <= 10; ++i) {
+        GnssConstraint g;
+        g.submap_index = i;
+        g.position = Eigen::Vector3d(static_cast<double>(i), (i == 5) ? 20.0 : 0.0, 0.0);
+        g.info_diag = Eigen::Vector3d(100.0, 100.0, 100.0);
+        g.robust_kernel_delta = delta;
+        anchors.push_back(g);
+      }
+      return anchors;
+    };
+  const auto plain = optimizePoseGraph(
+    submaps, {}, {}, make_anchors(0.0),
+    AdjacentEdgeConfig{}, LoopEdgeConfig{}, ImuEdgeConfig{}, Chi2Collection::NONE,
+    /*fix_first_vertex=*/ false, /*iterations=*/ 50);
+  const auto robust = optimizePoseGraph(
+    submaps, {}, {}, make_anchors(3.0),
+    AdjacentEdgeConfig{}, LoopEdgeConfig{}, ImuEdgeConfig{}, Chi2Collection::NONE,
+    /*fix_first_vertex=*/ false, /*iterations=*/ 50);
+  const double pull_plain = std::abs(plain.poses[5].translation().y());
+  const double pull_robust = std::abs(robust.poses[5].translation().y());
+  EXPECT_LT(pull_robust, pull_plain * 0.5)
+    << "plain " << pull_plain << " m, robust " << pull_robust << " m";
+}
+
+TEST(PoseGraphOptimization, GravityPriorKeepsAnchorsFromTiltingTheGraph)
+{
+  // A level odometry chain; GNSS anchors on its first half climb 0.1 m per
+  // metre (an anchor height bias the odometry does not share). Without a
+  // gravity prior the graph pitches its nodes to follow and carries the tilt
+  // past the last anchor; with it the nodes stay level.
+  std::vector<SubmapNode> submaps;
+  for (int i = 0; i <= 10; ++i) {
+    SubmapNode node;
+    node.pose = Eigen::Isometry3d::Identity();
+    node.pose.translation() = Eigen::Vector3d(static_cast<double>(i), 0.0, 0.0);
+    submaps.push_back(node);
+  }
+  std::vector<GnssConstraint> anchors;
+  for (int i = 0; i <= 4; ++i) {
+    GnssConstraint g;
+    g.submap_index = i;
+    g.position = Eigen::Vector3d(static_cast<double>(i), 0.0, 0.1 * i);
+    g.info_diag = Eigen::Vector3d(1000.0, 1000.0, 1000.0);
+    anchors.push_back(g);
+  }
+  auto tilt_deg = [](const Eigen::Isometry3d & pose) {
+      return std::acos(std::min(1.0, (pose.linear() * Eigen::Vector3d::UnitZ()).z())) *
+             180.0 / M_PI;
+    };
+  const auto free_tilt = optimizePoseGraph(
+    submaps, {}, {}, anchors,
+    AdjacentEdgeConfig{}, LoopEdgeConfig{}, ImuEdgeConfig{}, Chi2Collection::NONE,
+    /*fix_first_vertex=*/ false, /*iterations=*/ 50);
+  for (auto & node : submaps) {
+    node.gravity_prior_info = 1.0e5;
+    node.gravity_up_body = node.pose.linear().transpose() * Eigen::Vector3d::UnitZ();
+  }
+  const auto with_prior = optimizePoseGraph(
+    submaps, {}, {}, anchors,
+    AdjacentEdgeConfig{}, LoopEdgeConfig{}, ImuEdgeConfig{}, Chi2Collection::NONE,
+    /*fix_first_vertex=*/ false, /*iterations=*/ 50);
+  EXPECT_GT(tilt_deg(free_tilt.poses[10]), 2.0);
+  EXPECT_LT(tilt_deg(with_prior.poses[10]), 0.5);
+  // Past the last anchor the tilted graph keeps climbing; the level one does not.
+  EXPECT_GT(free_tilt.poses[10].translation().z(), with_prior.poses[10].translation().z() + 0.3);
 }
 
 TEST(PoseGraphOptimization, Chi2CollectionModesPopulateExpectedVectors)

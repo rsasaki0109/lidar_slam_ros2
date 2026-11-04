@@ -111,7 +111,9 @@ TEST_F(GraphSlamConfigTest, LoaderAppliesRosOverridesAndDeclaresCompleteSurface)
     (std::vector<double>{0.7071068, -0.7071068, 0.0, 0.0, -0.001, -0.00855, 0.055}));
   EXPECT_TRUE(node->has_parameter("triangle_descriptor_keypoint_mode"));
   EXPECT_TRUE(node->has_parameter("degeneracy_diagnostics_csv_path"));
-  EXPECT_EQ(node->list_parameters({}, 0).names.size() - parameters_before_load, 153U);
+  EXPECT_TRUE(node->has_parameter("gnss_antenna_offset_xyz"));
+  EXPECT_TRUE(node->has_parameter("gravity_prior_info"));
+  EXPECT_EQ(node->list_parameters({}, 0).names.size() - parameters_before_load, 158U);
 }
 
 TEST_F(GraphSlamConfigTest, ValidationReportsIndependentConfigurationErrors)

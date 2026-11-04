@@ -60,6 +60,7 @@
 #define GRAPH_BASED_SLAM_WITH_G2O 1
 #endif
 #include "graph_based_slam/adjacent_edge_covariance_weighting.hpp"
+#include "graph_based_slam/gravity_prior_edge.hpp"
 #include "graph_based_slam/loop_edge_information.hpp"
 #include "graph_based_slam/loop_edge_robustifier.hpp"
 #include "graph_based_slam/plane_revisit_edge.hpp"
@@ -76,6 +77,11 @@ struct SubmapNode
   // The first submap of another session (multi-session graphs): no adjacent edge reaches back
   // across it, since the sessions share no odometry.
   bool session_start {false};
+  // > 0: absolute roll/pitch prior (GravityPriorEdge) holding this node's
+  // body-frame up direction at gravity_up_body, information per axis of that
+  // unit-vector error (~rad^-2); yaw stays free. 0 = no prior.
+  double gravity_prior_info {0.0};
+  Eigen::Vector3d gravity_up_body {Eigen::Vector3d::UnitZ()};
 };
 
 struct LoopConstraint
@@ -106,6 +112,10 @@ struct GnssConstraint
   int submap_index {0};
   Eigen::Vector3d position {Eigen::Vector3d::Zero()};
   Eigen::Vector3d info_diag {Eigen::Vector3d::Zero()};
+  // Antenna phase centre in the submap (base) frame; zero = the base origin.
+  Eigen::Vector3d antenna_offset {Eigen::Vector3d::Zero()};
+  // > 0: Huber kernel on the anchor residual (in sigmas).
+  double robust_kernel_delta {0.0};
 };
 
 struct PlaneRevisitConstraint
@@ -330,6 +340,18 @@ inline OptimizationResult optimizePoseGraph(
     plane_chi2_before += edge->chi2();
   }
 
+  /* Absolute roll/pitch priors (gravity-aligned odometry) */
+  for (int i = 0; i < submaps_size; i++) {
+    if (!(submaps[i].gravity_prior_info > 0.0)) {continue;}
+    if (i == 0 && fix_first_vertex) {continue;}
+    auto * edge = new GravityPriorEdge();
+    edge->setMeasurement(submaps[i].gravity_up_body.normalized());
+    edge->setInformation(
+      Eigen::Matrix3d::Identity() * submaps[i].gravity_prior_info);
+    edge->vertices()[0] = optimizer.vertex(i);
+    optimizer.addEdge(edge);
+  }
+
   /* GNSS position anchors */
   int gnss_edges_added = 0;
   for (const auto & gnss_constraint : gnss_constraints) {
@@ -343,17 +365,36 @@ inline OptimizationResult optimizePoseGraph(
     optimizer.addVertex(gnss_vertex);
 
     g2o::EdgeSE3 * edge = new g2o::EdgeSE3();
-    edge->setMeasurement(Eigen::Isometry3d::Identity());
     Eigen::Matrix<double, 6, 6> gnss_info = Eigen::Matrix<double, 6, 6>::Zero();
     // g2o EdgeSE3 error order is (x, y, z, qx, qy, qz) — translation first —
     // so the position weights go on the translation block (0..2); rotation
     // stays unconstrained (GNSS carries no orientation).
-    gnss_info(0, 0) = gnss_constraint.info_diag.x();
-    gnss_info(1, 1) = gnss_constraint.info_diag.y();
-    gnss_info(2, 2) = gnss_constraint.info_diag.z();
+    const Eigen::Matrix3d info_enu = gnss_constraint.info_diag.asDiagonal();
+    if (gnss_constraint.antenna_offset.isZero()) {
+      // anchor -> submap: the error is the submap origin minus the anchor, in ENU.
+      edge->setMeasurement(Eigen::Isometry3d::Identity());
+      gnss_info.block<3, 3>(0, 0) = info_enu;
+      edge->vertices()[0] = gnss_vertex;
+      edge->vertices()[1] = optimizer.vertex(gnss_constraint.submap_index);
+    } else {
+      // submap -> anchor with the antenna offset as the measurement: the error
+      // is R^T (anchor - (t + R offset)), the antenna miss in the submap
+      // frame, so the ENU weights are rotated into that frame (with the
+      // submap's initial rotation; the graph only nudges it).
+      Eigen::Isometry3d antenna = Eigen::Isometry3d::Identity();
+      antenna.translation() = gnss_constraint.antenna_offset;
+      edge->setMeasurement(antenna);
+      const Eigen::Matrix3d R = submaps[gnss_constraint.submap_index].pose.linear();
+      gnss_info.block<3, 3>(0, 0) = R.transpose() * info_enu * R;
+      edge->vertices()[0] = optimizer.vertex(gnss_constraint.submap_index);
+      edge->vertices()[1] = gnss_vertex;
+    }
     edge->setInformation(gnss_info);
-    edge->vertices()[0] = gnss_vertex;
-    edge->vertices()[1] = optimizer.vertex(gnss_constraint.submap_index);
+    if (gnss_constraint.robust_kernel_delta > 0.0) {
+      g2o::RobustKernelHuber * kernel = new g2o::RobustKernelHuber();
+      kernel->setDelta(gnss_constraint.robust_kernel_delta);
+      edge->setRobustKernel(kernel);
+    }
     optimizer.addEdge(edge);
     gnss_edges_added++;
   }

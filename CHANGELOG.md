@@ -5,6 +5,30 @@
 The next release candidate after v0.11.0. It is not tagged; v0.11.0 is the
 latest published release.
 
+### Added
+
+- **RTK GNSS anchoring that reaches the published baselines** — on RTK-SLAM
+  Stadtgarten 2 the GNSS-anchored map scores 0.100 m absolute checkpoint RMSE
+  without alignment (FAST-LIO-SAM 0.099 m, OKVIS-LVIG 0.092 m), from 7.6 m
+  before. `lidarslam/param/lidarslam_rtk_gnss.yaml` holds the settings; new
+  graph_based_slam parameters `gnss_interpolation_max_gap_sec`,
+  `gnss_antenna_offset_xyz`, `gnss_robust_kernel_delta`, `gravity_prior_info`
+  (an absolute roll/pitch prior per submap) and `gnss_vertical_weight_scale`
+  default to the previous behaviour. Tuned on that one sequence; see
+  `docs/research/gnss-rtk-slam-absolute-accuracy.md`.
+- `rko_lio_slam.launch.py` `bag_gnss:=true` (runner `--bag-gnss`): the RKO-LIO
+  offline node passes the bag's NavSatFix topic to graph_based_slam. The
+  offline path never fed GNSS before.
+
+### Fixed
+
+- RKO-LIO reads the Livox `offset_time` per-point time, so deskew works on
+  Livox PointCloud2 bags (with `deskew: true` it dropped every frame with an
+  error before, so the RTK-SLAM presets ran with deskew off).
+- The GNSS stamp check compares the fix header with the latest odometry stamp
+  instead of the node clock, so a recorded bag replayed offline keeps its fix
+  stamps; the GNSS subscription keeps 1000 messages instead of 5.
+
 ### Removed
 
 - **Two-system comparison tooling** — the competitive benchmark stack
@@ -28,6 +52,11 @@ latest published release.
 
 ### Changed
 
+- The RTK-SLAM Stadtgarten 2 RKO-LIO preset turns deskew and the static
+  gravity initialisation on: 0.296 m checkpoint RMSE (1.594 m with both off on
+  the same commit), map thickness 0.072 → 0.044 m with the GNSS preset. The
+  coloured map recipe on that trajectory: camera poses 4.20 → 1.09 px held-out
+  epipolar error before refinement, held-out colour error 47.6 → 45.1.
 - `run_rko_lio_graph_benchmark.sh` keeps its ordinary completion path only.
   `--skip-map-save` still suppresses the graph's own map writes, now through
   `LIDARSLAM_BENCHMARK_NO_MAP_ARTIFACTS`.

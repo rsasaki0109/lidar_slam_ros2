@@ -214,6 +214,46 @@ def test_rko_launch_declares_gnss_topic_argument():
     assert _constant_string(default_kw.value) == '/gnss/fix'
 
 
+def test_bag_gnss_is_opt_in_and_feeds_the_offline_node_gnss_topic():
+    """bag_gnss:=true passes the bag's gnss_topic through the offline node."""
+    module = _parse_launch_ast()
+    generate_launch_description = _find_function(
+        module,
+        'generate_launch_description',
+    )
+    return_stmt = next(
+        node for node in generate_launch_description.body
+        if isinstance(node, ast.Return)
+    )
+    bag_gnss_call = _find_declare_launch_argument_call(return_stmt.value, 'bag_gnss')
+    default_kw = next(kw for kw in bag_gnss_call.keywords if kw.arg == 'default_value')
+    assert _constant_string(default_kw.value) == 'false'
+
+    factory = _find_function(module, 'create_rko_offline_node')
+    gnss_values = [
+        value
+        for launch_dict in (n for n in ast.walk(factory) if isinstance(n, ast.Dict))
+        for key, value in zip(launch_dict.keys, launch_dict.values)
+        if _constant_string(key) == 'gnss_topic'
+    ]
+    assert len(gnss_values) == 1
+    # Off unless bag_gnss is true: the conditional falls back to an empty topic.
+    assert isinstance(gnss_values[0], ast.IfExp)
+    assert _constant_string(gnss_values[0].orelse) == ''
+    assert 'bag_gnss' in ast.unparse(gnss_values[0].test)
+
+
+def test_offline_gnss_passthrough_exists_in_vendored_rko_lio():
+    offline_node = (
+        REPO_ROOT / 'Thirdparty' / 'rko_lio' / 'rko_lio' / 'ros' / 'offline_node.cpp'
+    )
+    if not offline_node.is_file():
+        return  # submodule not checked out
+    assert 'declare_parameter<std::string>("gnss_topic"' in (
+        offline_node.read_text(encoding='utf-8')
+    )
+
+
 def test_offline_node_pins_odom_topic():
     """The frontend must publish odometry on the fork's historical topic."""
     # The upstream-integrated rko_lio renamed its default odometry topic from
