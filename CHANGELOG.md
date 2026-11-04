@@ -52,6 +52,10 @@ latest published release.
 
 ### Changed
 
+- The RTK-SLAM construction RKO-LIO preset (release gates) turns deskew and
+  the static gravity initialisation on: construction_seq2 0.165 → 0.062 m,
+  construction_seq1 0.280 → 0.205 m checkpoint RMSE, map thickness
+  0.082 → 0.049 and 0.080 → 0.051 m.
 - The RTK-SLAM Stadtgarten 2 RKO-LIO preset turns deskew and the static
   gravity initialisation on: 0.296 m checkpoint RMSE (1.594 m with both off on
   the same commit), map thickness 0.072 → 0.044 m with the GNSS preset. The

@@ -102,7 +102,9 @@ release_profiles:
   # form the dataset's own published baselines are scored in. Run with
   # --match-tolerance 2.0 (the dataset's max_dt). Graduated to blocking in v0.5
   # with all four RTK-SLAM sequences measured. Observed construction_seq2 raw
-  # RMSE 0.154 m (median 0.061), vs published fast_lio_sam 0.086 / okvis 0.075.
+  # RMSE 0.154 m (median 0.061), vs published fast_lio_sam 0.086 / okvis 0.075;
+  # 0.062 m (median 0.059) since the preset deskews with the Livox offset_time
+  # and initialises gravity (2026-11; 0.165 m without, same commit).
   - name: mid360_gt_rtkslam_construction_seq2
     description: Livox MID-360 vs total-station checkpoints, RTK-SLAM Construction Hall 2 (~600s, 16 chkpt, dense odometry)
     remediation: Download construction_seq2 plus eval assets with scripts/download_rtk_slam_dataset.py and run scripts/run_rtk_slam_accuracy_suite.py for the exact candidate commit.
@@ -118,7 +120,8 @@ release_profiles:
 
   # Companion indoor sequence (Construction Hall 1) -- the hardest of the two
   # halls (published baselines ~0.22 m, the highest). Our dense odometry pairs
-  # 16/16 at RMSE 0.403 m (median 0.263), so the threshold is looser than
+  # 16/16 at RMSE 0.403 m (median 0.263; 0.205 m, median 0.095, with the
+  # 2026-11 deskew + gravity-init preset), so the threshold is looser than
   # construction_seq2 by design: per-sequence difficulty, like NTU vs Newer
   # College. Graduated to blocking in v0.5 together with construction_seq2.
   - name: mid360_gt_rtkslam_construction_seq1
