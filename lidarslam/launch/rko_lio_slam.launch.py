@@ -324,7 +324,7 @@ def generate_launch_description():
             'bag_gnss',
             default_value='false',
             description=(
-                'Have the offline node publish the bag\'s gnss_topic NavSatFix messages '
+                "Have the offline node publish the bag's gnss_topic NavSatFix messages "
                 'so graph_based_slam can anchor the map (set use_gnss: true in '
                 'main_param_dir). The offline node then also waits for the GNSS subscriber.'
             ),
