@@ -119,6 +119,16 @@ Both sequences start static with the rig pitched ~19°. The published constructi
 are FAST-LIO-SAM 0.086 m and OKVIS 0.075 m. With the map saved the trajectory RMSE is unchanged to the last digit
 (0.06219702536 m both ways), so the gate numbers come from the same deterministic run.
 
+## Other Livox bags
+
+The `offset_time` field is specific to how the RTK-SLAM bags were converted. The two public MID-360 bags
+the repository downloads already carry a per-point time RKO-LIO read before: `t` (uint32 ns,
+Hard Point Cloud `outdoor_kidnap_a`) and `timestamp` (float64 absolute ns, Driving SLAM). Their presets
+(`configs/mid360_robot/rko_lio_mid360_*no_deskew.yaml`) turn deskew off by choice, and on the vehicle bag
+that choice holds: `rko_lio_mid360_low_voxel_no_deskew.yaml` with deskew on gives a slightly worse map
+(thickness 0.050 → 0.054 m, planar coverage 0.39 → 0.35, entropy −1.43 → −1.31 nats; GT-free,
+`outdoor_vegetation` profile). Those presets stay as they are.
+
 ## Product changes
 
 - RKO-LIO (fork): `offset_time` is a per-point time field; the offline node passes a bag NavSatFix topic
