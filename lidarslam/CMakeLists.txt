@@ -165,6 +165,11 @@ if(BUILD_TESTING)
     TIMEOUT 120
   )
   ament_add_pytest_test(
+    test_extract_rosbag2_sqlite_topics
+    test/test_extract_rosbag2_sqlite_topics.py
+    TIMEOUT 120
+  )
+  ament_add_pytest_test(
     test_place_recognition_benchmark_script
     test/test_place_recognition_benchmark_script.py
     TIMEOUT 120
