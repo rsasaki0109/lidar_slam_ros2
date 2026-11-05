@@ -100,6 +100,12 @@ refinement starts closer and keeps almost every view; the colours follow, modest
 camera time shift (−0.0206 s) instead of the recipe's 0 made it worse (2.29 px before refinement, held-out
 mean 45.9), so the recipe keeps 0.
 
+The README flythrough (`lidarslam/images/map_flythrough_stadtgarten.{webp,mp4}`) is now rendered from the new
+trajectory with the recipe's dynamic-object cleaner put back. It removes 6.8 % of the points and moves every
+appearance metric slightly the right way: coverage 0.951, planar roughness median 4.51. Held-out colour does
+not change (RGB L2 mean 45.0). The old asset's map was tilted about 20° by the pitched start; the new one is
+level.
+
 ## The construction presets (release gates)
 
 Deskew and the static initialisation on the shared construction preset

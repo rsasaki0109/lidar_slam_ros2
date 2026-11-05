@@ -236,15 +236,16 @@ K4 採用構成の地図形状（4.9M 点）と posed images（260 view）を固
 
 `lidarslam/images/map_flythrough_stadtgarten.{webp,mp4}` は stadtgarten_seq2 の
 20–180 s（公園の約 110 m）から次の手順で作った。`refine_camera_poses.py` の held-out
-エピポーラ誤差は 4.02 → 0.67 px（640 view、447 ペア）。
+エピポーラ誤差は 1.09 → 0.34 px（640 view、448 ペア）。
 
 ```bash
-# 1) 軌跡: construction_seq1 と同じ rko_params（deskew:false、initialization_phase:false）。
-#    機材が約 20° 前傾しているため地図全体が傾くが、19 測量点への SE(3) ATE は 1.67 m
-#    （initialization_phase:true は 3.23 m）。描画はカメラ軌跡に沿うので傾きは問題にならない。
-ros2 run rko_lio offline_node --ros-args --params-file rko_params.ros.yaml \
-  -p bag_path:=<stadtgarten_seq2> -p imu_topic:=/livox/imu -p lidar_topic:=/livox/points \
-  -p base_frame:=base_link -p dump_results:=true -p results_dir:=<out> -p run_name:=sg2_rko
+# 1) 軌跡: RKO-LIO（Livox offset_time で deskew、静止時の重力初期化）+ RTK GNSS 補正。
+#    19 測量点への絶対誤差 0.100 m（docs/research/gnss-rtk-slam-absolute-accuracy.md）。
+bash scripts/run_rko_lio_graph_benchmark.sh --bag <stadtgarten_seq2> \
+  --lidar-topic /livox/points --imu-topic /livox/imu --base-frame os_sensor \
+  --rko-param configs/mid360_robot/rko_lio_rtk_slam_mid360_stadtgarten_seq2.yaml \
+  --lidarslam-param lidarslam/param/lidarslam_rtk_gnss.yaml --bag-gnss --gt-blind \
+  --skip-map-save --run-name sg2 --output-dir <out>   # -> <out>/traj_corrected.tum = <tum>
 # 2) posed images
 python3 tools/colored_map/extract_posed_images.py --bag <bag> --traj <tum> \
   --camera-topic /camera/image_raw/compressed \
@@ -272,8 +273,8 @@ python3 tools/colored_map/recolor_pointcloud.py --input geometry_carved.ply \
 python3 tools/colored_map/render_map_flythrough.py --pointcloud colored.ply \
   --transforms <out>/posed/transforms_refined.json --color-mode rgb --frames 240 \
   --fps 30 --point-size 0.03 --scale 0.375 --device cpu --camera-preset cinematic \
-  --surface-splat --loop-fade 12 --label "Camera-coloured LiDAR map (RTK-SLAM Stadtgarten 2)" \
-  --mp4 master.mp4
+  --surface-splat --loop-fade 12 --render-workers 4 \
+  --label "Camera-coloured LiDAR map (RTK-SLAM Stadtgarten 2)" --mp4 master.mp4
 ffmpeg -i master.mp4 -vf "fps=15,scale=600:-2:flags=lanczos" -loop 0 \
   -c:v libwebp -quality 78 map_flythrough_stadtgarten.webp   # + crf26 mp4
 ```
@@ -291,6 +292,22 @@ deskew と静止時の重力初期化を有効にした（19 測量点への SE(
 47.6 → 45.1、coverage が 0.928 → 0.946 になった。カメラ時刻を較正ファイルの −0.0206 s に
 すると悪化した（補正前 2.29 px）ので `--time-offset 0` のままにする。詳細は
 `docs/research/gnss-rtk-slam-absolute-accuracy.md`。
+
+README アセットはこの軌跡に動的物体除去（手順 3）を戻して作り直した（上の手順そのまま）。
+旧アセットは機材の前傾のまま地図が約 20° 傾いていたが、新しい地図は水平になり、階段の段、
+柵、建物の輪郭が締まった。動的物体除去は 636,495 点（9,293,181 → 8,656,686、6.8 %）を消し、
+指標はわずかに良くなる（同じ軌跡、同じ posed images）:
+
+| 指標 | 動的物体除去なし | あり（README アセット） |
+|---|---:|---:|
+| coverage | 0.9461 | 0.9505 |
+| chroma_retention | 1.068 | 1.069 |
+| roughness median / p90 | 4.56 / 13.65 | 4.47 / 13.47 |
+| planar roughness median / p90 | 4.65 / 11.84 | 4.51 / 11.54 |
+| held-out 色誤差 RGB L2 mean / median / p90 | 45.12 / 30.70 / 103.08 | 45.03 / 30.73 / 102.84 |
+| 姿勢補正後の held-out エピポーラ誤差 | 0.329 px | 0.336 px |
+
+描画（240 frame、5,163,414 点、`--render-workers 4`）は 4 コア CPU で約 28 分。
 
 ## 空の色の混入除去（`--sky-rejection`、既定オフ）
 
