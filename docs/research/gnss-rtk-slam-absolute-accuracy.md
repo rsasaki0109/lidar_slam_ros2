@@ -100,6 +100,12 @@ refinement starts closer and keeps almost every view; the colours follow, modest
 camera time shift (−0.0206 s) instead of the recipe's 0 made it worse (2.29 px before refinement, held-out
 mean 45.9), so the recipe keeps 0.
 
+The README flythrough (`lidarslam/images/map_flythrough_stadtgarten.{webp,mp4}`) is now rendered from the new
+trajectory with the recipe's dynamic-object cleaner put back. It removes 6.8 % of the points and moves every
+appearance metric slightly the right way: coverage 0.951, planar roughness median 4.51. Held-out colour does
+not change (RGB L2 mean 45.0). The old asset's map was tilted about 20° by the pitched start; the new one is
+level.
+
 ## The construction presets (release gates)
 
 Deskew and the static initialisation on the shared construction preset
@@ -141,8 +147,20 @@ that choice holds: `rko_lio_mid360_low_voxel_no_deskew.yaml` with deskew on give
 - Presets: `lidarslam/param/lidarslam_rtk_gnss.yaml`; the Stadtgarten 2 RKO-LIO preset turns deskew and
   the static initialisation on.
 
+## Tried and not adopted (2026-11-05)
+
+- **Loop closure.** With `lidarslam_rtk_gnss.yaml` no loop is accepted: the default
+  `distance_loop_closure: 100` m excludes most revisits on this 413 m walk (the 695–767 s pass is within
+  9–15 m of the RTK-fixed 623–662 s stretch after only ~25 m of travel), and the rest fail the 0.7 m²
+  fitness gate. With 30 m (3 loops accepted), and additionally fitness 2.0 / range 25 m / overlap 0.5
+  (6 loops), the result is the same 0.100 m to the millimetre at every checkpoint: the loops fall where the
+  anchors already hold the graph, and the remaining error (785 s −0.14 m, 855 s −0.26 m in height) lies after
+  the last revisit, where nothing can bound the extrapolation.
+- **Plane BA refinement** (`graph_slam_offline_runner -p refine:=true` on a recorded seq2 backend input,
+  scans thinned to 0.1 m, no GNSS): 33/33 windows accepted, checkpoint SE3 0.296 → 0.278 m, but the map does
+  not get thinner (thickness 0.0449 → 0.0450 m, planar coverage 0.614 → 0.610, entropy −1.778 → −1.763).
+  Deskew left little blur for it; it is not wired into the GNSS path.
+
 ## Open
 
 - `stadtgarten_seq1` (and any other RTK site) to check the weights were not fitted to seq2's 19 checkpoints.
-- Loop closure is off in effect here (no loop found); the route passes within 9 m of an RTK-fixed stretch at
-  750 s, which would bound the end segment without GNSS.
