@@ -179,6 +179,7 @@ the header, then run the script; a test fails while the page is out of date.
 | `gnss_antenna_offset_xyz` | `std::vector<double>` | `[0.0, 0.0, 0.0]` | GNSS antenna phase centre in the base frame [x, y, z] (m); the anchor then constrains that point of each submap instead of the base origin. |
 | `gnss_interpolation_max_gap_sec` | `double` | `0.0` | Interpolate the anchor between the fixes either side of a submap stamp when they are at most this far apart (s); 0 keeps the nearest fix within 1 s. |
 | `gnss_robust_kernel_delta` | `double` | `0.0` | > 0: Huber kernel on each GNSS anchor, in sigmas of its covariance (a wrong fix then pulls linearly instead of quadratically); 0 = no kernel. |
+| `gnss_subscriber_qos_reliable` | `bool` | `false` | Subscribe to the GNSS topic with reliable QoS; false: best effort, which also matches best-effort drivers. The offline bag pass-through publishes reliably and fast, and a best-effort reader can lose its first fixes, so the offline launch turns this on. |
 | `gravity_prior_info` | `double` | `0.0` | > 0: absolute roll/pitch prior on every submap from its odometry attitude (the frontend's frame must be gravity-aligned, as LIO's is), information per axis of the up-vector error (~rad^-2; 3300 ~ 1 deg). Keeps GNSS anchors from tilting the graph. 0 = off. |
 | `use_imu_preintegration` | `bool` | `false` |  |
 | `imu_rotation_info_roll_pitch` | `double` | `100.0` |  |
@@ -197,4 +198,4 @@ the header, then run the script; a test fails while the page is out of date.
 | `degeneracy_diagnostics_csv_path` | `std::string` | `""` |  |
 | `save_degeneracy_report` | `bool` | `false` |  |
 
-158 parameters.
+159 parameters.

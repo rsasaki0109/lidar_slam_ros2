@@ -103,6 +103,12 @@ def create_rko_offline_node(context, *args, **kwargs):
         'dump_results': LaunchConfiguration('dump_results'),
         'results_dir': LaunchConfiguration('results_dir'),
         'run_name': LaunchConfiguration('run_name'),
+        # The offline node reads the bag faster than real time. With the node's
+        # default depth of 1, a scan or odometry message that the backend has not
+        # yet taken is overwritten by the next one (mostly while the static start
+        # runs fast), so the map starts a different number of scans late on each
+        # run. A preset can still set its own depth.
+        'publisher_queue_depth': 128,
     })
 
     # Let the optional YAML file override launch defaults such as
@@ -240,6 +246,10 @@ def create_graph_based_slam_node(context, *args, **kwargs):
     # accepted loop edges, independently of the /map_save service.  Keep the
     # ordinary launch/YAML defaults untouched unless the wrapper explicitly
     # exports this opt-in environment marker.
+    # The offline node's bag GNSS pass-through (bag_gnss:=true) publishes reliably and
+    # much faster than real time; a best-effort reader can lose the first fixes.
+    if _parse_bool_arg(LaunchConfiguration('bag_gnss').perform(context)):
+        overrides['gnss_subscriber_qos_reliable'] = True
     if os.environ.get('LIDARSLAM_BENCHMARK_NO_MAP_ARTIFACTS') == '1':
         overrides['use_save_map_in_loop'] = False
         # An empty path makes optimizePoseGraph retain no save target when

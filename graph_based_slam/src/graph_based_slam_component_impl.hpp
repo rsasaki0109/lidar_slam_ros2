@@ -214,6 +214,8 @@ private:
   // GNSS header stamps are checked against it, so a recorded bag replayed offline
   // (wall clock a year later) keeps its fix stamps.
   std::atomic<double> latest_odom_stamp_sec_ {0.0};
+  // Stamp of the first odometry; fixes received before it are checked against it.
+  std::atomic<double> first_odom_stamp_sec_ {0.0};
   void receiveSyncedOdomCloud(
     const nav_msgs::msg::Odometry::ConstSharedPtr & odom_msg,
     const sensor_msgs::msg::PointCloud2::ConstSharedPtr & cloud_msg);
@@ -253,6 +255,11 @@ private:
     double horizontal_stddev_m;
   };
   std::vector<GnssEnu> gnss_buffer_;
+  // Fixes received before the first odometry (header stamps not yet checked).
+  std::vector<GnssEnu> gnss_pre_odom_buffer_;
+  // Moves gnss_pre_odom_buffer_ into gnss_buffer_ once the first odometry stamp is
+  // known; the caller holds gnss_mtx_.
+  void flushPreOdometryGnssLocked();
   detail::GnssOriginAccumulator gnss_origin_accumulator_;
   std::mutex gnss_mtx_;
   bool gnss_origin_set_ {false};

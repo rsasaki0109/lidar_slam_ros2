@@ -305,15 +305,21 @@ void GraphBasedSlamComponent::Impl::initializePubSub()
   }
 
   if (config_.use_gnss_) {
+    // Deep queue: an offline bag pass-through publishes much faster than real time.
+    // Best effort matches any publisher; a reliable reader does not lose the first
+    // fixes of that burst (the offline launch asks for it).
+    rclcpp::QoS gnss_qos = rclcpp::SensorDataQoS().keep_last(1000);
+    if (config_.gnss_subscriber_qos_reliable_) {
+      gnss_qos.reliable();
+    }
     gnss_sub_ = node_.create_subscription<sensor_msgs::msg::NavSatFix>(
-      // Best effort (matches any publisher) with a deep queue: an offline bag
-      // pass-through publishes much faster than real time.
-      config_.gnss_topic_, rclcpp::SensorDataQoS().keep_last(1000),
+      config_.gnss_topic_, gnss_qos,
       [this](const sensor_msgs::msg::NavSatFix::SharedPtr msg) {receiveNavSatFix(*msg);});
     RCLCPP_INFO(
       node_.get_logger(),
-      "GNSS constraints enabled, subscribed to %s",
-      config_.gnss_topic_.c_str());
+      "GNSS constraints enabled, subscribed to %s (%s)",
+      config_.gnss_topic_.c_str(),
+      config_.gnss_subscriber_qos_reliable_ ? "reliable" : "best effort");
   }
 
   RCLCPP_INFO(node_.get_logger(), "initialization end");
@@ -505,6 +511,7 @@ void GraphBasedSlamComponent::Impl::doPoseAdjustment(
     std::vector<detail::GnssSample> gnss_samples;
     {
       std::lock_guard<std::mutex> gnss_lock(gnss_mtx_);
+      flushPreOdometryGnssLocked();
       gnss_samples.reserve(gnss_buffer_.size());
       for (const auto & g : gnss_buffer_) {
         detail::GnssSample sample;
@@ -851,17 +858,9 @@ void GraphBasedSlamComponent::Impl::receiveNavSatFix(const sensor_msgs::msg::Nav
   Eigen::Vector3d enu = geodeticToEnu(msg.latitude, msg.longitude, msg.altitude);
   const detail::GnssConstraintWeights gnss_weights =
     detail::computeGnssConstraintWeights(msg, makeGnssWeightingConfig(config_));
-  // The skew guard compares the fix's header with sensor time: the latest odometry
-  // stamp, or the node clock before the first one.
-  const double latest_odom_stamp_sec = latest_odom_stamp_sec_.load();
-  const double receive_time_sec =
-    latest_odom_stamp_sec > 0.0 ? latest_odom_stamp_sec : io_ports_.clock->nowSeconds();
   const double header_time_sec = rclcpp::Time(msg.header.stamp).seconds();
-  const detail::GnssTimestampResolution stamp_resolution =
-    detail::resolveGnssMeasurementStamp(
-    header_time_sec, receive_time_sec, config_.gnss_header_stamp_max_skew_sec_);
   GnssEnu g;
-  g.stamp = stamp_resolution.stamp_sec;
+  g.stamp = header_time_sec;
   g.x = enu.x();
   g.y = enu.y();
   g.z = enu.z();
@@ -871,6 +870,28 @@ void GraphBasedSlamComponent::Impl::receiveNavSatFix(const sensor_msgs::msg::Nav
   g.covariance_valid = gnss_weights.covariance_valid;
   g.rtk_like = gnss_weights.rtk_like;
   g.horizontal_stddev_m = gnss_weights.horizontal_stddev_m;
+
+  // The skew guard compares the fix's header with sensor time: the latest odometry
+  // stamp. A fix that arrives before the first odometry waits for that stamp (with
+  // the odometry input on), so how many fixes beat the first odometry does not
+  // change their stamps; without the odometry input the node clock stands in.
+  double sensor_time_sec = latest_odom_stamp_sec_.load();
+  if (sensor_time_sec <= 0.0) {
+    if (config_.use_odom_input_) {
+      gnss_pre_odom_buffer_.push_back(g);
+      if (gnss_pre_odom_buffer_.size() > 100000) {  // no odometry for hours: keep the newest
+        gnss_pre_odom_buffer_.erase(
+          gnss_pre_odom_buffer_.begin(), gnss_pre_odom_buffer_.begin() + 25000);
+      }
+      return;
+    }
+    sensor_time_sec = io_ports_.clock->nowSeconds();
+  }
+  flushPreOdometryGnssLocked();
+  const detail::GnssTimestampResolution stamp_resolution =
+    detail::resolveGnssMeasurementStamp(
+    header_time_sec, sensor_time_sec, config_.gnss_header_stamp_max_skew_sec_);
+  g.stamp = stamp_resolution.stamp_sec;
   gnss_buffer_.push_back(g);
 
   if (config_.debug_flag_ && stamp_resolution.used_fallback) {
@@ -879,8 +900,9 @@ void GraphBasedSlamComponent::Impl::receiveNavSatFix(const sensor_msgs::msg::Nav
       *node_.get_clock(),
       5000,
       "GNSS header stamp %.3f s differs from sensor time %.3f s (latest odometry "
-      "stamp, or the node clock before it) by more than %.3f s; using sensor time",
-      header_time_sec, receive_time_sec, config_.gnss_header_stamp_max_skew_sec_);
+      "stamp, or the node clock without odometry input) by more than %.3f s; using "
+      "sensor time",
+      header_time_sec, sensor_time_sec, config_.gnss_header_stamp_max_skew_sec_);
   }
 
   if (config_.debug_flag_ && gnss_weights.covariance_valid) {
@@ -898,6 +920,35 @@ void GraphBasedSlamComponent::Impl::receiveNavSatFix(const sensor_msgs::msg::Nav
   if (gnss_buffer_.size() > 100000) {
     gnss_buffer_.erase(gnss_buffer_.begin(), gnss_buffer_.begin() + 25000);
   }
+}
+
+void GraphBasedSlamComponent::Impl::flushPreOdometryGnssLocked()
+{
+  // Fixes that arrived before the first odometry: check their headers against the
+  // first odometry stamp, the earliest sensor time the backend has.
+  if (gnss_pre_odom_buffer_.empty()) {
+    return;
+  }
+  const double first_odom_stamp_sec = first_odom_stamp_sec_.load();
+  if (first_odom_stamp_sec <= 0.0) {
+    return;
+  }
+  int used_fallback = 0;
+  for (GnssEnu g : gnss_pre_odom_buffer_) {
+    const detail::GnssTimestampResolution resolution = detail::resolveGnssMeasurementStamp(
+      g.stamp, first_odom_stamp_sec, config_.gnss_header_stamp_max_skew_sec_);
+    used_fallback += resolution.used_fallback ? 1 : 0;
+    g.stamp = resolution.stamp_sec;
+    gnss_buffer_.push_back(g);
+  }
+  if (config_.debug_flag_) {
+    RCLCPP_INFO(
+      node_.get_logger(),
+      "GNSS: %zu fixes from before the first odometry checked against its stamp %.3f s "
+      "(%d replaced by it)",
+      gnss_pre_odom_buffer_.size(), first_odom_stamp_sec, used_fallback);
+  }
+  gnss_pre_odom_buffer_.clear();
 }
 
 bool GraphBasedSlamComponent::Impl::isGnssOriginSet()
@@ -1021,7 +1072,10 @@ void GraphBasedSlamComponent::Impl::receiveSyncedOdomCloud(
       node_.get_logger(), "First synced odom+cloud pair: (%.2f, %.2f, %.2f), %zu bytes", pos.x(),
       pos.y(), pos.z(), cloud_msg->data.size());
   }
-  latest_odom_stamp_sec_.store(rclcpp::Time(odom_msg->header.stamp).seconds());
+  const double odom_stamp_sec = rclcpp::Time(odom_msg->header.stamp).seconds();
+  double no_first_odom_stamp = 0.0;
+  first_odom_stamp_sec_.compare_exchange_strong(no_first_odom_stamp, odom_stamp_sec);
+  latest_odom_stamp_sec_.store(odom_stamp_sec);
   recordScanDegeneracy(*odom_msg);
   tryCreateSubmap(*odom_msg, *cloud_msg);
 }

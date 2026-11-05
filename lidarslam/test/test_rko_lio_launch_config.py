@@ -243,6 +243,35 @@ def test_bag_gnss_is_opt_in_and_feeds_the_offline_node_gnss_topic():
     assert 'bag_gnss' in ast.unparse(gnss_values[0].test)
 
 
+def test_offline_node_publishes_with_a_deep_queue_presets_can_override():
+    """Default depth 128, placed before the preset file so the preset wins."""
+    module = _parse_launch_ast()
+    factory = _find_function(module, 'create_rko_offline_node')
+    depths = [
+        value
+        for launch_dict in (n for n in ast.walk(factory) if isinstance(n, ast.Dict))
+        for key, value in zip(launch_dict.keys, launch_dict.values)
+        if _constant_string(key) == 'publisher_queue_depth'
+    ]
+    assert len(depths) == 1
+    assert isinstance(depths[0], ast.Constant) and depths[0].value == 128
+    source = ast.unparse(factory)
+    assert source.index("'publisher_queue_depth'") < source.index(
+        'parameters.append(rko_param_file)')
+
+
+def test_bag_gnss_makes_the_backend_gnss_reader_reliable():
+    """bag_gnss:=true asks graph_based_slam for a reliable GNSS subscription."""
+    module = _parse_launch_ast()
+    factory = _find_function(module, 'create_graph_based_slam_node')
+    guarded = [
+        node for node in ast.walk(factory)
+        if isinstance(node, ast.If) and 'bag_gnss' in ast.unparse(node.test)
+    ]
+    assert len(guarded) == 1
+    assert "overrides['gnss_subscriber_qos_reliable'] = True" in ast.unparse(guarded[0])
+
+
 def test_offline_gnss_passthrough_exists_in_vendored_rko_lio():
     offline_node = (
         REPO_ROOT / 'Thirdparty' / 'rko_lio' / 'rko_lio' / 'ros' / 'offline_node.cpp'

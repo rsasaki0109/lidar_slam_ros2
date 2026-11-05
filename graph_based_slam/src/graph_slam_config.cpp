@@ -231,6 +231,7 @@ GraphSlamConfig loadGraphSlamConfig(rclcpp::Node & node)
   LOAD(gnss_antenna_offset_xyz_, "gnss_antenna_offset_xyz");
   LOAD(gnss_interpolation_max_gap_sec_, "gnss_interpolation_max_gap_sec");
   LOAD(gnss_robust_kernel_delta_, "gnss_robust_kernel_delta");
+  LOAD(gnss_subscriber_qos_reliable_, "gnss_subscriber_qos_reliable");
   LOAD(gravity_prior_info_, "gravity_prior_info");
   LOAD(use_imu_preintegration_, "use_imu_preintegration");
   LOAD(imu_rotation_info_roll_pitch_, "imu_rotation_info_roll_pitch");

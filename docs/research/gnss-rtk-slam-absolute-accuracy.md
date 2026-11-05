@@ -104,9 +104,37 @@ the static initialisation; the release profiles are not changed here.
 The compact input was checked on Stadtgarten 2, extracted the same way:
 - The kept messages hash identically to an sqlite read of the original.
 - The raw odometry is byte-identical.
-- The GNSS result is 0.0999 instead of 0.1000 m. With the MCAP copy, the first fixes to reach the backend
-  vary between runs: the GNSS origin moved by about 1 mm and the backend added 164 instead of 165 anchors.
-  The original `.db3` reproduced 0.100034 m exactly.
+- The GNSS result first came out at 0.0999 instead of 0.1000 m, because the backend's start then depended
+  on timing (next section).
+
+## Same input, same output
+
+With the MCAP copy (which opens faster than the `.db3`), runs of the GNSS path differed by up to 4.6 mm.
+The raw odometry was identical every time. Three things in the backend's start depended on timing:
+
+1. **The first GNSS fixes were lost.** The backend read the fixes best effort. The offline node starts
+   publishing as soon as it sees the subscriber, before the reader has finished matching. The origin was
+   then set from later fixes, about 1 mm away.
+2. **Fixes that arrived before the first odometry got the wall clock as their stamp.** Their header (bag
+   time) was checked against the node clock, a year later, so they matched no submap. How many fixes
+   arrived that early depended on timing.
+3. **The first scans were overwritten.** The offline node published odometry and scans with queue depth 1,
+   the RTK-SLAM presets do not set it, and the runner's odometry logger already satisfies the frontend's
+   wait for a subscriber. At the fast static start the backend lost the first 0.2–2.4 s, and the first
+   submap started that much later.
+
+Fixes, in the same order:
+
+1. `gnss_subscriber_qos_reliable` (default false, which still matches best-effort drivers); the launch
+   turns it on with `bag_gnss:=true`.
+2. A fix that arrives before the first odometry is checked against the first odometry stamp. Without the
+   odometry input the node clock is used as before.
+3. The offline launch gives the offline node `publisher_queue_depth: 128`, as the HILTI and GrandTour
+   presets already set; a preset's own value still wins.
+
+After these, two runs give byte-identical corrected trajectories, pose graphs and maps on both sequences.
+Stadtgarten 1, with its 6 loop closures, gives 0.067 m (0.0670 against 0.0679 m before;
+SE3 0.057 m either way). Stadtgarten 2 gives 0.100033 m, against 0.100034 m for the original `.db3` run.
 
 ## Map thickness
 
@@ -190,6 +218,8 @@ that choice holds: `rko_lio_mid360_low_voxel_no_deskew.yaml` with deskew on give
   stamps without `gnss_header_stamp_max_skew_sec: 1e9`; the GNSS subscription keeps 1000 messages.
 - Presets: `lidarslam/param/lidarslam_rtk_gnss.yaml`; the Stadtgarten 2 RKO-LIO preset turns deskew and
   the static initialisation on.
+- Same input, same output (above): `gnss_subscriber_qos_reliable`, pre-odometry fixes checked against the
+  first odometry stamp, offline `publisher_queue_depth: 128`.
 - `scripts/extract_rosbag2_sqlite_topics.py`: keeps chosen topics of a rosbag2 `.db3` read once from a path or
   URL, resuming cut transfers, without the whole file on disk.
 
@@ -210,5 +240,3 @@ that choice holds: `rko_lio_mid360_low_voxel_no_deskew.yaml` with deskew on give
 ## Open
 
 - Another RTK site; both Stadtgarten sequences are one park and one rig.
-- With MCAP input, the first GNSS fixes the backend takes vary from run to run (about 1 mm on the origin, one
-  anchor). The startup ordering is not deterministic yet.

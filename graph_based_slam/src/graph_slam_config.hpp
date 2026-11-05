@@ -279,6 +279,10 @@ struct GraphSlamConfig
   // > 0: Huber kernel on each GNSS anchor, in sigmas of its covariance (a wrong
   // fix then pulls linearly instead of quadratically); 0 = no kernel.
   double gnss_robust_kernel_delta_ {0.0};
+  // Subscribe to the GNSS topic with reliable QoS; false: best effort, which also matches
+  // best-effort drivers. The offline bag pass-through publishes reliably and fast, and a
+  // best-effort reader can lose its first fixes, so the offline launch turns this on.
+  bool gnss_subscriber_qos_reliable_ {false};
   // > 0: absolute roll/pitch prior on every submap from its odometry attitude
   // (the frontend's frame must be gravity-aligned, as LIO's is), information
   // per axis of the up-vector error (~rad^-2; 3300 ~ 1 deg). Keeps GNSS anchors
