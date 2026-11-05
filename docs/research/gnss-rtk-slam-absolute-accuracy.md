@@ -4,8 +4,9 @@ The GNSS constraint had been validated mechanically
 ([gnss-constraint-first-validation.md](gnss-constraint-first-validation.md)) but its absolute accuracy was
 never measured. This note measures it against the 19 total-station checkpoints of RTK-SLAM
 `stadtgarten_seq2` (CC-BY 4.0) and records what it took to get from metres to the published baselines.
-Everything here was tuned on this one sequence; `stadtgarten_seq1` (30 GB) did not fit the machine and is the
-open check.
+Everything here was tuned on this one sequence. The frozen configuration was then run once on
+`stadtgarten_seq1`, which was not looked at during the tuning:
+[Hold-out: Stadtgarten 1](#hold-out-stadtgarten-1).
 
 ## Metric
 
@@ -63,6 +64,49 @@ A replay of the pose-graph stage from a finished run's submap poses and the bag'
 product runs to within 1 mm of RMSE (0.378 vs 0.379 m, 0.099 vs 0.100 m), which is how the weights were
 searched. Variants that did not help: 30 instead of 10 optimiser iterations (no change), including float and
 DGPS fixes (horizontal better, vertical worse), a stronger gravity prior (3000: 0.142 m, the vertical end error grows).
+
+## Hold-out: Stadtgarten 1
+
+Stadtgarten 1 is 1602 s and about 1.2 km, a long loop with 36 checkpoints. Its 30.3 GB `.db3` does not fit next
+to Stadtgarten 2 here, so `scripts/extract_rosbag2_sqlite_topics.py` read it once from Hugging Face. It kept
+`/livox/points`, `/livox/imu` and `/gnss/fix` in a 4.5 GB MCAP; the whole-file sha256 matches the one in
+`scripts/download_rtk_slam_dataset.py`. The configuration was fixed before any checkpoint was read:
+
+- `lidarslam_rtk_gnss.yaml`, unchanged;
+- the shared RTK-SLAM RKO-LIO preset (`configs/mid360_robot/rko_lio_rtk_slam_mid360.yaml`), which is not tuned
+  to either Stadtgarten sequence. The Stadtgarten 2 preset is the second row.
+
+The metric is the same as above (same lever arm; the published trajectories are scored as given).
+
+| Run (seq1) | absolute 3D | horizontal | vertical | SE3 |
+| --- | ---: | ---: | ---: | ---: |
+| FAST-LIO-SAM, published (35 of 36 checkpoints) | 0.068 m | 0.061 m | 0.030 m | 0.065 m |
+| OKVIS-LVIG, published | 0.068 m | 0.061 m | 0.028 m | 0.060 m |
+| shared preset, odometry only | — | — | — | 0.501 m |
+| shared preset, GNSS, default backend | 4.973 m | 3.216 m | 3.793 m | 4.727 m |
+| **shared preset + `lidarslam_rtk_gnss.yaml`** | **0.068 m** | **0.041 m** | **0.054 m** | **0.057 m** |
+| Stadtgarten 2 preset + `lidarslam_rtk_gnss.yaml` | 0.064 m | 0.041 m | 0.050 m | 0.056 m |
+
+The weights found on seq2 carry over: with the shared preset the result matches the published baselines,
+36 of 36 checkpoints, while the backend defaults are off by metres. Per checkpoint the horizontal error is
+0.01–0.08 m and the vertical error −0.12 to +0.05 m. The backend added 448 RTK-like anchors and accepted 6
+loops on this route.
+
+The map gets thinner as well (same map-quality settings as below, default backend → `lidarslam_rtk_gnss.yaml`):
+- thickness mean 0.054 → 0.044 m;
+- thickness p95 0.111 → 0.102 m;
+- planar coverage 0.49 → 0.60;
+- entropy −1.40 → −1.69 nats.
+
+The odometry-only 0.501 m replaces the 0.838 m in `scripts/release_profiles.yaml`, which predates deskew and
+the static initialisation; the release profiles are not changed here.
+
+The compact input was checked on Stadtgarten 2, extracted the same way:
+- The kept messages hash identically to an sqlite read of the original.
+- The raw odometry is byte-identical.
+- The GNSS result is 0.0999 instead of 0.1000 m. With the MCAP copy, the first fixes to reach the backend
+  vary between runs: the GNSS origin moved by about 1 mm and the backend added 164 instead of 165 anchors.
+  The original `.db3` reproduced 0.100034 m exactly.
 
 ## Map thickness
 
@@ -146,6 +190,8 @@ that choice holds: `rko_lio_mid360_low_voxel_no_deskew.yaml` with deskew on give
   stamps without `gnss_header_stamp_max_skew_sec: 1e9`; the GNSS subscription keeps 1000 messages.
 - Presets: `lidarslam/param/lidarslam_rtk_gnss.yaml`; the Stadtgarten 2 RKO-LIO preset turns deskew and
   the static initialisation on.
+- `scripts/extract_rosbag2_sqlite_topics.py`: keeps chosen topics of a rosbag2 `.db3` read once from a path or
+  URL, resuming cut transfers, without the whole file on disk.
 
 ## Tried and not adopted (2026-11-05)
 
@@ -163,4 +209,6 @@ that choice holds: `rko_lio_mid360_low_voxel_no_deskew.yaml` with deskew on give
 
 ## Open
 
-- `stadtgarten_seq1` (and any other RTK site) to check the weights were not fitted to seq2's 19 checkpoints.
+- Another RTK site; both Stadtgarten sequences are one park and one rig.
+- With MCAP input, the first GNSS fixes the backend takes vary from run to run (about 1 mm on the origin, one
+  anchor). The startup ordering is not deterministic yet.

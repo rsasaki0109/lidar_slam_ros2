@@ -245,7 +245,9 @@ bash scripts/run_rko_lio_graph_benchmark.sh --bag <stadtgarten_seq2> \
   --lidar-topic /livox/points --imu-topic /livox/imu --base-frame os_sensor \
   --rko-param configs/mid360_robot/rko_lio_rtk_slam_mid360_stadtgarten_seq2.yaml \
   --lidarslam-param lidarslam/param/lidarslam_rtk_gnss.yaml --bag-gnss --gt-blind \
-  --skip-map-save --run-name sg2 --output-dir <out>   # -> <out>/traj_corrected.tum = <tum>
+  --run-name sg2 --output-dir <out>   # -> <out>/traj_corrected.tum = <tum>
+#    GNSS 補正済みの軌跡（/modified_path）は /map_save で出るので --skip-map-save は
+#    付けない（付けると traj_corrected.tum は traj_raw.tum の複製になる）。
 # 2) posed images
 python3 tools/colored_map/extract_posed_images.py --bag <bag> --traj <tum> \
   --camera-topic /camera/image_raw/compressed \
