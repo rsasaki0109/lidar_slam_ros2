@@ -113,7 +113,9 @@ TEST_F(GraphSlamConfigTest, LoaderAppliesRosOverridesAndDeclaresCompleteSurface)
   EXPECT_TRUE(node->has_parameter("degeneracy_diagnostics_csv_path"));
   EXPECT_TRUE(node->has_parameter("gnss_antenna_offset_xyz"));
   EXPECT_TRUE(node->has_parameter("gravity_prior_info"));
-  EXPECT_EQ(node->list_parameters({}, 0).names.size() - parameters_before_load, 158U);
+  EXPECT_TRUE(node->has_parameter("gnss_subscriber_qos_reliable"));
+  EXPECT_FALSE(config.gnss_subscriber_qos_reliable_);
+  EXPECT_EQ(node->list_parameters({}, 0).names.size() - parameters_before_load, 159U);
 }
 
 TEST_F(GraphSlamConfigTest, ValidationReportsIndependentConfigurationErrors)

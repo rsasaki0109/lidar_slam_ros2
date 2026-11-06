@@ -261,11 +261,12 @@ python3 tools/colored_map/build_lidar_init.py --bag <bag> --traj <tum> \
   --points-topic /livox/points --start-time 20 --end-time 180 --voxel 0.015 \
   --min-range 1.5 --max-range 60 --max-points 12000000 --min-neighbors 2 \
   --sparse-voxel 0.1 --dynamic-map-cleaner fusion --out geometry.ply
-# 4) 姿勢補正、撮影者が通った空間の残像除去（下の節）、着色（K4 の設定 + 空の色の混入除去）
+# 4) 姿勢補正、撮影者が通った空間の残像除去と地面の穴埋め（下の節）、着色（K4 の設定 + 空の色の混入除去）
 python3 tools/colored_map/refine_camera_poses.py --transforms <out>/posed/transforms.json \
   --pointcloud geometry.ply --out <out>/posed/transforms_refined.json --workers 4
 python3 tools/colored_map/carve_swept_corridor.py --input geometry.ply \
-  --transforms <out>/posed/transforms_refined.json --out geometry_carved.ply
+  --transforms <out>/posed/transforms_refined.json --out geometry_carved.ply \
+  --fill-ground-holes
 python3 tools/colored_map/recolor_pointcloud.py --input geometry_carved.ply \
   --transforms <out>/posed/transforms_refined.json --out colored.ply \
   --exposure-scale-limit 1.5 --max-samples 12 --min-samples 3 --image-margin 120 \
@@ -281,8 +282,10 @@ ffmpeg -i master.mp4 -vf "fps=15,scale=600:-2:flags=lanczos" -loop 0 \
   -c:v libwebp -quality 78 map_flythrough_stadtgarten.webp   # + crf26 mp4
 ```
 
-既知の残差: 経路上に立っていた人物は残像除去で消えたが、その陰で地面が測れなかった場所が小さな穴になる。水平線から 2° 以内でしか見えない遠景の樹冠は白が残る。
-カメラは前向き 1 台なので、経路から外れた範囲は色が付かない。
+既知の残差:
+- 水平線から 2° 以内でしか見えない遠景の樹冠は白が残る（`--sky-min-elevation-deg 0.5` も効かなかった。下の節）。
+- 出発点では撮影者と機材の影しか写っていないので、埋めた地面も暗い。
+- カメラは前向き 1 台なので、経路から外れた範囲は色が付かない。
 
 ### 軌跡を改善したとき（2026-11）
 
@@ -295,7 +298,8 @@ deskew と静止時の重力初期化を有効にした（19 測量点への SE(
 すると悪化した（補正前 2.29 px）ので `--time-offset 0` のままにする。詳細は
 `docs/research/gnss-rtk-slam-absolute-accuracy.md`。
 
-README アセットはこの軌跡に動的物体除去（手順 3）を戻して作り直した（上の手順そのまま）。
+README アセットはこの軌跡に動的物体除去（手順 3）を戻して作り直した（上の手順そのまま。
+2026-11-06 に地面の穴埋めを加えて再描画）。
 旧アセットは機材の前傾のまま地図が約 20° 傾いていたが、新しい地図は水平になり、階段の段、
 柵、建物の輪郭が締まった。動的物体除去は 636,495 点（9,293,181 → 8,656,686、6.8 %）を消し、
 指標はわずかに良くなる（同じ軌跡、同じ posed images）:
@@ -380,7 +384,35 @@ python3 tools/colored_map/carve_swept_corridor.py --input geometry.ply \
 
 Stadtgarten 2 では 11,513 点（0.14 %）を除き、GIF 冒頭の経路上の白い人影が消えた。除いた点は
 人影のあった区間（view 133–145 付近）に集中している。人影の陰で LiDAR が地面を測れなかった
-場所は、小さな穴として残る。
+場所は、小さな穴として残る（次の節で埋める）。
+
+### 経路沿いの地面の穴を埋める（`--fill-ground-holes`、既定オフ）
+
+前を歩く同行者の陰、機材を置いた場所の真下、濡れた暗いアスファルトでは、LiDAR が地面を測って
+いない。カメラは後からそこを写しているので、地面の点さえあれば色は付く。`--fill-ground-holes`
+は残像除去のあとで次の穴を埋め、点は後段の着色で画像から色を付ける。
+
+- 対象: カメラ経路から `--fill-reach`（既定 2 m）以内にあり、0.1 m の格子で半径 0.5 m の
+  closing が埋める空きセル（周りを地面に囲まれた穴）。格子のセルは、最寄りのカメラ位置の
+  2.5 m 下から 0.5 m 上までに点があれば埋まっているとみなす。
+- 条件: 面積 `--fill-max-area`（既定 4 m²）以下。周り 0.5 m の地面のセルが 12 方向のうち
+  10 方向以上を囲む。それらが平面に乗る（5 cm 以内が 7 割以上、その RMS が `--fill-max-rms`、
+  既定 4 cm 以下）。
+- 段差、縁石、植え込みの壁は平面の条件で外れる。
+- 埋め方: 平面上に、周りのセルと同じ密度で点を置く（乱数の種は固定）。
+
+Stadtgarten 2（上の手順）の結果:
+- 穴の候補 317 のうち 289（19.6 m²、11,263 点、全体の 0.13 %）を埋めた。
+- 外れたもの: 囲まれていない 17、平面でない 11。
+- 全体の指標は変わらない: coverage 0.9505 → 0.9504、held-out 色誤差（RGB L2 平均）45.032 → 45.032。
+- 同一視点の 12 枚では画素の 0.9 % が変わった。同行者の陰の黒い穴（view 573 付近）や、機材を
+  置いた場所の穴が、地面の色になった。
+- 埋めた点の色は、周り 0.3 m の元の点の中央値と中央値 9.9 違う（元の点どうしでは 6.4）。
+  大きく違うのは出発点（view 0）など。そこでは画像に撮影者と機材の影しか写っておらず、
+  暗い地面になる。
+
+`--sky-min-elevation-deg 0.5`（既定 2°）も同じ地図で試した。空色の点は 351,192 → 344,684
+（−1.9 %）。変わったのは主に経路脇の生垣で、遠景の樹冠の白は残ったため採らない。
 
 ## 独立した正解での色評価（Oxford Spires の TLS）
 
