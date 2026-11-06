@@ -1,0 +1,34 @@
+Phase 2: a second vehicle development sequence, KITTI 07. Written 2026-11-06, before any run on this data.
+A measurement, not a candidate: nothing is adopted from it alone.
+
+Why 07
+- KITTI 00/05/07 are development data (roadmap section 3). Chapter 48 found two input defects on 05 (KITTI's scans are
+  hardly compensated for rotation; the HDL-64's elevation is about 0.1-0.2 deg low) and corrected both in the bag
+  (rotation deskew from the OXTS gyro; elevation offset estimated from the scans alone). Whether these corrections
+  hold on another drive has not been checked. 00 (4.5 km, ~8.4 GB bag) does not fit the disk next to 05; 07 does.
+- 07 is raw drive 2011_09_30_drive_0027, frames 0-1100 (1101 scans, ~0.7 km), recorded the same day as 05 with the
+  same calibration files (2011_09_30), and it returns to its start at the end (a loop).
+- Ground truth: dataset/poses/07.txt and sequences/07/calib.txt, taken from the official data_odometry_poses.zip and
+  data_odometry_calib.zip (05's files match those archives byte for byte).
+
+Inputs (bench_report/scripts/kitti_raw_to_ros2.py, FRAMES=0:1101)
+- A0: no correction (as 05 before chapter 48).
+- A1: ROTATION_DESKEW=1.
+- A2: ROTATION_DESKEW=1 and ELEVATION_CORRECTION_DEG = d07, where d07 comes from A1's scans with
+  p2_kitti_elevation_offset.py (no ground truth), used as estimated. 05's 0.1206 deg is recorded for comparison only.
+- Rig file and algorithm keys: as for 05 (data/kitti/raw05_2026-10-31/rig_kitti_raw.yaml, G12), unchanged.
+
+Runs (/home/user/bench/kitti_raw/run_v3.sh, the current repository build)
+- Frontend on A0, A1, A2.
+- Backend on A2: t4v05 (NDT 2 m preset, 4 threads, loop points at 0.5 m), sg05 (small_gicp 0.5 m), ndt2 (preset).
+- Scores as for 05: APE RMSE / max (SE(3) on positions) and t_rel / r_rel over 100-800 m (KITTI's lengths; on a
+  0.7 km drive the longer lengths have few pairs), Velodyne frame (p2_kitti_score.py).
+
+Reading, fixed now
+1. Completion: a pose for every one of the 1101 scans, on every input.
+2. The corrections hold on 07 if A2's frontend is better than A0's in both APE RMSE and t_rel. Each step is reported
+   on its own (A0 -> A1 rotation, A1 -> A2 elevation); a step that makes either score worse by more than 2 % is
+   recorded as not holding on 07.
+3. d07 and 0.1206 deg agreeing within the spread of 05's estimate (+0.012 to +0.187 deg) supports a sensor property;
+   a value outside it is reported, not replaced.
+4. Loops: a backend variant helps if its APE RMSE is at least 10 % below the A2 frontend's (as chapter 41).
