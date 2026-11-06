@@ -109,3 +109,70 @@ def test_cli_removes_corridor_points_and_reports(tmp_path):
     report = json.loads((tmp_path / 'report.json').read_text())
     assert report['removed'] == 1
     assert sum(report['height_histogram']['counts']) >= 2
+
+
+def _ground(step=0.05, hole=None, z_fn=None):
+    """Ground grid around a path along x (camera 1.4 m above it), optional square hole."""
+    u, v = np.meshgrid(np.arange(-1.0, 6.0, step), np.arange(-3.0, 3.0, step), indexing='ij')
+    u, v = u.ravel(), v.ravel()
+    keep = np.ones(len(u), dtype=bool)
+    if hole is not None:
+        (u0, u1), (v0, v1) = hole
+        keep = ~((u >= u0) & (u < u1) & (v >= v0) & (v < v1))
+    z = np.zeros_like(u) if z_fn is None else z_fn(u, v)
+    return np.stack([u, v, z], axis=1)[keep]
+
+
+_PATH = np.array([[x, 0.0, 1.4] for x in np.arange(0.0, 5.01, 0.25)])
+_UP = np.array([0.0, 0.0, 1.0])
+
+
+def test_fill_ground_holes_fills_an_enclosed_hole_on_its_plane():
+    pytest.importorskip('scipy.ndimage')
+    slope = (lambda u, v: 0.05 * u + 0.02 * v)
+    points = _ground(hole=((2.0, 2.6), (0.6, 1.2)), z_fn=slope)
+    added, stats = csc.fill_ground_holes(points, _PATH, _UP)
+    assert stats['filled'] == 1 and stats['points_added'] == len(added) > 0
+    assert 0.3 <= stats['filled_area_m2'] <= 0.5
+    assert np.all((added[:, 0] > 1.85) & (added[:, 0] < 2.75))
+    assert np.all((added[:, 1] > 0.45) & (added[:, 1] < 1.35))
+    assert np.max(np.abs(added[:, 2] - slope(added[:, 0], added[:, 1]))) < 0.01
+    # deterministic
+    again, _ = csc.fill_ground_holes(points, _PATH, _UP)
+    assert np.array_equal(added, again)
+
+
+def test_fill_ground_holes_leaves_steps_large_and_distant_holes():
+    pytest.importorskip('scipy.ndimage')
+    step = (lambda u, v: np.where(v > 0.9, 0.3, 0.0))
+    _, stats = csc.fill_ground_holes(_ground(hole=((2.0, 2.6), (0.6, 1.2)), z_fn=step),
+                                     _PATH, _UP)
+    assert stats['filled'] == 0 and stats['not_flat'] == 1
+    _, stats = csc.fill_ground_holes(_ground(hole=((1.0, 3.0), (0.2, 1.6))), _PATH, _UP,
+                                     max_area=1.0, close_radius=1.0)
+    assert stats['filled'] == 0 and stats['too_large'] == 1
+    _, stats = csc.fill_ground_holes(_ground(hole=((2.0, 2.6), (2.3, 2.7))), _PATH, _UP,
+                                     reach=1.0)
+    assert stats['filled'] == 0
+
+
+def test_cli_fill_ground_holes_reports(tmp_path):
+    pytest.importorskip('scipy.ndimage')
+    rotation = pytest.importorskip('scipy.spatial.transform').Rotation
+    quat = rotation.from_matrix(
+        [[0.0, 0.0, 1.0], [-1.0, 0.0, 0.0], [0.0, -1.0, 0.0]]).as_quat()
+    intr = pi.CameraIntrinsics(32, 24, 30.0, 30.0, 16.0, 12.0)
+    frames = [pi.PosedImage(f'images/{i}.png',
+                            pi.make_transform([float(i), 0.0, 1.4], quat),
+                            float(i)) for i in range(6)]
+    pi.write_transforms(tmp_path / 'transforms.json', intr, frames)
+    points = _ground(hole=((2.0, 2.6), (0.6, 1.2)))
+    pcio.write_ply(tmp_path / 'map.ply', points, None)
+    assert csc.main(['--input', str(tmp_path / 'map.ply'),
+                     '--transforms', str(tmp_path / 'transforms.json'),
+                     '--out', str(tmp_path / 'filled.ply'), '--fill-ground-holes',
+                     '--report', str(tmp_path / 'report.json')]) == 0
+    report = json.loads((tmp_path / 'report.json').read_text())
+    assert report['ground_hole_fill']['filled'] == 1
+    xyz, _ = pcio.read_ply_xyz(tmp_path / 'filled.ply')
+    assert len(xyz) == len(points) - report['removed'] + report['ground_hole_fill']['points_added']
