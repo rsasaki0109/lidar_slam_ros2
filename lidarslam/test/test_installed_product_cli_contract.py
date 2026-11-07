@@ -281,6 +281,7 @@ def test_product_runtime_manifest_is_curated_and_complete():
     assert 'map_edit.py' in names
     assert 'merge_map_sessions.py' in names
     assert 'map_merge.py' in names
+    assert 'map_join.py' in names
     assert 'record_backend_input.sh' in names
     assert 'run_offline_determinism_check.sh' in names
     assert 'run_map_soak.py' in names

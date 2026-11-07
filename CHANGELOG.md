@@ -7,6 +7,10 @@ latest published release.
 
 ### Added
 
+- `lidarslam-map merge --place-recognition`: outputs recorded with `--editable`
+  are placed by `graph_slam_multisession_join` (place recognition, no prior,
+  with its refusals) before the merge's alignment and overlap gates. A refused
+  session stops the merge with the join's reason.
 - **RTK GNSS anchoring that reaches the published baselines** — on RTK-SLAM
   Stadtgarten 2 the GNSS-anchored map scores 0.100 m absolute checkpoint RMSE
   without alignment (FAST-LIO-SAM 0.099 m, OKVIS-LVIG 0.092 m), from 7.6 m
@@ -22,6 +26,11 @@ latest published release.
 
 ### Fixed
 
+- `graph_slam_offline_runner` writes its registration receipt for GICP and
+  SMALL_GICP loop registration too, and the offline replay
+  (`run_offline_determinism_check.sh`, used by `lidarslam-map edit`) accepts
+  it. Since the walking preset switched to SMALL_GICP, replays of walking runs
+  stopped on the missing receipt.
 - RKO-LIO reads the Livox `offset_time` per-point time, so deskew works on
   Livox PointCloud2 bags (with `deskew: true` it dropped every frame with an
   error before, so the RTK-SLAM presets ran with deskew off).

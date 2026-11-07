@@ -1279,6 +1279,23 @@ bool activateLegacyGicpRegistration(
     return false;
   }
   registration.plugin = registration.plugin_owner.get();
+
+  // The receipt the plugin path writes, so the offline replay tools (map edits, place-recognition
+  // merges, run_offline_determinism_check.sh) accept GICP and SMALL_GICP runs as well.
+  graphslam::backend_registration::BackendRegistrationRequest receipt_request;
+  receipt_request.request = request;
+  const std::filesystem::path receipt_path =
+    std::filesystem::path(config.output_dir) / "registration_plugin_receipt.yaml";
+  std::ofstream receipt(receipt_path);
+  std::string receipt_error;
+  if (!receipt.is_open() || !graphslam::backend_registration::writeBackendRegistrationReceipt(
+      receipt, receipt_request, *registration.session, &receipt_error))
+  {
+    RCLCPP_ERROR(
+      logger, "backend registration receipt failed before bag processing: %s",
+      receipt_error.empty() ? "cannot open receipt" : receipt_error.c_str());
+    return false;
+  }
   RCLCPP_INFO(
     logger,
     "backend registration preflight resolved role=%s backend_kind=%s "

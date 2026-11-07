@@ -16,6 +16,13 @@ GrandTour and its limits are in `bench_report/REPORT.md` chapter 38 and
 Built in every build of `graph_based_slam`: it uses the small_gicp copy vendored in
 `graph_based_slam/third_party/small_gicp` (the same one as `registration_method: SMALL_GICP`).
 
+## In the product
+
+`lidarslam-map merge --place-recognition` (`scripts/map_join.py`) runs this tool on outputs recorded
+with `--editable`: it replays each run's backend, joins the sessions, and hands each joined
+session's transform to the merge's own alignment and overlap gates. A refused session stops the
+merge with the reason (`docs/golden-path-cli.md`, `merge`).
+
 ## Inputs
 
 For every session:

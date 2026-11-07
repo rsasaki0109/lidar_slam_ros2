@@ -451,6 +451,14 @@ frame, tile resolution, and PCD field mismatches fail before publication. Use
 `--dry-run` to inspect transforms without writing output. When initialization
 is ambiguous, pass `--initial-transform <index:tx,ty,tz,yaw_deg>`.
 
+With outputs recorded with `--editable`, `--place-recognition` finds the starting
+transforms by place recognition (`graph_slam_multisession_join`, after replaying
+each run's backend) instead of the yaw sweep. A session the join refuses stops
+the merge with the join's reason. `--params` overrides the anchor output's
+`graph_params.ros.yaml`; `--setup` picks the ROS environment. The receipt
+records the join (`place_recognition`) and each alignment's
+`initial_transform_source`.
+
 Sources remain unchanged. Success atomically publishes a deduplicated
 full/tiled pointcloud map, per-session transformed trajectories,
 `map_project.json`, and `map_merge_receipt.json`. The synthesized G2O artifact

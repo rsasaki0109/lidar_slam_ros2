@@ -14,7 +14,7 @@ _LIDARSLAM_MAP_RUN_OPTIONS='--help --help-all --profile --output-dir --lidarslam
 _LIDARSLAM_MAP_INSPECT_OPTIONS='--help --help-all --bag --symptom --json --write'
 _LIDARSLAM_MAP_VIEW_OPTIONS='--help --help-all --viewer --no-open --preview-dir --autoware-core-dir --work-dir --runtime-dir --rebuild --auto-exit-secs'
 _LIDARSLAM_MAP_EDIT_OPTIONS='--help --help-all --plan --output-dir --dry-run --backend-input --params --setup --json'
-_LIDARSLAM_MAP_MERGE_OPTIONS='--help --help-all --output-dir --merge-voxel-size --alignment-voxel-size --max-alignment-points --max-median-error --max-p90-error --min-overlap --initial-transform --dry-run --json'
+_LIDARSLAM_MAP_MERGE_OPTIONS='--help --help-all --output-dir --merge-voxel-size --alignment-voxel-size --max-alignment-points --max-median-error --max-p90-error --min-overlap --initial-transform --place-recognition --params --setup --dry-run --json'
 _LIDARSLAM_MAP_MIGRATE_MANIFEST_OPTIONS='--help --help-all --output --verification --json'
 _LIDARSLAM_MAP_ROLLBACK_PLAN_OPTIONS='--help --help-all --json'
 

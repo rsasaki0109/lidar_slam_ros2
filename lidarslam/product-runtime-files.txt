@@ -20,6 +20,7 @@ apply_map_edit.py
 map_edit.py
 merge_map_sessions.py
 map_merge.py
+map_join.py
 run_map_soak.py
 diagnose_autoware_map_run.py
 check_map_gravity_alignment.py

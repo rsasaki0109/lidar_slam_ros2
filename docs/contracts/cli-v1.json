@@ -817,6 +817,16 @@
         "default": null,
         "kind": "transform",
         "value_name": "<index:tx,ty,tz,yaw_deg>"
+      },
+      "--params": {
+        "default": null,
+        "kind": "file",
+        "value_name": "<yaml>"
+      },
+      "--setup": {
+        "default": null,
+        "kind": "file",
+        "value_name": "<setup.bash>"
       }
     },
     "migrate-manifest": {
@@ -1757,6 +1767,21 @@
         },
         {
           "names": ["--initial-transform"],
+          "stability": "stable",
+          "tier": "map-merge"
+        },
+        {
+          "names": ["--place-recognition"],
+          "stability": "stable",
+          "tier": "map-merge"
+        },
+        {
+          "names": ["--params"],
+          "stability": "stable",
+          "tier": "map-merge"
+        },
+        {
+          "names": ["--setup"],
           "stability": "stable",
           "tier": "map-merge"
         },

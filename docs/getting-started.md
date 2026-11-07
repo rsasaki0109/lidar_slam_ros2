@@ -810,6 +810,16 @@ creation. Successful projects retain each transformed trajectory separately,
 deduplicate overlapping points, preserve intensity and other PCD fields, and
 publish SHA-256-pinned `map_project.json` and `map_merge_receipt.json`.
 
+When the runs were recorded with `--editable`, add `--place-recognition` to find
+how the runs sit relative to each other by place recognition instead of the yaw
+sweep. It replays each run's backend and runs
+[`graph_slam_multisession_join`](architecture/multisession-join.md), which needs
+no prior and refuses when its evidence does not hold over the whole map
+(ambiguous or self-similar places, or the whole-map check). A refusal stops the
+merge with the reason; a join's transform then goes through the same alignment
+and overlap gates. The anchor output's `graph_params.ros.yaml` is used unless
+`--params` is given.
+
 Autoware expects the map's z axis to point up. To check how far a run's map frame is
 tilted from gravity, measured from the bag's IMU (the run's diagnosis also reports a
 tilt above 3 deg as a hint):

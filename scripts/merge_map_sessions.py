@@ -8,9 +8,11 @@ import json
 import math
 import os
 import sys
+import tempfile
 from pathlib import Path
 from typing import Sequence
 
+from map_join import JoinSettings, MapJoinError, place_recognition_alignments
 from map_merge import MapMergeError, MergeOptions, merge_map_sessions
 
 
@@ -143,6 +145,27 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help='Optional gravity-aligned starting transform; repeat per session.',
     )
     parser.add_argument(
+        '--place-recognition',
+        action='store_true',
+        help=(
+            "Find each session's starting transform by place recognition "
+            '(graph_slam_multisession_join) instead of the yaw sweep. Needs every map to be '
+            'an editable run (backend_input/).'
+        ),
+    )
+    parser.add_argument(
+        '--params',
+        type=Path,
+        metavar='<yaml>',
+        help="Override the anchor run's graph_params.ros.yaml for place recognition.",
+    )
+    parser.add_argument(
+        '--setup',
+        type=Path,
+        metavar='<setup.bash>',
+        help='Workspace setup for place recognition; an active ROS environment is accepted.',
+    )
+    parser.add_argument(
         '--dry-run',
         action='store_true',
         help='Run source validation and alignment without writing a project.',
@@ -170,6 +193,22 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f'error: duplicate initial transform for session {index}', file=sys.stderr)
             return EX_USAGE
         transforms[index] = transform
+    place_recognition = None
+    if args.place_recognition:
+        if transforms:
+            print('error: --place-recognition and --initial-transform exclude each other',
+                  file=sys.stderr)
+            return EX_USAGE
+        try:
+            with tempfile.TemporaryDirectory(prefix='lidarslam-map-join-') as work:
+                transforms, place_recognition = place_recognition_alignments(
+                    [Path(value) for value in args.map_outputs],
+                    Path(work),
+                    JoinSettings(params_path=args.params, setup_path=args.setup),
+                )
+        except MapJoinError as exc:
+            print(f'error: {exc}', file=sys.stderr)
+            return EX_USAGE
     try:
         receipt = merge_map_sessions(
             source_dirs=[Path(value) for value in args.map_outputs],
@@ -184,6 +223,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             ),
             initial_transforms=transforms,
             dry_run=bool(args.dry_run),
+            place_recognition=place_recognition,
         )
     except MapMergeError as exc:
         print(f'error: {exc}', file=sys.stderr)
