@@ -387,6 +387,13 @@ report (chapter 15). The pipeline is still above the frontend alone, mostly on
 the garage trials: there, the NDT loop edges are 5–25 cm off while the frontend
 is 1–3 cm off between the same submaps.
 
+This table uses NDT 2 m loop registration. The walking preset registers loops
+with small_gicp (correspondences within 0.5 m) since 2026-11 (report chapters
+50 and 51). With the later Phase 1 frontend, chapter 37 measured these ten
+sequences at a geometric mean of 0.0354 m with small_gicp 0.5 m and 0.0364 m
+with NDT 2 m (frontend alone 0.0353 m); small_gicp made no sequence more than
+2.7 % worse than the frontend alone, NDT 2 m two garage trials 16–22 % worse.
+
 Context, not a ranking:
 
 - **MapsHD calibration-room trial 1:** the benchmark's published table lists

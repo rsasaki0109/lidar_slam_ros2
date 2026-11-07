@@ -697,7 +697,8 @@ It pins `rko_lio_mid360_walking.yaml` and
 the frontend and loop settings adopted on the MapsHD HUMANOID-LIO-DATASET
 (Unitree G1), where the frontend absorbs foot strikes and the loops stop
 pulling an accurate frontend off course (`bench_report/REPORT.md`, chapters 14
-to 25). They were tuned on that data only. Their localizability and IMU options
+to 25). They were tuned on that data only. Loops are registered with small_gicp
+(correspondences within 0.5 m) since chapters 50 and 51; NDT 2 m before. Their localizability and IMU options
 need the maintained RKO-LIO fork that a source build uses; the official
 `rko_lio` binary ignores them. `--motion walking` is accepted only with the
 `rko_lio_graph_mid360_preset` profile, and `sensor_setup.json` records it as
