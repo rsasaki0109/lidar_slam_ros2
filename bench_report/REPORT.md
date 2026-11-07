@@ -3728,3 +3728,9 @@ small_gicp を graph_based_slam に同梱したので（PR #593）、プリセ�
 
 - 走行の中の隣どうしは、屋外でもほぼ完全に重なる（c 0.99）。屋外の結合で重なりが足りないのは、別の時刻・別の経路から見ることによるもので、それは再訪で測った c（Stadtgarten 0.71〜0.75、工事現場 0.88〜0.89、部屋 0.996）に表れた。
 - 案 2 を既定にする前に、一貫性の低い現場で誤った集合が出るデータ（Oxford の中庭、MapsHD outdoor-urk、GrandTour の屋外）で、正解を除いた試験が要る。
+
+**製品の経路で最後まで（`lidarslam-map run --editable` → `lidarslam-map merge --place-recognition`）**
+
+- 途中で直したもの 2 つ。(1) 事前の確認が Livox の点ごとの時刻 `offset_time` を知らず、Stadtgarten の bag に RKO-LIO のプロファイルを出さなかった（RKO-LIO は読める）。(2) 地図作成が、ループのたびに保存される地図が 15 秒変わらないと「オフライン処理が終わった」とみなしていた。Stadtgarten 1 では走行の 40 %（15,788 スキャンのうち 6,262）で止まっていた。フロントエンドがまだ動いている間は、その判定を使わないようにした。
+- 直した後、Stadtgarten 1・2 とも成功（15,788 / 8,634 スキャン、GNSS 16,028 / 8,768 件も `backend_input/` に入る）。
+- `merge --place-recognition`：いまの設定では 52 章と同じ理由で止まる（終了コード 2、166 照合・10.2 %）。案 2 の値（`--params` に `multisession_consistency_bar: true`、`reference: 0.880487`、`skip_neighbors: 10`）では、54 章と同じ変換でつながり、そのあとの重ね合わせ（trimmed yaw ICP）も収束し、検証も通った（Autoware 8 / 8、地図の束も PASS）。1,778,650 点の地図になった。

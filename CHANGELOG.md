@@ -36,6 +36,10 @@ latest published release.
 
 ### Fixed
 
+- A map run no longer ends while RKO-LIO is still reading the bag. Map outputs
+  unchanged for 15 s (a stretch without loops) were taken for the end of offline
+  processing; on RTK-SLAM Stadtgarten 1 the run stopped at 40 % of the bag.
+  While the frontend wrapper runs, only its completion or failure ends the wait.
 - The bag preflight accepts the Livox ROS driver's per-point `offset_time`
   (uint32 ns), which RKO-LIO already reads for deskewing. Such bags (RTK-SLAM
   Stadtgarten) were offered only the GNSS smoke path, not the RKO-LIO profiles.
