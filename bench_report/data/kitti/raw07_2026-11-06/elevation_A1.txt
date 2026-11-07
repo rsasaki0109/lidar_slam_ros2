@@ -1,0 +1,1 @@
+scans used 221 of 1101 (every 5th); median slope -0.001240; delta +0.0711 deg (interquartile -0.0438 .. +0.2159); mean-based +0.0155 deg
