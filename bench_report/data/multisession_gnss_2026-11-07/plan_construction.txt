@@ -1,0 +1,66 @@
+The local GNSS gate without the whole-map floor, on data not used before: RTK-SLAM Construction 1 + 2. Written
+2026-11-07, after chapter 56.1 and before either Construction sequence was downloaded. Nothing changes a default.
+
+Question
+- In chapter 56.1 the local GNSS comparison met every reading on Stadtgarten; only the whole-map floor carried over
+  from plan.txt refused a right set. A gate on the local comparison alone was read after the fact. Does it hold on a
+  second site with RTK GNSS: a construction hall with indoor, outdoor and transition checkpoints, walked twice with the
+  same rig?
+
+The gate (fixed now)
+- As plan_local.txt (places of a transform, GNSS pairs within 30 m of each place, at least 50 per side, trimmed 4-DoF
+  fits, the place's disagreement at the B keyframe), without the floor: a set or transform is accepted if at least 5
+  places are measured and their median disagreement is at most 1.0 m. Fewer than 5 measured places: no GNSS decision.
+  With a GNSS decision, the ambiguity and self-similarity refusals are not applied. Reported besides: the whole-map
+  numbers and the gate with the floor of plan.txt.
+
+Data and processing (as Stadtgarten, chapters 50, 52)
+- construction_seq1 and construction_seq2 (scripts/download_rtk_slam_dataset.py, SHA-256 checked), one at a time; the
+  bag is deleted once its backend input is recorded.
+- Frontend: rko_lio offline_node with the Stadtgarten rig file (rko_stadtgarten_seq2.ros.yaml: deskew, initialization
+  phase, voxel 0.5, range 1-105 m, legacy voxel downsample), /livox/points, /livox/imu, base frame os_sensor, the
+  deskewed scans published; recorded with scripts/record_backend_input.sh --gnss-topic /gnss/fix (zstd_fast).
+- Backend: graph_slam_offline_runner with lidarslam_mid360_rko_graph_walking.yaml, extrinsic identity.
+- Joins (graph_slam_multisession_join, the same params, defaults, 4 threads): 1 <- 2 and 2 <- 1; each sequence split in
+  two (gap 30 s), as is and with the matches within 2.0 m of the identity removed.
+- Truth: pairs, the drift-only reference of chapter 52 (bench_report/scripts/p3_rtk_multisession_eval.py on the
+  shared checkpoints, each session's frontend trajectory densified onto its trajectory_optimized.tum, lever arm
+  -0.062 0 -0.216; 15 checkpoints have the same surveyed coordinates in both sequences). Splits: the identity.
+- Checked transforms: the truth of each order and its 23 perturbations as chapter 55 (moved 1, 2, 4, 8 m along +-x,
+  +-y in A's frame; turned +-2, +-5, +-10, 180 deg about the centroid of B's keyframes placed by the truth), with their
+  whole-map numbers from debug_check_transforms.
+
+Reading, fixed now
+1. Usable: at the truth, at least 5 places are measured and the median disagreement is at most 0.5 m, in both orders
+   and on each split where at least 5 places are measured at the identity. Fewer than 5 at a pair's truth: not met
+   (GNSS cannot decide there).
+2. Accept: in each order and split where a set tried is within 1.0 m RMS of the truth, the gate accepts a set, and the
+   set it joins (the first accepted, largest first) is within 1.0 m RMS of the truth.
+3. Refuse: the gate accepts no checked transform 2 m or more or 5 deg or more from the truth, and no set tried in any
+   run that is 2 m RMS or more from its truth.
+4. If 1-3 hold, the floorless local gate is a candidate to build into the join (GNSS read from backend_input), to be
+   checked end to end; a site with repeated structure and GNSS stays untested and is named. If any fails, it is not
+   built, and the reason is named.
+
+Result (2026-11-07; construction/: local_*.json, alone_*.json, join and check reports; scripts p3_ms_cons_record.sh,
+p3_ms_cons_run.sh)
+- Recording: Construction 1 7,282 frames, 7,413 fixes; Construction 2 5,873 frames, 5,993 fixes (initial pitch about
+  19 deg, as the dataset notes). Backend: 282 / 228 submaps, 9 / 8 loop edges. Truth: 15 shared checkpoints, rigid
+  placement residual 0.234 m RMS (max 0.71 m).
+- Joins: both orders join with the whole-map check (368 / 354 matches, 0 % below), 0.132 / 0.138 m from the truth.
+  Splits as is: one set each, 0.008 m and 0.015 m from the identity, refused by the whole-map check (14.3 % and 22.2 %
+  below). Splits with the matches near the identity removed: no set.
+- Local comparison at the truth: median 0.037 m (1 <- 2, 132 of 227 places measured; indoor places have no fix within
+  30 m), 0.038 m (2 <- 1, 133 of 239), 0.066 m (split 1, 27 of 42), 0.021 m (split 2, 26 of 27).
+- The gate (no floor) accepts the largest set in both orders (median 0.075 / 0.084 m) and both splits' sets (0.064 /
+  0.018 m). Of the checked transforms it accepts, besides the truth: in 1 <- 2, +x 1 m, -y 1 m, +-2 deg; in 2 <- 1,
+  +x 1 m, +y 1 m, +-2 deg and +5 deg (median 0.961 m, 90th percentile 3.37 m, 66 % of its places below 0.5).
+Reading
+1. Met (0.037, 0.038, 0.066, 0.021 m).
+2. Met: all four right sets accepted, two of them refused today by the whole-map check.
+3. NOT met: the 2 <- 1 truth turned by +5 deg is accepted. Turned about the centroid of B's keyframes, the places near
+   the centroid hardly move, and the median of the places' disagreement stays under 1 m.
+4. The floorless local gate is not built. The reason: the median place disagreement does not bound a rotation about the
+   middle of the places. With the floor of plan.txt the gate would meet 1-3 here (the +5 deg transform has 66 % below;
+   the splits' sets 14.3 % and 22.2 % pass the 25 % floor), but that gate refused Stadtgarten 1's split set (37 %,
+   chapter 56.1). Neither variant meets the readings on both sites.

@@ -3,7 +3,8 @@
 
 p3_ms_perturb.py JOIN_REPORT B_TRAJECTORY_RAW OUT_PREFIX
 
-Reads session 1's transform_to_session_0 T from JOIN_REPORT (a two-session join) and B's submap positions
+Reads session 1's transform_to_session_0 T from JOIN_REPORT (a two-session join; a .json: the
+debug_exclude_transform of a drift-only reference) and B's submap positions
 (the keyframes) from B_TRAJECTORY_RAW (trajectory_raw.tum of B's backend run). Writes
 OUT_PREFIX.values (the 12 x 24 values of debug_check_transforms, comma separated) and OUT_PREFIX.csv (one
 label per transform, in the same order):
@@ -12,12 +13,16 @@ label per transform, in the same order):
   17-23  T turned about A's vertical axis through the centroid of B's keyframes placed by T, by
          +2, -2, +5, -5, +10, -10 and 180 deg
 """
+import json
 import math
 import re
 import sys
 
 
 def read_transform(path):
+    if path.endswith('.json'):  # a drift-only reference (p3_rtk_multisession_eval.py): the truth
+        v = [float(x) for x in json.load(open(path))['debug_exclude_transform']]
+        return [v[0:4], v[4:8], v[8:12], [0.0, 0.0, 0.0, 1.0]]
     with open(path) as f:
         text = f.read()
     found = re.findall(r'transform_to_session_0: \[([^\]]*)\]', text)

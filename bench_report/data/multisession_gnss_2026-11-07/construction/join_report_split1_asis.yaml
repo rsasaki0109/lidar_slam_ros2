@@ -1,0 +1,12 @@
+split:
+  gap_s: 30
+  keyframes_a: 139
+  keyframes_b: 136
+  candidates: 355
+  accepted: 53
+  excluded_by_debug_hook: false
+  joined: false
+  ambiguous: false
+  self_similar: ''
+  sets_tried:
+    - {size: 53, places: 42, share_below: 0.142857, median: 0.91047, passed: false, transform: [0.999999967, -4.63533203e-05, -0.000250948599, 0.00461141091, 4.64724557e-05, 0.999999886, 0.000474755136, -0.00242580921, 0.000250926563, -0.000474766782, 0.999999856, -0.0100858326]}
