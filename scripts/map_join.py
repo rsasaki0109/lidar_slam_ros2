@@ -13,10 +13,17 @@ file of those runs (`--params`, else the anchor bundle's `graph_params.ros.yaml`
    check). docs/architecture/multisession-join.md describes the method.
 3. A session that does not join stops the merge with the join's reason; a joined session's
    transform to the first session becomes its initial transform (x, y, z, yaw).
+
+Each session's self-similarity check (most of a join's time when it passes) depends only on the
+session and the join settings. The join stores its result under the session's fingerprint in a
+user cache (multisession_cache_dir; default ~/.cache/lidarslam/multisession_join), so a later merge
+with the same run skips it: joining a new run to a stored map checks only the new run. The cache
+lives outside the source outputs, which a merge never changes.
 """
 from __future__ import annotations
 
 import math
+import os
 import shlex
 import subprocess
 from dataclasses import dataclass
@@ -38,9 +45,16 @@ class JoinSettings:
 
     params_path: Path | None = None
     setup_path: Path | None = None
+    cache_dir: Path | None = None
     num_threads: int = 4
     replay_script: Path | None = None
     join_command: Sequence[str] | None = None
+
+
+def default_cache_dir() -> Path:
+    """Return the user cache of stored self-similarity results."""
+    root = os.environ.get('XDG_CACHE_HOME') or str(Path.home() / '.cache')
+    return Path(root) / 'lidarslam' / 'multisession_join'
 
 
 def bundle_dir_of(source: Path) -> Path:
@@ -136,6 +150,9 @@ def run_join(bags: list[Path], run_dirs: list[Path], output_dir: Path, params: P
         '-p', f'multisession_num_threads:={settings.num_threads}',
         '-p', f'output_dir:={output_dir}',
     ]
+    cache_dir = (settings.cache_dir or default_cache_dir()).expanduser().resolve()
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    command += ['-p', f'multisession_cache_dir:={cache_dir}']
     _run(command, 'graph_slam_multisession_join')
     report_path = output_dir / 'join_report.yaml'
     try:
@@ -207,5 +224,9 @@ def place_recognition_alignments(
             for session in report['sessions']
         ],
         'map_joins': report.get('map_joins'),
+        # per session: its fingerprint and whether its self-similarity was stored, checked or
+        # not needed
+        'self_similarity': report.get('self_similarity'),
+        'cache_dir': str((settings.cache_dir or default_cache_dir()).expanduser().resolve()),
     }
     return transforms, summary

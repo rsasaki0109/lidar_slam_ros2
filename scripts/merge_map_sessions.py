@@ -166,6 +166,15 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help='Workspace setup for place recognition; an active ROS environment is accepted.',
     )
     parser.add_argument(
+        '--join-cache-dir',
+        type=Path,
+        metavar='<dir>',
+        help=(
+            'Where place recognition stores each run\'s self-similarity result '
+            '(default: ~/.cache/lidarslam/multisession_join).'
+        ),
+    )
+    parser.add_argument(
         '--dry-run',
         action='store_true',
         help='Run source validation and alignment without writing a project.',
@@ -204,7 +213,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 transforms, place_recognition = place_recognition_alignments(
                     [Path(value) for value in args.map_outputs],
                     Path(work),
-                    JoinSettings(params_path=args.params, setup_path=args.setup),
+                    JoinSettings(params_path=args.params, setup_path=args.setup,
+                                 cache_dir=args.join_cache_dir),
                 )
         except MapJoinError as exc:
             print(f'error: {exc}', file=sys.stderr)

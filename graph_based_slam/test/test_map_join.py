@@ -45,6 +45,7 @@ sys.path.insert(0, str(REPO_ROOT / 'scripts'))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from map_join import (  # noqa: E402,I100
+    default_cache_dir,
     initial_transform,
     JoinSettings,
     MapJoinError,
@@ -92,6 +93,7 @@ def _fake_tools(tmp_path: Path, report: str) -> tuple[Path, list[str]]:
           case $a in output_dir:=*) out=${{a#output_dir:=}} ;; esac
         done
         mkdir -p "$out"
+        printf '%s\\n' "$@" > "$out/arguments.txt"
         cp {report_file} "$out/join_report.yaml"
         """))
     return replay, ['bash', str(join)]
@@ -100,7 +102,8 @@ def _fake_tools(tmp_path: Path, report: str) -> tuple[Path, list[str]]:
 def _settings(tmp_path: Path, replay: Path, join: list[str]) -> JoinSettings:
     params = tmp_path / 'params.yaml'
     params.write_text('graph_based_slam:\n  ros__parameters: {}\n')
-    return JoinSettings(params_path=params, replay_script=replay, join_command=join)
+    return JoinSettings(params_path=params, replay_script=replay, join_command=join,
+                        cache_dir=tmp_path / 'cache')
 
 
 def test_initial_transform_reads_position_and_yaw():
@@ -144,6 +147,11 @@ def test_joined_sessions_become_initial_transforms(tmp_path: Path):
     assert transforms[1] == pytest.approx((3.0, 4.0, 0.5, -20.0))
     assert summary['method'] == 'graph_slam_multisession_join'
     assert summary['sessions'][1]['accepted'] == 40
+    # self-similarity results go to the user cache, never into the source outputs
+    arguments = (tmp_path / 'work' / 'join' / 'arguments.txt').read_text().splitlines()
+    assert f"multisession_cache_dir:={(tmp_path / 'cache').resolve()}" in arguments
+    assert summary['cache_dir'] == str((tmp_path / 'cache').resolve())
+    assert (tmp_path / 'cache').is_dir()
 
 
 def test_a_refused_session_stops_with_the_reason(tmp_path: Path):
@@ -183,12 +191,17 @@ def test_params_default_to_the_anchor_runs_graph_params(tmp_path: Path):
             transform_to_session_0: {_row(0.0, 1.0, 0.0, 0.0)}
         """))
     anchor, other = _bundle(tmp_path / 'a'), _bundle(tmp_path / 'b')
-    settings = JoinSettings(replay_script=replay, join_command=join)
+    settings = JoinSettings(replay_script=replay, join_command=join, cache_dir=tmp_path / 'c')
     with pytest.raises(MapJoinError, match='graph_params.ros.yaml'):
         place_recognition_alignments([anchor, other], tmp_path / 'work', settings)
     (anchor / 'graph_params.ros.yaml').write_text('graph_based_slam:\n  ros__parameters: {}\n')
     _, summary = place_recognition_alignments([anchor, other], tmp_path / 'work2', settings)
     assert summary['params'] == str((anchor / 'graph_params.ros.yaml').resolve())
+
+
+def test_default_cache_follows_xdg_cache_home(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv('XDG_CACHE_HOME', str(tmp_path / 'xdg'))
+    assert default_cache_dir() == tmp_path / 'xdg' / 'lidarslam' / 'multisession_join'
 
 
 def test_merge_records_place_recognition_as_the_initial_transform_source(tmp_path: Path):

@@ -827,6 +827,11 @@
         "default": null,
         "kind": "file",
         "value_name": "<setup.bash>"
+      },
+      "--join-cache-dir": {
+        "default": null,
+        "kind": "directory",
+        "value_name": "<dir>"
       }
     },
     "migrate-manifest": {
@@ -1782,6 +1787,11 @@
         },
         {
           "names": ["--setup"],
+          "stability": "stable",
+          "tier": "map-merge"
+        },
+        {
+          "names": ["--join-cache-dir"],
           "stability": "stable",
           "tier": "map-merge"
         },
