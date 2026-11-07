@@ -53,3 +53,14 @@ before Construction's consistency was known and before any join with a lowered b
   (the self-join's self_skip_neighbors), so that only revisits count (c_rev). A session with no revisit within 3 m is
   not measured and does not lower the bar. Same bar formula, with c0 = min(c_rev of con-1, c_rev of con-2) (1 if
   neither is measured), measured before any join with candidate 2's bar. Same runs and the same readings 1-4.
+
+Result (2026-11-07; results.csv, 34 runs; REPORT chapter 54).
+- c0: candidate 1 0.987895 (con-1 0.9891, con-2 0.9879); candidate 2 0.880487 (con-1 0.8926, con-2 0.8805).
+- Candidate 1: every bar stays 0.5 (Stadtgarten 0.9936 / 0.9915, calibration-room 0.9995 / 0.9997, exp04 0.995).
+  Readings 1 and 2 met, 3 not met (both Stadtgarten orders refused as before).
+- Candidate 2: Stadtgarten c_rev 0.7540 / 0.7136, bar 0.4052; its largest sets pass (1.2 % and 9.2 % of places below
+  the bar) and join (no ambiguity, neither session self-similar) with chapter 53's largest-set transforms, 0.284 m /
+  0.17 deg and 0.378 m / 0.21 deg from the drift-only reference. Construction (bar 0.5 by c0), calibration-room
+  (c_rev 0.997 / 0.996) and exp04 (no revisit: not measured) are unchanged. Readings 1, 2 and 3 met.
+- Reading 4: not adopted. The bar was lowered only on Stadtgarten, where removing the true matches leaves no set at
+  all, so no wrong set has yet faced a lowered bar. The held-out sites named above were not re-run.

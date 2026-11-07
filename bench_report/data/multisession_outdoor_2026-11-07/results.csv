@@ -1,0 +1,35 @@
+run,rule,true_matches_removed,joined,ambiguous,self_similar,candidates,accepted,consistency_a,consistency_b,skip_neighbors,bar,sets(size/places/share_below/median/passed)
+conA12,as_is,false,true,false,-,499,402,0.9891,0.9879,0,0.5000,356/144/0.0000/0.990/pass 15/96/0.3021/0.621/fail 8/108/0.1852/0.642/fail
+conA21,as_is,false,true,false,-,489,438,0.9879,0.9891,0,0.5000,369/157/0.0000/0.985/pass 16/118/0.1949/0.651/fail 15/104/0.2404/0.632/fail
+conAx12,as_is,true,false,false,-,499,44,0.9891,0.9879,0,0.5000,15/96/0.3021/0.621/fail 8/108/0.1852/0.642/fail
+conAx21,as_is,true,false,false,-,489,65,0.9879,0.9891,0,0.5000,16/118/0.1949/0.651/fail 15/104/0.2404/0.632/fail 9/106/0.1509/0.674/fail
+sgA12,as_is,false,false,false,-,795,305,0.9936,0.9915,0,0.5000,166/256/0.1016/0.686/fail 78/262/0.3321/0.651/fail 15/255/0.3608/0.577/fail
+sgA21,as_is,false,false,false,-,1834,438,0.9915,0.9936,0,0.5000,173/314/0.1879/0.633/fail 132/318/0.3459/0.667/fail 46/314/0.5064/0.498/fail
+A_calib,as_is,false,false,true,-,306,300,0.9995,0.9997,0,0.5000,113/102/0.0000/0.996/pass 70/102/0.0000/0.936/pass 18/88/0.1364/0.777/fail
+A_calibx,as_is,true,false,false,a,306,187,0.9995,0.9997,0,0.5000,70/102/0.0000/0.936/pass 18/88/0.1364/0.777/fail 12/90/0.1556/0.792/fail
+A_exp04,as_is,false,false,false,-,1,0,0.9951,0.9947,0,0.5000,
+A_exp04x,as_is,true,false,false,-,1,0,0.9951,0.9947,0,0.5000,
+c1_con12,candidate_1,false,true,false,-,499,402,0.9891,0.9879,0,0.5000,356/144/0.0000/0.990/pass 15/96/0.3021/0.621/fail 8/108/0.1852/0.642/fail
+c1_con21,candidate_1,false,true,false,-,489,438,0.9879,0.9891,0,0.5000,369/157/0.0000/0.985/pass 16/118/0.1949/0.651/fail 15/104/0.2404/0.632/fail
+c1_conx12,candidate_1,true,false,false,-,499,44,0.9891,0.9879,0,0.5000,15/96/0.3021/0.621/fail 8/108/0.1852/0.642/fail
+c1_conx21,candidate_1,true,false,false,-,489,65,0.9879,0.9891,0,0.5000,16/118/0.1949/0.651/fail 15/104/0.2404/0.632/fail 9/106/0.1509/0.674/fail
+c1_sg12,candidate_1,false,false,false,-,795,305,0.9936,0.9915,0,0.5000,166/256/0.1016/0.686/fail 78/262/0.3321/0.651/fail 15/255/0.3608/0.577/fail
+c1_sg21,candidate_1,false,false,false,-,1834,438,0.9915,0.9936,0,0.5000,173/314/0.1879/0.633/fail 132/318/0.3459/0.667/fail 46/314/0.5064/0.498/fail
+c1_sgx12,candidate_1,true,false,false,-,795,32,0.9936,0.9915,0,0.5000,
+c1_sgx21,candidate_1,true,false,false,-,1834,51,0.9915,0.9936,0,0.5000,
+c1_calib,candidate_1,false,false,true,-,306,300,0.9995,0.9997,0,0.5000,113/102/0.0000/0.996/pass 70/102/0.0000/0.936/pass 18/88/0.1364/0.777/fail
+c1_calibx,candidate_1,true,false,false,a,306,187,0.9995,0.9997,0,0.5000,70/102/0.0000/0.936/pass 18/88/0.1364/0.777/fail 12/90/0.1556/0.792/fail
+c1_exp04,candidate_1,false,false,false,-,1,0,0.9951,0.9947,0,0.5000,
+c1_exp04x,candidate_1,true,false,false,-,1,0,0.9951,0.9947,0,0.5000,
+c2_con12,candidate_2,false,true,false,-,499,402,0.8926,0.8805,10,0.5000,356/144/0.0000/0.990/pass 15/96/0.3021/0.621/fail 8/108/0.1852/0.642/fail
+c2_con21,candidate_2,false,true,false,-,489,438,0.8805,0.8926,10,0.5000,369/157/0.0000/0.985/pass 16/118/0.1949/0.651/fail 15/104/0.2404/0.632/fail
+c2_conx12,candidate_2,true,false,false,-,499,44,0.8926,0.8805,10,0.5000,15/96/0.3021/0.621/fail 8/108/0.1852/0.642/fail
+c2_conx21,candidate_2,true,false,false,-,489,65,0.8805,0.8926,10,0.5000,16/118/0.1949/0.651/fail 15/104/0.2404/0.632/fail 9/106/0.1509/0.674/fail
+c2_sg12,candidate_2,false,true,false,-,795,305,0.7540,0.7136,10,0.4052,166/256/0.0117/0.686/pass 78/262/0.3168/0.651/fail 15/255/0.1725/0.577/fail
+c2_sg21,candidate_2,false,true,false,-,1834,438,0.7136,0.7540,10,0.4052,173/314/0.0924/0.633/pass 132/318/0.2799/0.667/fail 46/314/0.2834/0.498/fail
+c2_sgx12,candidate_2,true,false,false,-,795,32,0.7540,0.7136,10,0.4052,
+c2_sgx21,candidate_2,true,false,false,-,1834,51,0.7136,0.7540,10,0.4052,
+c2_calib,candidate_2,false,false,true,-,306,300,0.9974,0.9961,10,0.5000,113/102/0.0000/0.996/pass 70/102/0.0000/0.936/pass 18/88/0.1364/0.777/fail
+c2_calibx,candidate_2,true,false,false,a,306,187,0.9974,0.9961,10,0.5000,70/102/0.0000/0.936/pass 18/88/0.1364/0.777/fail 12/90/0.1556/0.792/fail
+c2_exp04,candidate_2,false,false,false,-,1,0,1.0000,1.0000,10,0.5000,
+c2_exp04x,candidate_2,true,false,false,-,1,0,1.0000,1.0000,10,0.5000,
