@@ -204,7 +204,11 @@ Limits:
   accepts a set agreeing with that transform (report 56) joined Stadtgarten and refused every
   transform 2 m or 2 deg off, but on Stadtgarten 1 split in two the halves' GNSS transform was 1.19 m
   off, so the gate refused a right set: a rigid fit of GNSS to one session's odometry inherits the
-  session's drift (fit residuals 0.4-1.1 m). It was not built. An editable run of a bag with a
+  session's drift (fit residuals 0.4-1.1 m). It was not built. Fitting GNSS only within 30 m of each
+  place (report 56.1) put the truth within 0.28-0.38 m (median) in all three cases and refused every
+  transform 2 m or 2 deg off, but its whole-map floor (25 % below) refused the split's right set; it
+  was not built either, and the same comparison without the floor needs another GNSS pair to be
+  tested on. An editable run of a bag with a
   NavSatFix topic keeps it in `backend_input/` (`record_backend_input.sh --gnss-topic`), so the
   sessions have their GNSS.
 - A join adds a session to the map; it does not update the map. A place that changed between

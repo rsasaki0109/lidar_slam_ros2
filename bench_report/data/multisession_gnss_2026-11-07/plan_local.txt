@@ -28,3 +28,23 @@ Reading, fixed now
 4. If 1-3 hold, the local gate is a candidate to build into the join (reading GNSS from backend_input) and to check end to
    end on the product path; wrong sets with GNSS (none on disk) stay untested and are named. If any fails, it is not
    built and the reason is named.
+
+Result (2026-11-07; local_*.json; bench_report/scripts/p3_ms_gnss_local.py)
+- At the truth: median disagreement 0.277 m (1 <- 2, 246 of 256 places measured), 0.378 m (2 <- 1, 303 of 313), 0.298 m
+  (Stadtgarten 1 split, 27 of 27). The Stadtgarten 2 split has no place (its halves do not meet).
+- Sets: 1 <- 2 largest set median 0.285 m, accepted (0.284 m from the truth); 2 <- 1 largest set 0.485 m, accepted
+  (0.378 m). Stadtgarten 1 split: its one set (0.049 m from the identity) has median 0.289 m, but the whole-map floor
+  refuses it (37 % of its 27 places below 0.5, the floor allows 25 %), so the gate refuses it. The pairs' second and
+  third sets fail the floor (33-51 %); the third set of 2 <- 1 also fails the median (1.115 m).
+- Chapter 55's transforms: the gate accepts none but the joined one. The median alone refuses every transform moved by
+  2 m or more or turned by 2 deg or more (medians 1.8-133 m), and 6 of the 8 moved by 1 m (+x 1 m passes it in both
+  orders: 0.97 / 0.94 m, refused by the floor).
+- Splits with the matches near the identity removed: no set (as in chapter 56).
+Reading
+1. Met (0.28, 0.38, 0.30 m).
+2. NOT met: the Stadtgarten 1 split's right set is refused, by the whole-map floor, not by GNSS.
+3. Met: nothing 2 m or 5 deg off is accepted (nor 2 deg).
+4. The local gate is not built as it stands. The reason is the floor carried over from plan.txt: the local GNSS
+   comparison itself met every reading. A gate on the local comparison alone (no floor) would, on these cases, accept
+   all three right sets and refuse every transform 2 m or 2 deg off; that is read after the fact and needs data not
+   used here (another pair of sessions with RTK GNSS) before it can be a candidate. Wrong sets with GNSS: none on disk.
