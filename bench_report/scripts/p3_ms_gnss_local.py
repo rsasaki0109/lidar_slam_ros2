@@ -31,6 +31,7 @@ WINDOW_M = 30.0
 MIN_WINDOW_PAIRS = 50
 MIN_MEASURED = 5
 MAX_MEDIAN_M = 1.0
+NO_FLOOR = False  # --no-floor (plan_construction.txt): the gate is the local comparison alone
 
 
 class Local:
@@ -71,7 +72,8 @@ def judge(t, places, share_below, truth, kfa, kfb, la, lb):
     out['vs_truth_m'], out['vs_truth_deg'] = g.disagreement(t, truth, kfb)
     out['places'], out['share_below'] = places, round(share_below, 4)
     out['floor'] = places >= g.FLOOR_MIN_PLACES and share_below <= g.FLOOR_MAX_SHARE
-    out['gate'] = out['local_ok'] and out['floor']
+    out['gate_with_floor'] = out['local_ok'] and out['floor']
+    out['gate'] = out['local_ok'] if NO_FLOOR else out['gate_with_floor']
     return out
 
 
@@ -105,7 +107,10 @@ def main():
     for name in ('--bag', '--front', '--keyframes', '--report'):
         s.add_argument(name, required=True)
     s.add_argument('--gap-s', type=float, default=30.0)
+    ap.add_argument('--no-floor', action='store_true', help='the gate without the whole-map floor')
     a = ap.parse_args()
+    global NO_FLOOR
+    NO_FLOOR = a.no_floor
     if a.mode == 'pair':
         fa, fb = g.read_fixes(a.bag_a), g.read_fixes(a.bag_b)
         origin = fa[0]
