@@ -210,7 +210,9 @@ Limits:
   was not built either. Without the floor, on RTK-SLAM Construction 1 + 2 (report 56.2) it accepted
   every right set, including two that the whole-map check refuses, but also the right transform
   turned by 5 deg: the median disagreement of the places does not bound a rotation about their
-  middle. Neither variant is built. An editable run of a bag with a
+  middle. Neither variant is built. Comparing each place's heading as well (median at most 2 deg,
+  report 56.3) met every reading on Stadtgarten and Construction, but those data were seen when the
+  heading was added; it needs a confirmation on data not seen before it can be built. An editable run of a bag with a
   NavSatFix topic keeps it in `backend_input/` (`record_backend_input.sh --gnss-topic`), so the
   sessions have their GNSS.
 - A join adds a session to the map; it does not update the map. A place that changed between
