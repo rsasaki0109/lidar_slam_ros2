@@ -1,0 +1,13 @@
+input,arm,data_s,bag_pass_s,loop_edges,se3_checkpoint_rmse_m,checkpoints,note
+stadtgarten_seq2,front,935,,,0.2956,19/19,frontend md5 d9174440 (8634 scans)
+stadtgarten_seq2,ndt2,935,8.9,0,0.2956,19/19,29 candidates; all rejected by fitness
+stadtgarten_seq2,sg05,935,15.7,0,0.2956,19/19,29 candidates; all rejected by fitness
+stadtgarten_seq2,sg05b,935,15.4,0,,,byte-identical to sg05 (R2)
+stadtgarten_seq1,front,1603,,,0.4982,36/36,frontend md5 91f3f12e
+stadtgarten_seq1,ndt2,1603,78.5,11,0.5098,36/36,
+stadtgarten_seq1,sg05,1603,111.8,11,0.4824,36/36,10 of 11 loop pairs as ndt2 (ndt2 6-115; sg05 4-113)
+kitti07,ndt2,110,26.9,1,,,chapter 49 A2 input
+kitti07,sg05,110,28.3,1,,,same outputs as chapter 49
+kitti07,sg05b,110,28.5,1,,,byte-identical to sg05 (R2)
+kitti05,ndt2,276,2523.1,14,,,same outputs as chapter 49
+kitti05,sg05,276,2671.0,18,,,same outputs as chapter 49

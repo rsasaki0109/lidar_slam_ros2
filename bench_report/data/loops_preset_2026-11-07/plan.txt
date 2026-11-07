@@ -1,0 +1,56 @@
+Walking preset loop registration: NDT 2 m (current) or small_gicp 0.5 m. Written 2026-11-07, before any run of this
+plan. Nothing below was measured when it was written.
+
+Question
+- Should lidarslam/param/lidarslam_mid360_rko_graph_walking.yaml switch its loop registration from
+  registration_method NDT (ndt_resolution 2.0) to SMALL_GICP with gicp_max_correspondence_distance 0.5 and
+  gicp_transformation_epsilon 1e-4 ("sg05", as in chapters 36, 37 and 49)? Every other key of the preset stays,
+  including ndt_num_threads 1 (SMALL_GICP's thread count too).
+- Why now: graph_based_slam vendors small_gicp since PR #593, so a preset can rely on it. Chapter 37 did not recommend
+  sg05 (its rule "10-sequence geometric mean below the frontend alone" missed by 0.0001 m) and noted that a preset could
+  not rely on small_gicp then.
+
+Evidence already seen (development data; listed for the reader, not re-scored, and not enough alone because it was seen)
+- Chapter 36, GrandTour 6 missions: sg05 at most +0.8 mm against the frontend (NDT 2 m +6.6 mm), no loop over 0.1 m off.
+- Chapter 37, 10 sequences: sg05 at most +2.7 % against the frontend, geometric mean 0.0354 m (NDT 2 m 0.0364, frontend
+  0.0353); NDT 2 m +22 % and +16 % on underground-garage 2 and 3. Oxford Keble 05 was development data then; its ground
+  truth is sealed now and is not opened by this plan.
+- Chapter 37 cost: on Oxford, sg05 took 1,102 s backend-only against NDT 2 m's 282 s (581 s of data, 1 thread).
+- Chapter 49, KITTI 05: APE RMSE sg05 0.802 m, NDT 2 m 1.096 m, frontend 1.960 m; KITTI 07: 0.4705 / 0.4696 / 0.4710 m.
+
+Confirmation data, not yet used for this comparison
+- RTK-SLAM Stadtgarten seq1 (1,603 s, about 1.2 km, 36 checkpoints) and seq2 (935 s, 19 checkpoints), the bags in
+  /home/user/data/rtk_slam/ros2. Both ran before with the NDT backend inside the GNSS preset (seq2 tuned it, seq1 was
+  its hold-out); neither ran with sg05 or with the walking backend preset. The checkpoints are the dataset's published
+  ground truth (development data, not sealed).
+- Frontend, fixed and recorded once per sequence with scripts/record_backend_input.sh (zstd_fast): the RKO-LIO offline
+  node with configs/mid360_robot/rko_lio_rtk_slam_mid360_stadtgarten_seq2.yaml (deskew and initialization on, as the
+  product runs), base_frame os_sensor, /livox/points and /livox/imu, the launch's odometry and scan topic names and
+  publisher_queue_depth 128. No GNSS reaches the backend.
+- Backend: graph_slam_offline_runner on the recorded input with the walking preset, extrinsic identity (as the
+  frontend's). Arms: ndt2 (the preset as it is) and sg05 (the three overrides above).
+- Score: the optimized submap poses spread onto the frontend trajectory (scripts/densify_corrected_trajectory.py), then
+  the SE(3)-aligned 3-D checkpoint RMSE (the dataset's "SE3-aligned ATE"; rtk_abs_eval.py with the lever arm
+  -0.062 0 -0.216 of docs/research/gnss-rtk-slam-absolute-accuracy.md; the ENU origin of an earlier GNSS run on the same
+  sequence, which only sets the tangent point). The frontend alone is scored the same way.
+
+Cost inputs
+- The two Stadtgarten inputs above, and the recorded KITTI 05 (v2_05) and KITTI 07 (k07_A2) backend inputs of
+  chapter 49.
+- Time: the bag pass, from the runner's first log line to "Offline run complete". Runs one at a time on this VM, with
+  nothing else running.
+
+Rule, fixed now
+R1 Accuracy. On each Stadtgarten sequence where at least one arm adds a loop edge:
+   (a) sg05 <= 1.05 x ndt2 (not worse than the current preset by more than 5 %), and
+   (b) sg05 <= 1.05 x the frontend alone (does not break the map; chapter 37's tolerance).
+   A sequence where neither arm adds a loop edge is reported and does not count. If neither sequence counts, R1 is
+   not met: there is no fresh evidence.
+R2 Determinism. Two sg05 runs on the same input give byte-identical trajectory_optimized.tum and loop_edges.csv, on
+   Stadtgarten seq2 and on KITTI 07.
+R3 Cost. On each of the four inputs, sg05's bag pass <= 1.5 x ndt2's. On the two Stadtgarten (walking) inputs, also
+   sg05's bag pass <= max(data duration, ndt2's bag pass): the live loop search keeps up wherever the current preset
+   does.
+Decision: switch the walking preset to sg05 only if R1, R2 and R3 all hold. Otherwise keep NDT 2 m and report which
+part failed. If adopted: the preset, its header comment (its 0.0358 m figure is for the NDT backend), the tests that pin
+the preset, and the docs. No other preset changes here; the GNSS, KITTI and default presets are separate decisions.

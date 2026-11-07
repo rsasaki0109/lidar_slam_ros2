@@ -294,5 +294,53 @@ TEST(GraphSlamApplication, SmallGicpLoopRegistrationRecoversAShift)
   EXPECT_NO_THROW(static_cast<void>(GraphSlamApplication(config)));
 }
 
+// Registering against targets A, B, A, B, A with one registration (which keeps the state of earlier
+// targets) gives bit for bit what a new registration gives for each pair.
+TEST(GraphSlamApplication, SmallGicpKeptTargetsGiveTheSameResults)
+{
+  const Cloud::Ptr target_a = cornerCloud();
+  Eigen::Matrix4f move_b = Eigen::Matrix4f::Identity();
+  move_b.block<3, 3>(0, 0) =
+    Eigen::AngleAxisf(0.3F, Eigen::Vector3f::UnitZ()).toRotationMatrix();
+  move_b.block<3, 1>(0, 3) = Eigen::Vector3f(1.0F, -0.5F, 0.2F);
+  Cloud::Ptr target_b(new Cloud);
+  pcl::transformPointCloud(*target_a, *target_b, move_b);
+  Eigen::Matrix4f shift = Eigen::Matrix4f::Identity();
+  shift.block<3, 1>(0, 3) = Eigen::Vector3f(0.05F, -0.03F, 0.02F);
+  Cloud::Ptr source_a(new Cloud);
+  pcl::transformPointCloud(*target_a, *source_a, shift);
+  Cloud::Ptr source_b(new Cloud);
+  pcl::transformPointCloud(*target_b, *source_b, shift);
+
+  const auto kept = backend_core::makeLoopRegistration("SMALL_GICP", 2.0, 1, 0.5, 1e-5);
+  ASSERT_TRUE(kept);
+  const auto * caching =
+    dynamic_cast<const backend_core::TargetCachingSmallGicp<pcl::PointXYZI> *>(kept.get());
+  ASSERT_NE(caching, nullptr);
+  for (int round = 0; round < 5; ++round) {
+    const bool use_a = round % 2 == 0;
+    const Cloud::Ptr & target = use_a ? target_a : target_b;
+    const Cloud::Ptr & source = use_a ? source_a : source_b;
+    const auto fresh = backend_core::makeLoopRegistration("SMALL_GICP", 2.0, 1, 0.5, 1e-5);
+    Cloud kept_aligned;
+    Cloud fresh_aligned;
+    kept->setInputTarget(target);
+    kept->setInputSource(source);
+    kept->align(kept_aligned, Eigen::Matrix4f::Identity());
+    fresh->setInputTarget(target);
+    fresh->setInputSource(source);
+    fresh->align(fresh_aligned, Eigen::Matrix4f::Identity());
+    ASSERT_TRUE(kept->hasConverged());
+    EXPECT_EQ(kept->getFinalTransformation(), fresh->getFinalTransformation()) << round;
+    EXPECT_EQ(kept->getFitnessScore(), fresh->getFitnessScore()) << round;
+    const auto * fresh_gicp =
+      dynamic_cast<const backend_core::TargetCachingSmallGicp<pcl::PointXYZI> *>(fresh.get());
+    ASSERT_NE(fresh_gicp, nullptr);
+    EXPECT_EQ(caching->getFinalHessian(), fresh_gicp->getFinalHessian()) << round;
+  }
+  // A and B are kept; the current target (A) is kept as well.
+  EXPECT_EQ(caching->keptTargetCount(), 2U);
+}
+
 }  // namespace
 }  // namespace graphslam
