@@ -23,15 +23,18 @@ def checks(root, out):
         d = yaml.safe_load(open(path))['debug_checks']
         labels = {int(r['index']): r for r in csv.DictReader(open(os.path.join(base, pair, 'perturb.csv')))}
         c = d.get('consistency', {})
-        for k in d['checks']:
+        seen = set()
+        for k in d['checks']:  # per transform: the bar place_min_fraction first, then candidate 2's
             lab = labels[k['index']]
-            rows.append([pair, k['index'], lab['kind'], lab['axis'], lab['amount'], c.get('a', ''), c.get('b', ''),
-                         f"{k['bar']:.4f}", k['places'], f"{k['share_below']:.4f}", f"{k['median']:.3f}",
-                         'pass' if k['passed'] else 'fail'])
-    with open(os.path.join(out, 'checks.csv'), 'w', newline='') as f:
-        w = csv.writer(f)
-        w.writerow(['pair', 'index', 'kind', 'axis', 'amount', 'consistency_a', 'consistency_b', 'bar', 'places',
-                    'share_below', 'median', 'passed'])
+            rule = 'candidate_2' if k['index'] in seen else 'as_is'
+            seen.add(k['index'])
+            rows.append([pair, k['index'], lab['kind'], lab['axis'], lab['amount'], rule, c.get('a', ''),
+                         c.get('b', ''), f"{k['bar']:.4f}", k['places'], f"{k['share_below']:.4f}",
+                         f"{k['median']:.3f}", 'pass' if k['passed'] else 'fail'])
+    with open(os.path.join(out, 'checks.csv'), 'w', newline='') as f:  # LF, as the other tables
+        w = csv.writer(f, lineterminator='\n')
+        w.writerow(['pair', 'index', 'kind', 'axis', 'amount', 'rule', 'consistency_a', 'consistency_b', 'bar',
+                    'places', 'share_below', 'median', 'passed'])
         w.writerows(rows)
     return rows
 
@@ -52,8 +55,8 @@ def results(root, out):
                      str(s['ambiguous']).lower(), s['self_similar'] or '-', s['candidates'], s['accepted'],
                      c.get('a', ''), c.get('b', ''), c.get('skip_neighbors', 0), f"{c.get('bar', 0.5):.4f}",
                      s.get('error_to_identity_rms_m', ''), sets])
-    with open(os.path.join(out, 'results.csv'), 'w', newline='') as f:
-        w = csv.writer(f)
+    with open(os.path.join(out, 'results.csv'), 'w', newline='') as f:  # LF, as the other tables
+        w = csv.writer(f, lineterminator='\n')
         w.writerow(['run', 'rule', 'true_matches_removed', 'joined', 'ambiguous', 'self_similar', 'candidates',
                     'accepted', 'consistency_a', 'consistency_b', 'skip_neighbors', 'bar', 'error_to_identity_rms_m',
                     'sets(size/places/share_below/median/passed)'])
@@ -66,7 +69,7 @@ def main():
         sys.exit(__doc__)
     for r in checks(sys.argv[1], sys.argv[2]):
         if r[-1] == 'pass':
-            print('pass', *r[:5], 'bar', r[7], 'below', r[9])
+            print('pass', *r[:6], 'bar', r[8], 'below', r[10])
     for r in results(sys.argv[1], sys.argv[2]):
         print(*r[:6], 'bar', r[11], 'err', r[12], '|', r[13])
 

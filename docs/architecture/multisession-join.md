@@ -195,8 +195,14 @@ Limits:
   to 0.5 x min(1, min(c_A, c_B) / `multisession_consistency_reference`), where c is a session's own
   map consistency over its revisits (`multisession_consistency_skip_neighbors: 10`; the
   Construction pair gives 0.88, Stadtgarten 0.71 and 0.75). With the reference 0.880, both
-  Stadtgarten orders join at the right transforms, and every other test keeps its decision. It is not
-  the default: no wrong set has yet faced a lowered bar.
+  Stadtgarten orders join at the right transforms, and every other test keeps its decision. It is
+  rejected as it stands (report 55): on MapsHD calibration-room 2, split in two, a half with few
+  revisits has c 0.35, the bar falls to 0.2, and the half turned by 180 deg joins 18.8 m off, with
+  the true matches removed as well as with them.
+- The whole-map check refuses sets far off, not slightly off: at the Construction pair it passes
+  the right transform moved by 1 m, by 2 m along one axis or turned by 2 deg, and refuses it moved by
+  4 m or turned by 5 deg and more (report 55). The transform's accuracy comes from the matches'
+  agreement (0.3 m).
 - GNSS is not used. On Stadtgarten, RTK GNSS gave the relative transform within 0.48 m and 0.56 m of
   the truth (report 53). A GNSS check would first need a fit that is robust to outlier fixes and
   data that has wrong sets. An editable run of a bag with a NavSatFix topic keeps it in

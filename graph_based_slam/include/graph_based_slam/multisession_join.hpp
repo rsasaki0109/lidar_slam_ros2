@@ -95,7 +95,8 @@ struct JoinConfig
   //   place_min_fraction x min(1, min(c_A, c_B) / consistency_reference),
   // c_S being the median share of S's keyframe points near S's other keyframes' maps within
   // place_radius_m (bench_report/data/multisession_outdoor_2026-11-07/plan.txt). Off: the bar is
-  // place_min_fraction. The self-join keeps place_min_fraction.
+  // place_min_fraction. The self-join keeps place_min_fraction. Not safe as it stands: a session
+  // with few revisits lowers the bar too (multisession_heldout_2026-11-07: a wrong join).
   bool consistency_bar {false};
   double consistency_reference {1.0};
   // The keyframes within this many of k in the session's order are not k's neighbours in the

@@ -28,3 +28,28 @@ Reading, fixed now
 3. If 1 or 2 fails, candidate 2 is rejected as it stands (and the reason is named: ground overlap, for example). If both
    hold, it stays a candidate: the held-out sites of chapter 38 not on disk (MapsHD outdoor-urk, Oxford, ARCHE) are
    still named as not re-run.
+
+Result (2026-11-07; results.csv: part A, 8 runs; checks.csv: part B, 4 pairs x 24 transforms x 2 bars; scripts
+bench_report/scripts/p3_ms_heldout_run.sh, p3_ms_perturb.py, p3_ms_heldout_summary.py)
+- A. The MapsHD inputs recorded again give chapter 38's numbers exactly: calibration-room 2 105 candidates, 61 / 57
+  accepted, the set 25 / 34 places / 14.7 % below; underground garage 1 204 candidates, 99 / 97, the set 13 / 18 /
+  16.7 %. As is (bar 0.5) none of the 4 runs joins.
+  With candidate 2, calibration-room 2 JOINS, positive and stress alike, at the room turned by 180 deg (18.76 m RMS
+  from the identity): c_A 0.778 (from 2 keyframes with a revisit), c_B 0.348 (14 keyframes), bar 0.198, and the
+  wrong set passes with 2.9 % of its 34 places below the bar (median 0.883). The self-join (bar 0.5) finds neither
+  half self-similar; one set only, so no ambiguity. Garage 1: c 1.0 on both halves (no revisit beyond 10 keyframes),
+  bar 0.5, not joined.
+- B. At the joined transform the hook gives the joins' own numbers (Stadtgarten 256 places 1.2 % / 314 places 9.2 %
+  below 0.405; Construction 144 / 157 places, 0 %). Stadtgarten 1 <- 2 and 2 <- 1: no perturbation passes with either
+  bar, the smallest included (1 m: 39-57 % of places below 0.405; 2 deg: 55-78 %). Construction (both bars 0.5):
+  1 m along every axis, 2 m along +y (both orders) and -y (1 <- 2), and +-2 deg pass; 2 m along x, 4 m and more, 5 deg
+  and more and 180 deg fail.
+Reading
+1. NOT met: candidate 2 joins the stress run of calibration-room 2 (and its positive run) 18.8 m off.
+2. Met: no perturbation passes at Stadtgarten with candidate 2's bar.
+3. Candidate 2 is rejected as it stands. The reason is not ground overlap: the bar follows a session's own revisit
+   consistency, and a short indoor half with few revisits has a low one (0.348), which lowered the bar to 0.198 and let
+   the turned room through. A low c does not tell a site seen from other places (Stadtgarten) from a session whose
+   revisits do not overlap for other reasons. Not re-run: MapsHD outdoor-urk, Oxford, ARCHE.
+   Besides: the whole-map check does not place the transform within 2 m at Construction; the transform's accuracy
+   comes from the matches' agreement (0.3 m), and the check refuses sets 4 m or 5 deg off and more.
