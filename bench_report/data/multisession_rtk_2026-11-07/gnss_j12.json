@@ -1,0 +1,61 @@
+{
+ "kept_fixes": {
+  "a": 8720,
+  "b": 3541
+ },
+ "fit_a": {
+  "pairs": 8584,
+  "fit_rmse_m": 1.72313155225639,
+  "fit_max_m": 14.08845757034427
+ },
+ "fit_b": {
+  "pairs": 3487,
+  "fit_rmse_m": 0.4232979339393746,
+  "fit_max_m": 1.5427949917921768
+ },
+ "gnss_vs_drift_reference": {
+  "rms_m": 0.483,
+  "angle_deg": 0.649
+ },
+ "sets": [
+  {
+   "size": 166,
+   "share_below": 0.101562,
+   "passed": false,
+   "vs_gnss": {
+    "rms_m": 0.615,
+    "angle_deg": 0.779
+   },
+   "vs_drift_reference": {
+    "rms_m": 0.284,
+    "angle_deg": 0.168
+   }
+  },
+  {
+   "size": 78,
+   "share_below": 0.332061,
+   "passed": false,
+   "vs_gnss": {
+    "rms_m": 0.612,
+    "angle_deg": 0.654
+   },
+   "vs_drift_reference": {
+    "rms_m": 0.692,
+    "angle_deg": 0.466
+   }
+  },
+  {
+   "size": 15,
+   "share_below": 0.360784,
+   "passed": false,
+   "vs_gnss": {
+    "rms_m": 1.197,
+    "angle_deg": 1.115
+   },
+   "vs_drift_reference": {
+    "rms_m": 0.877,
+    "angle_deg": 0.625
+   }
+  }
+ ]
+}

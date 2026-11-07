@@ -139,6 +139,8 @@ struct SetAttempt
   double share_below {1.0};
   double median {0.0};
   bool passed {false};
+  // The transform the set stands for (T_{A <- B} of its medoid match); reported, not decided on.
+  Eigen::Isometry3d transform {Eigen::Isometry3d::Identity()};
 };
 
 struct JoinResult
@@ -575,6 +577,7 @@ inline JoinResult joinSessions(
     }
     SetAttempt check = wholeMapCheck(a, b, result.accepted[medoid].session, config);
     check.size = static_cast<int>(clique.size());
+    check.transform = result.accepted[medoid].session;
     result.attempts.push_back(check);
     if (check.passed) {
       if (!result.joined) {
