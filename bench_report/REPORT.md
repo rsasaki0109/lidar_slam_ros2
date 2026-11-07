@@ -3493,7 +3493,8 @@ SOTA v7 の Phase 3（`docs/roadmap/sota-v7-plan-2026-10.md`）の 3 項目、(1
 - 実時間：
   - \* の 2 本は、07 の実行やビルドと並行して走らせた。41 章の時間とは比べられない。
   - t4v05 は単独で走らせた。データ 287 秒に対して 453 秒で、41.1 章の 687 秒（直す前の入力）より短い。
-- sg05 には small_gicp 入りのビルドが要る。今の既定のビルドは small_gicp を見つけないので、`-Dsmall_gicp_DIR=...` を渡して作った。
+- sg05 には small_gicp 入りのビルドが要る。この時の既定のビルドは small_gicp を見つけないので、`-Dsmall_gicp_DIR=...` を渡して作った。
+  - その後、small_gicp を graph_based_slam に同梱した（`graph_based_slam/third_party/small_gicp`、上と同じ版）。今は既定のビルドで sg05 が走る。
 
 **07：2 本目の車両データ**
 

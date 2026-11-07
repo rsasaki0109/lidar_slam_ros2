@@ -13,8 +13,8 @@ GrandTour and its limits are in `bench_report/REPORT.md` chapter 38 and
 
 ## Build
 
-Built only when CMake finds small_gicp (`find_package(small_gicp)`; the same condition as
-`registration_method: SMALL_GICP`). Without small_gicp the executable is not built.
+Built in every build of `graph_based_slam`: it uses the small_gicp copy vendored in
+`graph_based_slam/third_party/small_gicp` (the same one as `registration_method: SMALL_GICP`).
 
 ## Inputs
 

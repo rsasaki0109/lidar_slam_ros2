@@ -6,6 +6,7 @@
   <description>ros2 package of graph based slam</description>
   <maintainer email="rsasaki0109@gmail.com">sasaki</maintainer>
   <license>BSD-2-Clause</license>
+  <license file="third_party/small_gicp/LICENSE">MIT</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
