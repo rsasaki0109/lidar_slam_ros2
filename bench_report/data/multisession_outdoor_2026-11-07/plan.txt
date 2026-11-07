@@ -41,3 +41,15 @@ Reading, fixed now
    held-out sites (MapsHD rooms, corridor, garages and outdoor-urk; Oxford; the GrandTour ARCHE pair and the other split
    sessions) are not on disk and are named as not re-run. If 1 fails, the rule is rejected as it stands; if only 3
    fails, the rule is safe but does not reach the goal.
+
+Amendment 1 (2026-11-07). Written after the two Stadtgarten runs as is (bar kept at 0.5, consistency only reported),
+before Construction's consistency was known and before any join with a lowered bar.
+- Those runs gave c = 0.994 (Stadtgarten 1) and 0.991 (Stadtgarten 2). The premise fails as measured: a keyframe's
+  neighbours within 3 m are, on a walk, mostly the keyframes just before and after it, made at nearly the same time
+  and place, so they overlap almost fully outdoors too. The cross-session shortfall comes from seeing a place at
+  another time and from another path, which this measure does not contain.
+- Candidate 1 (the measure above) is still run as fixed; it will keep the bar near 0.5.
+- Candidate 2, fixed now: the same measure with the keyframes within 10 of k in the session's order left out
+  (the self-join's self_skip_neighbors), so that only revisits count (c_rev). A session with no revisit within 3 m is
+  not measured and does not lower the bar. Same bar formula, with c0 = min(c_rev of con-1, c_rev of con-2) (1 if
+  neither is measured), measured before any join with candidate 2's bar. Same runs and the same readings 1-4.
