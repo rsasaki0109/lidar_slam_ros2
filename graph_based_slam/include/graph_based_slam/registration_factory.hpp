@@ -39,8 +39,14 @@
 #include <pclomp/gicp_omp.h>  // NOLINT(build/include_order)
 #include <pclomp/ndt_omp.h>  // NOLINT(build/include_order)
 
+#include <cstddef>
+#include <list>
+#include <memory>
 #include <string>
+#include <utility>
+#include <vector>
 
+#include <pcl/search/kdtree.h>  // NOLINT(build/include_order)
 #include <pclomp/gicp_omp_impl.hpp>
 #include <pclomp/ndt_omp_impl.hpp>
 #include <pclomp/voxel_grid_covariance_omp_impl.hpp>
@@ -54,6 +60,88 @@ namespace graphslam
 {
 namespace backend_core
 {
+
+#ifdef GRAPH_BASED_SLAM_HAVE_SMALL_GICP
+// small_gicp's PCL registration that keeps the target state of its last few targets.
+//
+// Loop search registers the queries of consecutive submaps against the same few target
+// aggregates: TargetCloudCache hands out the same cloud object while the target's submaps keep
+// their poses. small_gicp rebuilds its KD tree and target covariances, and PCL the KD tree of
+// getFitnessScore(), whenever the target changes, so alternating between candidates paid for
+// them on almost every registration. This keeps them for the last kTargetCapacity targets, keyed
+// by the cloud object. An entry owns its cloud, so the address cannot be reused while the entry
+// lives, and the kept trees and covariances are the ones a rebuild gives: results do not change.
+// As small_gicp and PCL already assume for a repeated target pointer, a target cloud must not
+// change in place after it is set.
+template<typename PointT>
+class TargetCachingSmallGicp : public small_gicp::RegistrationPCL<PointT, PointT>
+{
+public:
+  using Base = small_gicp::RegistrationPCL<PointT, PointT>;
+  using PclRegistration = pcl::Registration<PointT, PointT, float>;
+  using PointCloudTargetConstPtr = typename Base::PointCloudTargetConstPtr;
+  // Four targets hold nearly every repeat; a query tries up to three candidates (REPORT ch. 51).
+  static constexpr std::size_t kTargetCapacity = 4U;
+
+  void setInputTarget(const PointCloudTargetConstPtr & cloud) override
+  {
+    if (this->target_ == cloud) {
+      return;
+    }
+    keepCurrentTarget();
+    for (auto it = kept_.begin(); it != kept_.end(); ++it) {
+      if (it->cloud == cloud) {
+        PclRegistration::setInputTarget(cloud);
+        this->target_tree_ = it->target_tree;
+        this->target_covs_ = it->target_covs;
+        this->target_voxelmap_.reset();
+        this->tree_ = it->fitness_tree;
+        this->target_cloud_updated_ = false;
+        kept_.splice(kept_.begin(), kept_, it);
+        return;
+      }
+    }
+    Base::setInputTarget(cloud);
+    // A new tree object: initCompute() builds it for this target and a kept tree stays as it is.
+    this->tree_.reset(new pcl::search::KdTree<PointT>);
+  }
+
+  std::size_t keptTargetCount() const {return kept_.size();}
+
+private:
+  struct KeptTarget
+  {
+    PointCloudTargetConstPtr cloud;
+    std::shared_ptr<small_gicp::KdTree<pcl::PointCloud<PointT>>> target_tree;
+    std::vector<Eigen::Matrix4d> target_covs;
+    typename PclRegistration::KdTreePtr fitness_tree;
+  };
+
+  // Keeps the current target once an alignment has built all of its state.
+  void keepCurrentTarget()
+  {
+    if (!this->target_ || this->target_cloud_updated_ || !this->target_tree_ ||
+      this->target_covs_.size() != this->target_->size())
+    {
+      return;
+    }
+    for (auto it = kept_.begin(); it != kept_.end(); ++it) {
+      if (it->cloud == this->target_) {
+        kept_.splice(kept_.begin(), kept_, it);
+        return;
+      }
+    }
+    kept_.push_front(
+      KeptTarget{this->target_, this->target_tree_, std::move(this->target_covs_), this->tree_});
+    this->target_covs_.clear();
+    if (kept_.size() > kTargetCapacity) {
+      kept_.pop_back();
+    }
+  }
+
+  std::list<KeptTarget> kept_;
+};
+#endif
 
 // Returns nullptr for an unknown method; the caller decides how to fail.
 inline pcl::Registration<pcl::PointXYZI, pcl::PointXYZI>::Ptr
@@ -87,7 +175,7 @@ makeLoopRegistration(
   // alignment that has not stopped within 100 iterations is reported as not converged.
   // ndt_num_threads is its thread count as for NDT (one thread: a fixed reduction order).
   if (method == "SMALL_GICP") {
-    auto gicp = pcl::make_shared<small_gicp::RegistrationPCL<pcl::PointXYZI, pcl::PointXYZI>>();
+    auto gicp = pcl::make_shared<TargetCachingSmallGicp<pcl::PointXYZI>>();
     gicp->setRegistrationType("GICP");
     gicp->setMaxCorrespondenceDistance(gicp_max_correspondence_distance);
     gicp->setMaximumIterations(100);
