@@ -712,8 +712,8 @@ int main(int argc, char ** argv)
       (result.ambiguous ? "true" : "false") << "\n    self_similar: '" << result.self_similar <<
       "'\n";
     if (result.bar >= 0.0) {
-      report << "    consistency: {a: " << result.consistency_a << ", b: " << result.consistency_b <<
-        ", bar: " << result.bar << "}\n";
+      report << "    consistency: {a: " << result.consistency_a << ", b: " <<
+        result.consistency_b << ", bar: " << result.bar << "}\n";
     }
     report << "    sets_tried:\n";
     for (const auto & a : result.attempts) {

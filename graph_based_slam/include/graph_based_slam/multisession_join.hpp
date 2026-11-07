@@ -91,7 +91,8 @@ struct JoinConfig
   int min_places {5};
   double max_bad_share {0.10};
   // Scale the whole-map check's place bar by the sessions' own map consistency: a place counts as
-  // below when its share is below place_min_fraction x min(1, min(c_A, c_B) / consistency_reference),
+  // below when its share is below
+  //   place_min_fraction x min(1, min(c_A, c_B) / consistency_reference),
   // c_S being the median share of S's keyframe points near S's other keyframes' maps within
   // place_radius_m (bench_report/data/multisession_outdoor_2026-11-07/plan.txt). Off: the bar is
   // place_min_fraction. The self-join keeps place_min_fraction.
