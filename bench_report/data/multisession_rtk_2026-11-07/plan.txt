@@ -37,3 +37,9 @@ Reading, fixed now
    safety failure and is reported first.
 5. The margins of the whole-map check on this outdoor site are reported for the right join and for every set the
    safety runs try.
+
+Amendment, 2026-11-07, before any join run: the two files label the same surveyed point differently
+(seq2 TS001-TS013 are seq1 TS024-TS021, TS020-TS017 and TS008-TS012; only 4400, 4401, 4013, 4017, 4202 and TS014 share
+their label). All 19 points of Stadtgarten 2 have a Stadtgarten 1 point at identical coordinates (0.000 m). The shared
+checkpoints are therefore paired by identical survey coordinates (within 1 mm), not by id. Found when the first
+drift-only reference, paired by id, came out at 46 m; no measure above changes.
