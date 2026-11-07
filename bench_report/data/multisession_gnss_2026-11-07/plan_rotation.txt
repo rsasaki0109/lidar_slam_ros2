@@ -1,0 +1,29 @@
+A local GNSS gate that also compares heading. Written 2026-11-07, after chapter 56.2 and before any heading difference
+below was computed. A development check on data already seen (Stadtgarten, Construction); it cannot make the gate a
+candidate by itself. Nothing changes a default.
+
+Question
+- In chapter 56.2 the local comparison of positions accepted the right transform turned by 5 deg about the middle of the
+  places (median 0.961 m): places near the middle hardly move. Each place's local fit also gives a heading. Does
+  comparing it as well refuse turned transforms while keeping the right sets, on all cases seen so far?
+
+The gate (fixed now)
+- As plan_local.txt (places, 30 m windows, at least 50 pairs per side, trimmed 4-DoF fits, at least 5 measured places),
+  without the floor. At each measured place, besides the position disagreement d = |T p_b - T_loc p_b|, the heading
+  disagreement: the yaw of T minus the yaw of T_loc (yaw = atan2(R10, R00)), wrapped to [-180, 180) deg, absolute.
+- Accepted if the median d is at most 1.0 m and the median heading disagreement is at most 2.0 deg: the join's own
+  ambiguity thresholds (ambiguity_m, ambiguity_deg), not chosen on these data.
+
+Cases (all on disk; nothing re-run but the comparison)
+- Stadtgarten 1 <- 2, 2 <- 1 (their sets, chapter 55's 24 transforms about the joined transform each, truth: the
+  checkpoint placement), Stadtgarten 1 split as is (truth: identity).
+- Construction 1 <- 2, 2 <- 1 (sets, 24 transforms about the truth each), Construction 1 and 2 split as is.
+
+Reading, fixed now
+1. Usable: at the truth, the median heading disagreement is at most 1.0 deg in every case (positions as before).
+2. Accept: every right set (the pairs' largest sets, the three splits' sets) is accepted.
+3. Refuse: no transform 2 m or more or 5 deg or more from the truth (Stadtgarten: from the joined transform, as chapter
+   55) is accepted. Reported besides: every accepted transform, and the 1 m and 2 deg ones.
+4. If 1-3 hold, the gate goes to a confirmation on data not seen (a pre-registered plan on a new GNSS pair; NCLT, which
+   has 27 sessions of one campus with RTK GPS over HTTPS, is the candidate). If any fails, it is not taken further and
+   the reason is named.
