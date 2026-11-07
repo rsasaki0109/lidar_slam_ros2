@@ -16,6 +16,11 @@ latest published release.
 - `lidarslam-map start --join-map <output>`: after the run, join it to a stored
   editable map with `merge --place-recognition` into `map_joined/` (implies
   `--editable`). A refused join keeps the run's own map and prints the reason.
+- An editable run of a bag with a GNSS (NavSatFix) topic keeps it in
+  `backend_input/` (`record_backend_input.sh --gnss-topic`), for later checks
+  of a session against GNSS. The map and the loop replay do not use it: on
+  Stadtgarten 2 the backend topics and every replay output are byte-identical
+  with and without it, and all 8,768 fixes of the bag are kept.
 - **RTK GNSS anchoring that reaches the published baselines** — on RTK-SLAM
   Stadtgarten 2 the GNSS-anchored map scores 0.100 m absolute checkpoint RMSE
   without alignment (FAST-LIO-SAM 0.099 m, OKVIS-LVIG 0.092 m), from 7.6 m

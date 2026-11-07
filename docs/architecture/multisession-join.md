@@ -192,8 +192,9 @@ Limits:
   had less than half their points overlapping. The refused sets were 0.28 m and 0.38 m from the
   surveyed truth (report 53).
 - GNSS is not used. On Stadtgarten, RTK GNSS gave the relative transform within 0.48 m and 0.56 m of
-  the truth (report 53). A GNSS check would first need a fit that is robust to outlier fixes, data
-  that has wrong sets, and GNSS in the recorded backend input.
+  the truth (report 53). A GNSS check would first need a fit that is robust to outlier fixes and
+  data that has wrong sets. An editable run of a bag with a NavSatFix topic keeps it in
+  `backend_input/` (`record_backend_input.sh --gnss-topic`), so the sessions have their GNSS.
 - A join adds a session to the map; it does not update the map. A place that changed between
   sessions keeps both versions.
 
