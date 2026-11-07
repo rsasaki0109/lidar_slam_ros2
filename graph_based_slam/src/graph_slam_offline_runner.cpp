@@ -1211,7 +1211,7 @@ bool activateLegacyGicpRegistration(
   // bridge into the common session boundary.  The host namespace is
   // intentional: this path must never reinterpret a built-in as a
   // pluginlib class or silently fall back to NDT.  SMALL_GICP takes the
-  // same bridge around small_gicp's PCL registration (when built with it).
+  // same bridge around small_gicp's PCL registration.
   const bool small_gicp = config.registration_method == "SMALL_GICP";
   const std::string class_id = small_gicp ?
     "lidarslam_builtin/BackendSmallGicp" : "lidarslam_builtin/LegacyBackendGicp";

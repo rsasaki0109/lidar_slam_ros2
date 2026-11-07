@@ -13,7 +13,7 @@ the header, then run the script; a test fails while the page is out of date.
 
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
-| `registration_method` | `std::string` | `"NDT"` | Loop-closure registration: "NDT" (pclomp NDT), "GICP" (pclomp GICP) or "SMALL_GICP" (builds with small_gicp only). Case-sensitive; any other value stops the node at startup. |
+| `registration_method` | `std::string` | `"NDT"` | Loop-closure registration: "NDT" (pclomp NDT), "GICP" (pclomp GICP) or "SMALL_GICP" (small_gicp GICP). Case-sensitive; any other value stops the node at startup. |
 | `voxel_leaf_size` | `double` | `0.2` | Voxel size (m) of the loop registration's source and target aggregates and of the clouds the place-recognition descriptors are computed from. The saved map uses map_leaf_size. |
 | `ndt_resolution` | `double` | `5.0` | NDT cell size (m) of the loop registration (registration_method NDT). |
 | `ndt_num_threads` | `int` | `0` | Threads of the NDT and SMALL_GICP loop registration; 0 or less leaves the library default (all OpenMP threads for NDT). GICP does not use it. |

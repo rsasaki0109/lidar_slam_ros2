@@ -456,3 +456,8 @@ and workflow are described in [Distribution and installed CLI](distribution.md#r
 - `git archive` drops submodules, so the upstream tarball bloom imports
   contains no `Thirdparty/` sources. Do not move release-relevant code into
   `Thirdparty/`.
+- `graph_based_slam` vendors small_gicp (MIT) in
+  `graph_based_slam/third_party/small_gicp`, inside the package directory, so
+  the upstream tarball carries it and `SMALL_GICP` loop registration is in
+  the binary package. Its `package.xml` lists the MIT license with that
+  file; there is no `small_gicp` rosdep key to resolve.

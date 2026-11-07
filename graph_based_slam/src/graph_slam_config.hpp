@@ -44,8 +44,8 @@ namespace graphslam
 struct GraphSlamConfig
 {
   // Registration and loop search.
-  // Loop-closure registration: "NDT" (pclomp NDT), "GICP" (pclomp GICP) or "SMALL_GICP" (builds
-  // with small_gicp only). Case-sensitive; any other value stops the node at startup.
+  // Loop-closure registration: "NDT" (pclomp NDT), "GICP" (pclomp GICP) or "SMALL_GICP" (small_gicp
+  // GICP). Case-sensitive; any other value stops the node at startup.
   std::string registration_method {"NDT"};
   // Voxel size (m) of the loop registration's source and target aggregates and of the clouds the
   // place-recognition descriptors are computed from. The saved map uses map_leaf_size.

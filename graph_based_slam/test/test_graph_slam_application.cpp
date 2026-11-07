@@ -270,8 +270,8 @@ Cloud::Ptr cornerCloud()
 
 TEST(GraphSlamApplication, SmallGicpLoopRegistrationRecoversAShift)
 {
+  // small_gicp is vendored (third_party/small_gicp), so SMALL_GICP is in every build.
   const auto registration = backend_core::makeLoopRegistration("SMALL_GICP", 2.0, 1, 0.5, 1e-5);
-#ifdef GRAPH_BASED_SLAM_HAVE_SMALL_GICP
   ASSERT_TRUE(registration);
   const Cloud::Ptr target = cornerCloud();
   Eigen::Matrix4f shift = Eigen::Matrix4f::Identity();
@@ -292,9 +292,6 @@ TEST(GraphSlamApplication, SmallGicpLoopRegistrationRecoversAShift)
   GraphSlamApplicationConfig config;
   config.registration_method = "SMALL_GICP";
   EXPECT_NO_THROW(static_cast<void>(GraphSlamApplication(config)));
-#else
-  EXPECT_FALSE(registration);
-#endif
 }
 
 }  // namespace

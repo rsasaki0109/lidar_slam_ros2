@@ -76,7 +76,6 @@ if(NOT g2o_FOUND)
   endif()
 endif()
 find_package(OpenMP)
-find_package(small_gicp QUIET)
 find_package(zstd_vendor QUIET)
 find_package(zstd QUIET)
 
@@ -118,6 +117,24 @@ if(OPENMP_FOUND)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 endif()
 
+# small_gicp (koide3/small_gicp, MIT) is vendored in third_party/small_gicp, so loop registration
+# with registration_method SMALL_GICP and the multi-session join are in every build (source, Docker
+# and the binary release alike). third_party/small_gicp/README.md records the upstream commit.
+add_library(graph_based_slam_small_gicp STATIC
+  third_party/small_gicp/src/small_gicp/registration/registration.cpp
+  third_party/small_gicp/src/small_gicp/registration/registration_helper.cpp
+)
+set_target_properties(graph_based_slam_small_gicp PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_compile_features(graph_based_slam_small_gicp PUBLIC cxx_std_17)
+target_include_directories(graph_based_slam_small_gicp SYSTEM PUBLIC
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/small_gicp/include
+  ${EIGEN3_INCLUDE_DIR}
+)
+if(OPENMP_FOUND)
+  target_link_libraries(graph_based_slam_small_gicp PUBLIC OpenMP::OpenMP_CXX)
+endif()
+add_library(small_gicp::small_gicp ALIAS graph_based_slam_small_gicp)
+
 add_library(graph_slam_config STATIC
   src/graph_slam_config.cpp
 )
@@ -141,14 +158,9 @@ target_link_libraries(
   g2o::solver_eigen
   g2o::stuff
 )
-# registration_method SMALL_GICP (loop registration with small_gicp) when small_gicp is found.
-if(small_gicp_FOUND)
-  target_compile_definitions(graph_slam_application PUBLIC GRAPH_BASED_SLAM_HAVE_SMALL_GICP)
-  target_link_libraries(graph_slam_application small_gicp::small_gicp)
-  message(STATUS "small_gicp found; backend registration_method SMALL_GICP enabled")
-else()
-  message(STATUS "small_gicp not found; backend registration_method SMALL_GICP disabled")
-endif()
+# registration_method SMALL_GICP (loop registration with the vendored small_gicp).
+target_compile_definitions(graph_slam_application PUBLIC GRAPH_BASED_SLAM_HAVE_SMALL_GICP)
+target_link_libraries(graph_slam_application small_gicp::small_gicp)
 
 add_library(graph_slam_map_point STATIC
   src/map_point.cpp
@@ -1008,6 +1020,10 @@ target_link_libraries(graph_based_slam_component
   g2o::solver_eigen
   g2o::stuff
 )
+# The vendored small_gicp's symbols stay local to the component, so another small_gicp loaded
+# into the same process (scanmatcher's optional methods use an installed one) cannot replace them.
+target_link_options(graph_based_slam_component PRIVATE
+  "-Wl,--exclude-libs,libgraph_based_slam_small_gicp.a")
 
 add_executable(graph_based_slam_node
   src/graph_based_slam_node.cpp
@@ -1079,24 +1095,22 @@ target_link_libraries(graph_slam_offline_runner
   g2o::stuff
 )
 
-# Multi-session join (several sessions of one site in one pose graph): needs small_gicp.
-if(small_gicp_FOUND)
-  add_executable(graph_slam_multisession_join src/graph_slam_multisession_join.cpp)
-  target_compile_features(graph_slam_multisession_join PRIVATE cxx_std_17)
-  target_include_directories(graph_slam_multisession_join PRIVATE include ${PCL_INCLUDE_DIRS})
-  ament_target_dependencies(graph_slam_multisession_join
-    rclcpp rosbag2_cpp pcl_conversions nav_msgs sensor_msgs)
-  target_link_libraries(graph_slam_multisession_join
-    graph_slam_application
-    small_gicp::small_gicp
-    ${PCL_LIBRARIES}
-    g2o::core
-    g2o::types_slam3d
-    g2o::solver_eigen
-    g2o::stuff
-  )
-  install(TARGETS graph_slam_multisession_join DESTINATION lib/${PROJECT_NAME})
-endif()
+# Multi-session join (several sessions of one site in one pose graph).
+add_executable(graph_slam_multisession_join src/graph_slam_multisession_join.cpp)
+target_compile_features(graph_slam_multisession_join PRIVATE cxx_std_17)
+target_include_directories(graph_slam_multisession_join PRIVATE include ${PCL_INCLUDE_DIRS})
+ament_target_dependencies(graph_slam_multisession_join
+  rclcpp rosbag2_cpp pcl_conversions nav_msgs sensor_msgs)
+target_link_libraries(graph_slam_multisession_join
+  graph_slam_application
+  small_gicp::small_gicp
+  ${PCL_LIBRARIES}
+  g2o::core
+  g2o::types_slam3d
+  g2o::solver_eigen
+  g2o::stuff
+)
+install(TARGETS graph_slam_multisession_join DESTINATION lib/${PROJECT_NAME})
 
 include_directories(
   include
@@ -1104,13 +1118,11 @@ include_directories(
 )
 
 if(BUILD_TESTING)
-  if(small_gicp_FOUND)
-    ament_add_gtest(test_multisession_join test/test_multisession_join.cpp TIMEOUT 300)
-    if(TARGET test_multisession_join)
-      target_compile_features(test_multisession_join PRIVATE cxx_std_17)
-      target_include_directories(test_multisession_join PRIVATE include ${EIGEN3_INCLUDE_DIR})
-      target_link_libraries(test_multisession_join small_gicp::small_gicp ${PCL_LIBRARIES})
-    endif()
+  ament_add_gtest(test_multisession_join test/test_multisession_join.cpp TIMEOUT 300)
+  if(TARGET test_multisession_join)
+    target_compile_features(test_multisession_join PRIVATE cxx_std_17)
+    target_include_directories(test_multisession_join PRIVATE include ${EIGEN3_INCLUDE_DIR})
+    target_link_libraries(test_multisession_join small_gicp::small_gicp ${PCL_LIBRARIES})
   endif()
   ament_add_gtest(
     test_graph_slam_composition

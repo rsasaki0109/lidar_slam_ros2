@@ -52,6 +52,12 @@ latest published release.
 
 ### Changed
 
+- graph_based_slam vendors small_gicp (koide3/small_gicp `v1.0.1-6-gfa0cfc9`,
+  MIT) in `graph_based_slam/third_party/small_gicp`, so loop registration
+  with `registration_method: SMALL_GICP` and `graph_slam_multisession_join`
+  are in every build (source, Docker, binary release). Before, both were
+  built only when CMake found an installed small_gicp. The scanmatcher and
+  plugin small_gicp methods stay optional.
 - The RTK-SLAM construction RKO-LIO preset (release gates) turns deskew and
   the static gravity initialisation on: construction_seq2 0.165 → 0.062 m,
   construction_seq1 0.280 → 0.205 m checkpoint RMSE, map thickness

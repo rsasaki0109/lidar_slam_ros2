@@ -1,0 +1,135 @@
+// SPDX-FileCopyrightText: Copyright 2024 Kenji Koide
+// SPDX-License-Identifier: MIT
+#pragma once
+
+#include <atomic>
+#include <memory>
+#include <iostream>
+
+#include <tbb/tbb.h>
+#include <small_gicp/points/traits.hpp>
+#include <small_gicp/util/fast_floor.hpp>
+#include <small_gicp/util/vector3i_hash.hpp>
+
+namespace small_gicp {
+
+/// @brief Voxel grid downsampling with TBB backend.
+/// @note  This function has minor run-by-run non-deterministic behavior due to parallel data collection that results
+///        in a deviation of the number of points in the downsampling results (up to 10% increase from the single-thread version).
+/// @note  Discretized voxel coords must be in 21bit range [-1048576, 1048575].
+///        For example, if the downsampling resolution is 0.01 m, point coordinates must be in [-10485.76, 10485.75] m.
+///        Points outside the valid range will be ignored.
+/// @param points     Input points
+/// @param leaf_size  Downsampling resolution
+/// @return           Downsampled points
+template <typename InputPointCloud, typename OutputPointCloud = InputPointCloud>
+std::shared_ptr<OutputPointCloud> voxelgrid_sampling_tbb(const InputPointCloud& points, double leaf_size) {
+  if (traits::size(points) == 0) {
+    return std::make_shared<OutputPointCloud>();
+  }
+
+  const double inv_leaf_size = 1.0 / leaf_size;
+
+  constexpr std::uint64_t invalid_coord = std::numeric_limits<std::uint64_t>::max();
+  constexpr int coord_bit_size = 21;                       // Bits to represent each voxel coordinate (pack 21x3 = 63bits in 64bit int)
+  constexpr size_t coord_bit_mask = (1 << 21) - 1;         // Bit mask
+  constexpr int coord_offset = 1 << (coord_bit_size - 1);  // Coordinate offset to make values positive
+
+  std::vector<std::pair<std::uint64_t, size_t>> coord_pt(traits::size(points));
+  tbb::parallel_for(tbb::blocked_range<size_t>(0, traits::size(points), 64), [&](const tbb::blocked_range<size_t>& range) {
+    for (size_t i = range.begin(); i != range.end(); i++) {
+      const Eigen::Array4i coord = fast_floor(traits::point(points, i) * inv_leaf_size) + coord_offset;
+      if ((coord < 0).any() || (coord > coord_bit_mask).any()) {
+        std::cerr << "warning: voxel coord is out of range!!" << std::endl;
+        coord_pt[i] = {invalid_coord, i};
+        continue;
+      }
+
+      // Compute voxel coord bits (0|1bit, z|21bit, y|21bit, x|21bit)
+      const std::uint64_t bits =                                                           //
+        (static_cast<std::uint64_t>(coord[0] & coord_bit_mask) << (coord_bit_size * 0)) |  //
+        (static_cast<std::uint64_t>(coord[1] & coord_bit_mask) << (coord_bit_size * 1)) |  //
+        (static_cast<std::uint64_t>(coord[2] & coord_bit_mask) << (coord_bit_size * 2));
+      coord_pt[i] = {bits, i};
+    }
+  });
+
+  // Sort by voxel coords
+  tbb::parallel_sort(coord_pt, [](const auto& lhs, const auto& rhs) { return lhs.first < rhs.first; });
+
+  auto downsampled = std::make_shared<OutputPointCloud>();
+  traits::resize(*downsampled, traits::size(points));
+
+  // Color averaging is enabled only when both input and output point clouds support color attributes and the input actually has colors
+  constexpr bool color_capable = traits::has_set_color<InputPointCloud>::value && traits::has_set_color<OutputPointCloud>::value;
+  bool with_colors = false;
+  if constexpr (color_capable) {
+    with_colors = traits::has_colors(points);
+  }
+
+  // Take block-wise sum
+  const int block_size = 2048;
+  std::atomic_uint64_t num_points = 0;
+  tbb::parallel_for(tbb::blocked_range<size_t>(0, traits::size(points), block_size), [&](const tbb::blocked_range<size_t>& range) {
+    std::vector<Eigen::Vector4d> sub_points;
+    sub_points.reserve(block_size);
+    std::vector<Eigen::Vector4d> sub_colors;
+    if constexpr (color_capable) {
+      if (with_colors) {
+        sub_colors.reserve(block_size);
+      }
+    }
+
+    Eigen::Vector4d sum_pt = traits::point(points, coord_pt[range.begin()].second);
+    Eigen::Vector4d sum_color = Eigen::Vector4d::Zero();
+    if constexpr (color_capable) {
+      if (with_colors) {
+        sum_color = traits::color(points, coord_pt[range.begin()].second);
+      }
+    }
+    for (size_t i = range.begin() + 1; i != range.end(); i++) {
+      if (coord_pt[i].first == invalid_coord) {
+        continue;
+      }
+
+      if (coord_pt[i - 1].first != coord_pt[i].first) {
+        sub_points.emplace_back(sum_pt / sum_pt.w());
+        if constexpr (color_capable) {
+          if (with_colors) {
+            sub_colors.emplace_back(sum_color / sum_pt.w());
+          }
+        }
+        sum_pt.setZero();
+        sum_color.setZero();
+      }
+      sum_pt += traits::point(points, coord_pt[i].second);
+      if constexpr (color_capable) {
+        if (with_colors) {
+          sum_color += traits::color(points, coord_pt[i].second);
+        }
+      }
+    }
+    sub_points.emplace_back(sum_pt / sum_pt.w());
+    if constexpr (color_capable) {
+      if (with_colors) {
+        sub_colors.emplace_back(sum_color / sum_pt.w());
+      }
+    }
+
+    const size_t point_index_begin = num_points.fetch_add(sub_points.size());
+    for (size_t i = 0; i < sub_points.size(); i++) {
+      traits::set_point(*downsampled, point_index_begin + i, sub_points[i]);
+      if constexpr (color_capable) {
+        if (with_colors) {
+          traits::set_color(*downsampled, point_index_begin + i, sub_colors[i]);
+        }
+      }
+    }
+  });
+
+  traits::resize(*downsampled, num_points);
+
+  return downsampled;
+}
+
+}  // namespace small_gicp
