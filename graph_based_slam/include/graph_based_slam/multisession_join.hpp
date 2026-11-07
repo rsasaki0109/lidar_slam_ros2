@@ -98,6 +98,9 @@ struct JoinConfig
   // place_min_fraction. The self-join keeps place_min_fraction.
   bool consistency_bar {false};
   double consistency_reference {1.0};
+  // The keyframes within this many of k in the session's order are not k's neighbours in the
+  // consistency (0: all keyframes; 10, the self-join's self_skip_neighbors: revisits only).
+  int consistency_skip_neighbors {0};
   int max_sets {3};
   // Refuse when two of the sets tried pass the whole-map check with transforms that differ (a
   // symmetric room fits turned by 180 deg as well as it fits as it is).
@@ -648,7 +651,8 @@ inline JoinResult joinSessions(
 // Two transforms of B differ if they move B's keyframes apart by more than ambiguity_m (RMS) or
 // turn by more than ambiguity_deg.
 // A session's map consistency: for every keyframe, the share of its points within
-// inlier_distance_m of the maps of the session's other keyframes within place_radius_m of it;
+// inlier_distance_m of the maps of the session's other keyframes within place_radius_m of it
+// (leaving out those within consistency_skip_neighbors of it in the session's order);
 // the median over the keyframes that have such a neighbour. 1 when none has: not measured, so the
 // bar is not lowered.
 inline double sessionConsistency(const std::vector<Keyframe> & s, const JoinConfig & config)
@@ -661,7 +665,7 @@ inline double sessionConsistency(const std::vector<Keyframe> & s, const JoinConf
     const Keyframe & kk = s[k];
     std::vector<Eigen::Vector3f> near_points;
     for (int j = 0; j < n; ++j) {
-      if (j == k ||
+      if (std::abs(j - k) <= std::max(0, config.consistency_skip_neighbors) ||
         (s[j].frame.translation() - kk.frame.translation()).norm() > config.place_radius_m)
       {
         continue;

@@ -297,6 +297,10 @@ TEST(MultisessionJoin, ConsistencyIsHowWellASessionsMapsOverlapTheirNeighbours)
     }
   }
   EXPECT_LT(multisession::sessionConsistency(noisy, config), 0.6);
+  // revisits only: a straight walk has none within 3 m once its 10 nearest keyframes are left out
+  config.consistency_skip_neighbors = 10;
+  EXPECT_DOUBLE_EQ(multisession::sessionConsistency(exact, config), 1.0);
+  config.consistency_skip_neighbors = 0;
   // keyframes 4 m apart have no neighbour: not measured, the bar is not lowered
   const auto sparse = walk(site, 0.0, 40.0, 0.0, 0.0, Eigen::Isometry3d::Identity());
   EXPECT_DOUBLE_EQ(multisession::sessionConsistency(sparse, config), 1.0);

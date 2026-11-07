@@ -411,6 +411,9 @@ int main(int argc, char ** argv)
     "multisession_consistency_bar", join.consistency_bar, join.consistency_bar);
   node->get_parameter_or(
     "multisession_consistency_reference", join.consistency_reference, join.consistency_reference);
+  node->get_parameter_or(
+    "multisession_consistency_skip_neighbors", join.consistency_skip_neighbors,
+    join.consistency_skip_neighbors);
   // the stress test of the plan only: drop the matches that agree with this transform of session 1
   std::vector<double> exclude_values;
   double exclude_radius_m;
@@ -521,7 +524,7 @@ int main(int argc, char ** argv)
       result.self_similar << "'\n";
     if (result.bar >= 0.0) {
       report << "  consistency: {a: " << result.consistency_a << ", b: " << result.consistency_b <<
-        ", bar: " << result.bar << "}\n";
+        ", bar: " << result.bar << ", skip_neighbors: " << join.consistency_skip_neighbors << "}\n";
     }
     report << "  sets_tried:\n";
     for (const auto & t : result.attempts) {
@@ -713,7 +716,8 @@ int main(int argc, char ** argv)
       "'\n";
     if (result.bar >= 0.0) {
       report << "    consistency: {a: " << result.consistency_a << ", b: " <<
-        result.consistency_b << ", bar: " << result.bar << "}\n";
+        result.consistency_b << ", bar: " << result.bar << ", skip_neighbors: " <<
+        join.consistency_skip_neighbors << "}\n";
     }
     report << "    sets_tried:\n";
     for (const auto & a : result.attempts) {
