@@ -168,6 +168,24 @@ def test_dogfood_connects_consumers_before_offline_bag_playback():
     assert 'offline-subscriber-barrier-timeout' in script
 
 
+def test_dogfood_does_not_take_quiet_outputs_for_the_end_of_a_running_frontend():
+    """Unchanged map outputs or logs end the wait only once the frontend wrapper has exited."""
+    script = DOGFOOD_SCRIPT.read_text(encoding='utf-8')
+
+    assert 'offline_frontend_running() {' in script
+    assert 'Waiting for offline output subscribers before reading the bag' in script
+    assert 'process has (finished|died)' in script
+    assert (
+        '(( SECONDS - last_change_secs >= quiet_secs )) && ! offline_frontend_running'
+        in script
+    )
+    assert '(( SECONDS - last_log_change_secs >= OFFLINE_QUIET_LOG_SECS )) &&' in script
+    wrapper = (
+        DOGFOOD_SCRIPT.parent / 'wait_for_offline_output_subscribers.sh'
+    ).read_text(encoding='utf-8')
+    assert 'Waiting for offline output subscribers before reading the bag' in wrapper
+
+
 @pytest.mark.parametrize(
     ('signum', 'expected_exit', 'concise_output'),
     [

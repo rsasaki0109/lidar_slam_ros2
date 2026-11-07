@@ -591,6 +591,18 @@ wait_for_graph_drain() {
   return 0
 }
 
+# True while the offline frontend runs under wait_for_offline_output_subscribers.sh: the wrapper has
+# started and the launch has not reported it finished or dead (its completion and failure markers are
+# handled before this is asked). While it runs, map outputs or launch logs that stay unchanged only
+# mean a stretch of the walk without a loop or a log line (Stadtgarten 1: the run was taken for done
+# at 40 % of the bag), not that the bag is done.
+offline_frontend_running() {
+  grep -Fq "Waiting for offline output subscribers before reading the bag" "$LAUNCH_LOG" 2>/dev/null ||
+    return 1
+  ! grep -Eq "\[wait_for_offline_output_subscribers\.sh-[0-9]+\]: process has (finished|died)" \
+    "$LAUNCH_LOG" 2>/dev/null
+}
+
 wait_for_offline_completion() {
   local timeout_secs="$1"
   local quiet_secs="$2"
@@ -629,7 +641,7 @@ wait_for_offline_completion() {
       if [[ "$snapshot" != "$last_snapshot" ]]; then
         last_snapshot="$snapshot"
         last_change_secs=$SECONDS
-      elif (( SECONDS - last_change_secs >= quiet_secs )); then
+      elif (( SECONDS - last_change_secs >= quiet_secs )) && ! offline_frontend_running; then
         return 0
       fi
     fi
@@ -637,7 +649,8 @@ wait_for_offline_completion() {
     if (( OFFLINE_QUIET_LOG_SECS > 0 )) &&
       grep -Fq "First cloud received" "$LAUNCH_LOG" 2>/dev/null &&
       grep -Fq "First odom received" "$LAUNCH_LOG" 2>/dev/null &&
-      (( SECONDS - last_log_change_secs >= OFFLINE_QUIET_LOG_SECS )); then
+      (( SECONDS - last_log_change_secs >= OFFLINE_QUIET_LOG_SECS )) &&
+      ! offline_frontend_running; then
       echo "No launch log changes for ${OFFLINE_QUIET_LOG_SECS}s after first odom/cloud; treating offline processing as quiescent."
       return 0
     fi
