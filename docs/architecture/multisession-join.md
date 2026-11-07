@@ -186,7 +186,15 @@ in [README media](../readme-media.md).
 Limits:
 
 - When only one session sees a symmetry (two identical rooms, each walked by a different session),
-  neither rule can refuse the join.
-- The whole-map thresholds come from the Construction pair.
+  neither rule can refuse the join. No data with such a pair and a known truth has been tested.
+- The whole-map thresholds come from the Construction pair. On two outdoor MID-360 walks of one
+  park (RTK-SLAM Stadtgarten 1 + 2, report 52), they refuse right sets: 10.2 % and 18.8 % of places
+  had less than half their points overlapping. The refused sets were 0.28 m and 0.38 m from the
+  surveyed truth (report 53).
+- GNSS is not used. On Stadtgarten, RTK GNSS gave the relative transform within 0.48 m and 0.56 m of
+  the truth (report 53). A GNSS check would first need a fit that is robust to outlier fixes, data
+  that has wrong sets, and GNSS in the recorded backend input.
+- A join adds a session to the map; it does not update the map. A place that changed between
+  sessions keeps both versions.
 
 `debug_exclude_transform`, `debug_split_gap_s` and `debug_split_parts` are test hooks only.
