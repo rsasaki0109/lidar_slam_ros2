@@ -1,0 +1,30 @@
+A local GNSS gate. Written 2026-11-07, after chapter 56 and before any local GNSS comparison below was computed. Nothing
+changes a default.
+
+Question
+- Chapter 56's gate failed because one rigid fit of GNSS to a session's odometry inherits the session's drift: the two
+  halves of Stadtgarten 1 differed by 0.62 deg in yaw, 1.2 m at B's keyframes. Does a comparison made place by place,
+  with GNSS fitted only around each place, avoid that and keep the rest of chapter 56's results?
+
+The local gate (fixed now; fixes, pairing, antenna and the trimmed 4-DoF fit as in plan.txt)
+- Places of a transform T (a set's transform or a checked one): B's keyframes that T puts within 3 m of one of A's
+  keyframes (the whole-map check's places), each with the nearest A keyframe.
+- At each place: the A pairs whose odometry antenna position is within 30 m of that A keyframe and the B pairs within
+  30 m of the B keyframe; with at least 50 of each, the two trimmed fits give the local T_loc = T_enu<-A^-1 T_enu<-B,
+  and the place's disagreement is |T p_b - T_loc p_b| at the B keyframe's position p_b. Fewer pairs: not measured.
+- Gate: at least 5 measured places, the median disagreement at most 1.0 m, and the whole-map floor of plan.txt (at
+  least 5 places, at most 25 % below 0.5). The first set accepted (largest first) joins; with GNSS the ambiguity and
+  self-similarity refusals are not applied.
+
+Data: as chapter 56 (Stadtgarten 1 <- 2 and 2 <- 1 with their sets and chapter 55's 24 transforms each; Stadtgarten 1 and
+2 split, as is and with the matches within 2 m of the identity removed). Truth: the checkpoint placement; the identity
+for a split.
+
+Reading, fixed now
+1. Usable: at the truth, the median disagreement is at most 0.5 m in both pair orders and on the Stadtgarten 1 split.
+2. Accept: the gate accepts the largest set in both pair orders and the Stadtgarten 1 split's set (all right sets).
+3. Refuse: the gate accepts no chapter-55 transform moved by 2 m or more or turned by 5 deg or more. Reported besides:
+   the 1 m and 2 deg transforms, how many of them the median alone refuses, and the measured places per case.
+4. If 1-3 hold, the local gate is a candidate to build into the join (reading GNSS from backend_input) and to check end to
+   end on the product path; wrong sets with GNSS (none on disk) stay untested and are named. If any fails, it is not
+   built and the reason is named.
