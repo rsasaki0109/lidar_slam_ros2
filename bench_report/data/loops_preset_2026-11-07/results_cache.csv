@@ -1,0 +1,11 @@
+input,arm,data_s,bag_pass_s,loop_edges,outputs_vs_chapter50,note
+stadtgarten_seq2,ndt2,935,8.9,0,byte-identical,
+stadtgarten_seq2,sg05,935,11.9,0,byte-identical,chapter 50: 15.7 s
+stadtgarten_seq2,sg05b,935,12.3,0,byte-identical,repeat (R2)
+stadtgarten_seq1,ndt2,1603,78.7,11,byte-identical,
+stadtgarten_seq1,sg05,1603,89.5,11,byte-identical,chapter 50: 111.8 s
+kitti07,ndt2,110,24.8,1,byte-identical,
+kitti07,sg05,110,21.7,1,byte-identical,chapter 50: 28.3 s
+kitti07,sg05b,110,20.5,1,byte-identical,repeat (R2)
+kitti05,ndt2,276,2417.8,14,byte-identical,
+kitti05,sg05,276,2484.1,18,byte-identical,chapter 50: 2671.0 s
