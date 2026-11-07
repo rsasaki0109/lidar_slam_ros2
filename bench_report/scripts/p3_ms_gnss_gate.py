@@ -15,6 +15,7 @@ import argparse
 import csv
 import json
 import math
+import os
 
 import numpy as np
 import yaml
@@ -28,22 +29,30 @@ AGREE_M, AGREE_DEG = 1.0, 2.0
 FLOOR_MIN_PLACES, FLOOR_MAX_SHARE = 5, 0.25
 
 
-def read_fixes(bag):
+def read_fix_rows(bag):
+    """Every /gnss/fix of a bag (mcap or sqlite3): stamp, lat, lon, alt, status, covariance xx and yy."""
     import rosbag2_py
     from rclpy.serialization import deserialize_message
     from sensor_msgs.msg import NavSatFix
+    storage = 'sqlite3' if any(f.endswith('.db3') for f in os.listdir(bag)) else 'mcap'
     reader = rosbag2_py.SequentialReader()
-    reader.open(rosbag2_py.StorageOptions(uri=bag, storage_id='mcap'), rosbag2_py.ConverterOptions('', ''))
+    reader.open(rosbag2_py.StorageOptions(uri=bag, storage_id=storage), rosbag2_py.ConverterOptions('', ''))
     reader.set_filter(rosbag2_py.StorageFilter(topics=['/gnss/fix']))
-    out = []
+    rows = []
     while reader.has_next():
         _, data, _ = reader.read_next()
         m = deserialize_message(data, NavSatFix)
-        c = m.position_covariance
-        if m.status.status < 0 or c[0] > MAX_STD_M ** 2 or c[4] > MAX_STD_M ** 2:
-            continue
-        out.append((m.header.stamp.sec + 1e-9 * m.header.stamp.nanosec, m.latitude, m.longitude, m.altitude))
-    return np.asarray(out)
+        rows.append((m.header.stamp.sec + 1e-9 * m.header.stamp.nanosec, m.latitude, m.longitude, m.altitude,
+                     m.status.status, m.position_covariance[0], m.position_covariance[4]))
+    return rows
+
+
+def read_fixes(bag):
+    """The kept fixes (stamp, lat, lon, alt) of a bag directory or of a CSV written by `export`."""
+    rows = np.loadtxt(bag, delimiter=',', skiprows=1, ndmin=2) if bag.endswith('.csv') else \
+        np.asarray(read_fix_rows(bag), dtype=float).reshape(-1, 7)
+    keep = (rows[:, 4] >= 0) & (rows[:, 5] <= MAX_STD_M ** 2) & (rows[:, 6] <= MAX_STD_M ** 2)
+    return rows[keep, :4]
 
 
 def to_ecef(lat, lon, h):
@@ -184,11 +193,20 @@ def main():
     for name in ('--bag-a', '--bag-b', '--front-a', '--front-b', '--keyframes-b', '--report', '--truth'):
         p.add_argument(name, required=True)
     p.add_argument('--checks', nargs=2)
+    e = sub.add_parser('export', help='write every /gnss/fix of a bag to a CSV (full precision)')
+    e.add_argument('--bag', required=True)
+    e.add_argument('--out', required=True)
     s = sub.add_parser('split')
     for name in ('--bag', '--front', '--keyframes', '--report'):
         s.add_argument(name, required=True)
     s.add_argument('--gap-s', type=float, default=30.0)
     a = ap.parse_args()
+    if a.mode == 'export':
+        with open(a.out, 'w') as f:
+            f.write('stamp,latitude,longitude,altitude,status,cov_xx,cov_yy\n')
+            for r in read_fix_rows(a.bag):
+                f.write(','.join(repr(float(v)) for v in r) + '\n')
+        return
     if a.mode == 'pair':
         fa, fb = read_fixes(a.bag_a), read_fixes(a.bag_b)
         origin = fa[0]
