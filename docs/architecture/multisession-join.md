@@ -200,9 +200,13 @@ Limits:
   4 m or turned by 5 deg and more (report 55). The transform's accuracy comes from the matches'
   agreement (0.3 m).
 - GNSS is not used. On Stadtgarten, RTK GNSS gave the relative transform within 0.48 m and 0.56 m of
-  the truth (report 53). A GNSS check would first need a fit that is robust to outlier fixes and
-  data that has wrong sets. An editable run of a bag with a NavSatFix topic keeps it in
-  `backend_input/` (`record_backend_input.sh --gnss-topic`), so the sessions have their GNSS.
+  the truth (report 53), and a trimmed 4-DoF fit on the overlap within 0.46 and 0.48 m. A gate that
+  accepts a set agreeing with that transform (report 56) joined Stadtgarten and refused every
+  transform 2 m or 2 deg off, but on Stadtgarten 1 split in two the halves' GNSS transform was 1.19 m
+  off, so the gate refused a right set: a rigid fit of GNSS to one session's odometry inherits the
+  session's drift (fit residuals 0.4-1.1 m). It was not built. An editable run of a bag with a
+  NavSatFix topic keeps it in `backend_input/` (`record_backend_input.sh --gnss-topic`), so the
+  sessions have their GNSS.
 - A join adds a session to the map; it does not update the map. A place that changed between
   sessions keeps both versions.
 

@@ -43,3 +43,28 @@ Reading, fixed now
 4. If 1-3 hold, the gate is a candidate to build into the join (reading GNSS from backend_input) and to check end to end
    on the product path; a site with repeated structure and GNSS (none on disk) stays untested and is named. If any
    fails, the gate is not built, and the reason is named.
+
+Result (2026-11-07; gate_*.json, join_report_split_*.yaml; bench_report/scripts/p3_ms_gnss_gate.py,
+p3_ms_gnss_splits.sh)
+- Pair, 1 <- 2 / 2 <- 1: overlap pairs 3,820 (Stadtgarten 1) and 3,115 (Stadtgarten 2), trimmed fits 0.74 / 1.06 m RMS.
+  T_gnss is 0.463 m / 0.40 deg and 0.479 m / 0.40 deg from the truth. The gate accepts the largest set in both orders
+  (0.497 / 0.637 m from T_gnss, 10.2 / 18.8 % below 0.5): joins 0.284 / 0.378 m from the truth, where the whole-map check
+  refuses. The second and third sets fail the floor (33-51 % below).
+- Chapter 55's transforms: the gate accepts none but the joined one. GNSS agreement alone (without the floor) refuses
+  every transform moved by 2 m or more or turned by 2 deg or more (180 deg: 120 / 151 m), and 7 of the 8 moved by 1 m
+  (1 <- 2, +x 1 m: 0.96 m from T_gnss, refused by the floor, 60 % below).
+- Splits: no stress split formed a set (Stadtgarten 1: 16 matches accepted, Stadtgarten 2: none), so again no wrong set
+  with GNSS exists. Stadtgarten 1 as is: one set of 36 matches 0.049 m from the identity, refused by the whole-map
+  check (37 % below). Its halves' T_gnss is 1.194 m RMS / 0.62 deg from the identity (overlap 1,081 / 480 pairs, fits
+  0.53 m), so the gate refuses the right set too (1.20 m from T_gnss). Stadtgarten 2's halves have no GNSS overlap
+  (no fix within 10 m of the other half's): no GNSS for that join.
+Reading
+1. NOT met: the Stadtgarten 1 split's T_gnss is 1.19 m and 0.62 deg from the truth (the pair: 0.46 / 0.48 m, met).
+2. Met: the gate joins both pair orders within 0.5 m of the truth.
+3. Met where it could be measured: no transform 2 m or 5 deg off is accepted; no wrong set with GNSS exists on disk.
+4. The gate is not built. The reason: one rigid fit of GNSS to a session's odometry inherits the session's drift (fit
+   residuals 0.4-1.1 m RMS); the two halves of Stadtgarten 1, fitted separately, differ by 0.62 deg in yaw, which over B's
+   keyframes (96 m RMS from the overlap) is 1.2 m. The gate then refuses a right set, as the whole-map check does.
+   Post hoc (not part of the reading): not a time offset between fixes and poses (best shift -0.1 s, fit 0.708 against
+   0.715 m; shifting the split's fixes by +0.1 to +0.3 s makes T_gnss worse, 1.22-1.31 m); fitting the whole halves
+   instead of the overlap gives 0.95 m / 0.66 deg.

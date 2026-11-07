@@ -1,0 +1,11 @@
+split:
+  gap_s: 30
+  keyframes_a: 164
+  keyframes_b: 88
+  candidates: 240
+  accepted: 0
+  excluded_by_debug_hook: true
+  joined: false
+  ambiguous: false
+  self_similar: ''
+  sets_tried:

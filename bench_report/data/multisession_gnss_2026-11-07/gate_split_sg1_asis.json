@@ -1,0 +1,42 @@
+{
+ "gnss": {
+  "pairs_a": 5650,
+  "pairs_b": 2934,
+  "overlap_a": 1081,
+  "overlap_b": 480,
+  "fit_a": {
+   "kept": 1081,
+   "rounds": 1,
+   "fit_rmse_m": 0.527,
+   "fit_max_m": 1.103
+  },
+  "fit_b": {
+   "kept": 480,
+   "rounds": 1,
+   "fit_rmse_m": 0.531,
+   "fit_max_m": 1.041
+  }
+ },
+ "gnss_available": true,
+ "gnss_vs_truth_m": 1.194,
+ "gnss_vs_truth_deg": 0.623,
+ "sets": [
+  {
+   "vs_gnss_m": 1.201,
+   "vs_gnss_deg": 0.614,
+   "vs_truth_m": 0.049,
+   "vs_truth_deg": 0.041,
+   "places": 27,
+   "share_below": 0.3704,
+   "gnss_agrees": false,
+   "floor": false,
+   "gate": false,
+   "set": 0,
+   "size": 36,
+   "whole_map_passed": false
+  }
+ ],
+ "joins": null,
+ "whole_map_joined": false,
+ "excluded_by_debug_hook": false
+}
