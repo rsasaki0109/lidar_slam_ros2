@@ -1,0 +1,39 @@
+Multi-session join on RTK-SLAM Stadtgarten 1 + 2: two walks of one site with a shared absolute reference.
+Written 2026-11-07, before any join run on this data. A measurement, not a candidate: nothing is adopted from it.
+
+Why
+- Every earlier multi-session evaluation lacked a shared reference except two GrandTour pairs (Construction, ARCHE):
+  the 3-part checks of chapter 38.8 used one run cut in parts. The whole-map check's thresholds (10 %, 50 %) come from
+  the Construction pair only (chapter 38, limits).
+- Stadtgarten 1 (1,603 s, 36 checkpoints) and Stadtgarten 2 (935 s, 19 checkpoints) walk the same park. All 19
+  checkpoints of Stadtgarten 2 are surveyed points that Stadtgarten 1 also visits (same point ids, same coordinates).
+  The two walks' estimates of the same surveyed point must coincide in a correctly joined map.
+
+Inputs
+- Backend inputs: the RKO-LIO frontend recorded as in chapter 50 (bench_report/scripts/p3_preset_loops.sh, frontend
+  md5 91f3f12e for seq1, d9174440 for seq2). No GNSS.
+- Per-session backend: graph_slam_offline_runner with the walking preset as merged in #595 (small_gicp 0.5 m loops).
+- Join: graph_slam_multisession_join with the same params file, extrinsic identity, all join settings at their
+  defaults, multisession_num_threads 4. Two orders: A = seq1 (reference), B = seq2; and A = seq2, B = seq1.
+- Positions at a checkpoint: the densified trajectory (scripts/densify_corrected_trajectory.py on the session's
+  frontend trajectory), the nearest pose within 2 s of the checkpoint's time, moved by the lever arm -0.062 0 -0.216.
+
+Measures (bench_report/scripts/p3_rtk_multisession_eval.py)
+- Shared-checkpoint gap: for each of the 19 shared points, the distance between A's and B's estimates in the joint map.
+- Drift-only reference: the residual of the best rigid placement of B's single-session estimates onto A's single-session
+  estimates at the same 19 points (SE(3) least squares). No rigid join can do better without changing the sessions.
+- SE(3)-aligned checkpoint RMSE against the survey (as chapter 50): A and B in the joint map, each alone, and B placed
+  with A's alignment (the joint map aligned once, on A's checkpoints).
+- The whole-map check of every set tried (keyframes within 3 m, the fraction of them with less than half their points
+  within 0.3 m) against its thresholds (at least 5, at most 10 %), and the join's run time.
+
+Reading, fixed now
+1. Each order joins, or is refused with a recorded reason. A refusal is a missed join, not a safety failure.
+2. A join is right if the shared-checkpoint gap has median <= 1.0 m and maximum <= 3.0 m; otherwise it is wrong.
+   (The wrong join of chapter 38.5 was 20.7 m off.)
+3. Accuracy is reported against the drift-only reference and the single-session scores; no threshold.
+4. Safety: with the true matches removed (debug_exclude_transform = the drift-only rigid placement of B onto A,
+   debug_exclude_radius_m 2.0, so any surviving join is at least 2 m off), neither order may join. A join there is a
+   safety failure and is reported first.
+5. The margins of the whole-map check on this outdoor site are reported for the right join and for every set the
+   safety runs try.
