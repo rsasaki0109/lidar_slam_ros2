@@ -204,4 +204,6 @@ Limits:
 - A join adds a session to the map; it does not update the map. A place that changed between
   sessions keeps both versions.
 
-`debug_exclude_transform`, `debug_split_gap_s` and `debug_split_parts` are test hooks only.
+`debug_exclude_transform`, `debug_split_gap_s`, `debug_split_parts` and `debug_check_transforms` are test hooks
+only. `debug_check_transforms` (two sessions; 12 values per transform, a 3x4 matrix row by row) writes the whole-map
+check of session 1 at each transform to `debug_checks.yaml` and stops without joining.

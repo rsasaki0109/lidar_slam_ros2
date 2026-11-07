@@ -338,6 +338,41 @@ std::string matrixRow(const Eigen::Isometry3d & t)
   return out.str();
 }
 
+// Test only (debug_check_transforms): the whole-map check of session b in session a at each given
+// transform (12 values each, a 3x4 matrix row by row), with the place bar place_min_fraction and,
+// with consistency_bar, with the bar the join would use. Decides nothing; written to path.
+void writeDebugChecks(
+  const std::string & path, const std::vector<graphslam::multisession::Keyframe> & a,
+  const std::vector<graphslam::multisession::Keyframe> & b, const std::vector<double> & values,
+  const graphslam::multisession::JoinConfig & join)
+{
+  std::vector<double> bars {join.place_min_fraction};
+  std::ofstream out(path);
+  out << "debug_checks:\n";
+  if (join.consistency_bar) {
+    const double ca = graphslam::multisession::sessionConsistency(a, join);
+    const double cb = graphslam::multisession::sessionConsistency(b, join);
+    bars.push_back(
+      join.place_min_fraction * std::min(1.0, std::min(ca, cb) / join.consistency_reference));
+    out << "  consistency: {a: " << ca << ", b: " << cb << ", bar: " << bars.back() <<
+      ", skip_neighbors: " << join.consistency_skip_neighbors << "}\n";
+  }
+  out << "  checks:\n";
+  for (std::size_t i = 0; i + 12 <= values.size(); i += 12) {
+    Eigen::Isometry3d t = Eigen::Isometry3d::Identity();
+    for (int j = 0; j < 12; ++j) {
+      t.matrix()(j / 4, j % 4) = values[i + j];
+    }
+    for (double bar : bars) {
+      const auto check = graphslam::multisession::wholeMapCheck(a, b, t, join, bar);
+      out << "    - {index: " << i / 12 << ", bar: " << check.bar << ", places: " <<
+        check.places << ", share_below: " << check.share_below << ", median: " << check.median <<
+        ", passed: " << (check.passed ? "true" : "false") << ", transform: " << matrixRow(t) <<
+        "}\n";
+    }
+  }
+}
+
 }  // namespace
 
 int main(int argc, char ** argv)
@@ -419,6 +454,10 @@ int main(int argc, char ** argv)
   double exclude_radius_m;
   node->get_parameter_or("debug_exclude_transform", exclude_values, std::vector<double>{});
   node->get_parameter_or("debug_exclude_radius_m", exclude_radius_m, 0.3);
+  // Test only: with two sessions, write the whole-map check of session 1 at these transforms to
+  // output_dir/debug_checks.yaml and stop (bench_report/data/multisession_heldout_2026-11-07)
+  std::vector<double> check_values;
+  node->get_parameter_or("debug_check_transforms", check_values, std::vector<double>{});
 
   // pose graph settings, the runner's parameter names
   int num_adjacent;
@@ -463,6 +502,22 @@ int main(int argc, char ** argv)
     RCLCPP_ERROR(logger, "reading the sessions failed: %s", e.what());
     rclcpp::shutdown();
     return 1;
+  }
+
+  if (!check_values.empty()) {
+    if (sessions.size() != 2 || split_gap_s >= 0.0 || check_values.size() % 12 != 0) {
+      RCLCPP_ERROR(
+        logger, "debug_check_transforms: two sessions, no split, 12 values per transform");
+      rclcpp::shutdown();
+      return 1;
+    }
+    writeDebugChecks(
+      output_dir + "/debug_checks.yaml", sessions[0].keyframes, sessions[1].keyframes,
+      check_values, join);
+    RCLCPP_INFO(
+      logger, "debug_check_transforms: %zu transforms checked", check_values.size() / 12);
+    rclcpp::shutdown();
+    return 0;
   }
 
   const bool parts_as_sessions = split_gap_s >= 0.0 && split_parts >= 3;
