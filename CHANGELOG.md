@@ -36,6 +36,9 @@ latest published release.
 
 ### Fixed
 
+- The bag preflight accepts the Livox ROS driver's per-point `offset_time`
+  (uint32 ns), which RKO-LIO already reads for deskewing. Such bags (RTK-SLAM
+  Stadtgarten) were offered only the GNSS smoke path, not the RKO-LIO profiles.
 - `graph_slam_offline_runner` writes its registration receipt for GICP and
   SMALL_GICP loop registration too, and the offline replay
   (`run_offline_determinism_check.sh`, used by `lidarslam-map edit`) accepts

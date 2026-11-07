@@ -1145,6 +1145,22 @@ def test_pointcloud_field_assessment_accepts_supported_timestamp():
     assert assessment['timestamp_field'] == 'timestamp'
 
 
+def test_pointcloud_field_assessment_accepts_livox_offset_time():
+    """RKO-LIO reads the Livox ROS driver's offset_time (uint32 ns) for deskewing."""
+    module = _load_module()
+
+    assessment = module.assess_pointcloud_fields([
+        {'name': 'x', 'datatype': 7, 'count': 1},
+        {'name': 'y', 'datatype': 7, 'count': 1},
+        {'name': 'z', 'datatype': 7, 'count': 1},
+        {'name': 'intensity', 'datatype': 7, 'count': 1},
+        {'name': 'offset_time', 'datatype': 6, 'count': 1},
+    ])
+
+    assert assessment['rko_lio_compatible'] is True
+    assert assessment['timestamp_field'] == 'offset_time'
+
+
 def test_pointcloud_field_assessment_rejects_missing_timestamp():
     module = _load_module()
 
