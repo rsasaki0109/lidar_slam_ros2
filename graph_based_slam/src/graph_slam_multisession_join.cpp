@@ -405,6 +405,12 @@ int main(int argc, char ** argv)
   node->get_parameter_or("multisession_num_threads", join.num_threads, join.num_threads);
   node->get_parameter_or(
     "multisession_self_gate_fraction", join.self_gate_fraction, join.self_gate_fraction);
+  // a candidate rule, off by default: the whole-map check's place bar scaled by the sessions' own
+  // map consistency (bench_report/data/multisession_outdoor_2026-11-07/plan.txt)
+  node->get_parameter_or(
+    "multisession_consistency_bar", join.consistency_bar, join.consistency_bar);
+  node->get_parameter_or(
+    "multisession_consistency_reference", join.consistency_reference, join.consistency_reference);
   // the stress test of the plan only: drop the matches that agree with this transform of session 1
   std::vector<double> exclude_values;
   double exclude_radius_m;
@@ -512,7 +518,12 @@ int main(int argc, char ** argv)
       "\n  accepted: " << result.accepted.size() << "\n  excluded_by_debug_hook: " <<
       (exclude ? "true" : "false") << "\n  joined: " << (result.joined ? "true" : "false") <<
       "\n  ambiguous: " << (result.ambiguous ? "true" : "false") << "\n  self_similar: '" <<
-      result.self_similar << "'\n  sets_tried:\n";
+      result.self_similar << "'\n";
+    if (result.bar >= 0.0) {
+      report << "  consistency: {a: " << result.consistency_a << ", b: " << result.consistency_b <<
+        ", bar: " << result.bar << "}\n";
+    }
+    report << "  sets_tried:\n";
     for (const auto & t : result.attempts) {
       report << "    - {size: " << t.size << ", places: " << t.places << ", share_below: " <<
         t.share_below << ", median: " << t.median << ", passed: " <<
@@ -699,7 +710,12 @@ int main(int argc, char ** argv)
       "\n    candidates: " << result.candidates << "\n    accepted: " << result.accepted.size() <<
       "\n    excluded_by_debug_hook: " << (excluded[s] ? "true" : "false") << "\n    ambiguous: " <<
       (result.ambiguous ? "true" : "false") << "\n    self_similar: '" << result.self_similar <<
-      "'\n    sets_tried:\n";
+      "'\n";
+    if (result.bar >= 0.0) {
+      report << "    consistency: {a: " << result.consistency_a << ", b: " << result.consistency_b <<
+        ", bar: " << result.bar << "}\n";
+    }
+    report << "    sets_tried:\n";
     for (const auto & a : result.attempts) {
       report << "      - {size: " << a.size << ", places: " << a.places << ", share_below: " <<
         a.share_below << ", median: " << a.median << ", passed: " <<
