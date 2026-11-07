@@ -129,6 +129,37 @@ def _make_fake_offline_workspace(tmp_path):
             type: "double"
             value: "0.01"
         EOF
+        # registration_method SMALL_GICP: the host's PCL bridge writes no typed parameters.
+        if [[ "${FAKE_RECEIPT_VARIANT:-}" == small-gicp || \
+              "${FAKE_RECEIPT_VARIANT:-}" == unknown-class ]]; then
+          class_id="lidarslam_builtin/BackendSmallGicp"
+          if [[ "${FAKE_RECEIPT_VARIANT}" == unknown-class ]]; then
+            class_id="lidarslam_builtin/Unknown"
+          fi
+          cat > "${output_dir}/registration_plugin_receipt.yaml" <<EOF
+        schema: 1
+        role: "backend_loop"
+        backend_kind: "host_builtin"
+        requested_class: "${class_id}"
+        resolved_class: "${class_id}"
+        metadata_class_id: "${class_id}"
+        implementation_version: "legacy-pcl-bridge"
+        license: "BSD-2-Clause"
+        api_major: 1
+        api_minor: 0
+        capabilities_bits: 151
+        target_policy: "host_prepared"
+        correspondence_metric: "sqrt_fitness_proxy"
+        thread_model: "serialized_owner"
+        library_path: ""
+        plugin_manifest_path: ""
+        requirements:
+          initial_guess: true
+          aligned_source: true
+          mean_correspondence_distance: false
+        parameters:
+        EOF
+        fi
     """).lstrip(), encoding='utf-8')
     for path in (ros2, runner):
         path.chmod(path.stat().st_mode | stat.S_IXUSR)
@@ -245,6 +276,21 @@ def test_fixture_writes_metrics_receipts_and_machine_summaries(tmp_path):
     assert summary['inputs']['bag_tree_sha256']
     assert summary['determinism']['registration_receipts_identical'] is True
     assert all(run['rtf'] >= 0 for run in summary['runs_detail'])
+
+
+def test_small_gicp_bridge_receipt_is_accepted(tmp_path):
+    result, output = _run_fake_offline_check(tmp_path, receipt_variant='small-gicp')
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    receipt = (output / 'run1' / 'registration_plugin_receipt.yaml').read_text()
+    assert 'lidarslam_builtin/BackendSmallGicp' in receipt
+
+
+def test_unknown_registration_class_is_fail_closed(tmp_path):
+    result, _ = _run_fake_offline_check(tmp_path, receipt_variant='unknown-class')
+
+    assert result.returncode != 0
+    assert 'unknown backend class' in result.stderr
 
 
 def test_fixture_receipt_mismatch_is_fail_closed(tmp_path):

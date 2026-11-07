@@ -717,6 +717,7 @@ if(BUILD_TESTING)
     test_map_bundle_verifier
     test_map_edit
     test_map_merge
+    test_map_join
     test_convert_ply_xyz_to_pcd
     test_compare_rosbag_semantic_inputs
     test_compare_checkpoint_trajectory_errors

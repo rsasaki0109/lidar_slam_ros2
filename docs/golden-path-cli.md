@@ -120,6 +120,13 @@ document. The session keeps the reviewable setup at its root and delegates
 mapping to the normal atomic `map/` output. Browser review is the default; use
 `--viewer none` for headless use.
 
+`--join-map <output>` joins the finished run to a stored editable map: after the
+run, `start` runs `merge <output> <map> --place-recognition` into `map_joined/`
+beside the run's `map/` and implies `--editable`. A refused join prints
+`[join-not-made]` with the join's reason; the run's own map stays complete and
+the session still succeeds. Repeat runs of one site reuse the stored map's
+self-similarity result (`merge`, `--join-cache-dir`).
+
 An incompatible bag or forced profile returns a non-writing `not_ready` result
 with exit code `2`. Human output shows all detected sensor families, stable
 finding codes, and an exact recovery command. `--json --dry-run` emits the same
@@ -450,6 +457,21 @@ project and is gated by trimmed median, p90, and coverage. Projector origin,
 frame, tile resolution, and PCD field mismatches fail before publication. Use
 `--dry-run` to inspect transforms without writing output. When initialization
 is ambiguous, pass `--initial-transform <index:tx,ty,tz,yaw_deg>`.
+
+With outputs recorded with `--editable`, `--place-recognition` finds the starting
+transforms by place recognition (`graph_slam_multisession_join`, after replaying
+each run's backend) instead of the yaw sweep. A session the join refuses stops
+the merge with the join's reason. `--params` overrides the anchor output's
+`graph_params.ros.yaml`; `--setup` picks the ROS environment. The receipt
+records the join (`place_recognition`) and each alignment's
+`initial_transform_source`.
+
+The join's self-similarity check of each run (most of the time of a join that
+passes) is stored under the run's fingerprint in a user cache
+(`--join-cache-dir`, default `~/.cache/lidarslam/multisession_join`). A later
+merge with the same run reuses it, so joining a new run to a stored map checks
+only the new run. On RTK-SLAM Stadtgarten 2 the check takes 456 s and the stored
+result 7 s. The sources are not changed.
 
 Sources remain unchanged. Success atomically publishes a deduplicated
 full/tiled pointcloud map, per-session transformed trajectories,

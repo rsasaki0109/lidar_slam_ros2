@@ -1,0 +1,5 @@
+run,reference_A,joined_B,debug_exclude,time_s,candidates,accepted,joined,best_set_size,best_set_places,best_set_share_below,best_set_median,threshold_share_below
+j12,stadtgarten_seq1,stadtgarten_seq2,no,121.7,795,305,false,166,256,0.101562,0.686162,0.10
+j21,stadtgarten_seq2,stadtgarten_seq1,no,488.0,1834,438,false,173,314,0.187898,0.632678,0.10
+x12,stadtgarten_seq1,stadtgarten_seq2,"true transform, 2.0 m",109.1,795,32,false,,,,,0.10
+x21,stadtgarten_seq2,stadtgarten_seq1,"true transform, 2.0 m",482.5,1834,51,false,,,,,0.10

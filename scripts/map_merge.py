@@ -88,8 +88,13 @@ def merge_map_sessions(
     options: MergeOptions = MergeOptions(),
     initial_transforms: dict[int, tuple[float, float, float, float]] | None = None,
     dry_run: bool = False,
+    place_recognition: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Align two or more map bundles and atomically publish one project."""
+    """Align two or more map bundles and atomically publish one project.
+
+    place_recognition, when given, is the summary of the place-recognition join whose transforms
+    are the initial transforms (map_join.place_recognition_alignments); it goes into the receipt.
+    """
     _validate_options(options)
     if len(source_dirs) < 2:
         raise MapMergeError('merge requires an anchor map and at least one additional session')
@@ -181,6 +186,9 @@ def merge_map_sessions(
             'source_dir': str(session.bundle_dir),
             'method': 'trimmed_yaw_icp',
             'initial_transform_supplied': initial is not None,
+            'initial_transform_source': (
+                None if initial is None
+                else 'place_recognition' if place_recognition is not None else 'user'),
             'rotation': alignment['rotation'],
             'translation': alignment['translation'],
             'yaw_deg': _yaw_deg(rotation),
@@ -210,6 +218,8 @@ def merge_map_sessions(
         'sources': [item.identity for item in sessions],
         'options': _options_payload(options),
     }
+    if place_recognition is not None:
+        summary['place_recognition'] = place_recognition
     if dry_run:
         return summary
 
@@ -789,6 +799,7 @@ def _identity_alignment(session: SessionData) -> dict[str, Any]:
         'source_dir': str(session.bundle_dir),
         'method': 'anchor_identity',
         'initial_transform_supplied': False,
+        'initial_transform_source': None,
         'rotation': np.eye(3).tolist(),
         'translation': [0.0, 0.0, 0.0],
         'yaw_deg': 0.0,

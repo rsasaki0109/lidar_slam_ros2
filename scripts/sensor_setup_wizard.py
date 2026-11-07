@@ -465,6 +465,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         yes=False,
         dry_run=False,
         editable=False,
+        join_map=None,
         viewer='none',
         min_free_space_gib=DEFAULT_MIN_FREE_SPACE_GIB,
         verification='required',
@@ -490,6 +491,15 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             '--editable',
             action='store_true',
             help='Retain RKO backend input for later loop editing (RKO only).',
+        )
+        parser.add_argument(
+            '--join-map',
+            type=Path,
+            metavar='<output>',
+            help=(
+                'After the run, join it to this stored editable map by place '
+                'recognition into <map>_joined (implies --editable; RKO only).'
+            ),
         )
         parser.add_argument(
             '--viewer',
@@ -624,6 +634,8 @@ def _validate_profile_options(
         unsupported.append('--imu-frame')
     if args.editable:
         unsupported.append('--editable')
+    if getattr(args, 'join_map', None) is not None:
+        unsupported.append('--join-map')
     if unsupported:
         rendered = ', '.join(dict.fromkeys(unsupported))
         raise ValueError(
@@ -746,6 +758,8 @@ def _review_payload(
     if args.run_now:
         if args.editable:
             rerun.append('--editable')
+        if getattr(args, 'join_map', None) is not None:
+            rerun.extend(['--join-map', str(args.join_map)])
         if args.viewer != 'browser':
             rerun.extend(['--viewer', args.viewer])
         if args.min_free_space_gib != DEFAULT_MIN_FREE_SPACE_GIB:
@@ -3380,6 +3394,38 @@ def _run_delegated_session(
         signal.signal(signal.SIGTERM, previous_sigterm)
 
 
+def _join_output_dir(map_output: Path) -> Path:
+    return map_output.parent / f'{map_output.name}_joined'
+
+
+def _join_to_stored_map(stored_map: Path, map_output: Path) -> int:
+    """Join the finished run to a stored map; a refusal leaves the run's own map as it is."""
+    joined = _join_output_dir(map_output)
+    print('')
+    print(f'Joining this run to the stored map {stored_map} by place recognition:')
+    command = [
+        _product_command(),
+        'merge',
+        str(Path(stored_map).expanduser()),
+        str(map_output),
+        '--place-recognition',
+        '--output-dir',
+        str(joined),
+    ]
+    sys.stdout.flush()
+    completed = subprocess.run(command, check=False, cwd=WORK_ROOT)
+    if completed.returncode == 0:
+        print(f'  Joined map project: {joined}')
+    else:
+        print(
+            'warning: [join-not-made] the run\'s own map is complete, but it was '
+            f'not joined to {stored_map} (merge exit code '
+            f'{completed.returncode}; the reason is printed above).',
+            file=sys.stderr,
+        )
+    return completed.returncode
+
+
 def _run_session(args: argparse.Namespace, manifest: dict[str, Any]) -> int:
     map_output = Path(manifest['run']['output_dir'])
     command = list(manifest['run']['argv'])
@@ -3492,6 +3538,9 @@ def _run_session(args: argparse.Namespace, manifest: dict[str, Any]) -> int:
         if initial_report_path is None:
             _maybe_open_session_report(args, report_path)
         return completed.returncode
+
+    if getattr(args, 'join_map', None) is not None:
+        _join_to_stored_map(args.join_map, map_output)
 
     viewer_returncode = 0
     preview_path = None
@@ -3658,6 +3707,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 2
+    if getattr(args, 'join_map', None) is not None:
+        # The join replays this run's backend, so the run must keep its backend input.
+        args.editable = True
     bag_path = Path(args.bag).expanduser().resolve()
     if not args.output_dir:
         args.output_dir = str(

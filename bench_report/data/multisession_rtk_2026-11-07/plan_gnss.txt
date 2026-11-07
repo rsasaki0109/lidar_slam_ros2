@@ -1,0 +1,34 @@
+Multi-session join checked against RTK GNSS on Stadtgarten 1 + 2. Written 2026-11-07, after chapter 52 and before any
+GNSS-derived transform was computed. A measurement and a design check, not an adoption: nothing changes a default.
+
+Question
+- When both sessions carry RTK GNSS, can GNSS check a place-recognition join: refuse a set that disagrees with it, and
+  accept a set that the whole-map check refused while GNSS agrees? Chapter 52's largest sets (166 and 173 matches) were
+  refused by the whole-map check although nearly all accepted matches agreed with the surveyed truth.
+
+Inputs
+- GNSS: /gnss/fix in the RTK-SLAM bags (sensor_msgs/NavSatFix). Kept fixes: status >= 0 and horizontal standard
+  deviation <= 0.3 m (position_covariance xx and yy), the RTK-fix test of lidarslam_rtk_gnss.yaml
+  (gnss_rtk_fix_max_horizontal_stddev_m). Each kept fix is paired with the session's frontend pose nearest in time
+  (within 0.05 s), moved by the antenna offset 0.034 0 0.046 of that preset.
+- Frontend trajectories: the chapter 50/52 recordings (md5 91f3f12e, d9174440).
+- Join sets: chapter 52's runs j12 and j21 repeated with the join report extended to print each tried set's transform
+  (output only; the decisions must stay identical).
+
+Measures (bench_report/scripts/p3_rtk_gnss_relative.py)
+- T_gnss: the transform from B's odometry frame to A's, from one SE(3) fit per session of its antenna positions to the
+  GNSS positions in one local ENU frame.
+- Disagreement of two transforms, as the join's ambiguity test: RMS over B's keyframe positions p of |T1 p - T2 p|, and the
+  rotation angle of T1^-1 T2.
+- T_gnss against the drift-only reference of chapter 52 (the checkpoint-based rigid placement): how well GNSS estimates
+  the relative transform.
+- Every tried set of j12 and j21 against T_gnss and against the drift-only reference.
+
+Reading, fixed now
+1. T_gnss is usable as a check if it is within 0.5 m RMS and 1 deg of the drift-only reference.
+2. A GNSS check would accept a set within 1.0 m RMS and 2 deg of T_gnss (the ambiguity thresholds). The refused largest
+   sets of chapter 52 are reported against this.
+3. This pair has no wrong set: with the true matches removed (x12, x21) no set formed. How a GNSS check refuses wrong sets
+   cannot be measured here, so no GNSS rule is adopted from this pair. If 1 and 2 hold, a GNSS check is a candidate that
+   needs GNSS data with wrong sets (and GNSS in the backend input, which records odometry and scans only) before it can
+   change a join.

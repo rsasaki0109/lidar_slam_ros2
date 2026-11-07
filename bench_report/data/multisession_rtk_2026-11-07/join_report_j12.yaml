@@ -1,0 +1,19 @@
+sessions:
+  - session: 0
+    joined: true
+  - session: 1
+    joined: false
+    candidates: 795
+    accepted: 305
+    excluded_by_debug_hook: false
+    ambiguous: false
+    self_similar: ''
+    sets_tried:
+      - {size: 166, places: 256, share_below: 0.101562, median: 0.686162, passed: false}
+      - {size: 78, places: 262, share_below: 0.332061, median: 0.650969, passed: false}
+      - {size: 15, places: 255, share_below: 0.360784, median: 0.576507, passed: false}
+map_joins:
+  - {session: 1, tries: 1, joined_in_pass: 0, map_sessions: [0]}
+self_similarity:
+  - {session: 0, fingerprint: ea69ef4442762927, check: none}
+  - {session: 1, fingerprint: 5f0278858281c0e2, check: none}

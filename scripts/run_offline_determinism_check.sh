@@ -321,17 +321,50 @@ validate_registration_receipt() {
   [[ "$(receipt_field "${receipt_path}" schema)" == "1" ]] || return 1
   [[ "$(receipt_field "${receipt_path}" role)" == "backend_loop" ]] || return 1
   [[ "$(receipt_field "${receipt_path}" backend_kind)" == "host_builtin" ]] || return 1
+  [[ "$(receipt_field "${receipt_path}" api_major)" == "1" ]] || return 1
+  [[ "$(receipt_field "${receipt_path}" license)" == "BSD-2-Clause" ]] || return 1
+  [[ -z "$(receipt_field "${receipt_path}" library_path)" ]] || return 1
+  [[ -z "$(receipt_field "${receipt_path}" plugin_manifest_path)" ]] || return 1
+  local resolved_class
+  resolved_class="$(receipt_field "${receipt_path}" resolved_class)"
+  case "${resolved_class}" in
+    lidarslam_builtin/NdtOmp) validate_ndt_registration_receipt "${receipt_path}" ;;
+    # registration_method SMALL_GICP and GICP: the host's PCL bridge (no typed parameters).
+    lidarslam_builtin/BackendSmallGicp|lidarslam_builtin/LegacyBackendGicp)
+      validate_pcl_bridge_registration_receipt "${receipt_path}" "${resolved_class}" ;;
+    *)
+      echo "registration receipt has an unknown backend class '${resolved_class}': ${receipt_path}" >&2
+      return 1 ;;
+  esac
+}
+
+validate_pcl_bridge_registration_receipt() {
+  local receipt_path="$1"
+  local class_id="$2"
+  local requirement
+  [[ "$(receipt_field "${receipt_path}" requested_class)" == "${class_id}" ]] || return 1
+  [[ "$(receipt_field "${receipt_path}" metadata_class_id)" == "${class_id}" ]] || return 1
+  [[ "$(receipt_field "${receipt_path}" target_policy)" == "host_prepared" ]] || return 1
+  [[ "$(receipt_field "${receipt_path}" correspondence_metric)" == \
+    "sqrt_fitness_proxy" ]] || return 1
+  for requirement in initial_guess aligned_source; do
+    if ! grep -Eq "^[[:space:]]+${requirement}:[[:space:]]+true[[:space:]]*$" "${receipt_path}"; then
+      echo "registration receipt missing required capability '${requirement}': ${receipt_path}" >&2
+      return 1
+    fi
+  done
+}
+
+validate_ndt_registration_receipt() {
+  local receipt_path="$1"
+  local parameter requirement
   [[ "$(receipt_field "${receipt_path}" requested_class)" == "lidarslam_builtin/NdtOmp" ]] || return 1
   [[ "$(receipt_field "${receipt_path}" resolved_class)" == "lidarslam_builtin/NdtOmp" ]] || return 1
   [[ "$(receipt_field "${receipt_path}" metadata_class_id)" == \
     "lidarslam_builtin/NdtOmp" ]] || return 1
-  [[ "$(receipt_field "${receipt_path}" api_major)" == "1" ]] || return 1
-  [[ "$(receipt_field "${receipt_path}" license)" == "BSD-2-Clause" ]] || return 1
   [[ "$(receipt_field "${receipt_path}" target_policy)" == "raw_target" ]] || return 1
   [[ "$(receipt_field "${receipt_path}" correspondence_metric)" == \
     "mean_distance" ]] || return 1
-  [[ -z "$(receipt_field "${receipt_path}" library_path)" ]] || return 1
-  [[ -z "$(receipt_field "${receipt_path}" plugin_manifest_path)" ]] || return 1
   for parameter in resolution transformation_epsilon maximum_iterations step_size \
     outlier_ratio num_threads target_cell_cache_capacity neighborhood_search_method; do
     if ! grep -Eq "^[[:space:]]+\"${parameter}\":[[:space:]]*$" "${receipt_path}"; then

@@ -703,7 +703,7 @@ int main(int argc, char ** argv)
     for (const auto & a : result.attempts) {
       report << "      - {size: " << a.size << ", places: " << a.places << ", share_below: " <<
         a.share_below << ", median: " << a.median << ", passed: " <<
-        (a.passed ? "true" : "false") <<
+        (a.passed ? "true" : "false") << ", transform: " << matrixRow(a.transform) <<
         "}\n";
     }
     if (result.joined) {

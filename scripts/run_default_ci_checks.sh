@@ -130,6 +130,15 @@ DEFAULT_CI_EXCLUDED_TESTS='^('\
 'uncrustify'\
 ')$'
 
+# Debug info level of this build. The packages add -g to their flags, and with
+# it graph_based_slam's largest translation units need 7.3 GB of memory to
+# compile (graph_slam_offline_runner.cpp), 4.6 GB, 3.3 GB and 1.7 GB. make -j4
+# compiles them together, which is more than the 16 GB of a CI runner: the
+# Humble runner was killed. -g1 comes after -g and wins; it keeps line tables
+# (backtraces with file and line), leaves the generated code byte-identical,
+# and brings graph_slam_offline_runner.cpp to 4.5 GB.
+CI_DEBUG_INFO_FLAGS="-g1"
+
 echo "==> Building default workflow packages"
 echo "==> Build targets: ${BUILD_TARGETS[*]}"
 if ! colcon build \
@@ -137,6 +146,7 @@ if ! colcon build \
   --packages-up-to "${BUILD_TARGETS[@]}" \
   --cmake-args \
     -DCMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE}" \
+    -DCMAKE_CXX_FLAGS="${CI_DEBUG_INFO_FLAGS}" \
     -DBUILD_TESTING=ON \
     -DRKO_LIO_FETCH_CONTENT_DEPS=ON; then
   echo "error: colcon build failed for default workflow packages" >&2

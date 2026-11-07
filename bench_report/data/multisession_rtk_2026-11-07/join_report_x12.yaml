@@ -1,0 +1,16 @@
+sessions:
+  - session: 0
+    joined: true
+  - session: 1
+    joined: false
+    candidates: 795
+    accepted: 32
+    excluded_by_debug_hook: true
+    ambiguous: false
+    self_similar: ''
+    sets_tried:
+map_joins:
+  - {session: 1, tries: 1, joined_in_pass: 0, map_sessions: [0]}
+self_similarity:
+  - {session: 0, fingerprint: ea69ef4442762927, check: none}
+  - {session: 1, fingerprint: 5f0278858281c0e2, check: none}

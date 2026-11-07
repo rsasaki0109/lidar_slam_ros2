@@ -392,6 +392,11 @@
         "kind": "directory",
         "value_name": "<dir>"
       },
+      "--join-map": {
+        "default": null,
+        "kind": "directory",
+        "value_name": "<output>"
+      },
       "--motion": {
         "choices": ["wheeled", "walking"],
         "default": "wheeled",
@@ -817,6 +822,21 @@
         "default": null,
         "kind": "transform",
         "value_name": "<index:tx,ty,tz,yaw_deg>"
+      },
+      "--params": {
+        "default": null,
+        "kind": "file",
+        "value_name": "<yaml>"
+      },
+      "--setup": {
+        "default": null,
+        "kind": "file",
+        "value_name": "<setup.bash>"
+      },
+      "--join-cache-dir": {
+        "default": null,
+        "kind": "directory",
+        "value_name": "<dir>"
       }
     },
     "migrate-manifest": {
@@ -1017,6 +1037,11 @@
         },
         {
           "names": ["--editable"],
+          "stability": "stable",
+          "tier": "map-lifecycle"
+        },
+        {
+          "names": ["--join-map"],
           "stability": "stable",
           "tier": "map-lifecycle"
         },
@@ -1757,6 +1782,26 @@
         },
         {
           "names": ["--initial-transform"],
+          "stability": "stable",
+          "tier": "map-merge"
+        },
+        {
+          "names": ["--place-recognition"],
+          "stability": "stable",
+          "tier": "map-merge"
+        },
+        {
+          "names": ["--params"],
+          "stability": "stable",
+          "tier": "map-merge"
+        },
+        {
+          "names": ["--setup"],
+          "stability": "stable",
+          "tier": "map-merge"
+        },
+        {
+          "names": ["--join-cache-dir"],
           "stability": "stable",
           "tier": "map-merge"
         },

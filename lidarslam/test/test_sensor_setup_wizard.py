@@ -561,6 +561,64 @@ def test_start_pins_setup_then_delegates_map_and_viewer(
     assert (session / 'session.html').is_file()
 
 
+def _run_start_with_join(monkeypatch, tmp_path: Path, merge_returncode: int):
+    module = _load_module()
+    monkeypatch.setattr(module, '_maybe_open_session_report', lambda *_args: None)
+    bag = tmp_path / 'mid360_bag'
+    session = tmp_path / 'session'
+    stored = tmp_path / 'stored_map'
+    _write_bag(bag)
+    monkeypatch.setenv('LIDARSLAM_CLI_COMMAND', 'lidarslam-map start')
+    monkeypatch.setattr(module, '_runtime_readiness', lambda _profile: ([], []))
+    calls: list[list[str]] = []
+
+    def fake_run(command, **_kwargs):
+        calls.append(list(command))
+        code = merge_returncode if 'merge' in command else 0
+        return subprocess.CompletedProcess(command, code)
+
+    monkeypatch.setattr(module.subprocess, 'run', fake_run)
+    monkeypatch.setattr(module, '_run_delegated_session', fake_run)
+    result = module.main([
+        '--run', str(bag), '--output-dir', str(session), '--yes',
+        '--join-map', str(stored), '--viewer', 'none',
+    ])
+    return result, calls, session, stored
+
+
+def test_start_join_map_records_backend_input_then_joins_the_stored_map(
+    monkeypatch,
+    tmp_path: Path,
+    capsys,
+):
+    """--join-map implies --editable and runs one place-recognition merge after the run."""
+    result, calls, session, stored = _run_start_with_join(monkeypatch, tmp_path, 0)
+
+    assert result == 0
+    assert calls[0][:2] == ['./scripts/lidarslam', 'run']
+    assert '--editable' in calls[0]
+    assert calls[1] == [
+        './scripts/lidarslam', 'merge', str(stored), str(session / 'map'),
+        '--place-recognition', '--output-dir', str(session / 'map_joined'),
+    ]
+    assert f"Joined map project: {session / 'map_joined'}" in capsys.readouterr().out
+
+
+def test_start_join_refusal_keeps_the_run_and_warns(
+    monkeypatch,
+    tmp_path: Path,
+    capsys,
+):
+    """A refused join leaves the completed run as it is; the session still succeeds."""
+    result, calls, _, stored = _run_start_with_join(monkeypatch, tmp_path, 2)
+
+    assert result == 0
+    assert any('merge' in call for call in calls)
+    error = capsys.readouterr().err
+    assert '[join-not-made]' in error
+    assert str(stored) in error
+
+
 def test_start_refuses_before_mapping_when_output_storage_is_short(
     monkeypatch,
     tmp_path: Path,
