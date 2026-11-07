@@ -80,10 +80,10 @@ void ground(std::vector<Eigen::Vector3d> * points, double x0, double x1, double 
 // within 30 m. (Sparse, so that the tests run in seconds.)
 std::vector<Keyframe> walk(
   const std::vector<Eigen::Vector3d> & site, double x0, double x1, double y, double yaw,
-  const Eigen::Isometry3d & world_to_session, double step = 4.0)
+  const Eigen::Isometry3d & world_to_session)
 {
   std::vector<Keyframe> out;
-  for (double x = x0; x <= x1 + 1e-9; x += step) {
+  for (double x = x0; x <= x1 + 1e-9; x += 4.0) {
     Eigen::Isometry3d world = Eigen::Isometry3d::Identity();
     world.linear() = Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()).toRotationMatrix();
     world.translation() = Eigen::Vector3d(x, y, 0.0);
@@ -276,65 +276,6 @@ TEST(MultisessionJoin, RefusesASiteThatLooksTheSameTurnedHalfway)
   const auto result = multisession::joinSessions(a, b, config);
   EXPECT_FALSE(result.joined);
   EXPECT_TRUE(result.ambiguous || !result.self_similar.empty());
-}
-
-TEST(MultisessionJoin, ConsistencyIsHowWellASessionsMapsOverlapTheirNeighbours)
-{
-  std::mt19937 rng(11);
-  std::vector<Eigen::Vector3d> site = boxes(rng, 60, -20.0, 80.0, 4.0, 25.0);
-  ground(&site, -20.0, 80.0, 25.0);
-  multisession::JoinConfig config;
-  config.num_threads = 2;
-  // keyframes 2 m apart: each has neighbours within place_radius_m (3 m), whose maps it overlaps
-  auto exact = walk(site, 0.0, 40.0, 0.0, 0.0, Eigen::Isometry3d::Identity(), 2.0);
-  EXPECT_GT(multisession::sessionConsistency(exact, config), 0.9);
-  // the same maps with every point moved at random by up to 0.6 m (foliage-like returns)
-  auto noisy = exact;
-  std::uniform_real_distribution<float> jitter(-0.6f, 0.6f);
-  for (auto & k : noisy) {
-    for (auto & p : k.points) {
-      p += Eigen::Vector3f(jitter(rng), jitter(rng), jitter(rng));
-    }
-  }
-  EXPECT_LT(multisession::sessionConsistency(noisy, config), 0.6);
-  // revisits only: a straight walk has none within 3 m once its 10 nearest keyframes are left out
-  config.consistency_skip_neighbors = 10;
-  EXPECT_DOUBLE_EQ(multisession::sessionConsistency(exact, config), 1.0);
-  config.consistency_skip_neighbors = 0;
-  // keyframes 4 m apart have no neighbour: not measured, the bar is not lowered
-  const auto sparse = walk(site, 0.0, 40.0, 0.0, 0.0, Eigen::Isometry3d::Identity());
-  EXPECT_DOUBLE_EQ(multisession::sessionConsistency(sparse, config), 1.0);
-}
-
-TEST(MultisessionJoin, ConsistencyBarLowersThePlaceBarOnlyWhenEnabled)
-{
-  std::mt19937 rng(13);
-  std::vector<Eigen::Vector3d> site = boxes(rng, 60, -20.0, 80.0, 4.0, 25.0);
-  ground(&site, -20.0, 80.0, 25.0);
-  const Eigen::Isometry3d world_to_b = planar(15.0, -7.0, 0.4, 1.0);
-  const auto a = walk(site, 0.0, 40.0, 0.0, 0.0, Eigen::Isometry3d::Identity(), 2.0);
-  const auto b = walk(site, 10.0, 50.0, 1.0, 0.3, world_to_b, 2.0);
-  multisession::JoinConfig config;
-  config.num_threads = 2;
-  config.refuse_self_similar = false;
-  const auto plain = multisession::joinSessions(a, b, config);
-  EXPECT_LT(plain.bar, 0.0);
-  for (const auto & t : plain.attempts) {
-    EXPECT_DOUBLE_EQ(t.bar, config.place_min_fraction);
-  }
-  config.consistency_bar = true;
-  config.consistency_reference = 2.0;  // twice what any session reaches: the bar is halved or less
-  const auto scaled = multisession::joinSessions(a, b, config);
-  ASSERT_GE(scaled.consistency_a, 0.0);
-  ASSERT_GE(scaled.consistency_b, 0.0);
-  const double expected = config.place_min_fraction *
-    std::min(1.0, std::min(scaled.consistency_a, scaled.consistency_b) / 2.0);
-  EXPECT_DOUBLE_EQ(scaled.bar, expected);
-  EXPECT_LE(scaled.bar, 0.5 * config.place_min_fraction);
-  for (const auto & t : scaled.attempts) {
-    EXPECT_DOUBLE_EQ(t.bar, expected);
-  }
-  EXPECT_EQ(scaled.joined, plain.joined);
 }
 
 TEST(MultisessionJoin, MaxCliqueStopsOnceLargeEnough)

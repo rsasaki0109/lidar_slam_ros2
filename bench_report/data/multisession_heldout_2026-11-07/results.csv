@@ -1,0 +1,9 @@
+run,rule,true_matches_removed,joined,ambiguous,self_similar,candidates,accepted,consistency_a,consistency_b,skip_neighbors,bar,error_to_identity_rms_m,sets(size/places/share_below/median/passed)
+A_calib2,as_is,false,false,false,-,105,61,0.997098,0.995044,0,0.5000,,25/34/0.1471/0.883/fail
+A_calib2x,as_is,true,false,false,-,105,57,0.997098,0.995044,0,0.5000,,25/34/0.1471/0.883/fail
+A_garage1,as_is,false,false,false,-,204,99,0.996567,0.996776,0,0.5000,,13/18/0.1667/0.641/fail
+A_garage1x,as_is,true,false,false,-,204,97,0.996567,0.996776,0,0.5000,,13/18/0.1667/0.641/fail
+c2_calib2,candidate_2,false,true,false,-,105,61,0.777789,0.348097,10,0.1977,18.7603,25/34/0.0294/0.883/pass
+c2_calib2x,candidate_2,true,true,false,-,105,57,0.777789,0.348097,10,0.1977,18.7603,25/34/0.0294/0.883/pass
+c2_garage1,candidate_2,false,false,false,-,204,99,1,1,10,0.5000,,13/18/0.1667/0.641/fail
+c2_garage1x,candidate_2,true,false,false,-,204,97,1,1,10,0.5000,,13/18/0.1667/0.641/fail

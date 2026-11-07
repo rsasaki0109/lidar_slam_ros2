@@ -1,0 +1,11 @@
+{
+ "gnss": {
+  "pairs_a": 2696,
+  "pairs_b": 791,
+  "overlap_a": 0,
+  "overlap_b": 0
+ },
+ "gnss_available": false,
+ "whole_map_joined": false,
+ "excluded_by_debug_hook": true
+}

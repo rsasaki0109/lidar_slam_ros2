@@ -1,0 +1,15 @@
+{
+ "pairs_a": 5650,
+ "pairs_b": 2934,
+ "truth": {
+  "local_places": 27,
+  "measured": 27,
+  "median_m": 0.298,
+  "p90_m": 1.848,
+  "local_ok": true
+ },
+ "sets": [],
+ "joins": null,
+ "whole_map_joined": false,
+ "excluded_by_debug_hook": true
+}

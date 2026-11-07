@@ -1,0 +1,13 @@
+{
+ "pairs_a": 2696,
+ "pairs_b": 791,
+ "truth": {
+  "local_places": 0,
+  "measured": 0,
+  "local_ok": false
+ },
+ "sets": [],
+ "joins": null,
+ "whole_map_joined": false,
+ "excluded_by_debug_hook": false
+}

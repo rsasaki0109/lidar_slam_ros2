@@ -1,0 +1,55 @@
+Chapter 54's candidate 2 against wrong sets and wrong transforms. Written 2026-11-07, after chapter 54 and before any
+run below. A safety test of a candidate that is off by default; nothing changes a default.
+
+Question
+- Candidate 2 (whole-map place bar 0.5 x min(1, min(c_A, c_B) / c0), c the revisit consistency with
+  multisession_consistency_skip_neighbors 10, c0 = 0.880487 fixed in chapter 54) joined Stadtgarten 1 + 2 and kept
+  every other decision. But the bar was lowered only on Stadtgarten, where removing the true matches leaves no set, so
+  no wrong set or wrong transform has faced a lowered bar. Does the lowered bar still refuse them?
+
+A. Wrong sets that exist (chapter 38 step 3: the stress runs whose wrong sets reached the whole-map check)
+- MapsHD calibration-room 2 (stress: 25 matches, 34 places, 14.7 % below 0.5) and underground-garage 1 (13 matches,
+  18 places, 16.7 %); calibration-room 1 and Construction were run in chapter 54. Backend inputs recorded again as in
+  chapters 37/38 (frontend G12 with the MapsHD rig file, scans thinned to 0.1 m), split sessions as chapter 38 step 3
+  (debug_split_gap_s 30; positive as is, stress with the identity excluded at 0.3 m), each as is (bar 0.5) and with
+  candidate 2 (multisession_consistency_bar, reference 0.880487, skip_neighbors 10).
+
+B. Wrong transforms near the right one (no new data)
+- For Stadtgarten 1 <- 2 and 2 <- 1 and Construction 1 <- 2 and 2 <- 1, the whole-map check at the right transform T
+  (each pair's joined transform in chapter 54) and at perturbed transforms: T moved in A's frame by 1, 2, 4 and 8 m
+  along +x, -x, +y, -y (16), and T turned about the centroid of B's keyframes placed by T by +2, -2, +5, -5, +10, -10
+  and 180 deg (7). Each with the bar 0.5 and with the pair's candidate-2 bar (Stadtgarten 0.405, Construction 0.5).
+  A test hook evaluates given transforms (debug_check_transforms; output only).
+
+Reading, fixed now
+1. A: no stress run joins with candidate 2. A positive run that joins must be within 0.1 m RMS of the identity.
+2. B: with candidate 2's bar, no perturbation of 2 m or more, or of 5 deg or more, passes at Stadtgarten. Reported
+   besides: every perturbation that passes, with either bar, at the four pairs.
+3. If 1 or 2 fails, candidate 2 is rejected as it stands (and the reason is named: ground overlap, for example). If both
+   hold, it stays a candidate: the held-out sites of chapter 38 not on disk (MapsHD outdoor-urk, Oxford, ARCHE) are
+   still named as not re-run.
+
+Result (2026-11-07; results.csv: part A, 8 runs; checks.csv: part B, 4 pairs x 24 transforms x 2 bars; scripts
+bench_report/scripts/p3_ms_heldout_run.sh, p3_ms_perturb.py, p3_ms_heldout_summary.py)
+- A. The MapsHD inputs recorded again give chapter 38's numbers exactly: calibration-room 2 105 candidates, 61 / 57
+  accepted, the set 25 / 34 places / 14.7 % below; underground garage 1 204 candidates, 99 / 97, the set 13 / 18 /
+  16.7 %. As is (bar 0.5) none of the 4 runs joins.
+  With candidate 2, calibration-room 2 JOINS, positive and stress alike, at the room turned by 180 deg (18.76 m RMS
+  from the identity): c_A 0.778 (from 2 keyframes with a revisit), c_B 0.348 (14 keyframes), bar 0.198, and the
+  wrong set passes with 2.9 % of its 34 places below the bar (median 0.883). The self-join (bar 0.5) finds neither
+  half self-similar; one set only, so no ambiguity. Garage 1: c 1.0 on both halves (no revisit beyond 10 keyframes),
+  bar 0.5, not joined.
+- B. At the joined transform the hook gives the joins' own numbers (Stadtgarten 256 places 1.2 % / 314 places 9.2 %
+  below 0.405; Construction 144 / 157 places, 0 %). Stadtgarten 1 <- 2 and 2 <- 1: no perturbation passes with either
+  bar, the smallest included (1 m: 39-57 % of places below 0.405; 2 deg: 55-78 %). Construction (both bars 0.5):
+  1 m along every axis, 2 m along +y (both orders) and -y (1 <- 2), and +-2 deg pass; 2 m along x, 4 m and more, 5 deg
+  and more and 180 deg fail.
+Reading
+1. NOT met: candidate 2 joins the stress run of calibration-room 2 (and its positive run) 18.8 m off.
+2. Met: no perturbation passes at Stadtgarten with candidate 2's bar.
+3. Candidate 2 is rejected as it stands. The reason is not ground overlap: the bar follows a session's own revisit
+   consistency, and a short indoor half with few revisits has a low one (0.348), which lowered the bar to 0.198 and let
+   the turned room through. A low c does not tell a site seen from other places (Stadtgarten) from a session whose
+   revisits do not overlap for other reasons. Not re-run: MapsHD outdoor-urk, Oxford, ARCHE.
+   Besides: the whole-map check does not place the transform within 2 m at Construction; the transform's accuracy
+   comes from the matches' agreement (0.3 m), and the check refuses sets 4 m or 5 deg off and more.

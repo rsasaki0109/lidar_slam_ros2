@@ -191,17 +191,29 @@ Limits:
   park (RTK-SLAM Stadtgarten 1 + 2, report 52), they refuse right sets: 10.2 % and 18.8 % of places
   had less than half their points overlapping. The refused sets were 0.28 m and 0.38 m from the
   surveyed truth (report 53).
-- A candidate, off by default (report 54): `multisession_consistency_bar: true` lowers the place bar
-  to 0.5 x min(1, min(c_A, c_B) / `multisession_consistency_reference`), where c is a session's own
-  map consistency over its revisits (`multisession_consistency_skip_neighbors: 10`; the
-  Construction pair gives 0.88, Stadtgarten 0.71 and 0.75). With the reference 0.880, both
-  Stadtgarten orders join at the right transforms, and every other test keeps its decision. It is not
-  the default: no wrong set has yet faced a lowered bar.
+- Lowering the place bar by each session's own map consistency over its revisits (reports 54, 55)
+  joined Stadtgarten at the right transforms, but on MapsHD calibration-room 2, split in two, a half
+  with few revisits (consistency 0.35) lowered the bar to 0.2, and the half turned by 180 deg joined
+  18.8 m off. The rule was removed.
+- The whole-map check refuses sets far off, not slightly off: at the Construction pair it passes
+  the right transform moved by 1 m, by 2 m along one axis or turned by 2 deg, and refuses it moved by
+  4 m or turned by 5 deg and more (report 55). The transform's accuracy comes from the matches'
+  agreement (0.3 m).
 - GNSS is not used. On Stadtgarten, RTK GNSS gave the relative transform within 0.48 m and 0.56 m of
-  the truth (report 53). A GNSS check would first need a fit that is robust to outlier fixes and
-  data that has wrong sets. An editable run of a bag with a NavSatFix topic keeps it in
-  `backend_input/` (`record_backend_input.sh --gnss-topic`), so the sessions have their GNSS.
+  the truth (report 53), and a trimmed 4-DoF fit on the overlap within 0.46 and 0.48 m. A gate that
+  accepts a set agreeing with that transform (report 56) joined Stadtgarten and refused every
+  transform 2 m or 2 deg off, but on Stadtgarten 1 split in two the halves' GNSS transform was 1.19 m
+  off, so the gate refused a right set: a rigid fit of GNSS to one session's odometry inherits the
+  session's drift (fit residuals 0.4-1.1 m). It was not built. Fitting GNSS only within 30 m of each
+  place (report 56.1) put the truth within 0.28-0.38 m (median) in all three cases and refused every
+  transform 2 m or 2 deg off, but its whole-map floor (25 % below) refused the split's right set; it
+  was not built either, and the same comparison without the floor needs another GNSS pair to be
+  tested on. An editable run of a bag with a
+  NavSatFix topic keeps it in `backend_input/` (`record_backend_input.sh --gnss-topic`), so the
+  sessions have their GNSS.
 - A join adds a session to the map; it does not update the map. A place that changed between
   sessions keeps both versions.
 
-`debug_exclude_transform`, `debug_split_gap_s` and `debug_split_parts` are test hooks only.
+`debug_exclude_transform`, `debug_split_gap_s`, `debug_split_parts` and `debug_check_transforms` are test hooks
+only. `debug_check_transforms` (two sessions; 12 values per transform, a 3x4 matrix row by row) writes the whole-map
+check of session 1 at each transform to `debug_checks.yaml` and stops without joining.
