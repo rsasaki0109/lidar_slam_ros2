@@ -3,7 +3,8 @@
 
 p3_ms_heldout_summary.py RUN_ROOT OUT_DIR
 
-RUN_ROOT holds checks/<pair>/{debug_checks.yaml,perturb.csv} (part B) and runs/<name>/join_report.yaml (part A,
+RUN_ROOT holds checks/<pair>/{debug_checks.yaml,perturb.csv} (part B; chapter 55's hook also wrote candidate 2's bar,
+removed since) and runs/<name>/join_report.yaml (part A,
 split sessions). Writes OUT_DIR/checks.csv and OUT_DIR/results.csv.
 """
 import csv
@@ -28,8 +29,9 @@ def checks(root, out):
             lab = labels[k['index']]
             rule = 'candidate_2' if k['index'] in seen else 'as_is'
             seen.add(k['index'])
+            bar = k.get('bar', d.get('place_min_fraction', 0.5))
             rows.append([pair, k['index'], lab['kind'], lab['axis'], lab['amount'], rule, c.get('a', ''),
-                         c.get('b', ''), f"{k['bar']:.4f}", k['places'], f"{k['share_below']:.4f}",
+                         c.get('b', ''), f'{bar:.4f}', k['places'], f"{k['share_below']:.4f}",
                          f"{k['median']:.3f}", 'pass' if k['passed'] else 'fail'])
     with open(os.path.join(out, 'checks.csv'), 'w', newline='') as f:  # LF, as the other tables
         w = csv.writer(f, lineterminator='\n')
