@@ -1,0 +1,45 @@
+A GNSS gate for the multi-session join, tested offline on RTK-SLAM Stadtgarten. Written 2026-11-07, after chapter 55
+and before any GNSS-derived transform below was computed. Nothing changes a default.
+
+Question
+- Chapter 53 found that RTK GNSS gives the Stadtgarten 1 <-> 2 transform within 0.48 / 0.56 m of the checkpoint truth
+  with one plain SE(3) fit per session, and named what a GNSS check still needs: a fit robust to outlier fixes, and data
+  with wrong sets and GNSS. Chapter 55 rejected lowering the whole-map bar. Can GNSS replace the whole-map verdict when
+  both sessions have RTK fixes: accept Stadtgarten's right sets (refused today) and refuse wrong sets and wrong
+  transforms?
+
+The gate (fixed now)
+- GNSS fixes: /gnss/fix of the RTK-SLAM bags, kept with status >= 0 and horizontal standard deviation <= 0.3 m (as in
+  chapter 53), each paired with the session's frontend pose nearest in time (within 0.05 s), moved by the antenna offset
+  0.034 0 0.046 m. Positions in one local ENU frame (origin: the first kept fix of A).
+- Overlap: a session's pairs whose GNSS position lies within 10 m of a GNSS position of the other session. Fewer than 50
+  overlap pairs in either session: no GNSS for this join (the whole-map check decides, as today).
+- Fit: per session, a 4-DoF transform (yaw about the vertical and a translation; the odometry frames are gravity
+  aligned) from its odometry frame to ENU, on its overlap pairs, trimmed: fit, keep the pairs whose 3-D residual is at
+  most max(0.3 m, 3 x 1.4826 x the median residual), refit, until the kept pairs do not change (at most 10 rounds).
+  T_gnss = T_enu<-A^-1 T_enu<-B.
+- Gate: a set tried by the join (largest first, as the join tries them) is accepted if its transform is within 1.0 m
+  RMS over B's keyframes and 2 deg of T_gnss (the join's ambiguity thresholds), and its whole-map check has at least 5
+  places with at most 25 % of them below 0.5 (a floor, 2.5 x today's 10 %). The first accepted set joins; with GNSS the
+  ambiguity and self-similarity refusals are not applied (GNSS tells the symmetric places apart).
+
+Data (bench_report/scripts/p3_ms_gnss_gate.py; join runs with the walking preset, the chapter 52 recordings)
+- Pairs: Stadtgarten 1 <- 2 and 2 <- 1, the chapter 53 runs with set transforms (j12g, j21g). Truth: chapter 52's
+  checkpoint-based rigid placement (alone_A1_B2.json, alone_A2_B1.json).
+- Wrong transforms: chapter 55's 24 transforms per order (the joined transform moved by 1-8 m, turned by 2-10 and
+  180 deg), with their whole-map checks (checks.csv of multisession_heldout_2026-11-07).
+- Wrong sets with GNSS: each of Stadtgarten 1 and 2 split in two (debug_split_gap_s 30), as is and with the matches
+  within 2.0 m of the identity removed (debug_exclude_transform identity, debug_exclude_radius_m 2.0, so that every set
+  left is at least about 2 m off). Truth: the identity. The split report is extended to print each tried set's
+  transform (output only; checked on chapter 55's MapsHD splits: decisions and every other line identical). Each half
+  gets its own fit from its own fixes.
+
+Reading, fixed now
+1. GNSS usable: T_gnss within 0.5 m RMS and 1 deg of the truth, in both pair orders and both splits.
+2. Accept: the gate accepts a set in both pair orders, at a transform within 0.5 m RMS of the truth.
+3. Refuse: the gate accepts no transform of chapter 55 moved by 2 m or more or turned by 5 deg or more, and no set of
+   the two stress splits. Reported besides: the 1 m and 2 deg transforms, the as-is splits, and how many of the refused
+   transforms GNSS agreement alone (without the floor) refuses.
+4. If 1-3 hold, the gate is a candidate to build into the join (reading GNSS from backend_input) and to check end to end
+   on the product path; a site with repeated structure and GNSS (none on disk) stays untested and is named. If any
+   fails, the gate is not built, and the reason is named.
