@@ -90,6 +90,17 @@ struct JoinConfig
   double place_min_fraction {0.5};
   int min_places {5};
   double max_bad_share {0.10};
+  // Scale the whole-map check's place bar by the sessions' own map consistency: a place counts as
+  // below when its share is below
+  //   place_min_fraction x min(1, min(c_A, c_B) / consistency_reference),
+  // c_S being the median share of S's keyframe points near S's other keyframes' maps within
+  // place_radius_m (bench_report/data/multisession_outdoor_2026-11-07/plan.txt). Off: the bar is
+  // place_min_fraction. The self-join keeps place_min_fraction.
+  bool consistency_bar {false};
+  double consistency_reference {1.0};
+  // The keyframes within this many of k in the session's order are not k's neighbours in the
+  // consistency (0: all keyframes; 10, the self-join's self_skip_neighbors: revisits only).
+  int consistency_skip_neighbors {0};
   int max_sets {3};
   // Refuse when two of the sets tried pass the whole-map check with transforms that differ (a
   // symmetric room fits turned by 180 deg as well as it fits as it is).
@@ -141,6 +152,7 @@ struct SetAttempt
   bool passed {false};
   // The transform the set stands for (T_{A <- B} of its medoid match); reported, not decided on.
   Eigen::Isometry3d transform {Eigen::Isometry3d::Identity()};
+  double bar {0.5};  // the place bar used
 };
 
 struct JoinResult
@@ -155,6 +167,10 @@ struct JoinResult
   // self-similar ("a" or "b").
   bool ambiguous {false};
   std::string self_similar;
+  // With consistency_bar: the sessions' consistency and the place bar of the cross-session check.
+  double consistency_a {-1.0};
+  double consistency_b {-1.0};
+  double bar {-1.0};
 };
 
 inline Eigen::Isometry3d gravityAlignedFrame(const Eigen::Isometry3d & pose)
@@ -332,6 +348,7 @@ struct SessionCache
   std::vector<ScanContext::Descriptor> descriptors;
   std::vector<std::shared_ptr<const detail::Prepared>> prepared;
   int self_similar {-1};  // -1: not checked yet
+  double consistency {-1.0};  // -1: not measured yet (consistency_bar)
 };
 
 // The whole-map check of a session transform: B's keyframes that land within place_radius_m of
@@ -339,9 +356,10 @@ struct SessionCache
 // inlier_distance_m of those A keyframes' maps.
 inline SetAttempt wholeMapCheck(
   const std::vector<Keyframe> & a, const std::vector<Keyframe> & b,
-  const Eigen::Isometry3d & session, const JoinConfig & config)
+  const Eigen::Isometry3d & session, const JoinConfig & config, double bar = -1.0)
 {
   SetAttempt out;
+  out.bar = bar >= 0.0 ? bar : config.place_min_fraction;
   const double max_sq = config.inlier_distance_m * config.inlier_distance_m;
   const int nb = static_cast<int>(b.size());
   std::vector<double> placed(nb, -1.0);  // the fraction of each placed B keyframe
@@ -388,7 +406,7 @@ inline SetAttempt wholeMapCheck(
   }
   const double below = static_cast<double>(std::count_if(
       fractions.begin(), fractions.end(),
-      [&](double f) {return f < config.place_min_fraction;}));
+      [&](double f) {return f < out.bar;}));
   out.share_below = below / static_cast<double>(fractions.size());
   std::nth_element(fractions.begin(), fractions.begin() + fractions.size() / 2, fractions.end());
   out.median = fractions[fractions.size() / 2];
@@ -400,6 +418,7 @@ inline bool differentTransforms(
   const Eigen::Isometry3d & s, const Eigen::Isometry3d & t, const std::vector<Keyframe> & b,
   const JoinConfig & config);
 inline bool selfSimilar(SessionCache & s, const JoinConfig & config);
+inline double sessionConsistency(const std::vector<Keyframe> & s, const JoinConfig & config);
 
 // Joins session B to session A. exclude (optional) drops matches before the agreement step; it
 // is a test hook (the stress test of the plan), not part of the method. In a self-join cache_a
@@ -520,6 +539,21 @@ inline JoinResult joinSessions(
       }
     }
   }
+  // the place bar of the whole-map check: place_min_fraction, or scaled by the sessions' own map
+  // consistency (consistency_bar; not in a self-join)
+  double bar = config.place_min_fraction;
+  if (config.consistency_bar && !self_join) {
+    for (SessionCache * c : {&cache_a, &cache_b}) {
+      if (c->consistency < 0.0) {
+        c->consistency = sessionConsistency(c->keyframes, config);
+      }
+    }
+    result.consistency_a = cache_a.consistency;
+    result.consistency_b = cache_b.consistency;
+    const double pair = std::min(cache_a.consistency, cache_b.consistency);
+    bar = config.place_min_fraction * std::min(1.0, pair / config.consistency_reference);
+    result.bar = bar;
+  }
   std::set<int> remaining;
   for (int i = 0; i < n; ++i) {
     remaining.insert(i);
@@ -575,7 +609,7 @@ inline JoinResult joinSessions(
         medoid = i;
       }
     }
-    SetAttempt check = wholeMapCheck(a, b, result.accepted[medoid].session, config);
+    SetAttempt check = wholeMapCheck(a, b, result.accepted[medoid].session, config, bar);
     check.size = static_cast<int>(clique.size());
     check.transform = result.accepted[medoid].session;
     result.attempts.push_back(check);
@@ -616,6 +650,61 @@ inline JoinResult joinSessions(
 
 // Two transforms of B differ if they move B's keyframes apart by more than ambiguity_m (RMS) or
 // turn by more than ambiguity_deg.
+// A session's map consistency: for every keyframe, the share of its points within
+// inlier_distance_m of the maps of the session's other keyframes within place_radius_m of it
+// (leaving out those within consistency_skip_neighbors of it in the session's order);
+// the median over the keyframes that have such a neighbour. 1 when none has: not measured, so the
+// bar is not lowered.
+inline double sessionConsistency(const std::vector<Keyframe> & s, const JoinConfig & config)
+{
+  const double max_sq = config.inlier_distance_m * config.inlier_distance_m;
+  const int n = static_cast<int>(s.size());
+  std::vector<double> share(n, -1.0);
+#pragma omp parallel for num_threads(config.num_threads) schedule(dynamic)
+  for (int k = 0; k < n; ++k) {
+    const Keyframe & kk = s[k];
+    std::vector<Eigen::Vector3f> near_points;
+    for (int j = 0; j < n; ++j) {
+      if (std::abs(j - k) <= std::max(0, config.consistency_skip_neighbors) ||
+        (s[j].frame.translation() - kk.frame.translation()).norm() > config.place_radius_m)
+      {
+        continue;
+      }
+      for (const auto & p : s[j].points) {
+        near_points.push_back((s[j].frame * p.cast<double>()).cast<float>());
+      }
+    }
+    if (near_points.empty() || kk.points.empty()) {
+      continue;
+    }
+    auto target = std::make_shared<small_gicp::PointCloud>(near_points);
+    small_gicp::KdTree<small_gicp::PointCloud> tree(target);
+    std::size_t inside = 0;
+    for (const auto & p : kk.points) {
+      const Eigen::Vector3d q = kk.frame * p.cast<double>();
+      std::size_t index = 0;
+      double sq = 0.0;
+      if (tree.nearest_neighbor_search(Eigen::Vector4d(q.x(), q.y(), q.z(), 1.0), &index, &sq) &&
+        sq < max_sq)
+      {
+        ++inside;
+      }
+    }
+    share[k] = static_cast<double>(inside) / static_cast<double>(kk.points.size());
+  }
+  std::vector<double> kept;
+  for (double f : share) {
+    if (f >= 0.0) {
+      kept.push_back(f);
+    }
+  }
+  if (kept.empty()) {
+    return 1.0;
+  }
+  std::nth_element(kept.begin(), kept.begin() + kept.size() / 2, kept.end());
+  return kept[kept.size() / 2];
+}
+
 inline bool differentTransforms(
   const Eigen::Isometry3d & s, const Eigen::Isometry3d & t, const std::vector<Keyframe> & b,
   const JoinConfig & config)

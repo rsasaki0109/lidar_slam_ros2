@@ -725,7 +725,9 @@ lidarslam-map run /path/to/rosbag2 \
 
 The dry run prints the selected public workflow before anything starts. For an
 RKO-LIO graph profile, `--editable` also retains `backend_input/` and the exact
-`graph_params.ros.yaml` needed to revisit accepted loop constraints. This is
+`graph_params.ros.yaml` needed to revisit accepted loop constraints. When the
+bag has a GNSS (NavSatFix) topic, `backend_input/` keeps it as well, for later
+checks against GNSS; the map and the loop replay do not use it. This is
 opt-in because the replay bag can use substantial disk space.
 
 ## 4. Check The Result

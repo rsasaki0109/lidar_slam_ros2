@@ -73,7 +73,7 @@ jobs:
           source /opt/ros/jazzy/setup.bash
           colcon build \
             --symlink-install \
-            --cmake-args -DCMAKE_BUILD_TYPE=Release
+            --cmake-args -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS=-g1
 
       - name: Download and verify pinned real bag
         shell: bash

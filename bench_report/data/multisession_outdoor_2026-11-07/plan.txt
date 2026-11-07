@@ -1,0 +1,66 @@
+Whole-map check scaled by each session's own map consistency. Written 2026-11-07, after chapters 52 and 53 and before
+any run with the new measure. A measurement and a candidate rule, not an adoption: nothing changes a default.
+
+Question
+- Chapter 52: on two outdoor MID-360 walks of one park (RTK-SLAM Stadtgarten 1 + 2) the whole-map check refused right
+  sets (10.2 % and 18.8 % of places below half overlap, limit 10 %; chapter 53: 0.28 m and 0.38 m from the truth). The
+  Construction pair's wrong sets, which the check was made to refuse, score in the same range (13-30 % below, median
+  0.62-0.65; chapter 38 step 4). No threshold on these two numbers separates them.
+- Hypothesis: a place's overlap is limited by how well the site's maps repeat themselves at all. Foliage and sparse
+  returns keep an outdoor walk's maps from overlapping even with the same walk's own maps a few metres away, while a
+  building's maps overlap almost fully. A bar relative to that ceiling can accept outdoor right sets and still refuse
+  a building's wrong sets.
+
+Measure (graph_slam_multisession_join, off by default, reported in join_report.yaml)
+- Consistency of a session S, c_S: for every keyframe k of S, the share of k's points within inlier_distance_m (0.3 m)
+  of the maps of S's other keyframes whose positions lie within place_radius_m (3 m) of k's; keyframes with no such
+  neighbour are skipped; c_S is the median over the keyframes (the same points, distances and nearest-neighbour search
+  as the whole-map check).
+- Scaled bar: a place counts as below when its fraction is below place_min_fraction x min(1, c_pair / c0), with
+  c_pair = min(c_A, c_B). All other values unchanged (10 % of places, 3 m, 0.3 m, at least 5 places, the ambiguity and
+  self-similarity refusals).
+- c0 is fixed from the Construction pair, where the current bar of 0.5 was set: c0 = min(c_con-1, c_con-2), measured
+  before any join with the scaled bar is run. A pair at least as consistent as Construction keeps the bar of 0.5.
+
+Runs (walking preset lidarslam_mid360_rko_graph_walking.yaml, as chapters 38 and 52)
+- Development (c0 comes from here; the rule's shape is fixed above): Construction con-1 + con-2, both orders, as is and
+  with the true matches removed (debug_exclude_transform = the as-is join's transform, radius 2.0 m). Inputs: HS-G15g
+  backend inputs recorded again for this (Hesai XT-32 + STIM320, scans thinned to 0.1 m, the repository's rko_lio).
+- Outdoor: Stadtgarten j12, j21 as is, and x12, x21 with the true matches removed (chapter 52's inputs and exclusion).
+- Held-out sites on disk, split sessions as chapter 38 step 3 (debug_split_gap_s 30; positive as is, stress with the
+  identity excluded at 0.3 m): MapsHD calibration-room 1 (the room that fits itself turned by 180 deg) and HILTI exp04.
+- Each run once with the scaled bar; the as-is decisions are chapter 38's and 52's (rerun where the inputs changed).
+
+Reading, fixed now
+1. Safety (required): no run with the true matches removed joins (con stress both orders, x12, x21, calibration-room 1
+   stress, exp04 stress). A single one rejects the rule.
+2. No regression: every run that joins today still joins with the same transform (within 0.01 m RMS); every refusal
+   other than the whole-map check's (ambiguity, self-similarity, too few matches) stays.
+3. Goal: j12 and j21 join, with a transform within 0.5 m RMS and 1 deg of the drift-only checkpoint reference.
+4. If 1-3 hold, the scaled bar is a candidate for the default. It is not adopted from this alone: chapter 38's other
+   held-out sites (MapsHD rooms, corridor, garages and outdoor-urk; Oxford; the GrandTour ARCHE pair and the other split
+   sessions) are not on disk and are named as not re-run. If 1 fails, the rule is rejected as it stands; if only 3
+   fails, the rule is safe but does not reach the goal.
+
+Amendment 1 (2026-11-07). Written after the two Stadtgarten runs as is (bar kept at 0.5, consistency only reported),
+before Construction's consistency was known and before any join with a lowered bar.
+- Those runs gave c = 0.994 (Stadtgarten 1) and 0.991 (Stadtgarten 2). The premise fails as measured: a keyframe's
+  neighbours within 3 m are, on a walk, mostly the keyframes just before and after it, made at nearly the same time
+  and place, so they overlap almost fully outdoors too. The cross-session shortfall comes from seeing a place at
+  another time and from another path, which this measure does not contain.
+- Candidate 1 (the measure above) is still run as fixed; it will keep the bar near 0.5.
+- Candidate 2, fixed now: the same measure with the keyframes within 10 of k in the session's order left out
+  (the self-join's self_skip_neighbors), so that only revisits count (c_rev). A session with no revisit within 3 m is
+  not measured and does not lower the bar. Same bar formula, with c0 = min(c_rev of con-1, c_rev of con-2) (1 if
+  neither is measured), measured before any join with candidate 2's bar. Same runs and the same readings 1-4.
+
+Result (2026-11-07; results.csv, 34 runs; REPORT chapter 54).
+- c0: candidate 1 0.987895 (con-1 0.9891, con-2 0.9879); candidate 2 0.880487 (con-1 0.8926, con-2 0.8805).
+- Candidate 1: every bar stays 0.5 (Stadtgarten 0.9936 / 0.9915, calibration-room 0.9995 / 0.9997, exp04 0.995).
+  Readings 1 and 2 met, 3 not met (both Stadtgarten orders refused as before).
+- Candidate 2: Stadtgarten c_rev 0.7540 / 0.7136, bar 0.4052; its largest sets pass (1.2 % and 9.2 % of places below
+  the bar) and join (no ambiguity, neither session self-similar) with chapter 53's largest-set transforms, 0.284 m /
+  0.17 deg and 0.378 m / 0.21 deg from the drift-only reference. Construction (bar 0.5 by c0), calibration-room
+  (c_rev 0.997 / 0.996) and exp04 (no revisit: not measured) are unchanged. Readings 1, 2 and 3 met.
+- Reading 4: not adopted. The bar was lowered only on Stadtgarten, where removing the true matches leaves no set at
+  all, so no wrong set has yet faced a lowered bar. The held-out sites named above were not re-run.

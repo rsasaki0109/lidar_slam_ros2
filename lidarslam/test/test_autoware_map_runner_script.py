@@ -1944,6 +1944,49 @@ def test_editable_rko_plan_wraps_mapping_with_backend_recorder(tmp_path: Path):
     ]
 
 
+def test_editable_rko_plan_records_the_bag_gnss_with_the_backend_input(
+    tmp_path: Path,
+):
+    """A bag's NavSatFix topic is published during the run and kept in backend_input."""
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path,
+        'editable_gnss_bag',
+        [
+            ('/livox/lidar', 'sensor_msgs/msg/PointCloud2', 20),
+            ('/livox/imu', 'sensor_msgs/msg/Imu', 180),
+            ('/gnss/fix', 'sensor_msgs/msg/NavSatFix', 10),
+        ],
+    )
+
+    plan = module.build_execution_plan(
+        bag_path=bag_dir,
+        profile_id=None,
+        output_dir=tmp_path / 'out.partial',
+        verify_map=True,
+        pointcloud_inspector=_compatible_pointcloud_inspection,
+        timestamp_inspector=_monotonic_timestamp_inspection,
+        editable=True,
+    )
+
+    command = plan['command']
+    separator = command.index('--')
+    recorder, mapping = command[:separator], command[separator + 1:]
+    assert recorder[recorder.index('--gnss-topic') + 1] == '/gnss/fix'
+    assert mapping[mapping.index('--gnss-topic') + 1] == '/gnss/fix'
+
+    without_gnss = module.build_execution_plan(
+        bag_path=bag_dir,
+        profile_id=None,
+        output_dir=tmp_path / 'plain.partial',
+        verify_map=True,
+        pointcloud_inspector=_compatible_pointcloud_inspection,
+        timestamp_inspector=_monotonic_timestamp_inspection,
+        editable=False,
+    )
+    assert '--gnss-topic' not in without_gnss['command']
+
+
 def test_editable_rejects_profiles_without_deterministic_loop_replay(
     tmp_path: Path,
 ):

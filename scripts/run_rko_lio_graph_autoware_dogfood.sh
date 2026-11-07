@@ -34,6 +34,10 @@ Options:
   --base-frame <frame>           Robot base frame passed to RKO-LIO
   --lidar-frame <frame>          LiDAR frame override
   --imu-frame <frame>            IMU frame override
+  --gnss-topic <topic>           Publish the bag's NavSatFix topic during the run (bag_gnss), so a
+                                 backend-input recorder can keep it; the map does not use it
+                                 unless the graph parameters set use_gnss. The offline node waits
+                                 for a subscriber of it (the recorder, or the graph with use_gnss)
   --output-dir <dir>             Directory for SLAM outputs and logs
   --run-name <name>              RKO-LIO run_name
   --save-timeout-secs <sec>      Timeout waiting for saved map files (default: 60)
@@ -122,6 +126,7 @@ IMU_TOPIC="$DEFAULT_IMU_TOPIC"
 BASE_FRAME="$DEFAULT_BASE_FRAME"
 LIDAR_FRAME="$DEFAULT_LIDAR_FRAME"
 IMU_FRAME="$DEFAULT_IMU_FRAME"
+GNSS_TOPIC=""
 LIDARSLAM_PARAM="$DEFAULT_LIDARSLAM_PARAM"
 RKO_PARAM="$DEFAULT_RKO_PARAM"
 OUTPUT_DIR=""
@@ -178,6 +183,11 @@ while [[ $# -gt 0 ]]; do
     --imu-frame)
       require_value "$1" "${2:-}"
       IMU_FRAME="$2"
+      shift 2
+      ;;
+    --gnss-topic)
+      require_value "$1" "${2:-}"
+      GNSS_TOPIC="$2"
       shift 2
       ;;
     --lidarslam-param)
@@ -581,6 +591,18 @@ wait_for_graph_drain() {
   return 0
 }
 
+# True while the offline frontend runs under wait_for_offline_output_subscribers.sh: the wrapper has
+# started and the launch has not reported it finished or dead (its completion and failure markers are
+# handled before this is asked). While it runs, map outputs or launch logs that stay unchanged only
+# mean a stretch of the walk without a loop or a log line (Stadtgarten 1: the run was taken for done
+# at 40 % of the bag), not that the bag is done.
+offline_frontend_running() {
+  grep -Fq "Waiting for offline output subscribers before reading the bag" "$LAUNCH_LOG" 2>/dev/null ||
+    return 1
+  ! grep -Eq "\[wait_for_offline_output_subscribers\.sh-[0-9]+\]: process has (finished|died)" \
+    "$LAUNCH_LOG" 2>/dev/null
+}
+
 wait_for_offline_completion() {
   local timeout_secs="$1"
   local quiet_secs="$2"
@@ -619,7 +641,7 @@ wait_for_offline_completion() {
       if [[ "$snapshot" != "$last_snapshot" ]]; then
         last_snapshot="$snapshot"
         last_change_secs=$SECONDS
-      elif (( SECONDS - last_change_secs >= quiet_secs )); then
+      elif (( SECONDS - last_change_secs >= quiet_secs )) && ! offline_frontend_running; then
         return 0
       fi
     fi
@@ -627,7 +649,8 @@ wait_for_offline_completion() {
     if (( OFFLINE_QUIET_LOG_SECS > 0 )) &&
       grep -Fq "First cloud received" "$LAUNCH_LOG" 2>/dev/null &&
       grep -Fq "First odom received" "$LAUNCH_LOG" 2>/dev/null &&
-      (( SECONDS - last_log_change_secs >= OFFLINE_QUIET_LOG_SECS )); then
+      (( SECONDS - last_log_change_secs >= OFFLINE_QUIET_LOG_SECS )) &&
+      ! offline_frontend_running; then
       echo "No launch log changes for ${OFFLINE_QUIET_LOG_SECS}s after first odom/cloud; treating offline processing as quiescent."
       return 0
     fi
@@ -724,6 +747,9 @@ if [[ -n "$LIDAR_FRAME" ]]; then
 fi
 if [[ -n "$IMU_FRAME" ]]; then
   LAUNCH_ARGS+=("imu_frame:=${IMU_FRAME}")
+fi
+if [[ -n "$GNSS_TOPIC" ]]; then
+  LAUNCH_ARGS+=("bag_gnss:=true" "gnss_topic:=${GNSS_TOPIC}")
 fi
 
 if command -v setsid >/dev/null 2>&1; then

@@ -16,6 +16,11 @@ latest published release.
 - `lidarslam-map start --join-map <output>`: after the run, join it to a stored
   editable map with `merge --place-recognition` into `map_joined/` (implies
   `--editable`). A refused join keeps the run's own map and prints the reason.
+- An editable run of a bag with a GNSS (NavSatFix) topic keeps it in
+  `backend_input/` (`record_backend_input.sh --gnss-topic`), for later checks
+  of a session against GNSS. The map and the loop replay do not use it: on
+  Stadtgarten 2 the backend topics and every replay output are byte-identical
+  with and without it, and all 8,768 fixes of the bag are kept.
 - **RTK GNSS anchoring that reaches the published baselines** — on RTK-SLAM
   Stadtgarten 2 the GNSS-anchored map scores 0.100 m absolute checkpoint RMSE
   without alignment (FAST-LIO-SAM 0.099 m, OKVIS-LVIG 0.092 m), from 7.6 m
@@ -31,6 +36,13 @@ latest published release.
 
 ### Fixed
 
+- A map run no longer ends while RKO-LIO is still reading the bag. Map outputs
+  unchanged for 15 s (a stretch without loops) were taken for the end of offline
+  processing; on RTK-SLAM Stadtgarten 1 the run stopped at 40 % of the bag.
+  While the frontend wrapper runs, only its completion or failure ends the wait.
+- The bag preflight accepts the Livox ROS driver's per-point `offset_time`
+  (uint32 ns), which RKO-LIO already reads for deskewing. Such bags (RTK-SLAM
+  Stadtgarten) were offered only the GNSS smoke path, not the RKO-LIO profiles.
 - `graph_slam_offline_runner` writes its registration receipt for GICP and
   SMALL_GICP loop registration too, and the offline replay
   (`run_offline_determinism_check.sh`, used by `lidarslam-map edit`) accepts

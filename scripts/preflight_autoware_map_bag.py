@@ -46,7 +46,9 @@ PUBLIC_EVIDENCE_SCHEMA_URI = (
 POINT_FIELD_UINT32 = 6
 POINT_FIELD_FLOAT32 = 7
 POINT_FIELD_FLOAT64 = 8
-RKO_TIMESTAMP_FIELDS = ('t', 'timestamp', 'time', 'stamps')
+# The per-point time fields RKO-LIO reads (rko_lio/ros/utils/point_cloud_read.cpp); offset_time is
+# the Livox ROS driver's (uint32 nanoseconds from the scan's header stamp).
+RKO_TIMESTAMP_FIELDS = ('t', 'timestamp', 'time', 'stamps', 'offset_time')
 RKO_TIMESTAMP_DATATYPES = (
     POINT_FIELD_UINT32,
     POINT_FIELD_FLOAT32,

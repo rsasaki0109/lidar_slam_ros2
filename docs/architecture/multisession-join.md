@@ -191,9 +191,16 @@ Limits:
   park (RTK-SLAM Stadtgarten 1 + 2, report 52), they refuse right sets: 10.2 % and 18.8 % of places
   had less than half their points overlapping. The refused sets were 0.28 m and 0.38 m from the
   surveyed truth (report 53).
+- A candidate, off by default (report 54): `multisession_consistency_bar: true` lowers the place bar
+  to 0.5 x min(1, min(c_A, c_B) / `multisession_consistency_reference`), where c is a session's own
+  map consistency over its revisits (`multisession_consistency_skip_neighbors: 10`; the
+  Construction pair gives 0.88, Stadtgarten 0.71 and 0.75). With the reference 0.880, both
+  Stadtgarten orders join at the right transforms, and every other test keeps its decision. It is not
+  the default: no wrong set has yet faced a lowered bar.
 - GNSS is not used. On Stadtgarten, RTK GNSS gave the relative transform within 0.48 m and 0.56 m of
-  the truth (report 53). A GNSS check would first need a fit that is robust to outlier fixes, data
-  that has wrong sets, and GNSS in the recorded backend input.
+  the truth (report 53). A GNSS check would first need a fit that is robust to outlier fixes and
+  data that has wrong sets. An editable run of a bag with a NavSatFix topic keeps it in
+  `backend_input/` (`record_backend_input.sh --gnss-topic`), so the sessions have their GNSS.
 - A join adds a session to the map; it does not update the map. A place that changed between
   sessions keeps both versions.
 

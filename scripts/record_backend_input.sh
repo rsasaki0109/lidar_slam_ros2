@@ -12,6 +12,7 @@ OUTPUT_DIR=""
 FLUSH_TIMEOUT=60
 COMMAND=()
 RECORDER_PID=""
+GNSS_TOPIC=""
 
 usage() {
   cat <<'EOF' >&2
@@ -21,6 +22,8 @@ Usage:
 Options:
   --setup <setup.bash>       ROS/workspace setup override (active environment is accepted)
   --flush-timeout <seconds>  Recorder SIGINT flush timeout (default: 60)
+  --gnss-topic <topic>       Also record this NavSatFix topic (optional; the backend replay does
+                             not read it, and the capture is accepted without it)
 
 BACKEND_CAPTURE_STORAGE_PRESET (environment) picks the MCAP storage preset (default fastwrite; zstd_fast compresses).
 
@@ -36,6 +39,7 @@ while [[ $# -gt 0 ]]; do
     --output-dir) [[ $# -ge 2 ]] || usage; OUTPUT_DIR=$(realpath -m "$2"); shift 2 ;;
     --setup) [[ $# -ge 2 ]] || usage; SETUP_FILE=$(realpath -m "$2"); shift 2 ;;
     --flush-timeout) [[ $# -ge 2 ]] || usage; FLUSH_TIMEOUT="$2"; shift 2 ;;
+    --gnss-topic) [[ $# -ge 2 && "$2" == /* ]] || usage; GNSS_TOPIC="$2"; shift 2 ;;
     --) shift; COMMAND=("$@"); break ;;
     --help|-h) usage ;;
     *) echo "unknown option: $1" >&2; usage ;;
@@ -85,6 +89,16 @@ trap stop_recorder EXIT INT TERM
 mkdir -p "$(dirname "${OUTPUT_DIR}")"
 RECORD_LOG="${OUTPUT_DIR}.record.log"
 QOS_OVERRIDES="${REPO_ROOT}/configs/rosbag2/backend_capture_qos.yaml"
+TOPICS=(/rko_lio/odometry /rko_lio/frame)
+if [[ -n "${GNSS_TOPIC}" ]]; then
+  # The GNSS topic is recorded with the same reliable keep-all QoS as the backend topics.
+  GNSS_QOS="${OUTPUT_DIR}.qos.yaml"
+  cat "${QOS_OVERRIDES}" > "${GNSS_QOS}"
+  printf '%s:\n  history: keep_all\n  reliability: reliable\n  durability: volatile\n' \
+    "${GNSS_TOPIC}" >> "${GNSS_QOS}"
+  QOS_OVERRIDES="${GNSS_QOS}"
+  TOPICS+=("${GNSS_TOPIC}")
+fi
 echo "recording: ${OUTPUT_DIR}"
 printf 'command:'
 printf ' %q' "${COMMAND[@]}"
@@ -95,7 +109,7 @@ printf '\n'
   ros2 bag record --storage mcap --storage-preset-profile "${BACKEND_CAPTURE_STORAGE_PRESET:-fastwrite}" \
   --max-cache-size 1073741824 --include-unpublished-topics \
   --qos-profile-overrides-path "${QOS_OVERRIDES}" -o "${OUTPUT_DIR}" \
-  /rko_lio/odometry /rko_lio/frame >"${RECORD_LOG}" 2>&1 &
+  "${TOPICS[@]}" >"${RECORD_LOG}" 2>&1 &
 RECORDER_PID=$!
 sleep 2
 if ! kill -0 "${RECORDER_PID}" 2>/dev/null; then
@@ -116,7 +130,7 @@ if [[ ! -f "${OUTPUT_DIR}/metadata.yaml" ]]; then
 fi
 INFO_FILE="${OUTPUT_DIR}.info.txt"
 ros2 bag info "${OUTPUT_DIR}" | tee "${INFO_FILE}"
-python3 - "${OUTPUT_DIR}/metadata.yaml" <<'PY'
+python3 - "${OUTPUT_DIR}/metadata.yaml" "${GNSS_TOPIC}" <<'PY'
 import sys
 from pathlib import Path
 
@@ -130,6 +144,8 @@ missing = {name: counts.get(name, 0) for name in required if counts.get(name, 0)
 if missing:
     raise SystemExit(f'backend capture lacks required messages: {missing}')
 print('backend input counts: ' + ', '.join(f'{name}={counts[name]}' for name in required))
+if sys.argv[2]:
+    print(f'gnss: {sys.argv[2]}={counts.get(sys.argv[2], 0)}')
 PY
 
 if ((COMMAND_STATUS != 0)); then

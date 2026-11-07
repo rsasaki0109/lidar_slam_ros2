@@ -144,6 +144,42 @@ def test_evaluate_state_requires_failed_manifest_and_real_enospc_signature():
         if item['id'] == 'filesystem_nearly_exhausted'
     )['passed']
 
+    # The pinned run since the map is downsampled in parts: the whole-map PCD
+    # asks for more than the 6.25 MiB left after the tiles, so the filesystem
+    # is exhausted for that request although more than 10 % is free.
+    larger_than_free = {
+        **not_nearly_full,
+        'filesystem': {
+            'capacity_bytes': 32 * 1024 * 1024,
+            'available_bytes': 6_549_504,
+            'used_bytes': 27_004_928,
+        },
+        'storage_signatures': [
+            {
+                'path': 'slam.launch.log',
+                'line': 1145,
+                'text': (
+                    '[pcl::PCDWriter::writeBinaryCompressed] '
+                    'raw_fallocate(length=24559593) returned 28.'
+                ),
+            },
+        ],
+    }
+    request_checks = module.evaluate_state(
+        larger_than_free,
+        32 * 1024 * 1024,
+        container_exit_code=1,
+        timed_out=False,
+        harness_commit='a' * 40,
+        harness_dirty=False,
+        image_revision='a' * 40,
+    )
+    assert all(item['passed'] for item in request_checks)
+    assert 'largest_failed_allocation_bytes=24559593' in next(
+        item for item in request_checks
+        if item['id'] == 'filesystem_nearly_exhausted'
+    )['observed']
+
     false_success = {
         **state,
         'manifest': {

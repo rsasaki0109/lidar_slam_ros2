@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -36,6 +37,8 @@ TEXT_EVIDENCE_NAMES = (
     'verify_autoware_map.log',
 )
 STORAGE_HINT = 'output filesystem ran out of writable space or quota'
+# PCL's report of a preallocation the filesystem refused with ENOSPC (28).
+FAILED_ALLOCATION = re.compile(r'raw_fallocate\(length=(\d+)\) returned 28')
 REPORT_SCHEMA_NAME = 'bounded-filesystem-exhaustion-v1.schema.json'
 
 
@@ -302,6 +305,14 @@ def evaluate_state(
     signatures = state.get('storage_signatures') or []
     signature_text = '\n'.join(str(item.get('text', '')) for item in signatures)
     hints = '\n'.join(str(item) for item in diagnosis.get('problem_hints', []))
+    available_bytes = int(filesystem.get('available_bytes', tmpfs_bytes))
+    largest_failed_allocation = max(
+        (
+            int(match.group(1))
+            for match in FAILED_ALLOCATION.finditer(signature_text)
+        ),
+        default=0,
+    )
     checks = [
         {
             'id': 'harness_revision_clean',
@@ -354,14 +365,20 @@ def evaluate_state(
             'observed': f'signature_count={len(signatures)}',
         },
         {
+            # Exhausted: at most 10 % of the capacity is left, or a failed
+            # allocation asked for more than is left. The map writer
+            # preallocates each file whole, so its last, largest file can stop
+            # the run with more than 10 % free (since the map is downsampled
+            # in parts, 24.6 MB requested with 6.25 MiB free).
             'id': 'filesystem_nearly_exhausted',
             'passed': (
-                int(filesystem.get('available_bytes', tmpfs_bytes))
-                <= tmpfs_bytes // 10
+                available_bytes <= tmpfs_bytes // 10
+                or largest_failed_allocation > available_bytes
             ),
             'observed': (
                 f'available_bytes={filesystem.get("available_bytes")}, '
-                f'maximum_bytes={tmpfs_bytes // 10}'
+                f'maximum_bytes={tmpfs_bytes // 10}, '
+                f'largest_failed_allocation_bytes={largest_failed_allocation}'
             ),
         },
         {

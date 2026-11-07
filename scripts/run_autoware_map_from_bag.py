@@ -487,14 +487,20 @@ def build_execution_plan(
                 '--editable requires an rko_lio_graph profile because only '
                 'that backend has deterministic loop replay support'
             )
-        command = [
+        recorder = [
             'bash',
             str(SCRIPT_DIR / 'record_backend_input.sh'),
             '--output-dir',
             str(output_dir / 'backend_input'),
-            '--',
-            *command,
         ]
+        navsatfix = summary['topics'].get('navsatfix') or []
+        if navsatfix:
+            # The bag's GNSS goes into backend_input too, for checks that compare a
+            # session with GNSS later; the map and the backend replay do not use it.
+            gnss_topic = navsatfix[0]['name']
+            command.extend(['--gnss-topic', gnss_topic])
+            recorder.extend(['--gnss-topic', gnss_topic])
+        command = [*recorder, '--', *command]
 
     return {
         'payload': payload,
