@@ -34,6 +34,10 @@ Options:
   --base-frame <frame>           Robot base frame passed to RKO-LIO
   --lidar-frame <frame>          LiDAR frame override
   --imu-frame <frame>            IMU frame override
+  --gnss-topic <topic>           Publish the bag's NavSatFix topic during the run (bag_gnss), so a
+                                 backend-input recorder can keep it; the map does not use it
+                                 unless the graph parameters set use_gnss. The offline node waits
+                                 for a subscriber of it (the recorder, or the graph with use_gnss)
   --output-dir <dir>             Directory for SLAM outputs and logs
   --run-name <name>              RKO-LIO run_name
   --save-timeout-secs <sec>      Timeout waiting for saved map files (default: 60)
@@ -122,6 +126,7 @@ IMU_TOPIC="$DEFAULT_IMU_TOPIC"
 BASE_FRAME="$DEFAULT_BASE_FRAME"
 LIDAR_FRAME="$DEFAULT_LIDAR_FRAME"
 IMU_FRAME="$DEFAULT_IMU_FRAME"
+GNSS_TOPIC=""
 LIDARSLAM_PARAM="$DEFAULT_LIDARSLAM_PARAM"
 RKO_PARAM="$DEFAULT_RKO_PARAM"
 OUTPUT_DIR=""
@@ -178,6 +183,11 @@ while [[ $# -gt 0 ]]; do
     --imu-frame)
       require_value "$1" "${2:-}"
       IMU_FRAME="$2"
+      shift 2
+      ;;
+    --gnss-topic)
+      require_value "$1" "${2:-}"
+      GNSS_TOPIC="$2"
       shift 2
       ;;
     --lidarslam-param)
@@ -724,6 +734,9 @@ if [[ -n "$LIDAR_FRAME" ]]; then
 fi
 if [[ -n "$IMU_FRAME" ]]; then
   LAUNCH_ARGS+=("imu_frame:=${IMU_FRAME}")
+fi
+if [[ -n "$GNSS_TOPIC" ]]; then
+  LAUNCH_ARGS+=("bag_gnss:=true" "gnss_topic:=${GNSS_TOPIC}")
 fi
 
 if command -v setsid >/dev/null 2>&1; then

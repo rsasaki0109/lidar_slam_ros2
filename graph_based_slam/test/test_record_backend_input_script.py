@@ -64,3 +64,15 @@ def test_capture_refuses_to_overwrite_an_existing_bag():
     source = SCRIPT.read_text()
 
     assert 'output already exists; refusing to mix captures' in source
+
+
+def test_capture_can_keep_a_gnss_topic_without_requiring_it():
+    """A NavSatFix topic is recorded on request, reliably, and only reported."""
+    source = SCRIPT.read_text()
+
+    assert '--gnss-topic) [[ $# -ge 2 && "$2" == /* ]]' in source
+    assert 'TOPICS+=("${GNSS_TOPIC}")' in source
+    assert '"${TOPICS[@]}" >"${RECORD_LOG}"' in source
+    assert 'reliability: reliable' in source
+    assert "required = ('/rko_lio/odometry', '/rko_lio/frame')" in source
+    assert "print(f'gnss: {sys.argv[2]}={counts.get(sys.argv[2], 0)}')" in source
