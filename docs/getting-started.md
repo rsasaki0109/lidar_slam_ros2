@@ -794,6 +794,12 @@ Without valid replay input the edit stops instead of presenting a stale pose
 graph as a corrected map. Replay summaries and logs are retained in the new
 candidate.
 
+A repeat visit can be joined to a stored map as soon as it is recorded:
+`lidarslam-map start /path/to/rosbag2 --join-map "$PWD/output/day1"` runs the
+place-recognition merge below after the run and writes the joined project next
+to the run's map (`map_joined/`). If the join is refused, the run's own map is
+kept and the reason is printed.
+
 To combine repeat visits, put the most trusted map first as the anchor:
 
 ```bash

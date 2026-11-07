@@ -392,6 +392,11 @@
         "kind": "directory",
         "value_name": "<dir>"
       },
+      "--join-map": {
+        "default": null,
+        "kind": "directory",
+        "value_name": "<output>"
+      },
       "--motion": {
         "choices": ["wheeled", "walking"],
         "default": "wheeled",
@@ -1032,6 +1037,11 @@
         },
         {
           "names": ["--editable"],
+          "stability": "stable",
+          "tier": "map-lifecycle"
+        },
+        {
+          "names": ["--join-map"],
           "stability": "stable",
           "tier": "map-lifecycle"
         },

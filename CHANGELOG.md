@@ -13,6 +13,9 @@ latest published release.
   session stops the merge with the join's reason. Each run's self-similarity
   result is kept in a user cache (`--join-cache-dir`), so a later merge with the
   same run skips that check (456 s to 7 s on Stadtgarten 2).
+- `lidarslam-map start --join-map <output>`: after the run, join it to a stored
+  editable map with `merge --place-recognition` into `map_joined/` (implies
+  `--editable`). A refused join keeps the run's own map and prints the reason.
 - **RTK GNSS anchoring that reaches the published baselines** — on RTK-SLAM
   Stadtgarten 2 the GNSS-anchored map scores 0.100 m absolute checkpoint RMSE
   without alignment (FAST-LIO-SAM 0.099 m, OKVIS-LVIG 0.092 m), from 7.6 m

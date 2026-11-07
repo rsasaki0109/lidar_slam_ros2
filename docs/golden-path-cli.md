@@ -120,6 +120,13 @@ document. The session keeps the reviewable setup at its root and delegates
 mapping to the normal atomic `map/` output. Browser review is the default; use
 `--viewer none` for headless use.
 
+`--join-map <output>` joins the finished run to a stored editable map: after the
+run, `start` runs `merge <output> <map> --place-recognition` into `map_joined/`
+beside the run's `map/` and implies `--editable`. A refused join prints
+`[join-not-made]` with the join's reason; the run's own map stays complete and
+the session still succeeds. Repeat runs of one site reuse the stored map's
+self-similarity result (`merge`, `--join-cache-dir`).
+
 An incompatible bag or forced profile returns a non-writing `not_ready` result
 with exit code `2`. Human output shows all detected sensor families, stable
 finding codes, and an exact recovery command. `--json --dry-run` emits the same
