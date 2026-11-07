@@ -207,8 +207,10 @@ Limits:
   session's drift (fit residuals 0.4-1.1 m). It was not built. Fitting GNSS only within 30 m of each
   place (report 56.1) put the truth within 0.28-0.38 m (median) in all three cases and refused every
   transform 2 m or 2 deg off, but its whole-map floor (25 % below) refused the split's right set; it
-  was not built either, and the same comparison without the floor needs another GNSS pair to be
-  tested on. An editable run of a bag with a
+  was not built either. Without the floor, on RTK-SLAM Construction 1 + 2 (report 56.2) it accepted
+  every right set, including two that the whole-map check refuses, but also the right transform
+  turned by 5 deg: the median disagreement of the places does not bound a rotation about their
+  middle. Neither variant is built. An editable run of a bag with a
   NavSatFix topic keeps it in `backend_input/` (`record_backend_input.sh --gnss-topic`), so the
   sessions have their GNSS.
 - A join adds a session to the map; it does not update the map. A place that changed between

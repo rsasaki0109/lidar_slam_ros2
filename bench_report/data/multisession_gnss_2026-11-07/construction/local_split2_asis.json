@@ -1,0 +1,33 @@
+{
+ "pairs_a": 1100,
+ "pairs_b": 251,
+ "truth": {
+  "local_places": 27,
+  "measured": 26,
+  "median_m": 0.021,
+  "p90_m": 0.112,
+  "local_ok": true
+ },
+ "sets": [
+  {
+   "local_places": 27,
+   "measured": 26,
+   "median_m": 0.018,
+   "p90_m": 0.118,
+   "local_ok": true,
+   "vs_truth_m": 0.015,
+   "vs_truth_deg": 0.037,
+   "places": 27,
+   "share_below": 0.2222,
+   "floor": true,
+   "gate_with_floor": true,
+   "gate": true,
+   "set": 0,
+   "size": 10,
+   "whole_map_passed": false
+  }
+ ],
+ "joins": 0,
+ "whole_map_joined": false,
+ "excluded_by_debug_hook": false
+}

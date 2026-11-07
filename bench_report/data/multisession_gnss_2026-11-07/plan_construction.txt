@@ -41,3 +41,26 @@ Reading, fixed now
 4. If 1-3 hold, the floorless local gate is a candidate to build into the join (GNSS read from backend_input), to be
    checked end to end; a site with repeated structure and GNSS stays untested and is named. If any fails, it is not
    built, and the reason is named.
+
+Result (2026-11-07; construction/: local_*.json, alone_*.json, join and check reports; scripts p3_ms_cons_record.sh,
+p3_ms_cons_run.sh)
+- Recording: Construction 1 7,282 frames, 7,413 fixes; Construction 2 5,873 frames, 5,993 fixes (initial pitch about
+  19 deg, as the dataset notes). Backend: 282 / 228 submaps, 9 / 8 loop edges. Truth: 15 shared checkpoints, rigid
+  placement residual 0.234 m RMS (max 0.71 m).
+- Joins: both orders join with the whole-map check (368 / 354 matches, 0 % below), 0.132 / 0.138 m from the truth.
+  Splits as is: one set each, 0.008 m and 0.015 m from the identity, refused by the whole-map check (14.3 % and 22.2 %
+  below). Splits with the matches near the identity removed: no set.
+- Local comparison at the truth: median 0.037 m (1 <- 2, 132 of 227 places measured; indoor places have no fix within
+  30 m), 0.038 m (2 <- 1, 133 of 239), 0.066 m (split 1, 27 of 42), 0.021 m (split 2, 26 of 27).
+- The gate (no floor) accepts the largest set in both orders (median 0.075 / 0.084 m) and both splits' sets (0.064 /
+  0.018 m). Of the checked transforms it accepts, besides the truth: in 1 <- 2, +x 1 m, -y 1 m, +-2 deg; in 2 <- 1,
+  +x 1 m, +y 1 m, +-2 deg and +5 deg (median 0.961 m, 90th percentile 3.37 m, 66 % of its places below 0.5).
+Reading
+1. Met (0.037, 0.038, 0.066, 0.021 m).
+2. Met: all four right sets accepted, two of them refused today by the whole-map check.
+3. NOT met: the 2 <- 1 truth turned by +5 deg is accepted. Turned about the centroid of B's keyframes, the places near
+   the centroid hardly move, and the median of the places' disagreement stays under 1 m.
+4. The floorless local gate is not built. The reason: the median place disagreement does not bound a rotation about the
+   middle of the places. With the floor of plan.txt the gate would meet 1-3 here (the +5 deg transform has 66 % below;
+   the splits' sets 14.3 % and 22.2 % pass the 25 % floor), but that gate refused Stadtgarten 1's split set (37 %,
+   chapter 56.1). Neither variant meets the readings on both sites.

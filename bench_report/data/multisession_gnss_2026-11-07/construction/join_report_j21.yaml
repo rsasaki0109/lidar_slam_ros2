@@ -1,0 +1,19 @@
+sessions:
+  - session: 0
+    joined: true
+  - session: 1
+    joined: true
+    candidates: 776
+    accepted: 366
+    excluded_by_debug_hook: false
+    ambiguous: false
+    self_similar: ''
+    sets_tried:
+      - {size: 354, places: 239, share_below: 0, median: 0.975262, passed: true, transform: [0.671794562, 0.740698268, -0.00762507118, 0.028000811, -0.740727602, 0.671803234, -0.00174199557, -0.0256623194, 0.00383225437, 0.00681836384, 0.999969411, 0.0570128704]}
+      - {size: 8, places: 239, share_below: 0, median: 0.972766, passed: true, transform: [0.673544422, 0.739099346, -0.00837067222, -0.0259706251, -0.739132935, 0.673557874, -0.00151490386, -0.078775785, 0.00451846773, 0.00720739457, 0.999963818, 0.0301846885]}
+    transform_to_session_0: [0.671794562, 0.740698268, -0.00762507118, 0.028000811, -0.740727602, 0.671803234, -0.00174199557, -0.0256623194, 0.00383225437, 0.00681836384, 0.999969411, 0.0570128704]
+map_joins:
+  - {session: 1, tries: 1, joined_in_pass: 1, map_sessions: [0]}
+self_similarity:
+  - {session: 0, fingerprint: f77955a88093c585, check: stored, self_similar: false}
+  - {session: 1, fingerprint: 84faaf53814dd3be, check: stored, self_similar: false}
