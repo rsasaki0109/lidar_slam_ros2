@@ -126,6 +126,7 @@ jobs:
               lidarslam \
             --cmake-args \
               -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_CXX_FLAGS=-g1 \
               -DBUILD_TESTING=OFF
 
       - name: Record official binary identity
