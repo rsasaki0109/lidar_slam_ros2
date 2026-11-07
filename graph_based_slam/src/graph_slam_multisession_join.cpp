@@ -557,7 +557,7 @@ int main(int argc, char ** argv)
     for (const auto & t : result.attempts) {
       report << "    - {size: " << t.size << ", places: " << t.places << ", share_below: " <<
         t.share_below << ", median: " << t.median << ", passed: " <<
-        (t.passed ? "true" : "false") << "}\n";
+        (t.passed ? "true" : "false") << ", transform: " << matrixRow(t.transform) << "}\n";
     }
     if (result.joined) {
       report << "  transform: " << matrixRow(result.transform) << "\n  error_to_identity_rms_m: " <<
