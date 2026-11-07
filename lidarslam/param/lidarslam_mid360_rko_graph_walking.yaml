@@ -3,12 +3,20 @@
 # "lidarslam-map setup --motion walking", together with rko_lio_mid360_walking.yaml.
 #
 # This is the backend adopted on the MapsHD HUMANOID-LIO-DATASET with that
-# frontend (bench_report/REPORT.md chapters 14 to 25, candidate C): the 10
-# development sequences (8 MapsHD trials, Oxford Keble 05, HILTI exp04) reached
-# an APE geometric mean of 0.0358 m. The public MID-360 driving bag still closes
-# its start loop with it. Every key not listed keeps the graph_based_slam default.
+# frontend (bench_report/REPORT.md chapters 14 to 25, candidate C), with its
+# loop registration switched from NDT 2 m to small_gicp 0.5 m in 2026-11
+# (chapters 50 and 51). Every key not listed keeps the graph_based_slam default.
 #
-# - NDT 2 m cells for loop registration (chapter 14).
+# - small_gicp GICP for loop registration: correspondences within 0.5 m,
+#   stopping when an update moves less than 1e-4 m and 1e-4 rad, one thread.
+#   On the 10 development sequences (8 MapsHD trials, Oxford Keble 05, HILTI
+#   exp04) it made no sequence more than 2.7 % worse than the frontend alone,
+#   where NDT 2 m made two garage trials 16-22 % worse (geometric means
+#   0.0354 and 0.0364 m; chapter 37). The decision and its cost check:
+#   bench_report/data/loops_preset_2026-11-07/plan.txt. The 0.0358 m geometric
+#   mean of chapter 25 and the public MID-360 driving bag's closed start loop
+#   were measured with NDT 2 m.
+# - ndt_resolution is used only if registration_method is set back to "NDT".
 # - Adjacent edges: rotation information 1e6 and translation 1e4 per submap
 #   step, about 0.1 deg and 1 cm (chapters 17 and 22).
 # - A loop whose correction exceeds 0.5 m + 2% of the travel between its two
@@ -17,7 +25,9 @@
 #   information (translation 200, rotation 1e5; chapter 25).
 graph_based_slam:
   ros__parameters:
-    registration_method: "NDT"
+    registration_method: "SMALL_GICP"
+    gicp_max_correspondence_distance: 0.5
+    gicp_transformation_epsilon: 0.0001
     range_of_searching_loop_closure: 20.0
     loop_search_query_stride: 1
     cloud_subscriber_qos_reliable: true

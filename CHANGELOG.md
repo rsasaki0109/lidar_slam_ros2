@@ -58,6 +58,16 @@ latest published release.
   are in every build (source, Docker, binary release). Before, both were
   built only when CMake found an installed small_gicp. The scanmatcher and
   plugin small_gicp methods stay optional.
+- The walking backend preset (`lidarslam_mid360_rko_graph_walking.yaml`,
+  `--motion walking`) registers loops with small_gicp (correspondences within
+  0.5 m) instead of NDT 2 m. Decided by a plan fixed before the runs
+  (bench_report chapters 50 and 51): on RTK-SLAM Stadtgarten 1 it scores
+  0.482 m SE(3)-aligned checkpoint RMSE against NDT 2 m's 0.510 m and the
+  frontend's 0.498 m, runs are byte-identical when repeated, and its loop
+  search costs at most 1.34 times NDT's.
+- graph_based_slam's small_gicp loop registration keeps the KD trees and
+  covariances of its last four targets, with byte-identical results: its bag
+  pass on Stadtgarten 2 drops from 15.7 to 11.9 s.
 - The RTK-SLAM construction RKO-LIO preset (release gates) turns deskew and
   the static gravity initialisation on: construction_seq2 0.165 → 0.062 m,
   construction_seq1 0.280 → 0.205 m checkpoint RMSE, map thickness
