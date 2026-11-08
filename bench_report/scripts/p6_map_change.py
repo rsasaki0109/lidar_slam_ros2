@@ -29,7 +29,7 @@ MAP_VOXEL = 0.1
 VOXEL = 0.2
 STEP = 0.1
 MARGIN = 0.3
-MIN_RANGE, MAX_RANGE = 1.0, 40.0
+MIN_RANGE, MAX_RANGE = 1.5, 40.0  # step 1: 1.0 (the carrier just beyond it)
 MIN_FREE = 2
 GHOST_SPACING_M, GHOST_SIDE = 10.0, 0.4
 
@@ -90,14 +90,15 @@ def first_per_voxel(points, voxel):
     return points[np.sort(idx)]
 
 
-def frames_in_ref(bag, stamps, poses):
+def frames_in_ref(bag, stamps, poses, extrinsic):
     for t, xyz in read_frames(bag, STRIDE):
+        xyz = xyz @ extrinsic[:3, :3].T + extrinsic[:3, 3]
         P = pose_at(stamps, poses, t)
         if P is None:
             continue
-        r = np.linalg.norm(xyz, axis=1)
+        r = np.linalg.norm(xyz - extrinsic[:3, 3], axis=1)  # range from the LiDAR
         xyz = xyz[(r >= MIN_RANGE) & (r <= MAX_RANGE)]
-        yield P[:3, 3], xyz @ P[:3, :3].T + P[:3, 3]
+        yield P @ extrinsic[:, 3], xyz @ P[:3, :3].T + P[:3, 3]
 
 
 def ghost_cubes(positions):
@@ -124,25 +125,29 @@ def main():
         ap.add_argument(f'--{side}-bag', required=True)
         ap.add_argument(f'--{side}-poses', required=True)
         ap.add_argument(f'--{side}-transform', type=float, nargs=12)
+    ap.add_argument('--extrinsic', type=float, nargs=7, help='LiDAR in the base frame: qx qy qz qw x y z')
     ap.add_argument('--out', required=True)
     ap.add_argument('--ghosts', action='store_true')
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
     t0 = time.time()
+    ext = np.eye(4)
+    if a.extrinsic:
+        ext[:3, :3], ext[:3, 3] = quat_to_R(a.extrinsic[:4]), a.extrinsic[4:]
     os_, op = read_poses(a.old_poses, a.old_transform)
     ns, npo = read_poses(a.new_poses, a.new_transform)
-    old = first_per_voxel(np.concatenate([xyz for _, xyz in frames_in_ref(a.old_bag, os_, op)]), MAP_VOXEL)
+    old = first_per_voxel(np.concatenate([xyz for _, xyz in frames_in_ref(a.old_bag, os_, op, ext)]), MAP_VOXEL)
     n_real = len(old)
     n_ghost_cubes = 0
     if a.ghosts:
-        g, n_ghost_cubes = ghost_cubes(npo[:, :3, 3])
+        g, n_ghost_cubes = ghost_cubes((npo @ ext[:, 3])[:, :3])
         old = np.concatenate([old, g])
     ok = keys(old, VOXEL)
     uk, inv = np.unique(ok, return_inverse=True)
     free = np.zeros(len(uk), dtype=np.int64)
     hits = []
     frames = 0
-    for origin, pts in frames_in_ref(a.new_bag, ns, npo):
+    for origin, pts in frames_in_ref(a.new_bag, ns, npo, ext):
         frames += 1
         pts = first_per_voxel(pts, VOXEL)
         hits.append(np.unique(keys(pts, VOXEL)))

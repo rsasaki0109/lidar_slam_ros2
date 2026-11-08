@@ -30,3 +30,25 @@ Decision: the method goes on to a product option (an opt-in step of `lidarslam-m
   90 % of the cube points. Otherwise it is recorded as not good enough and the product does not change.
 
 Record
+  2026-11-08, step 1 (p6_map_change.py at 303d1bbc), Construction 1 + 2, 1,175 / 1,457 new frames used, 77 / 85 s:
+    old 1, new 2: removed 1.08 % of 2,009,376 old points (1.74 % of those in voxels the new rays crossed twice; 62 % of
+      the old map is in such voxels); cubes: 58.3 % of 16,598 points in 43 cubes removed.
+    old 2, new 1: removed 1.27 % of 1,732,453 (1.87 % of the crossed; 68 % crossed); cubes: 66.2 % of 20,458 in 53.
+  Both criteria fail in both directions. Decision: not good enough; the product does not change.
+  Why (looked at after the decision; images old1_new2.png, old2_new1.png): the removed points form dotted trails along
+  the old session's path. 78 % of them lie within 2 m of the old path, within about 1 m of the sensor in its own frame
+  (body-frame offsets p10-p90: x -0.76 to 0.46, y -0.96 to 0.83, z -0.69 to 0.40 m): the carrier of the sensor, seen just
+  beyond the 1 m minimum range in every frame. The new session saw through those places, so removing them is right, but
+  they are not the change the method is for, and they count against E1. The same points of the new session lie next to
+  its own path, so they protect the planted cubes there (one-voxel neighbourhood), which is why the cubes' recall is low.
+
+Step 2 plan (fixed 2026-11-08 before any run of it)
+  One change: the minimum range becomes 1.5 m (MIN_RANGE), for the old map and for the new session's rays and points,
+  so the carrier is in neither. Everything else as step 1. p6_map_change.py also takes --extrinsic (the LiDAR pose in
+  the base frame of the backend input; identity, as before, when omitted), for a rig whose scans are in the LiDAR frame.
+  The 1.5 m comes from step 1's look at Construction, so Construction is no longer independent of it. A second pair is
+  added that played no part: GrandTour CON-1 + CON-2 (development missions, the construction site Halter, 7 minutes
+  apart, ANYmal with Hesai XT-32, /home/user/bench/ms_outdoor; poses: each mission's replayed backend densified onto its
+  frontend trajectory, CON-2 mapped by the joined run runs/conA12; extrinsic con-1/extrinsic.txt).
+  Evaluations E1 and E2 as in step 1, both directions, on both pairs (four runs).
+  Decision: as step 1 (E1 at most 1.0 %, E2 at least 90 %), required in all four runs; reported for each pair apart.
