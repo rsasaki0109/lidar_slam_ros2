@@ -98,7 +98,7 @@ def frames_in_ref(bag, stamps, poses, extrinsic):
             continue
         r = np.linalg.norm(xyz - extrinsic[:3, 3], axis=1)  # range from the LiDAR
         xyz = xyz[(r >= MIN_RANGE) & (r <= MAX_RANGE)]
-        yield P @ extrinsic[:, 3], xyz @ P[:3, :3].T + P[:3, 3]
+        yield (P @ extrinsic[:, 3])[:3], xyz @ P[:3, :3].T + P[:3, 3]
 
 
 def ghost_cubes(positions):
