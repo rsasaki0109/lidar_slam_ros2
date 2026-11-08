@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # p4_malloc_pairs.sh <seq> <pairs> (bench_report/data/memory/p4_malloc_2026-11-08/plan.txt): alternating pipeline runs
 # with the launch default (malloc_mmap_threshold 131072, label "fixed") and malloc_mmap_threshold:=off ("dyn"), the first
-# of each pair alternating. Each run: mem_sampler.py beside pipe_pipeline.sh (the per-process VmHWM), under the shared
-# VM lock of the blind run (data/blind_v7_2026-11-08), so it never shares the CPU with a G or FAST-LIO2 blind run.
+# of each pair alternating. Each run: mem_sampler.py beside pipe_pipeline.sh (the per-process VmHWM), holding the VM
+# lock of the blind run (data/blind_v7_2026-11-08) exclusively, so nothing else runs beside it.
 # <seq>: exp04 (the stream-converted development bag) or heap1 (GrandTour HEAP-1, Hesai XT-32 + STIM320, G12 HS rig).
 # Rows: /home/user/bench/memB/rows.csv (pipe_pipeline.sh's columns) and peaks.csv (label, offline_node, graph_based_slam,
-# sum of peaks, KiB).
+# the sum of the pipeline's own processes' peaks, KiB: ros2 launch of lidarslam, the nodes and the static TF publisher;
+# the sampler also lists any other ROS process on the VM).
 set -uo pipefail
 seq=$1; pairs=$2
 S=/home/user/lidar_slam_ros2/bench_report/scripts; P=/home/user/bench/params; O=/home/user/bench/memB
@@ -22,7 +23,7 @@ for ((k = 1; k <= pairs; k++)); do
   for v in "${order[@]}"; do
     label=${seq}_${v}_p${k}; out=${O}/${label}
     extra=; [[ ${v} == dyn ]] && extra=malloc_mmap_threshold:=off
-    exec 8>/home/user/bench/blind_v7/quiet.lock; flock -s 8
+    exec 8>/home/user/bench/blind_v7/quiet.lock; flock -x 8
     stop="${out}.mem_stop"; rm -f "${stop}"
     python3 "${S}/mem_sampler.py" "${out}.mem" "${stop}" 8>&- &
     spid=$!
@@ -32,7 +33,8 @@ for ((k = 1; k <= pairs; k++)); do
     flock -u 8; exec 8>&-
     f=$(grep -E ',offline_node,' "${out}.mem_summary.csv" | cut -d, -f3 | head -1)
     b=$(grep -E ',graph_based_sla,' "${out}.mem_summary.csv" | cut -d, -f3 | head -1)
-    t=$(grep -E '^sum_of_process_peaks' "${out}.mem_summary.csv" | cut -d, -f3)
+    t=$(grep -E 'rko_lio_slam.launch.py|/offline_node |/graph_based_slam_node |static_transform_publisher' \
+      "${out}.mem_summary.csv" | grep -v glim | awk -F, '{s += $3} END {print s}')
     echo "${label},${f},${b},${t}" | tee -a "${O}/peaks.csv"
   done
 done

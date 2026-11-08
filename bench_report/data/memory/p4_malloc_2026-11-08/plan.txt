@@ -47,3 +47,16 @@ Not in this step (left as they are): the map save's extra memory (Phase 4 measur
 longer on this VM) and the PCD cache as the default.
 
 Record
+  2026-11-08, P1 exp04. A first pass (pass1/) shared the VM with GLIM's development check and the blind run, and the
+  sampler counted their processes too (sums 1,176 / 1,398 MiB in its first pair); it is not used. P1 was run again
+  holding the VM lock exclusively, the sum taken over the pipeline's own processes (ros2 launch of lidarslam,
+  offline_node, graph_based_slam_node, the static TF publisher). Peaks in MiB (offline_node / graph_based_slam / sum),
+  completion time (launch to the map_save answer) in s:
+    pair 1  fixed 300 / 157 / 525  24.15   dyn 386 / 208 / 663  18.64
+    pair 2  dyn   367 / 180 / 614  18.90   fixed 303 / 160 / 531  25.12
+    pair 3  fixed 302 / 159 / 529  25.02   dyn 374 / 200 / 642  18.69
+  (1) holds: frontend bc231992, trajectory_optimized a4748f73, pose_graph.g2o f434203a, loop edges 8ac346d2 in all
+  six runs. (2) holds: the sum is 17 % lower with the setting (529 vs 640 MiB on average).
+  (3) fails: the completion time is 24.76 s with the setting and 18.74 s without it, 32 % longer. glibc maps and
+  unmaps every block above 128 KiB anew, and the pages of each new mapping are zeroed on first touch.
+  Decision: the change is reverted (the launch files are as before). P2 is not run: the decision needs P1 and P2.
