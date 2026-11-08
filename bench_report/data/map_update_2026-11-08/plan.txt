@@ -1,0 +1,32 @@
+Map update for joined sessions, step 1: drop an earlier session's points that a later session saw through
+(fixed 2026-11-08 before any run of bench_report/scripts/p6_map_change.py).
+
+Why
+  A joined map keeps every session's points. Where the place changed between visits (a moved car, a new wall gap, a
+  person standing), the earlier session's points stay as ghosts in space the later session saw as empty.
+
+Method (p6_map_change.py, the constants at its top; not tuned on these data)
+  The old map: every 5th frame of the old session's backend input, in the reference frame, one point per 0.1 m voxel.
+  The new session's rays: every 5th frame, one ray per 0.2 m voxel of the scan (1-40 m), from the sensor to the point,
+  sampled every 0.1 m up to 0.3 m before the point. An old point is stale when its 0.2 m voxel was crossed by rays of at
+  least 2 new frames and no new point lies in that voxel or one of its 26 neighbours (the neighbours keep surfaces seen
+  at grazing angles).
+
+Data: RTK-SLAM Construction 1 and 2 (/home/user/bench/ms_cons, report chapter 56.2), recorded about 13 minutes apart on
+  one day with the same MID-360 rig. Poses: each session's corrected per-frame trajectory (replay/*/dense.tum), session 2
+  mapped into session 1's frame by the join's transform (runs/j12, joined).
+
+Evaluations
+  E1 (real points, little change): old = session 1, new = session 2, and the reverse (old = session 2 in session 1's
+     frame, new = session 1). Measure: the fraction of the old map's points removed. Between two visits 13 minutes apart
+     only moving people and machines should go.
+  E2 (known stale points): the same two runs with --ghosts: 0.4 m cubes of points (0.05 m spacing on the faces) added
+     to the old map on the new session's trajectory every 10 m of its path, where the new sensor itself passed, so
+     the new session saw that space empty. Measure: the fraction of the cubes' points removed (recall).
+  Reported besides: the fraction of the old map in voxels the new rays crossed at least twice, the removed fraction of
+  those, the time, and top-down images of the removed points.
+Decision: the method goes on to a product option (an opt-in step of `lidarslam-map merge --place-recognition`, which
+  has every run's backend input) if, in both directions, E1 removes at most 1.0 % of the old map and E2 removes at least
+  90 % of the cube points. Otherwise it is recorded as not good enough and the product does not change.
+
+Record
