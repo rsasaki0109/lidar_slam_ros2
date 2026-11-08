@@ -34,3 +34,18 @@ Record
   2026-11-08: the maintainer explicitly allowed reading Oxford Keble 05's ground truth
     (/home/user/data/oxford_keble05/gt_sealed/gt-tum.txt) to score the Phase 1 gate (asked twice; the first request
     was stopped by the session's permission check). It is read only by p7_g16_phase1.sh with OXFORD_SCORE=1.
+  2026-11-08, criteria 1 and 4 (GrandTour, both rigs run together; ATE without reference spikes, m, G12 / G17):
+    HS: heap-1 0.0281 / 0.0224, arc-3 0.1262 / 0.0463, arc-4 0.0233 / 0.0256, arc-6 0.0104 / 0.0104,
+        con-1 0.0261 / 0.0245, eig-2 0.0375 / 0.0415, snow-3 0.1161 / 0.0869, spx-1 0.0210 / 0.0198,
+        spx-3 0.0097 / 0.0095, ice-1 0.0166 / 0.0129, arc-1 0.0279 / 0.0275, arc-5 0.0554 / 0.0181,
+        con-2 0.0290 / 0.1005, pil-2 0.0768 / 0.0513, con-3 0.0281 / 0.0190; mean 0.0421 / 0.0344
+        (snow-1 0.3769 / 0.3759, reported only).
+    Criterion 1 fails: the mean improves, but con-2 (3.47 x) and eig-2 (+10.7 %, +4.0 mm) are worse than G12 by more
+    than 10 % and 2 mm. G17 is not adopted. The Phase 1 batch was stopped before it started; Oxford's ground truth was
+    not read.
+    LS (reported): heap-1 0.0453 / 0.0447, arc-3 0.0466 / 0.0319, arc-4 0.0207 / 0.0202, arc-6 0.0178 / 0.0174,
+        con-1 0.0816 / 0.0769, eig-2 0.0391 / 0.0399, snow-3 0.0256 / 0.0259, spx-1 0.0444 / 0.4719 (criterion 4 would
+        fail too). Every G17 run real-time (RTF at most 0.204).
+    Where it breaks: con-2's error grows a little everywhere (final height -0.14 m) and LS spx-1's at 54-77 s and
+    150-215 s (final height +0.29 m), with the limit acting on 1,986 and 3,726 scans. With the registration allowed only
+    0.05 deg of tilt per scan, a tilt the gyro carries in (its bias, a wrong start) cannot be pulled back fast enough.
