@@ -129,3 +129,8 @@ Record
     measurement): G 0.0527 m, BIEVR-LIO 0.0595, FAST-LIO2 0.0575 (0.0647 with the default transport, see R1),
     RKO-LIO upstream 0.0821. GLIM's first build stopped at gtsam_points because GTSAM was configured without
     GTSAM_UNSTABLE (my flag, not GLIM's instructions); rebuilt with GLIM's documented options.
+    GLIM built before the first holdout run (2026-11-08 03:10 UTC), so R4 is run. Its build needed, from the Ubuntu
+    and ROS archives, libopencv-dev 4.6.0, ros-jazzy-image-transport 5.1.8 and ros-jazzy-cv-bridge 4.1.0, and
+    GTSAM_BUILD_UNSTABLE on (glim_build.sh). GLIM on exp04: 0.0923 m on the control points, 50.5 s, peak RSS 714 MB
+    (the earlier record of GLIM CPU on exp04: 0.086 m, 696 MB).
+  The batch waits before streaming a sequence until the disk has room for it (exp16 needs about 5.6 GB).

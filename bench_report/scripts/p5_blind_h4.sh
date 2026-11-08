@@ -20,6 +20,15 @@ c = next(v for v in s.values() if v['sequence'] == sys.argv[2])
 print(c['bag']['url'].replace('/blob/', '/resolve/'), c['bag']['lfs_sha256'])" "${SEL}" "${seq}")
   [[ ${url} == *"/${REV}/"* ]] || { echo "${seq}: unexpected revision in ${url}"; exit 1; }
   bag=${DATA}/${seq}/bag
+  # the converted bag keeps about 37 % of the raw bytes; wait until that and 1.5 GB more are free
+  need=$("${PY}" -c "
+import sys, yaml
+s = yaml.safe_load(open(sys.argv[1]))['selection_decision']['selected_candidates']
+c = next(v for v in s.values() if v['sequence'] == sys.argv[2])
+print(int(c['bag']['expected_bytes'] * 0.37 / 1024) + 1536 * 1024)" "${SEL}" "${seq}")
+  until [[ -f ${DATA}/${seq}/ok ]] || (( $(df -k --output=avail /home/user | tail -1) > need )); do
+    echo "$(date -u +%FT%TZ) ${seq}: waiting for ${need} KiB of free disk"; sleep 300
+  done
   for k in 1 2 3; do
     [[ -f ${DATA}/${seq}/ok ]] && break
     rm -rf "${DATA}/${seq}"; mkdir -p "${DATA}/${seq}"
