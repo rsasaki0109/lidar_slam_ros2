@@ -9,14 +9,16 @@
 set -uo pipefail
 REPO=/home/user/lidar_slam_ros2; S=${REPO}/bench_report/scripts; PY=/home/user/mapshd/venv/bin/python
 P=${REPO}/bench_report/params; OUT=/home/user/bench/g16; CFG=${OUT}/phase1_cfg; mkdir -p "${OUT}" "${CFG}"
+CN=${CAND_NAME:-G16}  # CAND_CFG / CAND_NAME: another candidate in the place of G16; OUT_NAME: the output directory
+OUT=/home/user/bench/${OUT_NAME:-g16}; CFG=${OUT}/phase1_cfg; mkdir -p "${OUT}" "${CFG}"
 declare -A GF=([G12]=${REPO}/configs/sota_v7/rko_lio_global_G12_2026-10-26.yaml
-               [G16]=${REPO}/bench_report/data/phase1_global/rko_lio_candidate_G16_2026-11-08.yaml)
+               [${CN}]=${CAND_CFG:-${REPO}/bench_report/data/phase1_global/rko_lio_candidate_G16_2026-11-08.yaml})
 set +u; source /opt/ros/jazzy/setup.bash; set -u
 
 # rig <name> <rig file> <lidar topic> <imu topic>: the merged parameter files and rig yamls for G12 and G16
 rig() {
   local name=$1 file=$2 lidar=$3 imu=$4
-  for c in G12 G16; do
+  for c in G12 ${CN}; do
     "${PY}" - "${file}" "${GF[$c]}" "${CFG}/${name}_${c}.yaml" "${lidar}" "${imu}" "${CFG}/${name}_${c}_rig.yaml" <<'PY'
 import sys
 import yaml
@@ -33,7 +35,7 @@ PY
 # runpair <family> <rig name> <sequence> <bag> <score command prefix ('' = none)>
 runpair() {
   local fam=$1 name=$2 seq=$3 bag=$4 score=$5
-  for c in G12 G16; do
+  for c in G12 ${CN}; do
     local o=${OUT}/phase1/${fam}/${seq}_${c}
     [[ -s ${o}/traj_imu.tum ]] || bash "${S}/p5_blind_method.sh" G "${CFG}/${name}_${c}_rig.yaml" "${bag}" "${o}" > /dev/null 2>&1
     if [[ ! -s ${o}/traj_imu.tum ]]; then echo "${fam},${c},${seq},FAILED" | tee -a "${OUT}/phase1.csv"; continue; fi
@@ -90,7 +92,11 @@ for step in ${@:-exp04 mapshd koide oxford}; do
       rig oxford "${P}/oxford_keble05_gyro002_jerk1000.yaml" /hesai/pandar /alphasense_driver_ros/imu
       [[ -e /home/user/data/oxford_keble05/ros2/metadata.yaml ]] || CONVERT_ONLY=1 bash "${S}/p3_spires_session.sh" \
         2024-03-12-keble-college-05 keble05 > "${OUT}/get_oxford.log" 2>&1
-      runpair oxford oxford keble05 /home/user/data/oxford_keble05/ros2 ''
+      # the ground truth was sealed until the maintainer opened it for the Phase 1 gate (decision_rule_G17.txt);
+      # OXFORD_SCORE=0 compares by md5 alone, as for G16
+      osc=''
+      [[ ${OXFORD_SCORE:-0} == 1 ]] && osc="f() { ${PY} /home/user/scripts/ape_oxford.py \$1 /home/user/data/oxford_keble05/gt_sealed/gt-tum.txt /home/user/data/oxford_keble05/calib/T_imu_base.npy \$2/ape > \$2/ape.log 2>&1; grep -oiP 'rmse[^0-9]*\K[0-9.]+' \$2/ape.log | head -1; }; f"
+      runpair oxford oxford keble05 /home/user/data/oxford_keble05/ros2 "${osc}"
       rm -rf /home/user/data/oxford_keble05/ros2 ;;
   esac
 done
