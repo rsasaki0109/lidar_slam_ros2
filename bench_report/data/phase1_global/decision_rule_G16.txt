@@ -34,3 +34,11 @@ exp14/16/18), G12 against G16 (PIL-1 is where the threshold was chosen); every r
 If G16 is adopted, configs/sota_v7 gets it as G and a later blind run needs fresh data.
 
 Record
+  2026-11-08, criterion 1 (stopped at its first missions; the rule stops at the first criterion that fails):
+    HS heap-1: G12 0.0281 m (the value of decision_rule_G14.txt, so the comparison is sound), G16 0.2113 m, 2 re-levels.
+    HS arc-3: G12 0.1262, G16 0.2984, 12 re-levels. (LS heap-1: no re-level, G16 byte-identical to G12, 0.0453;
+    LS arc-3: 0.0466 -> 0.0793, 5 re-levels.) heap-1 alone is worse than G12 by more than 10 % and 2 mm.
+    Criterion 1 fails: G16 is not adopted. The remaining missions and the Phase 1 data were not run.
+    Why it fails: on the flat HEAP-1, where G12's attitude is good (0.0281 m), the 20-s window still measures 2.0-2.1 deg
+    and the re-level fires (the window's mean specific force on a walking legged robot is not good to 2 deg), and each
+    re-level rotates the local map about the robot by about 2 deg, which the registration then has to live with.
