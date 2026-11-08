@@ -60,3 +60,10 @@ Record
   (3) fails: the completion time is 24.76 s with the setting and 18.74 s without it, 32 % longer. glibc maps and
   unmaps every block above 128 KiB anew, and the pages of each new mapping are zeroed on first touch.
   Decision: the change is reverted (the launch files are as before). P2 is not run: the decision needs P1 and P2.
+  After the decision, an exploration only (no plan, no decision; GrandTour HEAP-1, development, Hesai XT-32 + STIM320,
+  G12 with the HS rig keys, one run each, VM lock exclusive): the frontend alone, peak RSS / node time: default
+  400 MB / 54.5 s, jemalloc (LD_PRELOAD of Ubuntu's libjemalloc2 5.3.0) 367 MB / 54.4 s, MALLOC_MMAP_THRESHOLD_=131072
+  340 MB / 71.1 s (+30 %, as on exp04); the trajectory md5 4a722328 in all three. The pipeline (the backend file of P1,
+  which writes no backend output on this rig, so only the memory is read): 523 MiB default, 517 MiB with jemalloc.
+  jemalloc keeps the time but saves 1 % of the pipeline here, too little for a new runtime dependency; not taken
+  further.
