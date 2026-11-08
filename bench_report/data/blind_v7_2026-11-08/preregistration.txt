@@ -140,3 +140,6 @@ Record
     dropped scans with too few ICP keypoints in the narrow parts, then stopped on "RegistrationError: ICP found no
     correspondences"; its CLI writes the trajectory only at the end, so nothing is written. This is the method with its
     published configuration, so it stays a failure (not rerun). No ground truth was read.
+  2026-11-08, about 04:26 UTC: the container restarted during H5 (ETH-1, RKO-LIO upstream, repetition 2), which stopped
+    the batch. Not a property of any method: the batch was started again; it keeps every finished run (those with
+    exit.txt) and reruns the interrupted one from the start. The installed rivals and packages were unchanged.
