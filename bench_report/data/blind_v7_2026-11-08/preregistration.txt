@@ -148,3 +148,9 @@ Record
     trajectory except RKO-LIO upstream on exp16 and exp18 (above). G's three repetitions are byte-identical on all 14.
     Sealed before any ground truth or reference is downloaded: sealed_manifest.txt, 1085
     files, its sha256 b9c8babc85474fd3239e54094a08cb68d2e48229655cd7dfcd11c296e8ff7616. runs.csv holds the run log.
+  2026-11-08, after the maintainer's approval (the one question): the three HILTI ground-truth files were downloaded
+    and matched the selection file's sha256; the 11 prism_position references were downloaded. Scored with
+    p5_blind_score.py (score.csv, score.md). The win condition is not met: G's geometric mean is not the lowest
+    (all 14: G 0.0876, BIEVR-LIO 0.0706, RKO-LIO upstream 0.0698 with two failures), G is more than 10 % worse than its
+    best rival on 6 of 14, and its peak RSS is above 330 MB on 10 of 14; completion 14 / 14 and RTF at most 0.493 hold.
+    Report chapter 57. The 14 sequences are no longer blind.
