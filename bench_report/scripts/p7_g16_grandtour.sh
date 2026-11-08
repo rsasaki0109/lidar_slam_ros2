@@ -8,8 +8,9 @@
 set -uo pipefail
 REPO=/home/user/lidar_slam_ros2; S=${REPO}/bench_report/scripts; PY=/home/user/mapshd/venv/bin/python
 G12=${REPO}/configs/sota_v7/rko_lio_global_G12_2026-10-26.yaml
-G16=${REPO}/bench_report/data/phase1_global/rko_lio_candidate_G16_2026-11-08.yaml
-OUT=/home/user/bench/g16; mkdir -p "${OUT}"
+G16=${CAND_CFG:-${REPO}/bench_report/data/phase1_global/rko_lio_candidate_G16_2026-11-08.yaml}
+CN=${CAND_NAME:-G16}  # CAND_CFG / CAND_NAME: another candidate in the place of G16
+OUT=/home/user/bench/${OUT_NAME:-g16}; mkdir -p "${OUT}"
 LS=" heap-1 arc-3 arc-4 arc-6 con-1 eig-2 snow-3 spx-1 "
 MISSIONS=${MISSIONS:-"heap-1:2024-11-14-13-45-37 arc-3:2024-11-18-13-48-19 arc-4:2024-11-18-15-46-05
   arc-6:2024-11-18-17-13-09 con-1:2024-12-09-09-34-43 eig-2:2024-11-03-13-59-54 snow-3:2024-11-03-08-17-23
@@ -24,11 +25,11 @@ for item in ${MISSIONS}; do
       hs) env=(IMU=stim320_imu LIDAR=hesai_points) ;;
       ls) env=(IMU=stim320_imu RANGE_SCALE=0.9985) ;;
     esac
-    for cfg in G12 G16; do
+    for cfg in G12 ${CN}; do
       label=g16_${cfg}_${rig}
       O=/home/user/bench/grandtour/${label}/${short}
       if [[ ! -s ${O}/${short}.tum ]]; then
-        c=${G12}; [[ ${cfg} == G16 ]] && c=${G16}; mkdir -p "${O}"
+        c=${G12}; [[ ${cfg} != G12 ]] && c=${G16}; mkdir -p "${O}"
         env "${env[@]}" G_CONFIG="${c}" bash "${S}/p1_grandtour_run.sh" "${folder}" "${short}" "${label}" "${REPO}" \
           > "${O%/*}/${short}.log" 2>&1 || true
       fi
