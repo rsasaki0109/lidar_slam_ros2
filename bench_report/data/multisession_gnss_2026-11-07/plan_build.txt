@@ -23,3 +23,20 @@ Checks, fixed now
    and moved by 2 m; with the gate on and no GNSS the join is decided as with it off.
 4. Product path: lidarslam-map merge --place-recognition with the gate on joins a Stadtgarten or Construction pair end to
    end, if their editable outputs can be built from the recorded backend inputs; otherwise the reason is named.
+
+Result (2026-11-08; build/: compare.txt, join reports; scripts p3_ms_gnss_build_check.sh, p3_ms_gnss_build_compare.py,
+p3_ms_gnss_bag.py; commit 77c79f8a)
+1. Met: the six default joins and the self-similarity cache are byte-identical with the gate in the code and off (13
+   files and the cache).
+2. Met: in all seven cases GNSS decides and the same set joins as offline (the largest each time; Stadtgarten 1 <- 2,
+   2 <- 1 and the three splits are refused by the whole-map check and joined by GNSS). The 96 checked transforms get the
+   offline verdict. Places measured are identical; medians differ by at most 0.0008 m and 0.0010 deg. Stadtgarten's
+   backend inputs have no GNSS: its fixes came from GNSS-only bags written from the exported CSVs
+   (multisession_gnss_bag_paths), 8,583 / 3,486 pairs (offline 8,584 / 3,487 with the frontend's TUM, which has one
+   pose more).
+3. Met: test_multisession_join 10 / 10 (two new tests), test_map_join 9 / 9 (map_join.py names a GNSS refusal).
+4. Partly: map bundles of editable runs could not be built, because the Construction and Stadtgarten bags were deleted to
+   make room. The product's join step (map_join.run_join with a params file adding multisession_gnss_gate and the
+   antenna offset) on Construction 1 + 2's backend inputs read GNSS from backend_input (1,350 pairs), GNSS decided, and
+   the session joined at the same transform as with the gate off (x -0.051, y -0.016, z -0.045 m, yaw 47.803 deg). The
+   replay and the merge's alignment and overlap gates were not run.
