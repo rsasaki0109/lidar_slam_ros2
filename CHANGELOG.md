@@ -7,6 +7,13 @@ latest published release.
 
 ### Added
 
+- `graph_slam_multisession_join`: a GNSS gate, a candidate off by default
+  (`multisession_gnss_gate`). When both sessions carry RTK GNSS, a set of
+  place matches is accepted if, at its places, its transform agrees with
+  the transform GNSS gives there (median within 1.0 m and 2 deg). It
+  replaces the whole-map check, which refuses right outdoor joins. With the
+  gate off, every output is byte-identical. It is confirmed only on the
+  data it was developed on (report 56.3/56.4).
 - `lidarslam-map merge --place-recognition`: outputs recorded with `--editable`
   are placed by `graph_slam_multisession_join` (place recognition, no prior,
   with its refusals) before the merge's alignment and overlap gates. A refused

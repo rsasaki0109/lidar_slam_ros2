@@ -87,6 +87,31 @@ processed takes it out of the join.
 runs on one thread, so the outputs are the same for any number of threads (byte-identical on 4 and
 1 threads, report 38.6).
 
+### GNSS gate (a candidate, off by default)
+
+With `multisession_gnss_gate: true`, sessions that carry RTK GNSS are joined by comparing each set's
+transform with GNSS around its places, instead of the whole-map check (report 56.3).
+
+- **GNSS input.** NavSatFix messages (`multisession_gnss_topic`, `/gnss/fix`) are read from each
+  session's bag. An editable run of a bag with GNSS keeps it in `backend_input/`. A session recorded
+  without GNSS can take a GNSS-only bag through `multisession_gnss_bag_paths`.
+- **Fixes kept.** Fixes with status >= 0 and a horizontal standard deviation of at most 0.3 m are
+  kept. Each is paired with the odometry pose nearest in time (within 0.05 s), moved by the antenna
+  offset `multisession_gnss_antenna_xyz`.
+- **The comparison.** At each place of a set, the GNSS pairs within 30 m of the place (at least 50
+  per session) are fitted in yaw and translation, with outliers trimmed. The set's transform is
+  compared with that local GNSS transform: the position difference at the place, and the heading
+  difference.
+- **The decision.** When a set has at least 5 such places, GNSS decides. The first set whose median
+  position and heading differences are at most 1.0 m and 2 deg (`ambiguity_m`, `ambiguity_deg`)
+  joins. The ambiguity and self-similarity refusals are not applied. Without GNSS the join is decided
+  as before.
+- `join_report.yaml` gives each set's `gnss` comparison and whether GNSS decided.
+
+It has met its readings only on the data its comparison was developed on: RTK-SLAM Stadtgarten 1 + 2
+and Construction 1 + 2 (reports 56.1 to 56.4). It is not the default until it is confirmed on RTK
+GNSS data not seen before.
+
 ## Method
 
 1. The runner's submaps are the keyframes. A keyframe's map is the scans within
@@ -210,7 +235,10 @@ Limits:
   was not built either. Without the floor, on RTK-SLAM Construction 1 + 2 (report 56.2) it accepted
   every right set, including two that the whole-map check refuses, but also the right transform
   turned by 5 deg: the median disagreement of the places does not bound a rotation about their
-  middle. Neither variant is built. An editable run of a bag with a
+  middle. Neither variant is built. Comparing each place's heading as well (median at most 2 deg,
+  report 56.3) met every reading on Stadtgarten and Construction, but those data were seen when the
+  heading was added; it is built as a candidate, off by default (above), and needs a confirmation on
+  data not seen before it can become the default. An editable run of a bag with a
   NavSatFix topic keeps it in `backend_input/` (`record_backend_input.sh --gnss-topic`), so the
   sessions have their GNSS.
 - A join adds a session to the map; it does not update the map. A place that changed between

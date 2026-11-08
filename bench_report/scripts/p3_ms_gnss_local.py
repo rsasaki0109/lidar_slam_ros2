@@ -32,6 +32,7 @@ MIN_WINDOW_PAIRS = 50
 MIN_MEASURED = 5
 MAX_MEDIAN_M = 1.0
 NO_FLOOR = False  # --no-floor (plan_construction.txt): the gate is the local comparison alone
+MAX_HEADING_DEG = None  # --max-heading-deg (plan_rotation.txt): also the median heading disagreement
 
 
 class Local:
@@ -49,21 +50,29 @@ class Local:
         return self.cache[k]
 
 
+def yaw_deg(t):
+    return math.degrees(math.atan2(t[1, 0], t[0, 0]))
+
+
 def local_check(t, kfa, kfb, la, lb):
     placed = kfb @ t[:3, :3].T + t[:3, 3]
     dist, nearest = cKDTree(kfa).query(placed, k=1)
     places = np.flatnonzero(dist <= PLACE_RADIUS_M)
-    d = []
+    d, h = [], []
     for b in places:
         ta, tb = la.fit(int(nearest[b])), lb.fit(int(b))
         if ta is None or tb is None:
             continue
         loc = np.linalg.inv(ta) @ tb
         d.append(float(np.linalg.norm(placed[b] - (loc[:3, :3] @ kfb[b] + loc[:3, 3]))))
+        h.append(abs((yaw_deg(t) - yaw_deg(loc) + 180.0) % 360.0 - 180.0))
     out = {'local_places': int(len(places)), 'measured': len(d)}
     if d:
-        out.update({'median_m': round(float(np.median(d)), 3), 'p90_m': round(float(np.percentile(d, 90)), 3)})
+        out.update({'median_m': round(float(np.median(d)), 3), 'p90_m': round(float(np.percentile(d, 90)), 3),
+                    'median_heading_deg': round(float(np.median(h)), 3)})
     out['local_ok'] = len(d) >= MIN_MEASURED and out.get('median_m', math.inf) <= MAX_MEDIAN_M
+    if MAX_HEADING_DEG is not None:
+        out['local_ok'] = out['local_ok'] and out['median_heading_deg'] <= MAX_HEADING_DEG
     return out
 
 
@@ -108,9 +117,10 @@ def main():
         s.add_argument(name, required=True)
     s.add_argument('--gap-s', type=float, default=30.0)
     ap.add_argument('--no-floor', action='store_true', help='the gate without the whole-map floor')
+    ap.add_argument('--max-heading-deg', type=float, help='also require the median heading disagreement at most this')
     a = ap.parse_args()
-    global NO_FLOOR
-    NO_FLOOR = a.no_floor
+    global NO_FLOOR, MAX_HEADING_DEG
+    NO_FLOOR, MAX_HEADING_DEG = a.no_floor, a.max_heading_deg
     if a.mode == 'pair':
         fa, fb = g.read_fixes(a.bag_a), g.read_fixes(a.bag_b)
         origin = fa[0]

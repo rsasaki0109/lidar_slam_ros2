@@ -176,6 +176,14 @@ def refusal_reason(session: dict[str, Any]) -> str:
         return (f"{session.get('accepted', 0)} of {session.get('candidates', 0)} place matches "
                 'were accepted, too few to agree on one transform at 3 places 5 m apart')
     best = sets[0]
+    gnss = best.get('gnss')
+    if (session.get('gnss') or {}).get('decided') and isinstance(gnss, dict):
+        median_m = float(gnss.get('median_m', 0.0))
+        median_deg = float(gnss.get('median_heading_deg', 0.0))
+        return (f"the GNSS gate refused every set tried; at the largest's ({best.get('size')} "
+                f"matches) {gnss.get('places')} places it was {median_m:.2f} m and "
+                f'{median_deg:.2f} deg (medians) from the transform GNSS gives there (at most '
+                '1.0 m and 2.0 deg allowed)')
     return (f"the whole-map check refused every set tried; the largest ({best.get('size')} "
             f"matches) left {100.0 * float(best.get('share_below', 0.0)):.1f} % of "
             f"{best.get('places')} places with less than half their points overlapping "

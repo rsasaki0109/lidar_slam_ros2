@@ -61,6 +61,8 @@
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/serialization.hpp>
 #include <rosbag2_cpp/reader.hpp>
+#include <rosbag2_storage/storage_filter.hpp>
+#include <sensor_msgs/msg/nav_sat_fix.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <small_gicp/points/eigen.hpp>
 #include <small_gicp/points/point_cloud.hpp>
@@ -82,6 +84,9 @@ struct Session
   std::vector<std::array<double, 36>> covariance;
   std::vector<graphslam::pose_graph::LoopConstraint> loops;
   std::vector<Keyframe> keyframes;
+  // every odometry message of the bag (the GNSS gate pairs the fixes with them)
+  std::vector<double> odom_stamps;
+  std::vector<Eigen::Isometry3d> odom_poses;
 };
 
 Eigen::Isometry3d isometry(const double * t, const double * q_xyzw)
@@ -207,6 +212,11 @@ void readKeyframes(
     if (message->topic_name == odom_topic) {
       nav_msgs::msg::Odometry odom;
       odom_serialization.deserialize_message(&serialized, &odom);
+      const auto & p = odom.pose.pose;
+      const double t[3] = {p.position.x, p.position.y, p.position.z};
+      const double q[4] = {p.orientation.x, p.orientation.y, p.orientation.z, p.orientation.w};
+      session->odom_stamps.push_back(rclcpp::Time(odom.header.stamp).seconds());
+      session->odom_poses.push_back(isometry(t, q));
       const auto it = clouds.find(stamp_of(odom.header.stamp));
       if (it != clouds.end()) {
         use_pair(odom, it->second);
@@ -239,6 +249,106 @@ void readKeyframes(
     }
     std::vector<Eigen::Vector3f>().swap(gathered[k]);
   }
+}
+
+// GNSS gate: a kept fix (status >= 0, horizontal standard deviation at most 0.3 m).
+struct GnssFix
+{
+  double stamp;
+  double latitude;
+  double longitude;
+  double altitude;
+};
+
+std::vector<GnssFix> readGnssFixes(const std::string & bag_path, const std::string & topic)
+{
+  std::vector<GnssFix> fixes;
+  rosbag2_cpp::Reader reader;
+  reader.open(bag_path);
+  bool has_topic = false;
+  for (const auto & t : reader.get_all_topics_and_types()) {
+    has_topic = has_topic || t.name == topic;
+  }
+  if (!has_topic) {
+    return fixes;
+  }
+  rosbag2_storage::StorageFilter filter;
+  filter.topics = {topic};
+  reader.set_filter(filter);
+  rclcpp::Serialization<sensor_msgs::msg::NavSatFix> serialization;
+  while (reader.has_next()) {
+    auto message = reader.read_next();
+    if (message->topic_name != topic) {
+      continue;
+    }
+    rclcpp::SerializedMessage serialized(*message->serialized_data);
+    sensor_msgs::msg::NavSatFix fix;
+    serialization.deserialize_message(&serialized, &fix);
+    const auto & c = fix.position_covariance;
+    if (fix.status.status < 0 || c[0] > 0.3 * 0.3 || c[4] > 0.3 * 0.3) {
+      continue;
+    }
+    fixes.push_back(
+      {fix.header.stamp.sec + 1e-9 * fix.header.stamp.nanosec, fix.latitude, fix.longitude,
+        fix.altitude});
+  }
+  return fixes;
+}
+
+Eigen::Vector3d toEcef(const GnssFix & f)
+{
+  const double a = 6378137.0, flat = 1.0 / 298.257223563, e2 = 2.0 * flat - flat * flat;
+  const double la = f.latitude * M_PI / 180.0, lo = f.longitude * M_PI / 180.0;
+  const double n = a / std::sqrt(1.0 - e2 * std::sin(la) * std::sin(la));
+  return Eigen::Vector3d(
+    (n + f.altitude) * std::cos(la) * std::cos(lo), (n + f.altitude) * std::cos(la) * std::sin(lo),
+    (n * (1.0 - e2) + f.altitude) * std::sin(la));
+}
+
+// The fixes with stamps in (t_min, t_max), each paired with the session's odometry pose nearest in
+// time (within 0.05 s): the antenna's position in the odometry frame, and the fix's in the local
+// ENU frame at origin.
+graphslam::multisession::GnssPairs makeGnssPairs(
+  const std::vector<GnssFix> & fixes, const GnssFix & origin, const Session & session,
+  const Eigen::Vector3d & antenna, double t_min, double t_max)
+{
+  graphslam::multisession::GnssPairs out;
+  const std::vector<double> & t = session.odom_stamps;
+  if (t.size() < 2) {
+    return out;
+  }
+  const double lat0 = origin.latitude * M_PI / 180.0, lon0 = origin.longitude * M_PI / 180.0;
+  Eigen::Matrix3d enu;
+  enu << -std::sin(lon0), std::cos(lon0), 0.0,
+    -std::sin(lat0) * std::cos(lon0), -std::sin(lat0) * std::sin(lon0), std::cos(lat0),
+    std::cos(lat0) * std::cos(lon0), std::cos(lat0) * std::sin(lon0), std::sin(lat0);
+  const Eigen::Vector3d ecef0 = toEcef(origin);
+  for (const GnssFix & f : fixes) {
+    if (!(f.stamp > t_min && f.stamp < t_max)) {
+      continue;
+    }
+    std::size_t i = std::lower_bound(t.begin(), t.end(), f.stamp) - t.begin();
+    i = std::min(std::max<std::size_t>(i, 1), t.size() - 1);
+    const std::size_t j = std::abs(t[i - 1] - f.stamp) <= std::abs(t[i] - f.stamp) ? i - 1 : i;
+    if (std::abs(t[j] - f.stamp) > 0.05) {
+      continue;
+    }
+    out.odom.push_back(session.odom_poses[j] * antenna);
+    out.enu.push_back(enu * (toEcef(f) - ecef0));
+  }
+  return out;
+}
+
+std::string gnssFields(const graphslam::multisession::SetAttempt & t)
+{
+  if (t.gnss_places < 0) {
+    return "";
+  }
+  std::ostringstream out;
+  out << ", gnss: {places: " << t.gnss_places << ", median_m: " << t.gnss_median_m <<
+    ", median_heading_deg: " << t.gnss_median_heading_deg << ", passed: " <<
+    (t.gnss_passed ? "true" : "false") << "}";
+  return out.str();
 }
 
 void writePoses(
@@ -343,8 +453,17 @@ std::string matrixRow(const Eigen::Isometry3d & t)
 void writeDebugChecks(
   const std::string & path, const std::vector<graphslam::multisession::Keyframe> & a,
   const std::vector<graphslam::multisession::Keyframe> & b, const std::vector<double> & values,
-  const graphslam::multisession::JoinConfig & join)
+  const graphslam::multisession::JoinConfig & join,
+  const graphslam::multisession::GnssPairs * gnss_a = nullptr,
+  const graphslam::multisession::GnssPairs * gnss_b = nullptr)
 {
+  std::unique_ptr<graphslam::multisession::GnssLocalFits> fits_a, fits_b;
+  if (join.gnss_gate && gnss_a != nullptr && gnss_b != nullptr && !gnss_a->odom.empty() &&
+    !gnss_b->odom.empty())
+  {
+    fits_a = std::make_unique<graphslam::multisession::GnssLocalFits>(a, *gnss_a, join);
+    fits_b = std::make_unique<graphslam::multisession::GnssLocalFits>(b, *gnss_b, join);
+  }
   std::ofstream out(path);
   out << "debug_checks:\n  place_min_fraction: " << join.place_min_fraction << "\n  checks:\n";
   for (std::size_t i = 0; i + 12 <= values.size(); i += 12) {
@@ -352,10 +471,14 @@ void writeDebugChecks(
     for (int j = 0; j < 12; ++j) {
       t.matrix()(j / 4, j % 4) = values[i + j];
     }
-    const auto check = graphslam::multisession::wholeMapCheck(a, b, t, join);
+    auto check = graphslam::multisession::wholeMapCheck(a, b, t, join);
+    if (fits_a) {
+      graphslam::multisession::gnssCheck(a, b, t, *fits_a, *fits_b, join, &check);
+    }
     out << "    - {index: " << i / 12 << ", places: " << check.places << ", share_below: " <<
       check.share_below << ", median: " << check.median << ", passed: " <<
-      (check.passed ? "true" : "false") << ", transform: " << matrixRow(t) << "}\n";
+      (check.passed ? "true" : "false") << ", transform: " << matrixRow(t) << gnssFields(check) <<
+      "}\n";
   }
 }
 
@@ -435,6 +558,25 @@ int main(int argc, char ** argv)
   // output_dir/debug_checks.yaml and stop (bench_report/data/multisession_heldout_2026-11-07)
   std::vector<double> check_values;
   node->get_parameter_or("debug_check_transforms", check_values, std::vector<double>{});
+  // A candidate, off: the GNSS gate (JoinConfig::gnss_gate). GNSS (NavSatFix) is read from each
+  // session's bag, or from multisession_gnss_bag_paths (one per session).
+  node->get_parameter_or("multisession_gnss_gate", join.gnss_gate, join.gnss_gate);
+  std::string gnss_topic;
+  std::vector<std::string> gnss_bags;
+  std::vector<double> antenna_values {0.0, 0.0, 0.0};
+  node->get_parameter_or("multisession_gnss_topic", gnss_topic, std::string("/gnss/fix"));
+  node->get_parameter_or("multisession_gnss_bag_paths", gnss_bags, std::vector<std::string>{});
+  node->get_parameter_or("multisession_gnss_antenna_xyz", antenna_values, antenna_values);
+  if (join.gnss_gate && ((!gnss_bags.empty() && gnss_bags.size() != bags.size()) ||
+    antenna_values.size() != 3))
+  {
+    RCLCPP_ERROR(
+      logger, "multisession_gnss_bag_paths: one per session; multisession_gnss_antenna_xyz: 3 "
+      "values");
+    rclcpp::shutdown();
+    return 1;
+  }
+  const Eigen::Vector3d antenna(antenna_values[0], antenna_values[1], antenna_values[2]);
 
   // pose graph settings, the runner's parameter names
   int num_adjacent;
@@ -481,6 +623,33 @@ int main(int argc, char ** argv)
     return 1;
   }
 
+  // GNSS gate: each session's kept fixes, in one local ENU frame at session 0's first fix
+  const bool parts_as_sessions = split_gap_s >= 0.0 && split_parts >= 3;
+  if (join.gnss_gate && parts_as_sessions) {
+    RCLCPP_WARN(logger, "multisession_gnss_gate: not used with debug_split_parts >= 3");
+    join.gnss_gate = false;
+  }
+  std::vector<std::vector<GnssFix>> fixes(sessions.size());
+  std::vector<graphslam::multisession::GnssPairs> gnss_pairs(sessions.size());
+  GnssFix origin {0.0, 0.0, 0.0, 0.0};
+  if (join.gnss_gate) {
+    for (std::size_t s = 0; s < sessions.size(); ++s) {
+      fixes[s] = readGnssFixes(gnss_bags.empty() ? bags[s] : gnss_bags[s], gnss_topic);
+    }
+    if (!fixes[0].empty()) {
+      origin = fixes[0].front();
+      const double inf = std::numeric_limits<double>::infinity();
+      for (std::size_t s = 0; s < sessions.size(); ++s) {
+        gnss_pairs[s] = makeGnssPairs(fixes[s], origin, sessions[s], antenna, -inf, inf);
+      }
+    }
+    for (std::size_t s = 0; s < sessions.size(); ++s) {
+      RCLCPP_INFO(
+        logger, "session %zu: %zu GNSS fixes kept, %zu paired with the odometry", s,
+        fixes[s].size(), gnss_pairs[s].odom.size());
+    }
+  }
+
   if (!check_values.empty()) {
     if (sessions.size() != 2 || split_gap_s >= 0.0 || check_values.size() % 12 != 0) {
       RCLCPP_ERROR(
@@ -490,14 +659,13 @@ int main(int argc, char ** argv)
     }
     writeDebugChecks(
       output_dir + "/debug_checks.yaml", sessions[0].keyframes, sessions[1].keyframes,
-      check_values, join);
+      check_values, join, &gnss_pairs[0], &gnss_pairs[1]);
     RCLCPP_INFO(
       logger, "debug_check_transforms: %zu transforms checked", check_values.size() / 12);
     rclcpp::shutdown();
     return 0;
   }
 
-  const bool parts_as_sessions = split_gap_s >= 0.0 && split_parts >= 3;
   if (parts_as_sessions) {
     sessions = splitSession(std::move(sessions[0]), split_parts, split_gap_s);
     for (int p = 0; p < split_parts; ++p) {
@@ -542,6 +710,14 @@ int main(int argc, char ** argv)
       exclude = make_exclude(b);
     }
     graphslam::multisession::SessionCache cache_a(a, join), cache_b(b, join);
+    graphslam::multisession::GnssPairs gnss_a, gnss_b;
+    if (join.gnss_gate && !fixes[0].empty()) {  // the halves' fixes, as their keyframes
+      const double inf = std::numeric_limits<double>::infinity();
+      gnss_a = makeGnssPairs(fixes[0], origin, all, antenna, -inf, middle - 0.5 * split_gap_s);
+      gnss_b = makeGnssPairs(fixes[0], origin, all, antenna, middle + 0.5 * split_gap_s, inf);
+      cache_a.gnss = &gnss_a;
+      cache_b.gnss = &gnss_b;
+    }
     const auto result = graphslam::multisession::joinSessions(cache_a, cache_b, join, exclude);
     double sq = 0.0;
     for (const auto & k : b) {
@@ -553,11 +729,17 @@ int main(int argc, char ** argv)
       "\n  accepted: " << result.accepted.size() << "\n  excluded_by_debug_hook: " <<
       (exclude ? "true" : "false") << "\n  joined: " << (result.joined ? "true" : "false") <<
       "\n  ambiguous: " << (result.ambiguous ? "true" : "false") << "\n  self_similar: '" <<
-      result.self_similar << "'\n  sets_tried:\n";
+      result.self_similar << "'\n";
+    if (join.gnss_gate) {
+      report << "  gnss: {pairs_a: " << gnss_a.odom.size() << ", pairs_b: " << gnss_b.odom.size() <<
+        ", decided: " << (result.gnss_decided ? "true" : "false") << "}\n";
+    }
+    report << "  sets_tried:\n";
     for (const auto & t : result.attempts) {
       report << "    - {size: " << t.size << ", places: " << t.places << ", share_below: " <<
         t.share_below << ", median: " << t.median << ", passed: " <<
-        (t.passed ? "true" : "false") << ", transform: " << matrixRow(t.transform) << "}\n";
+        (t.passed ? "true" : "false") << ", transform: " << matrixRow(t.transform) <<
+        gnssFields(t) << "}\n";
     }
     if (result.joined) {
       report << "  transform: " << matrixRow(result.transform) << "\n  error_to_identity_rms_m: " <<
@@ -589,6 +771,9 @@ int main(int argc, char ** argv)
   for (std::size_t s = 0; s < sessions.size(); ++s) {
     caches.push_back(
       std::make_unique<graphslam::multisession::SessionCache>(sessions[s].keyframes, join));
+    if (join.gnss_gate) {
+      caches[s]->gnss = &gnss_pairs[s];
+    }
     fingerprints.push_back(
       graphslam::multisession::sessionFingerprint(sessions[s].keyframes, join));
     checks.push_back("none");
@@ -650,6 +835,7 @@ int main(int argc, char ** argv)
       }
       graphslam::multisession::SessionCache * map_cache = caches[0].get();
       std::unique_ptr<graphslam::multisession::SessionCache> joined_map;
+      graphslam::multisession::GnssPairs map_gnss;  // the map's GNSS, each session placed rigidly
       if (members.size() > 1) {
         for (const auto & o : origin) {
           const Session & member = sessions[o.first];
@@ -659,6 +845,15 @@ int main(int argc, char ** argv)
             map_pose[o.first][o.second] * member.raw[o.second].inverse() * frame;
         }
         joined_map = std::make_unique<graphslam::multisession::SessionCache>(map_keyframes, join);
+        if (join.gnss_gate) {
+          for (int j : members) {
+            for (std::size_t i = 0; i < gnss_pairs[j].odom.size(); ++i) {
+              map_gnss.odom.push_back(placement[j] * gnss_pairs[j].odom[i]);
+              map_gnss.enu.push_back(gnss_pairs[j].enu[i]);
+            }
+          }
+          joined_map->gnss = &map_gnss;
+        }
         // Every session in the map was checked when it joined: none is self-similar.
         joined_map->self_similar = 0;
         for (int j : members) {
@@ -740,12 +935,17 @@ int main(int argc, char ** argv)
       "\n    candidates: " << result.candidates << "\n    accepted: " << result.accepted.size() <<
       "\n    excluded_by_debug_hook: " << (excluded[s] ? "true" : "false") << "\n    ambiguous: " <<
       (result.ambiguous ? "true" : "false") << "\n    self_similar: '" << result.self_similar <<
-      "'\n    sets_tried:\n";
+      "'\n";
+    if (join.gnss_gate) {
+      report << "    gnss: {pairs: " << gnss_pairs[s].odom.size() << ", decided: " <<
+        (result.gnss_decided ? "true" : "false") << "}\n";
+    }
+    report << "    sets_tried:\n";
     for (const auto & a : result.attempts) {
       report << "      - {size: " << a.size << ", places: " << a.places << ", share_below: " <<
         a.share_below << ", median: " << a.median << ", passed: " <<
         (a.passed ? "true" : "false") << ", transform: " << matrixRow(a.transform) <<
-        "}\n";
+        gnssFields(a) << "}\n";
     }
     if (result.joined) {
       report << "    transform_to_session_0: " << matrixRow(result.transform) << "\n";

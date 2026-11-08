@@ -1,0 +1,42 @@
+Building chapter 56.3's gate into graph_slam_multisession_join as a candidate, off by default. Written 2026-11-08,
+before the implementation. An implementation check, not a new measurement: it does not confirm the gate (that needs
+GNSS data not seen, plan_rotation.txt reading 4).
+
+What is built
+- multisession_gnss_gate (default false). GNSS is read per session from multisession_gnss_topic (/gnss/fix) in the
+  session's bag (backend_input), or from multisession_gnss_bag_paths; the antenna offset is
+  multisession_gnss_antenna_xyz. Fixes, pairing with the odometry, the local ENU frame, the 30 m windows, the trimmed
+  4-DoF fits and the per-place position and heading disagreement are as plan_local.txt / plan_rotation.txt; the
+  thresholds are the join's ambiguity_m and ambiguity_deg.
+- When a set tried has at least 5 measured places, GNSS decides the join: the first set (largest first) whose median
+  position and heading disagreement are within the thresholds joins, without the whole-map verdict, the ambiguity and
+  the self-similarity refusals. When no set has 5 measured places, the join is decided as today.
+
+Checks, fixed now
+1. Off: the six default joins of chapter 55's removal check give byte-identical outputs (joins and caches).
+2. On: in every case of plan_rotation.txt (Stadtgarten 1 <- 2, 2 <- 1, the Stadtgarten 1 split; Construction 1 <- 2,
+   2 <- 1, both splits) the join decides as the offline evaluation (the same set joins, or none), and every checked
+   transform of chapters 55 / 56.2 gets the offline verdict (debug_check_transforms). The medians agree within 0.01 m and
+   0.01 deg (the tool pairs fixes with the backend input's odometry; the offline evaluation used the frontend's TUM,
+   equal within 1 um).
+3. Unit tests: with synthetic sessions and GNSS, the gate accepts the right transform and refuses it turned by 5 deg
+   and moved by 2 m; with the gate on and no GNSS the join is decided as with it off.
+4. Product path: lidarslam-map merge --place-recognition with the gate on joins a Stadtgarten or Construction pair end to
+   end, if their editable outputs can be built from the recorded backend inputs; otherwise the reason is named.
+
+Result (2026-11-08; build/: compare.txt, join reports; scripts p3_ms_gnss_build_check.sh, p3_ms_gnss_build_compare.py,
+p3_ms_gnss_bag.py; commit 77c79f8a)
+1. Met: the six default joins and the self-similarity cache are byte-identical with the gate in the code and off (13
+   files and the cache).
+2. Met: in all seven cases GNSS decides and the same set joins as offline (the largest each time; Stadtgarten 1 <- 2,
+   2 <- 1 and the three splits are refused by the whole-map check and joined by GNSS). The 96 checked transforms get the
+   offline verdict. Places measured are identical; medians differ by at most 0.0008 m and 0.0010 deg. Stadtgarten's
+   backend inputs have no GNSS: its fixes came from GNSS-only bags written from the exported CSVs
+   (multisession_gnss_bag_paths), 8,583 / 3,486 pairs (offline 8,584 / 3,487 with the frontend's TUM, which has one
+   pose more).
+3. Met: test_multisession_join 10 / 10 (two new tests), test_map_join 9 / 9 (map_join.py names a GNSS refusal).
+4. Partly: map bundles of editable runs could not be built, because the Construction and Stadtgarten bags were deleted to
+   make room. The product's join step (map_join.run_join with a params file adding multisession_gnss_gate and the
+   antenna offset) on Construction 1 + 2's backend inputs read GNSS from backend_input (1,350 pairs), GNSS decided, and
+   the session joined at the same transform as with the gate off (x -0.051, y -0.016, z -0.045 m, yaw 47.803 deg). The
+   replay and the merge's alignment and overlap gates were not run.

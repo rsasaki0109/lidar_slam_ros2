@@ -1,0 +1,46 @@
+A local GNSS gate that also compares heading. Written 2026-11-07, after chapter 56.2 and before any heading difference
+below was computed. A development check on data already seen (Stadtgarten, Construction); it cannot make the gate a
+candidate by itself. Nothing changes a default.
+
+Question
+- In chapter 56.2 the local comparison of positions accepted the right transform turned by 5 deg about the middle of the
+  places (median 0.961 m): places near the middle hardly move. Each place's local fit also gives a heading. Does
+  comparing it as well refuse turned transforms while keeping the right sets, on all cases seen so far?
+
+The gate (fixed now)
+- As plan_local.txt (places, 30 m windows, at least 50 pairs per side, trimmed 4-DoF fits, at least 5 measured places),
+  without the floor. At each measured place, besides the position disagreement d = |T p_b - T_loc p_b|, the heading
+  disagreement: the yaw of T minus the yaw of T_loc (yaw = atan2(R10, R00)), wrapped to [-180, 180) deg, absolute.
+- Accepted if the median d is at most 1.0 m and the median heading disagreement is at most 2.0 deg: the join's own
+  ambiguity thresholds (ambiguity_m, ambiguity_deg), not chosen on these data.
+
+Cases (all on disk; nothing re-run but the comparison)
+- Stadtgarten 1 <- 2, 2 <- 1 (their sets, chapter 55's 24 transforms about the joined transform each, truth: the
+  checkpoint placement), Stadtgarten 1 split as is (truth: identity).
+- Construction 1 <- 2, 2 <- 1 (sets, 24 transforms about the truth each), Construction 1 and 2 split as is.
+
+Reading, fixed now
+1. Usable: at the truth, the median heading disagreement is at most 1.0 deg in every case (positions as before).
+2. Accept: every right set (the pairs' largest sets, the three splits' sets) is accepted.
+3. Refuse: no transform 2 m or more or 5 deg or more from the truth (Stadtgarten: from the joined transform, as chapter
+   55) is accepted. Reported besides: every accepted transform, and the 1 m and 2 deg ones.
+4. If 1-3 hold, the gate goes to a confirmation on data not seen (a pre-registered plan on a new GNSS pair; NCLT, which
+   has 27 sessions of one campus with RTK GPS over HTTPS, is the candidate). If any fails, it is not taken further and
+   the reason is named.
+
+Result (2026-11-07; rotation/rot_*.json; p3_ms_gnss_local.py --no-floor --max-heading-deg 2.0)
+- At the truth, median heading disagreement: Stadtgarten 0.416 / 0.509 deg (1 <- 2 / 2 <- 1), split 0.174 deg;
+  Construction 0.082 / 0.080 deg, splits 0.181 / 0.083 deg. Positions as in chapters 56.1 and 56.2.
+- Sets: every pair's largest set and every split's set is accepted (heading 0.09-0.60 deg). Besides, Stadtgarten's
+  second and third sets (0.69, 0.88 m from the truth in 1 <- 2; 0.95 m in 2 <- 1) pass; 2 <- 1's third set (1.06 m)
+  does not (median 1.115 m). The join takes the first accepted, the largest.
+- Checked transforms: the 5 deg turns now show 4.94-5.06 deg and are refused in all four orders (the +5 deg turn of
+  Construction 2 <- 1, accepted in chapter 56.2 at 0.961 m, has 5.06 deg). Accepted besides the truth: 1 m moves
+  (+x in all four orders, -y and +y in Construction) and 2 deg turns in Construction (1.94 deg each, just below 2.0).
+  Nothing 2 m or more or 5 deg or more is accepted.
+Reading
+1. Met (at most 0.51 deg).
+2. Met (all seven right sets).
+3. Met.
+4. The gate goes to a confirmation on data not seen. On these data the thresholds are the join's own (1.0 m, 2 deg), but
+   the heading was added after chapter 56.2's failure was seen, so this is a development result only.
