@@ -143,3 +143,8 @@ Record
   2026-11-08, about 04:26 UTC: the container restarted during H5 (ETH-1, RKO-LIO upstream, repetition 2), which stopped
     the batch. Not a property of any method: the batch was started again; it keeps every finished run (those with
     exit.txt) and reruns the interrupted one from the start. The installed rivals and packages were unchanged.
+  2026-11-08 15:12 UTC, H5 done. 210 runs terminal (14 sequences x 5 methods x 3). The 11 H5 missions are the ones
+    listed above (h5_missions.txt; every site's earliest mission had the three files). Every run exited 0 with a
+    trajectory except RKO-LIO upstream on exp16 and exp18 (above). G's three repetitions are byte-identical on all 14.
+    Sealed before any ground truth or reference is downloaded: sealed_manifest.txt, 1085
+    files, its sha256 b9c8babc85474fd3239e54094a08cb68d2e48229655cd7dfcd11c296e8ff7616. runs.csv holds the run log.
