@@ -1,0 +1,49 @@
+Phase 4, next step (docs/roadmap/sota-v7-plan-2026-10.md): glibc malloc settings for the frontend and the backend
+(fixed 2026-11-08 before any run of the change below; the exploration runs before it are recorded as such).
+
+Why
+  Phase 4 step 5 (report chapter 39) found about 53 MiB of the frontend's 416 MiB heap on Oxford that is not live data
+  (malloc's free memory and arena slack). glibc serves a block of at least M_MMAP_THRESHOLD bytes with its own mmap and
+  returns it on free. The threshold starts at 128 KiB, but by default glibc raises it to the size of any mmapped block
+  that is freed (up to 32 MiB on 64-bit). After the first freed LiDAR message or scan buffer (1-2 MB), such buffers come
+  from the heap arenas instead, and the freed space between live blocks stays in the process.
+
+Exploration (2026-11-08, before this plan; exp04 development data, the stream-converted bag of
+data/blind_v7_2026-11-08; RKO-LIO with G12, rig file exp04_gyro002_jerk1000; one run each, a GLIM build running at
+nice 10 beside them, so the times are not comparable). Peak RSS of offline_node (/usr/bin/time -v), MB; the
+trajectory md5 was 5dff1cb9 in every run:
+  default 371; MALLOC_ARENA_MAX 1 / 2 / 4: 596 / 375 / 369;
+  MALLOC_MMAP_THRESHOLD_ 65536 / 262144 / 1048576 / 4194304 (a fixed threshold): 315 / 317 / 325 / 352.
+  The pipeline (frontend and backend, bench_report/scripts/mem_pipeline.sh's measurement, backend
+  lidarslam_competitive_v2_loop_ndt1_res2.yaml): default 641 MiB (offline_node 375, graph_based_slam 188);
+  MALLOC_MMAP_THRESHOLD_=131072: 545 MiB (311, 164); frontend, trajectory_optimized, pose_graph.g2o and loop edges
+  byte-identical (bc231992, a4748f73, f434203a, 8ac346d2, the Phase 4 hashes of exp04).
+  The arena count is not the lever; the threshold is. 131072 is glibc's own starting value, so the change is "keep
+  glibc's initial threshold instead of letting it grow", not a value tuned on these runs.
+
+Change (this commit's successor; lidar_slam_ros2 only, no rko_lio change)
+  The product's entry points set MALLOC_MMAP_THRESHOLD_=131072 for the processes they start, unless the environment
+  already sets it: lidarslam/launch/rko_lio_slam.launch.py and rko_lio_odometry.launch.py (a launch argument
+  malloc_mmap_threshold, default 131072; `off` leaves the environment as it is), so offline_node / online_node and
+  graph_based_slam_node get it. The lidarslam-map CLI runs rko_lio_slam.launch.py, so it gets it too. Nothing else
+  changes.
+
+Runs (after the change is built; one run at a time under the shared VM lock of data/blind_v7_2026-11-08, so the
+blind run's G and FAST-LIO2 runs never share the CPU with them; alternating pairs, the order of a pair alternating)
+  P1 exp04 (the converted bag above), the pipeline as in the exploration: 3 pairs (with the setting = the default
+     launch; without = malloc_mmap_threshold:=off).
+  P2 GrandTour HEAP-1 (development/validation mission 2024-11-14-13-45-37, Hesai XT-32 + STIM320, G12 with the HS rig
+     keys as in data/blind_v7_2026-11-08, the same backend file): 2 pairs.
+Reading
+  (1) in every pair, the frontend trajectory, trajectory_optimized.tum, pose_graph.g2o and the loop edges are
+      byte-identical between the two runs;
+  (2) in every pair, the sum of the per-process peaks (VmHWM) is lower with the setting;
+  (3) per sequence, the mean pipeline completion time (launch to the map_save answer) with the setting is at most 5 %
+      above the mean without it.
+Decision: the setting stays if (1), (2) and (3) hold on P1 and P2; otherwise the change is reverted. Reported besides:
+  each process's peak, the frontend's node time.
+
+Not in this step (left as they are): the map save's extra memory (Phase 4 measured it on Oxford, whose raw data are no
+longer on this VM) and the PCD cache as the default.
+
+Record
