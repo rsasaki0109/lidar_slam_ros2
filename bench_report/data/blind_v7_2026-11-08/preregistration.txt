@@ -134,3 +134,9 @@ Record
     GTSAM_BUILD_UNSTABLE on (glim_build.sh). GLIM on exp04: 0.0923 m on the control points, 50.5 s, peak RSS 714 MB
     (the earlier record of GLIM CPU on exp04: 0.086 m, 696 MB).
   The batch waits before streaming a sequence until the disk has room for it (exp16 needs about 5.6 GB).
+  2026-11-08 04:18 UTC, H4 done (45 runs). Every stream's sha256 equal to the selection file (exp14 18eea013...,
+    exp16 and exp18 checked by the batch). All runs of G, BIEVR-LIO, FAST-LIO2 and GLIM exited 0 with a trajectory.
+    RKO-LIO upstream exited 1 with no trajectory in all six runs of exp16 and exp18: with its default 1.0 m voxel it
+    dropped scans with too few ICP keypoints in the narrow parts, then stopped on "RegistrationError: ICP found no
+    correspondences"; its CLI writes the trajectory only at the end, so nothing is written. This is the method with its
+    published configuration, so it stays a failure (not rerun). No ground truth was read.
