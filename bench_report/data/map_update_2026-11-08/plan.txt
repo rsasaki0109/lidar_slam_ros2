@@ -52,3 +52,19 @@ Step 2 plan (fixed 2026-11-08 before any run of it)
   frontend trajectory, CON-2 mapped by the joined run runs/conA12; extrinsic con-1/extrinsic.txt).
   Evaluations E1 and E2 as in step 1, both directions, on both pairs (four runs).
   Decision: as step 1 (E1 at most 1.0 %, E2 at least 90 %), required in all four runs; reported for each pair apart.
+  2026-11-08, step 2 (the origin of each new frame was first passed as a 4-vector, a script error that stopped all four
+  runs before any result; fixed and run again). Removed real points / cube recall:
+    Construction, old 1 new 2: 1.01 % of 1,998,299 / 66.0 % of 16,598 in 43 cubes
+    Construction, old 2 new 1: 1.09 % of 1,721,683 / 69.5 % of 20,458 in 53 cubes
+    GrandTour CON, old 1 new 2: 1.41 % of 1,327,111 / 84.2 % of 10,036 in 26 cubes
+    GrandTour CON, old 2 new 1: 0.74 % of 1,302,805 / 71.7 % of 10,036 in 26 cubes
+  E1 holds in one run of four, E2 in none. Decision: not good enough; the product does not change.
+  Why (images step2/*.png, looked at after the decision): with the carrier out, the removed points still lie along the
+  old path, now beyond 1.5 m: on GrandTour a person walks with the robot, and in Construction someone walks near the
+  operator. The newer session saw those places empty, so removing them is what a map update should do; E1 as written
+  counts every removal between two visits minutes apart as an error, so it measures the people as much as the method.
+  The cubes are missed for a different reason: only every 5th frame and one ray per 0.2 m voxel are cast, so parts of
+  a 0.4 m cube are crossed by fewer than two frames.
+  Not run: a step 3. A fair test needs an E1 that tells moving people from the static scene (for example, labelled
+  points, or the removed points' distance to every session's path) and denser rays; both are changes to the test, and
+  the result above stands as the record of this design.
