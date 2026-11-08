@@ -121,6 +121,10 @@ def test_refusal_reason_names_the_rule_that_refused():
     reason = refusal_reason({'sets_tried': [
         {'size': 166, 'places': 256, 'share_below': 0.101562, 'median': 0.69, 'passed': False}]})
     assert '10.2 %' in reason and '166 matches' in reason
+    reason = refusal_reason({'gnss': {'pairs': 3486, 'decided': True}, 'sets_tried': [
+        {'size': 166, 'places': 256, 'share_below': 0.0, 'median': 0.69, 'passed': True,
+         'gnss': {'places': 246, 'median_m': 2.08, 'median_heading_deg': 5.01, 'passed': False}}]})
+    assert 'GNSS gate' in reason and '2.08 m' in reason and '5.01 deg' in reason
 
 
 def test_joined_sessions_become_initial_transforms(tmp_path: Path):

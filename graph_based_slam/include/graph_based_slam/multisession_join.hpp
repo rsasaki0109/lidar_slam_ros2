@@ -110,6 +110,18 @@ struct JoinConfig
   // step 5). 0: off.
   double self_gate_fraction {0.48};
   double self_gate_distance_m {1.0};
+  // GNSS gate, a candidate, off (bench_report/data/multisession_gnss_2026-11-07/plan_rotation.txt,
+  // plan_build.txt). With GNSS for both sessions (SessionCache::gnss), a set's transform is
+  // compared, at each of its places, with the transform GNSS gives there: each session's GNSS pairs
+  // within gnss_window_m of the place (at least gnss_min_window_pairs) fitted in yaw and
+  // translation. When a set has at least gnss_min_places such places, GNSS decides the join: the
+  // first set whose median position and heading disagreement are at most ambiguity_m and
+  // ambiguity_deg joins, without the whole-map verdict and the ambiguity and self-similarity
+  // refusals.
+  bool gnss_gate {false};
+  double gnss_window_m {30.0};
+  int gnss_min_window_pairs {50};
+  int gnss_min_places {5};
   int num_threads {4};
 };
 
@@ -120,6 +132,14 @@ struct Keyframe
   int id {-1};
   Eigen::Isometry3d frame {Eigen::Isometry3d::Identity()};
   std::vector<Eigen::Vector3f> points;
+};
+
+// A session's GNSS for the GNSS gate: each kept fix's antenna position in the session's odometry
+// frame, and the fix's position in a local ENU frame that the sessions of a join share.
+struct GnssPairs
+{
+  std::vector<Eigen::Vector3d> odom;
+  std::vector<Eigen::Vector3d> enu;
 };
 
 struct Match
@@ -141,6 +161,12 @@ struct SetAttempt
   bool passed {false};
   // The transform the set stands for (T_{A <- B} of its medoid match); reported, not decided on.
   Eigen::Isometry3d transform {Eigen::Isometry3d::Identity()};
+  // With the GNSS gate: the places compared with GNSS (-1: not compared), the median position and
+  // heading disagreement, and the verdict.
+  int gnss_places {-1};
+  double gnss_median_m {-1.0};
+  double gnss_median_heading_deg {-1.0};
+  bool gnss_passed {false};
 };
 
 struct JoinResult
@@ -155,6 +181,7 @@ struct JoinResult
   // self-similar ("a" or "b").
   bool ambiguous {false};
   std::string self_similar;
+  bool gnss_decided {false};  // the GNSS gate decided the join (gnss_gate)
 };
 
 inline Eigen::Isometry3d gravityAlignedFrame(const Eigen::Isometry3d & pose)
@@ -332,6 +359,7 @@ struct SessionCache
   std::vector<ScanContext::Descriptor> descriptors;
   std::vector<std::shared_ptr<const detail::Prepared>> prepared;
   int self_similar {-1};  // -1: not checked yet
+  const GnssPairs * gnss {nullptr};  // the session's GNSS for the GNSS gate, if any
 };
 
 // The whole-map check of a session transform: B's keyframes that land within place_radius_m of
@@ -394,6 +422,176 @@ inline SetAttempt wholeMapCheck(
   out.median = fractions[fractions.size() / 2];
   out.passed = out.places >= config.min_places && out.share_below <= config.max_bad_share;
   return out;
+}
+
+namespace detail
+{
+// The median; for an even count the mean of the two middle values.
+inline double median(std::vector<double> v)
+{
+  const std::size_t n = v.size();
+  std::nth_element(v.begin(), v.begin() + n / 2, v.end());
+  double m = v[n / 2];
+  if (n % 2 == 0) {
+    m = 0.5 * (m + *std::max_element(v.begin(), v.begin() + n / 2));
+  }
+  return m;
+}
+
+inline double yawDeg(const Eigen::Isometry3d & t)
+{
+  return std::atan2(t.linear()(1, 0), t.linear()(0, 0)) * 180.0 / M_PI;
+}
+
+// The yaw and translation that best move the kept src points onto dst (least squares).
+inline Eigen::Isometry3d fitYawTranslation(
+  const std::vector<Eigen::Vector3d> & src, const std::vector<Eigen::Vector3d> & dst,
+  const std::vector<char> & keep)
+{
+  Eigen::Vector3d sc = Eigen::Vector3d::Zero();
+  Eigen::Vector3d dc = Eigen::Vector3d::Zero();
+  double n = 0.0;
+  for (std::size_t i = 0; i < src.size(); ++i) {
+    if (keep[i]) {
+      sc += src[i];
+      dc += dst[i];
+      n += 1.0;
+    }
+  }
+  sc /= n;
+  dc /= n;
+  double cross = 0.0;
+  double dot = 0.0;
+  for (std::size_t i = 0; i < src.size(); ++i) {
+    if (keep[i]) {
+      const Eigen::Vector3d s = src[i] - sc;
+      const Eigen::Vector3d d = dst[i] - dc;
+      cross += s.x() * d.y() - s.y() * d.x();
+      dot += s.x() * d.x() + s.y() * d.y();
+    }
+  }
+  Eigen::Isometry3d t = Eigen::Isometry3d::Identity();
+  t.linear() = Eigen::AngleAxisd(std::atan2(cross, dot), Eigen::Vector3d::UnitZ())
+    .toRotationMatrix();
+  t.translation() = dc - t.linear() * sc;
+  return t;
+}
+
+// fitYawTranslation without the outliers: fit, keep the points within max(0.3 m, 3 x 1.4826 x
+// the median distance of the kept ones), refit, until the kept points do not change (10 rounds at
+// most).
+inline Eigen::Isometry3d trimmedYawTranslation(
+  const std::vector<Eigen::Vector3d> & src, const std::vector<Eigen::Vector3d> & dst)
+{
+  std::vector<char> keep(src.size(), 1);
+  Eigen::Isometry3d t = Eigen::Isometry3d::Identity();
+  for (int round = 0; round < 10; ++round) {
+    t = fitYawTranslation(src, dst, keep);
+    std::vector<double> r(src.size());
+    std::vector<double> kept;
+    for (std::size_t i = 0; i < src.size(); ++i) {
+      r[i] = (t * src[i] - dst[i]).norm();
+      if (keep[i]) {
+        kept.push_back(r[i]);
+      }
+    }
+    const double limit = std::max(0.3, 3.0 * 1.4826 * median(kept));
+    std::vector<char> next(src.size());
+    for (std::size_t i = 0; i < src.size(); ++i) {
+      next[i] = r[i] <= limit ? 1 : 0;
+    }
+    if (next == keep || std::count(next.begin(), next.end(), 1) == 0) {
+      break;
+    }
+    keep = next;
+  }
+  return t;
+}
+}  // namespace detail
+
+// The GNSS fits of a session around its keyframes (T_{ENU <- odometry} from the session's GNSS
+// pairs within gnss_window_m of the keyframe), made when first asked for.
+class GnssLocalFits
+{
+public:
+  GnssLocalFits(
+    const std::vector<Keyframe> & keyframes, const GnssPairs & gnss, const JoinConfig & config)
+  : keyframes_(keyframes), gnss_(gnss), config_(config), fits_(keyframes.size()),
+    state_(keyframes.size(), 0) {}
+
+  // nullptr when fewer than gnss_min_window_pairs pairs lie within the window
+  const Eigen::Isometry3d * fit(int k)
+  {
+    if (state_[k] == 0) {
+      std::vector<Eigen::Vector3d> src, dst;
+      const Eigen::Vector3d c = keyframes_[k].frame.translation();
+      for (std::size_t i = 0; i < gnss_.odom.size(); ++i) {
+        if ((gnss_.odom[i] - c).norm() <= config_.gnss_window_m) {
+          src.push_back(gnss_.odom[i]);
+          dst.push_back(gnss_.enu[i]);
+        }
+      }
+      state_[k] = 2;
+      if (static_cast<int>(src.size()) >= config_.gnss_min_window_pairs) {
+        fits_[k] = detail::trimmedYawTranslation(src, dst);
+        state_[k] = 1;
+      }
+    }
+    return state_[k] == 1 ? &fits_[k] : nullptr;
+  }
+
+private:
+  const std::vector<Keyframe> & keyframes_;
+  const GnssPairs & gnss_;
+  const JoinConfig & config_;
+  std::vector<Eigen::Isometry3d, Eigen::aligned_allocator<Eigen::Isometry3d>> fits_;
+  std::vector<char> state_;  // 0: not fitted yet, 1: fitted, 2: too few pairs
+};
+
+// The GNSS gate's comparison of a session transform: B's keyframes that land within place_radius_m
+// of one of A's (with the nearest), each compared with the GNSS transform there. Fills the gnss_*
+// fields of out.
+inline void gnssCheck(
+  const std::vector<Keyframe> & a, const std::vector<Keyframe> & b,
+  const Eigen::Isometry3d & session, GnssLocalFits & fits_a, GnssLocalFits & fits_b,
+  const JoinConfig & config, SetAttempt * out)
+{
+  std::vector<double> position, heading;
+  for (int k = 0; k < static_cast<int>(b.size()); ++k) {
+    const Eigen::Vector3d p = session * b[k].frame.translation();
+    int nearest = -1;
+    double best = std::numeric_limits<double>::max();
+    for (int j = 0; j < static_cast<int>(a.size()); ++j) {
+      const double d = (a[j].frame.translation() - p).norm();
+      if (d < best) {
+        best = d;
+        nearest = j;
+      }
+    }
+    if (nearest < 0 || best > config.place_radius_m) {
+      continue;
+    }
+    const Eigen::Isometry3d * ta = fits_a.fit(nearest);
+    const Eigen::Isometry3d * tb = fits_b.fit(k);
+    if (ta == nullptr || tb == nullptr) {
+      continue;
+    }
+    const Eigen::Isometry3d local = ta->inverse() * (*tb);
+    position.push_back((p - local * b[k].frame.translation()).norm());
+    double diff = std::fmod(detail::yawDeg(session) - detail::yawDeg(local) + 180.0, 360.0);
+    if (diff < 0.0) {
+      diff += 360.0;
+    }
+    heading.push_back(std::abs(diff - 180.0));
+  }
+  out->gnss_places = static_cast<int>(position.size());
+  if (!position.empty()) {
+    out->gnss_median_m = detail::median(position);
+    out->gnss_median_heading_deg = detail::median(heading);
+  }
+  out->gnss_passed = out->gnss_places >= config.gnss_min_places &&
+    out->gnss_median_m <= config.ambiguity_m &&
+    out->gnss_median_heading_deg <= config.ambiguity_deg;
 }
 
 inline bool differentTransforms(
@@ -524,6 +722,15 @@ inline JoinResult joinSessions(
   for (int i = 0; i < n; ++i) {
     remaining.insert(i);
   }
+  // the GNSS gate: both sessions have GNSS (never in a self-join)
+  const bool gnss = config.gnss_gate && !self_join && cache_a.gnss != nullptr &&
+    cache_b.gnss != nullptr && !cache_a.gnss->odom.empty() && !cache_b.gnss->odom.empty();
+  std::unique_ptr<GnssLocalFits> fits_a, fits_b;
+  if (gnss) {
+    fits_a = std::make_unique<GnssLocalFits>(a, *cache_a.gnss, config);
+    fits_b = std::make_unique<GnssLocalFits>(b, *cache_b.gnss, config);
+  }
+  std::vector<std::vector<int>> cliques;  // the set of each attempt
   for (int attempt = 0; attempt < config.max_sets && !remaining.empty(); ++attempt) {
     std::vector<int> ids(remaining.begin(), remaining.end());
     std::vector<int> local(n, -1);
@@ -578,7 +785,11 @@ inline JoinResult joinSessions(
     SetAttempt check = wholeMapCheck(a, b, result.accepted[medoid].session, config);
     check.size = static_cast<int>(clique.size());
     check.transform = result.accepted[medoid].session;
+    if (gnss) {
+      gnssCheck(a, b, check.transform, *fits_a, *fits_b, config, &check);
+    }
     result.attempts.push_back(check);
+    cliques.push_back(clique);
     if (check.passed) {
       if (!result.joined) {
         result.joined = true;
@@ -597,6 +808,26 @@ inline JoinResult joinSessions(
     for (int i : clique) {
       remaining.erase(i);
     }
+  }
+  // GNSS decides when a set has enough places compared with it: the first set it passes joins.
+  if (gnss && std::any_of(
+      result.attempts.begin(), result.attempts.end(),
+      [&](const SetAttempt & t) {return t.gnss_places >= config.gnss_min_places;}))
+  {
+    result.gnss_decided = true;
+    result.joined = false;
+    result.ambiguous = false;
+    result.set.clear();
+    result.transform = Eigen::Isometry3d::Identity();
+    for (std::size_t i = 0; i < result.attempts.size(); ++i) {
+      if (result.attempts[i].gnss_passed) {
+        result.joined = true;
+        result.transform = result.attempts[i].transform;
+        result.set = cliques[i];
+        break;
+      }
+    }
+    return result;
   }
   if (result.ambiguous) {
     result.joined = false;

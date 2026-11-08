@@ -278,6 +278,96 @@ TEST(MultisessionJoin, RefusesASiteThatLooksTheSameTurnedHalfway)
   EXPECT_TRUE(result.ambiguous || !result.self_similar.empty());
 }
 
+// GNSS along a slightly curved walk: each antenna position in the session's odometry frame, and
+// the fix in an ENU frame turned and moved from the world (noise 2 cm).
+multisession::GnssPairs gnssAlong(
+  std::mt19937 & rng, double x0, double x1, double y, const Eigen::Isometry3d & world_to_session)
+{
+  const Eigen::Isometry3d world_to_enu = planar(1000.0, 2000.0, 50.0, 0.7);
+  std::normal_distribution<double> noise(0.0, 0.02);
+  multisession::GnssPairs out;
+  for (double x = x0; x <= x1 + 1e-9; x += 0.25) {
+    const Eigen::Vector3d w(x, y + 0.5 * std::sin(x / 5.0), 1.0);
+    out.odom.push_back(world_to_session * w);
+    out.enu.push_back(world_to_enu * w + Eigen::Vector3d(noise(rng), noise(rng), noise(rng)));
+  }
+  return out;
+}
+
+TEST(MultisessionJoin, GnssGateAcceptsTheRightTransformAndRefusesTurnedOrMovedOnes)
+{
+  std::mt19937 rng(17);
+  std::vector<Eigen::Vector3d> site = boxes(rng, 60, -20.0, 80.0, 4.0, 25.0);
+  ground(&site, -20.0, 80.0, 25.0);
+  const Eigen::Isometry3d world_to_b = planar(15.0, -7.0, 0.4, 1.0);
+  const auto a = walk(site, 0.0, 40.0, 0.0, 0.0, Eigen::Isometry3d::Identity());
+  const auto b = walk(site, 10.0, 50.0, 1.0, 0.3, world_to_b);
+  const auto gnss_a = gnssAlong(rng, 0.0, 40.0, 0.0, Eigen::Isometry3d::Identity());
+  const auto gnss_b = gnssAlong(rng, 10.0, 50.0, 1.0, world_to_b);
+  multisession::JoinConfig config;
+  config.gnss_gate = true;
+  multisession::GnssLocalFits fits_a(a, gnss_a, config), fits_b(b, gnss_b, config);
+  const Eigen::Isometry3d truth = world_to_b.inverse();
+  multisession::SetAttempt right;
+  multisession::gnssCheck(a, b, truth, fits_a, fits_b, config, &right);
+  EXPECT_GE(right.gnss_places, config.gnss_min_places);
+  EXPECT_LT(right.gnss_median_m, 0.05);
+  EXPECT_LT(right.gnss_median_heading_deg, 0.2);
+  EXPECT_TRUE(right.gnss_passed);
+  // turned by 5 deg about the middle of B's placed keyframes: the places near it hardly move
+  Eigen::Vector3d middle = Eigen::Vector3d::Zero();
+  for (const auto & k : b) {
+    middle += truth * k.frame.translation();
+  }
+  middle /= static_cast<double>(b.size());
+  const Eigen::Isometry3d turned = Eigen::Translation3d(middle) *
+    Eigen::AngleAxisd(5.0 * M_PI / 180.0, Eigen::Vector3d::UnitZ()) *
+    Eigen::Translation3d(-middle) * truth;
+  multisession::SetAttempt turn;
+  multisession::gnssCheck(a, b, turned, fits_a, fits_b, config, &turn);
+  EXPECT_NEAR(turn.gnss_median_heading_deg, 5.0, 0.2);
+  EXPECT_FALSE(turn.gnss_passed);
+  multisession::SetAttempt moved;
+  multisession::gnssCheck(a, b, planar(2.0, 0.0, 0.0, 0.0) * truth, fits_a, fits_b, config, &moved);
+  EXPECT_NEAR(moved.gnss_median_m, 2.0, 0.1);
+  EXPECT_FALSE(moved.gnss_passed);
+}
+
+TEST(MultisessionJoin, GnssGateDecidesOnlyWithGnssForBothSessions)
+{
+  std::mt19937 rng(19);
+  std::vector<Eigen::Vector3d> site = boxes(rng, 60, -20.0, 80.0, 4.0, 25.0);
+  ground(&site, -20.0, 80.0, 25.0);
+  const Eigen::Isometry3d world_to_b = planar(15.0, -7.0, 0.4, 1.0);
+  const auto a = walk(site, 0.0, 40.0, 0.0, 0.0, Eigen::Isometry3d::Identity());
+  const auto b = walk(site, 10.0, 50.0, 1.0, 0.3, world_to_b);
+  const auto gnss_a = gnssAlong(rng, 0.0, 40.0, 0.0, Eigen::Isometry3d::Identity());
+  const auto gnss_b = gnssAlong(rng, 10.0, 50.0, 1.0, world_to_b);
+  multisession::JoinConfig config;
+  config.num_threads = 2;
+  const auto off = multisession::joinSessions(a, b, config);
+  config.gnss_gate = true;
+  // no GNSS: decided as with the gate off
+  const auto without = multisession::joinSessions(a, b, config);
+  EXPECT_FALSE(without.gnss_decided);
+  EXPECT_EQ(without.joined, off.joined);
+  EXPECT_TRUE(without.transform.isApprox(off.transform));
+  // GNSS for both: GNSS decides, and the right set joins
+  multisession::SessionCache cache_a(a, config), cache_b(b, config);
+  cache_a.gnss = &gnss_a;
+  cache_b.gnss = &gnss_b;
+  const auto with = multisession::joinSessions(cache_a, cache_b, config);
+  EXPECT_TRUE(with.gnss_decided);
+  ASSERT_TRUE(with.joined);
+  ASSERT_FALSE(with.attempts.empty());
+  EXPECT_TRUE(with.attempts.front().gnss_passed);
+  const Eigen::Isometry3d truth = world_to_b.inverse();
+  for (const auto & k : b) {
+    const Eigen::Vector3d p = k.frame.translation();
+    EXPECT_LT((with.transform * p - truth * p).norm(), 0.03);
+  }
+}
+
 TEST(MultisessionJoin, MaxCliqueStopsOnceLargeEnough)
 {
   // a 4-clique {0, 1, 2, 3} and a separate edge {4, 5}
