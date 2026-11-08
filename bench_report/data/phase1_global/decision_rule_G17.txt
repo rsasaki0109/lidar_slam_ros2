@@ -1,0 +1,33 @@
+Phase 1, candidate G17 (fixed 2026-11-08 before any G17 run other than these, whose results are known and count with
+those runs: GrandTour PIL-1 (opened blind-run mission; limits 0.1 and 0.05 deg tried, chapter 60.1) and the development
+missions HEAP-1 and ARC-3 on both GrandTour rigs (explored after G16 failed there)).
+
+G17 = G12 + max_tilt_correction_deg 0.05 (the other keys of G12 unchanged). File:
+data/phase1_global/rko_lio_candidate_G17_2026-11-08.yaml. Build: the installed rko_lio ac64178 (offline_node md5
+cddcf9d9bb47dfceaa5eb92d579e87a3). After each registration, the change it makes to the gyro-predicted roll and pitch is
+limited to 0.05 deg; yaw and translation are the registration's. It acts on every scan, so no sequence is byte-identical
+to G12.
+
+Oxford Keble 05's ground truth: sealed since chapter 39's time; the maintainer decided on 2026-11-08 to open it for the
+Phase 1 gate (a development sequence already scored many times in Phase 1). It is read only to score the runs below.
+
+Known before the rule (ATE without reference spikes, m; G12 / G17): PIL-1 2.720 / 1.316 (median 1.32 / 0.29);
+HS heap-1 0.0281 / 0.0224, HS arc-3 0.1262 / 0.0463, LS heap-1 0.0453 / 0.0447, LS arc-3 0.0466 / 0.0319.
+
+G12 is run beside G17 on every sequence with the same build, and the comparisons are with that G12 run. Adopt G17 as G
+if all of these hold (one run each, frontend only), checked in this order, stopping at the first that fails:
+  1. GrandTour HS rig, the 15 development missions of decision_rule_G14.txt (all but snow-1), ATE without reference
+     spikes: mean not above G12's, and no mission worse than G12 by more than 10 % and more than 2 mm at once. snow-1 is
+     run and reported only.
+  2. The Phase 1 gate: MapsHD's eight with a geometric mean within 1.10 x the best profiles' (G12's is 1.010 x it,
+     decision_rule_G10.txt), Oxford Keble 05 at most 1.10 x 0.0503 m, exp04 at most 1.10 x 0.0520 m, and the all-ten
+     geometric mean at most 1.05 x 0.0348 m and not above G12's in this build.
+  3. Koide outdoor_hard 02a / 02b / 01b / 01a: no sequence worse than G12 by more than 5 %, and 01a below 1.5 m.
+  4. GrandTour LS rig (Livox MID-360 with range scale 0.9985 + STIM320), the 8 missions of decision_rule_G14.txt: mean
+     not above G12's, and no mission worse than G12 by more than 10 % and more than 2 mm at once.
+  5. Every G17 run real-time (node time below the data duration).
+Reported besides, not deciding: the opened blind-run sequences (11 GrandTour H5 missions, HS rig; HILTI exp14/16/18),
+G12 against G17.
+If G17 is adopted, configs/sota_v7 gets it as G; a later blind run needs fresh data.
+
+Record
