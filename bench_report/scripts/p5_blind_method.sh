@@ -7,6 +7,7 @@
 #   parameter file: rig keys plus the G12 keys), and optionally imu_to_prism_quat_xyzw_xyz (GrandTour).
 # Writes <out>/traj_imu.tum (T_world_imu), <out>/traj.tum (T_world_prism with imu_to_prism, else T_world_imu),
 # <out>/time.txt (/usr/bin/time -v of the method's process), <out>/exit.txt and <out>/stdout.log.
+# RKO_WS=<colcon workspace> takes G's offline_node from another build (default: this repository's install; chapter 60.4).
 # G and FAST-LIO2 runs hold the exclusive VM lock /home/user/bench/blind_v7/quiet.lock; the others hold it shared.
 set -uo pipefail
 method=$1; rig=$(realpath "$2"); bag=$(realpath "$3"); out=$(realpath -m "$4")
@@ -24,7 +25,7 @@ echo "start_utc $(date -u +%Y-%m-%dT%H:%M:%SZ) load $(cut -d' ' -f1-3 /proc/load
 t0=$(date +%s.%N)
 case ${method} in
   G)
-    "${TIME[@]}" timeout -s INT 7200 "${REPO}/install/rko_lio/lib/rko_lio/offline_node" --ros-args \
+    "${TIME[@]}" timeout -s INT 7200 "${RKO_WS:-${REPO}}/install/rko_lio/lib/rko_lio/offline_node" --ros-args \
       --params-file "$(rv g_params)" -p bag_path:="${bag}" -p lidar_topic:="${LIDAR}" -p imu_topic:="${IMU}" \
       -p results_dir:="${out}" > "${out}/stdout.log" 2>&1 8>&-
     rc=$?
