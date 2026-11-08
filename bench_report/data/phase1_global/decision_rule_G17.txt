@@ -31,3 +31,6 @@ G12 against G17.
 If G17 is adopted, configs/sota_v7 gets it as G; a later blind run needs fresh data.
 
 Record
+  2026-11-08: the maintainer explicitly allowed reading Oxford Keble 05's ground truth
+    (/home/user/data/oxford_keble05/gt_sealed/gt-tum.txt) to score the Phase 1 gate (asked twice; the first request
+    was stopped by the session's permission check). It is read only by p7_g16_phase1.sh with OXFORD_SCORE=1.
