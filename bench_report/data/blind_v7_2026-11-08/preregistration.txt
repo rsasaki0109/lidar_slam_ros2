@@ -1,0 +1,131 @@
+SOTA v7 Phase 5, first blind run: preregistration (fixed 2026-11-08, before any byte of a holdout below is read).
+
+What this run can and cannot show
+  docs/roadmap/sota-v7-plan-2026-10.md section 2 says a tier is claimed only with at least two fresh families. Neither
+  holdout here is a fresh family: HILTI 2022 (H4) gave the development sequences exp01/exp04/exp07, and GrandTour (H5)
+  gave sixteen development missions. So this run is a within-family blind measurement: how the frozen global
+  configuration G, chosen on development data, does on unseen sequences of two development families, against rivals
+  run on the same inputs. No tier claim and no README claim row follows from it, whatever the scores are. It is
+  reported in bench_report/REPORT.md (chapter 57) with every sequence, failed runs included.
+
+The candidate (frozen; not changed after this file)
+  G = the Phase 1 global frontend configuration G12, the RKO-LIO frontend alone (no backend, no loop closure, no
+  post-processing; every pose is the frontend's online estimate):
+    configs/sota_v7/rko_lio_global_G12_2026-10-26.yaml                      md5 c4bde039a2499e10f7c6557c2e0b523c
+    Thirdparty/rko_lio ac64178 (lidar_slam_ros2 63156d68), offline_node     md5 cddcf9d9bb47dfceaa5eb92d579e87a3
+  Per-rig inputs only (plan section 2), no algorithm key differs between the two holdouts:
+    H4 (HILTI Phasma: Hesai PandarXT-32 + Bosch BMI085 /alphasense/imu): the rig file of the development sequence
+      exp04, bench_report/params/exp04_gyro002_jerk1000.yaml (md5 d0575e2ebfe60ae5f79b6ac4cb4dea06), then the G12
+      file on top (its algorithm keys win). Base frame = IMU; LiDAR extrinsic from the official calibration (the
+      selection file's calibration tree is the same for exp04 and the three holdouts). Topics /hesai/pandar,
+      /alphasense/imu. This is how Phase 1 ran exp04 with G12 (trajectory md5 5dff1cb9).
+    H5 (GrandTour Boxi on ANYmal: Hesai XT-32 hesai_points + STIM320 stim320_imu, the rig "HS" of report chapter 33):
+      bench_report/scripts/p1_grandtour_run.sh with IMU=stim320_imu LIDAR=hesai_points and G_CONFIG = the G12 file:
+      base frame = the STIM320 frame, the LiDAR extrinsic from the export's transform attributes, imu_acceleration_unit
+      auto, output T_world_prism(t) = T_world_imu(t) T_imu_prism. The HS rig was chosen on development missions
+      (chapter 33); the rig-specific configuration HS-G15g is not G and is not run.
+  The gravity-window alignment stays off (no static multi-orientation IMU calibration for either rig).
+
+Rivals (each its own published configuration, only the sensor settings changed; revisions pinned here)
+  R1 FAST-LIO2   hku-mars/FAST_LIO ROS 2 branch cc3c9e8, config/velodyne.yaml with lidar_type 2, scan_line 32,
+                 scan_rate 10, timestamp_unit 0 (s), blind 0.5, the rig's LiDAR->IMU extrinsic and topics; no offline
+                 reader, so the bag is played at rate 1.0 and /Odometry is recorded (as in chapter 33). Its LiDAR input
+                 needs a per-point `time` field relative to the header stamp: the holdout bags carry one (below).
+                 All its ROS processes use shared-memory DDS transport only (fastdds_shm.xml, 64 MB segment): with the
+                 default transports it lost 28 % of the LiDAR scans of exp04 (910 of 1258 poses; best-effort 2 MB
+                 messages), with shared memory 1255. This is the transport, not a FAST-LIO2 setting.
+  R2 BIEVR-LIO   leggedrobotics/BIEVR-LIO 2112169, config/params.yaml as published, sensor file with the topics, the
+                 LiDAR->IMU calibration, min/max range 0.5 / 100 m; its offline process_bag (as in chapter 33).
+  R3 RKO-LIO upstream (PRBonn), PyPI rko_lio 0.4.0 in its own virtualenv: the default configuration of
+                 `rko_lio --dump_config` with only the extrinsics (IMU = base, LiDAR->IMU) and topics set; its rosbag
+                 dataloader (`rko_lio -d rosbag`; the loader's rosbags 0.11.9 installed beside it). It measures what
+                 this repository's changes add.
+  R4 GLIM        koide3/glim v1.2.2 (faa264a1), glim_ros2 v1.2.2 (fc72f460), gtsam_points v1.2.2 (9d32e7db), GTSAM
+                 4.3a0 (3ad4b4c3), built from source for the CPU (no CUDA, no viewer, no march=native). Configuration:
+                 GLIM's default config directory with the CPU choices of configs/glim/hilti2022_cpu (odometry_cpu,
+                 sub_mapping passthrough, global_mapping pose_graph) and the rig's sensor settings (T_lidar_imu,
+                 topics); glim_rosbag offline; trajectory traj_imu.txt. GLIM is run only if this build finishes before
+                 the first holdout run; otherwise it is recorded as not run. Installing GLIM's binary packages from its
+                 own apt repository was not permitted in this session.
+  Point-LIO is not run: it has no official ROS 2 release and this VM has no ROS 1. The C1 rival list is therefore
+  incomplete, which is one more reason no claim follows.
+
+Holdouts
+  H4 HILTI 2022 exp14 (Basement 2), exp16 (Attic to Upper Gallery 2), exp18 (Corridor Lower Gallery 2), exactly as
+     frozen in configs/slam_benchmark_profiles/fresh_holdout_selection_2026-08.yaml (Hugging Face
+     Hilti-Research/hilti-slam-challenge-2022 at e62017f907007fdc5ab8c721842e4ae7359d7f49). Each raw bag is streamed
+     from the download into bench_report/scripts/p5_ros1_stream_to_ros2.py and never stored (exp16 is 15.5 GB, more
+     than the free disk). Only /hesai/pandar and /alphasense/imu are kept; a float32 per-point `time` (the point's
+     `timestamp` minus the header stamp) is appended after the original fields, so a reader that takes the first
+     time-like field (RKO-LIO) still reads the original float64 `timestamp`. The sha256 of the streamed bytes must
+     equal the selection file's lfs_sha256, or the sequence is fetched again. The ground-truth files are not
+     downloaded until the outputs are sealed and the maintainer has been asked (below).
+     Before any holdout byte, the same converter is checked on the development bag exp04: G12 on its output must give
+     the Phase 1 trajectory (md5 5dff1cb9...). If it does not, the converter is fixed first and this file records it.
+  H5 GrandTour train missions whose references were never read. The candidates are the 27 missions of the dataset's
+     mission list (missions.json) that are not development, validation or test missions. One mission per site (the
+     name before " - "), the earliest by date_time among the site's candidates whose data folder lists
+     hesai_points.tar, stim320_imu.tar and prism_position.tar (file names only). With all files present this gives
+     11 missions:
+       ETH-1   2024-10-01-11-29-55   ETH - Polyterasse
+       GRI-1   2024-11-04-10-57-34   Grindelwald - Village 1
+       PIL-1   2024-11-11-12-07-40   Pilatus - Hike 1
+       HAUS-1  2024-11-11-16-14-23   Verkehrshaus - Museum 1
+       HOEB-1  2024-11-14-11-17-02   Hoenggerberg - Forest 1
+       KAEB-1  2024-11-14-14-36-02   Kaeferberg - Forest 1
+       TRIM-1  2024-11-15-10-16-35   Triemli - Biketrail 1
+       ALB-1   2024-11-15-11-18-14   Albisguetli - Forest 1
+       LMB-1   2024-11-15-14-14-12   Leinbach - Forest 1
+       LEICA-1 2024-11-25-14-57-08   Leica - Reception
+       SBB-1   2024-12-03-13-15-38   SBB - Train Tracks
+     A site whose earliest mission lacks a file takes its next mission; the list actually run is recorded below. Only
+     hesai_points and stim320_imu are downloaded before sealing. No cpt7_*, prism_position, dlio_* or other reference
+     or other-method stream is downloaded before sealing. Other GrandTour missions are not used for COMFORT; this run
+     is not a COMFORT submission.
+
+Run protocol
+  Machine: this cloud VM (4 vCPU, 15 GiB, Ubuntu 24.04, ROS 2 Jazzy). One method run at a time. A run of G or of
+  FAST-LIO2 (whose result depends on timing, since the bag is played in real time) takes an exclusive lock, and nothing
+  else that uses the CPU runs beside it (other jobs on the VM take the same lock, shared). The offline rivals (R2, R3,
+  R4) process every message whatever the load, so other jobs may run beside them; their wall times are then marked as
+  measured on a shared VM and are reported only for information.
+  Order: H4 exp14, exp16, exp18, then H5 in the order above. Per sequence: G, R3, R2, R1, R4, three repetitions each
+  (the SOTA-v6 policy), then the sequence's bag is deleted.
+  Each run: exit status, wall time, peak RSS of the method's process (/usr/bin/time -v; for FAST-LIO2 the mapping node,
+  not the bag player), the trajectory file and its sha256. A run that fails for a reason that is not a property of the
+  method (a conversion or script bug, a VM crash) is rerun after the fix, and the fix is recorded here. A poor or failed
+  trajectory caused by the method stays as it is.
+
+Sealing and the ground truth
+  After the last run, a manifest with the sha256 of every trajectory, log summary and converted-bag summary is
+  committed and pushed (bench_report/data/blind_v7_2026-11-08/sealed_manifest.txt). Only then is the maintainer asked
+  once whether to open the ground truth. After a yes: the three HILTI ground-truth files are downloaded and checked
+  against the selection file's sha256, and the eleven prism_position references are downloaded.
+
+Metrics (scored only after the ground truth is opened)
+  H4: APE RMSE of the position (m) against the dense 6-DoF ground truth in the IMU frame; every method's trajectory is
+      the IMU (base) pose. scripts/ape_from_tum.py --interpolate (rigid SE(3) Umeyama fit, no scale; the estimate
+      interpolated at the reference timestamps).
+  H5: ATE RMSE (m) of T_world_prism against the prism reference, bench_report/scripts/p1_grandtour_ate.py (rigid SE(3),
+      no scale, the COMFORT metric); the score with total-station spikes removed is reported beside it.
+  A method's score on a sequence is the median of its three repetitions.
+  Completion: a run completes if it exits by itself, writes a trajectory without NaN, and its trajectory spans at least
+  95 % of the reference's time span. A sequence where a method has no complete run counts as a failure of that method.
+  Per holdout (H4, H5) and over all 14 sequences:
+    - the geometric mean of the scores of each method;
+    - for G: the number of sequences where it is more than 10 % worse than the best rival on that sequence;
+    - G's completion; G's real-time factor (node time / data duration) and peak RSS on every sequence.
+  The win condition of the plan (unchanged from SOTA-v6) is evaluated and reported as it stands: G has the lowest
+  geometric mean among the rivals run, no sequence more than 10 % worse than its best rival, 100 % completion, RTF at
+  most 0.85 and peak RSS at most 330 MB on every sequence. Meeting it here would still not be a claim (first section).
+
+Record
+  (filled in as the run proceeds; nothing above is changed)
+  2026-11-08, development check before any holdout byte (exp04, development data):
+    p5_ros1_stream_to_ros2.py on the streamed exp04 bag: sha256 c650f16f... equal to the earlier download, 1258 LiDAR
+    and 50198 IMU messages, header stamp = first point (relative time 0 to 0.102 s). G12 on it: trajectory md5
+    5dff1cb9b26fb0e9b604deb4867de20e, the Phase 1 trajectory; 32.7 s for 125.7 s of data, peak RSS 374 MB.
+    The rival scripts on the same bag, scored on exp04's seven control points (a frame check, not part of the
+    measurement): G 0.0527 m, BIEVR-LIO 0.0595, FAST-LIO2 0.0575 (0.0647 with the default transport, see R1),
+    RKO-LIO upstream 0.0821. GLIM's first build stopped at gtsam_points because GTSAM was configured without
+    GTSAM_UNSTABLE (my flag, not GLIM's instructions); rebuilt with GLIM's documented options.
