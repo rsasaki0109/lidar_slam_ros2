@@ -1,0 +1,36 @@
+Phase 1, candidate G16 (fixed 2026-11-08, before any G16 run other than the opened blind-run mission PIL-1, where the
+re-level was explored at 2, 3 and 5 deg and its results are known; report chapter 60.1).
+
+G16 = G12 + gravity_window_alignment true, gravity_alignment_relevel_map true, gravity_alignment_relevel_min_tilt_rad
+0.034907 (2 deg), the other gravity_* keys at rko_lio's defaults (20-s window, |g| within 5 %, intervals with a world yaw
+rate above 0.05 rad/s left out). File: data/phase1_global/rko_lio_candidate_G16_2026-11-08.yaml. Build: the installed
+rko_lio ac64178 (offline_node md5 cddcf9d9bb47dfceaa5eb92d579e87a3).
+Every 20-s window measures the specific force's tilt from the world vertical; when it reaches 2 deg, the pose, the
+previous pose, the local map and the window are rotated about the current position so that the measured tilt becomes
+zero (one local-map rebuild). Below 2 deg nothing is applied, so a run whose frame never tilts that far is G12 byte for
+byte (the window statistic is computed but not used). The plan (chapter 30.9) kept the gravity window off for public
+data because the window cannot tell the accelerometer's own tilt (0.3-1.2 deg on the development data, chapter 30.8)
+from attitude drift; 2 deg lies above that range. Self-adaptation from sensor data only, frozen here.
+
+Why: in the first blind run (chapter 57) G12's world frame on GrandTour PIL-1 tilts to 8 deg from gravity (chapter
+60.1), which turns every climb into too much height; with the 2-deg re-level, PIL-1's ATE 2.720 -> 1.302 m (median
+1.32 -> 0.25 m).
+
+G12 is run beside G16 on every sequence with the same build, and the comparisons are with that G12 run. Adopt G16 as G
+if all of these hold (one run each, frontend only), checked in this order, stopping at the first that fails:
+  1. GrandTour HS rig (Hesai XT-32 + STIM320), the 15 development missions of decision_rule_G14.txt (all but snow-1),
+     ATE without reference spikes: mean not above G12's, and no mission worse than G12 by more than 10 % and more than
+     2 mm at once. snow-1 is run and reported only.
+  2. The Phase 1 gate (MapsHD's eight, Oxford Keble 05, exp04): Oxford Keble 05 byte-identical to G12 (its ground truth
+     is sealed and is not opened; a G16 that changes Oxford cannot be judged and is not adopted); each family's
+     geometric mean within 1.10 x its best profile (MapsHD's eight, exp04 0.0520) and the all-ten geometric mean within
+     1.05 x 0.0348 and not above G12's (Oxford counted at G12's 0.0533 from chapter 31.3).
+  3. Koide outdoor_hard 02a / 02b / 01b / 01a: no sequence worse than G12 by more than 5 %, and 01a below 1.5 m.
+  4. GrandTour LS rig (Livox MID-360 with range scale 0.9985 + STIM320), the 8 missions of decision_rule_G14.txt: mean
+     not above G12's, and no mission worse than G12 by more than 10 % and more than 2 mm at once.
+  5. Every G16 run real-time (node time below the data duration).
+Reported besides, not deciding: the opened blind-run sequences (11 GrandTour H5 missions with the HS rig, HILTI
+exp14/16/18), G12 against G16 (PIL-1 is where the threshold was chosen); every run's number of re-levels.
+If G16 is adopted, configs/sota_v7 gets it as G and a later blind run needs fresh data.
+
+Record
