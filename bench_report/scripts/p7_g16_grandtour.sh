@@ -14,6 +14,8 @@ BN=${BASE_NAME:-G12}; BF=${BASE_CFG:-${G12}}  # BASE_CFG / BASE_NAME: another re
 [[ ${BF} == /* ]] || BF=${REPO}/${BF}
 OUT=/home/user/bench/${OUT_NAME:-g16}; mkdir -p "${OUT}"
 LS=${LS_MISSIONS-" heap-1 arc-3 arc-4 arc-6 con-1 eig-2 snow-3 spx-1 "}  # LS_MISSIONS= (empty): HS rig only
+MR=${MAIN_RIG:-hs}  # MAIN_RIG=hls: the Hesai + Livox merged cloud in the place of the Hesai (HS) rig
+DR=${DATA_ROOT:-/home/user/data/grandtour}  # where p1_grandtour_run.sh keeps the data (DATA_ROOT), cleaned per mission
 MISSIONS=${MISSIONS:-"heap-1:2024-11-14-13-45-37 arc-3:2024-11-18-13-48-19 arc-4:2024-11-18-15-46-05
   arc-6:2024-11-18-17-13-09 con-1:2024-12-09-09-34-43 eig-2:2024-11-03-13-59-54 snow-3:2024-11-03-08-17-23
   spx-1:2024-11-02-17-10-25 spx-3:2024-11-02-17-43-10 ice-1:2024-11-02-21-12-51 arc-1:2024-11-18-12-05-01
@@ -21,10 +23,11 @@ MISSIONS=${MISSIONS:-"heap-1:2024-11-14-13-45-37 arc-3:2024-11-18-13-48-19 arc-4
   snow-1:2024-11-03-07-52-45"}
 for item in ${MISSIONS}; do
   short=${item%%:*}; folder=${item##*:}
-  rigs=hs; [[ ${LS} == *" ${short} "* ]] && rigs="hs ls"
+  rigs=${MR}; [[ ${LS} == *" ${short} "* ]] && rigs="${MR} ls"
   for rig in ${rigs}; do
     case ${rig} in
       hs) env=(IMU=stim320_imu LIDAR=hesai_points) ;;
+      hls) env=(IMU=stim320_imu LIDAR=hesai_points+livox_points) ;;
       ls) env=(IMU=stim320_imu RANGE_SCALE=0.9985) ;;
     esac
     for cfg in ${BN} ${CN}; do
@@ -47,7 +50,7 @@ for item in ${MISSIONS}; do
       echo "${rig},${cfg},${short},${md5},${rl},${node},${span},${ate}" | tee -a "${OUT}/grandtour.csv"
     done
   done
-  rm -rf /home/user/data/grandtour/${short}/bag_* 2>/dev/null
-  find "/home/user/data/grandtour/${short}/z" -type f ! -name '.z*' -delete 2>/dev/null || true
+  rm -rf "${DR:?}/${short:?}"/bag_* 2>/dev/null
+  find "${DR}/${short}/z" -type f ! -name '.z*' -delete 2>/dev/null || true
 done
 echo "grandtour done"
