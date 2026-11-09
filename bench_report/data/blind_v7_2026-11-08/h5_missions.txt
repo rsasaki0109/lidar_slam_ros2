@@ -1,0 +1,11 @@
+2024-10-01-11-29-55	eth-1	ETH
+2024-11-04-10-57-34	gri-1	Grindelwald
+2024-11-11-12-07-40	pil-1	Pilatus
+2024-11-11-16-14-23	haus-1	Verkehrshaus
+2024-11-14-11-17-02	hoeb-1	Hoenggerberg
+2024-11-14-14-36-02	kaeb-1	Käferberg
+2024-11-15-10-16-35	trim-1	Triemli
+2024-11-15-11-18-14	alb-1	Albisgütli
+2024-11-15-14-14-12	lmb-1	Leinbach
+2024-11-25-14-57-08	leica-1	Leica
+2024-12-03-13-15-38	sbb-1	SBB

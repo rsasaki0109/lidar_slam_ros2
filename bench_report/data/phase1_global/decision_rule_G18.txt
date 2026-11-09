@@ -1,0 +1,70 @@
+Phase 1, candidate G18 (fixed 2026-11-09 before any G18 run other than the screen below, whose results are known and
+count as G18's runs for those missions).
+
+G18 = G12 + max_tilt_correction_deg 0.05 + gyro_bias_time_constant_sec 10.0 (the other keys of G12 unchanged;
+gyro_bias_max_correction_deg stays at its default 1.0). File: data/phase1_global/rko_lio_candidate_G18_2026-11-09.yaml
+(md5 e9f42298c4924b68f0028bc714f1b6a2). Build: rko_lio f2346e3, installed in this repository and in /home/user/ws/rko_g18
+(offline_node md5 e41f112470558743f5785ccd9a690c08 in both). After each registration the change it makes to the
+gyro-predicted roll and pitch is limited to 0.05 deg (G17); then the gyro bias moves by -delta / 10 s, delta being the
+correction the scan keeps of the gyro-predicted attitude in the body frame (a first-order low-pass of the
+registration's rate correction).
+
+Why (report chapter 60.4, rko_lio's per-scan attitude diagnostic RKO_LIO_TILT_DIAG, data/phase1_global/screen_g18/):
+  G17 lost where the initialization's gyro bias was wrong. The bias is the mean gyro rate of the 0.1-s initialization
+  interval (50 STIM320 samples); a standing legged robot sways, and that average was 6.4 mrad/s on HS con-2 and
+  13.5 mrad/s on LS spx-1. In G12 the registration corrects exactly that every scan (body-frame mean correction
+  -5.8 / -2.2 / -2.7 mrad/s on con-2 against an initial bias -5.3 / -2.3 / -2.9; -13.5 / 0.1 / -2.1 on LS spx-1
+  against -13.3 / 0.2 / -2.1), so the STIM320's own bias is near zero; with G17's limit the correction is cut and the
+  world frame tilts. PIL-1's stairs are different: there the initial bias is small (0.7 mrad/s) and the registration
+  itself pulls the tilt (mean 0.024 deg/scan at 375-390 s; per-scan tilt correction 0.22 deg rms at 360-390 s against
+  0.04-0.10 elsewhere); the tilt information of the ICP Hessian (Schur complement) does not drop there.
+  Tracking the bias without the limit lets the registration's drift into the bias (HS arc-3 0.4275 m).
+
+Known before the rule (development screen, one run each, ATE without reference spikes, m; G12 / G17 / G18):
+  HS con-2 0.0290 / 0.1005 / 0.0223, HS eig-2 0.0375 / 0.0415 / 0.0350, HS arc-3 0.1262 / 0.0463 / 0.0463,
+  HS arc-5 0.0554 / 0.0181 / 0.0173, HS pil-2 0.0768 / 0.0513 / 0.0552, HS heap-1 0.0281 / 0.0224 / 0.0219,
+  LS spx-1 0.0444 / 0.4719 / 0.0457; opened blind-run PIL-1 2.720 / 1.316 / 1.321 (median 1.32 / 0.29 / 0.28).
+  Also screened and not chosen: time constant 30 s with the limit (con-2 0.0236, LS spx-1 0.0503, pil-2 0.0644) and
+  30 s without the limit (arc-3 0.4275). G18 was chosen as the setting best or within 1 mm of best on these missions.
+  These G18 runs (build e41f1124) are copied as G18's runs for those missions; the others are run under this rule.
+
+G12's GrandTour runs of the G16/G17 confirmations (build ac64178) are reused: G12 is byte-identical in this build
+(checked: HS con-2 605d6e0c, PIL-1 c98589b7, and with the diagnostic on 7 missions x G12/G17). On the Phase 1 data
+G12 is run beside G18 with this build. Adopt G18 as G if all of these hold (one run each, frontend only), checked in
+this order, stopping at the first that fails:
+  1. GrandTour HS rig, the 15 development missions of decision_rule_G14.txt (all but snow-1), ATE without reference
+     spikes: mean not above G12's, and no mission worse than G12 by more than 10 % and more than 2 mm at once. snow-1 is
+     run and reported only.
+  2. The Phase 1 gate: MapsHD's eight with a geometric mean within 1.10 x the best profiles' (G12's is 1.010 x it,
+     decision_rule_G10.txt), Oxford Keble 05 at most 1.10 x 0.0503 m, exp04 at most 1.10 x 0.0520 m, and the all-ten
+     geometric mean at most 1.05 x 0.0348 m and not above G12's in this build. Oxford's ground truth is read only to
+     score these runs, as the maintainer allowed for G17 (decision_rule_G17.txt, Record).
+  3. Koide outdoor_hard 02a / 02b / 01b / 01a: no sequence worse than G12 by more than 5 %, and 01a below 1.5 m.
+  4. GrandTour LS rig (Livox MID-360 with range scale 0.9985 + STIM320), the 8 missions of decision_rule_G14.txt: mean
+     not above G12's, and no mission worse than G12 by more than 10 % and more than 2 mm at once.
+  5. Every G18 run real-time (node time below the data duration).
+Reported besides, not deciding: the opened blind-run sequences (11 GrandTour H5 missions, HS rig; HILTI exp14/16/18),
+G12 against G18, and the final gyro bias of each run.
+If G18 is adopted, configs/sota_v7 gets it as G; a later blind run needs fresh data.
+
+Commands: CAND_CFG=<G18 file> CAND_NAME=G18 OUT_NAME=g18 bash bench_report/scripts/p7_g16_grandtour.sh (criteria 1,
+4, 5), then CAND_CFG=<G18 file> CAND_NAME=G18 OUT_NAME=g18 OXFORD_SCORE=1 bash bench_report/scripts/p7_g16_phase1.sh
+(criteria 2, 3, 5).
+
+Record
+  2026-11-09, criteria 1 and 4 (GrandTour, both rigs run together in p7_g16_grandtour.sh's order; ATE without
+  reference spikes, m, G12 / G18; the screen's runs copied for HS heap-1 / arc-3):
+    HS heap-1 0.0281 / 0.0219, LS heap-1 0.0453 / 0.0469, HS arc-3 0.1262 / 0.0463, LS arc-3 0.0466 / 0.0649,
+    HS arc-4 0.0233 / 0.0272.
+    Criterion 1 fails at HS arc-4 (+16.7 %, +3.9 mm), and criterion 4 would fail at LS arc-3 (+39 %, +18.3 mm; G17
+    had 0.0319 there). G18 is not adopted. The batch was stopped there (the next run, LS arc-4, had not started);
+    the Phase 1 batch was not started and Oxford's ground truth was not read. Every G18 run was real-time.
+    Where it breaks: on LS arc-3 G18 has height errors of -0.10 m at 180-250 s and +0.10 m at 300-370 s around the
+    stairwell, where G17 stays within 0.02 m and G12 has about half of them. The bias that follows the kept correction
+    takes in the registration's tilt on long stairs even through the 0.05-deg limit (with no limit, HS arc-3 0.4275
+    in the screen). The time constant cannot serve both: 10 s fixes the start (LS spx-1 0.0457) but follows the
+    stairs, 30 s follows the stairs less but leaves LS spx-1 at 0.0503.
+    Per-scan diagnostic (screen_g18/diag_summary.txt): the registration's roll/pitch correction of the mean-rate
+    prediction and of the sample-wise gyro integral differ by less than 0.005 deg rms on every mission, so the
+    prediction's integration is not the issue; the mean correction (systematic part) is 0.0057 deg/scan on con-2,
+    0.0083 on eig-2 and 0.0232 on LS spx-1 (the initialization biases), 0.0003-0.0024 elsewhere.

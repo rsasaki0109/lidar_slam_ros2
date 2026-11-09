@@ -1,0 +1,11 @@
+eth-1,b000746f,reference points 4543 of 4547, path 191.5 m, ATE rmse 0.0240 m, median 0.0178, max 0.1341, without 0 reference spikes 0.0240
+gri-1,94c3ec88,reference points 4359 of 4359, path 176.4 m, ATE rmse 0.0203 m, median 0.0172, max 0.2164, without 0 reference spikes 0.0203
+pil-1,df2d25eb,reference points 3385 of 3385, path 362.3 m, ATE rmse 1.4650 m, median 0.5369, max 70.6733, without 1 reference spikes 1.4649
+haus-1,4cb47c1e,reference points 3951 of 3951, path 138.8 m, ATE rmse 0.0088 m, median 0.0077, max 0.0480, without 0 reference spikes 0.0088
+hoeb-1,351a34e5,reference points 3622 of 3622, path 195.5 m, ATE rmse 0.0125 m, median 0.0102, max 0.1007, without 0 reference spikes 0.0125
+kaeb-1,704e2bbc,reference points 6197 of 6197, path 185.0 m, ATE rmse 0.0136 m, median 0.0124, max 0.0790, without 0 reference spikes 0.0136
+trim-1,f8a2d090,reference points 5490 of 5490, path 275.3 m, ATE rmse 0.2666 m, median 0.0122, max 19.7254, without 2 reference spikes 0.0123
+alb-1,44687df0,reference points 1886 of 1886, path 66.7 m, ATE rmse 0.0650 m, median 0.0083, max 2.7952, without 1 reference spikes 0.0089
+lmb-1,83af5a65,reference points 4245 of 4245, path 159.0 m, ATE rmse 0.0183 m, median 0.0147, max 0.0938, without 0 reference spikes 0.0183
+leica-1,34d8a180,reference points 3752 of 3752, path 135.3 m, ATE rmse 0.0133 m, median 0.0087, max 0.4358, without 0 reference spikes 0.0133
+sbb-1,74ac0494,reference points 9232 of 9236, path 306.3 m, ATE rmse 0.0287 m, median 0.0251, max 0.0875, without 0 reference spikes 0.0287

@@ -15,6 +15,7 @@
 # graph_based_slam has subscribed to its odometry and scans (no scans lost at startup; chapter 18).
 # LAUNCH_PREFIX (with LAUNCH_PREFIX_FILTER, a regex on the executable name): ros2 launch's --launch-prefix, e.g. a
 # profiler around the offline node only.
+# LAUNCH_EXTRA: more launch arguments (name:=value, space-separated), e.g. malloc_mmap_threshold:=off.
 csv=$1; label=$2; w=$3; yaml=$4; out=$5
 bag=${BAG:-/home/user/data/hilti2022/exp04_ros2}
 rm -rf "${out}"; mkdir -p "${out}"
@@ -32,7 +33,7 @@ t0=$(date +%s.%N)
 setsid ros2 launch "${prefix[@]}" lidarslam rko_lio_slam.launch.py "main_param_dir:=${yaml}" "rko_param_file:=${out}/rko_params.ros.yaml" \
   "bag_path:=${bag}" "lidar_topic:=${LIDAR:-/hesai/pandar}" "imu_topic:=${IMU:-/alphasense/imu}" \
   base_frame:=base_link publish_static_tf:=true "save_dir:=${out}" "results_dir:=${out}" run_name:=front \
-  dump_results:=true use_rviz:=false "${barrier[@]}" > "${out}/slam.launch.log" 2>&1 &
+  dump_results:=true use_rviz:=false "${barrier[@]}" ${LAUNCH_EXTRA:-} > "${out}/slam.launch.log" 2>&1 &
 lpid=$!
 if [[ ${BACKEND_SCHED_IDLE:-0} == 1 ]]; then
   # Experiment only: once graph_based_slam has finished initializing (all its threads exist), move every

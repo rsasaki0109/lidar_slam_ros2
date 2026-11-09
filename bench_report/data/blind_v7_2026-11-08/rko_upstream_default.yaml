@@ -1,0 +1,23 @@
+dump_deskewed_scans: false
+extrinsic_imu2base_quat_xyzw_xyz: null
+extrinsic_lidar2base_quat_xyzw_xyz: null
+lidar_timestamps:
+  force_absolute: false
+  force_relative: false
+  multiplier_to_seconds: 0.0
+lio:
+  convergence_criterion: 1.0e-05
+  deskew: true
+  double_downsample: true
+  initialization_phase: false
+  max_correspondence_distance: 0.5
+  max_expected_jerk: 3.0
+  max_iterations: 100
+  max_num_threads: 0
+  max_range: 100.0
+  min_beta: 200.0
+  min_range: 1.0
+  voxel_size: 1.0
+log_dir: results
+run_name: null
+viz: false

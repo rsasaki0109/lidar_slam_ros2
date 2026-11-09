@@ -1,0 +1,70 @@
+Map update for joined sessions, step 1: drop an earlier session's points that a later session saw through
+(fixed 2026-11-08 before any run of bench_report/scripts/p6_map_change.py).
+
+Why
+  A joined map keeps every session's points. Where the place changed between visits (a moved car, a new wall gap, a
+  person standing), the earlier session's points stay as ghosts in space the later session saw as empty.
+
+Method (p6_map_change.py, the constants at its top; not tuned on these data)
+  The old map: every 5th frame of the old session's backend input, in the reference frame, one point per 0.1 m voxel.
+  The new session's rays: every 5th frame, one ray per 0.2 m voxel of the scan (1-40 m), from the sensor to the point,
+  sampled every 0.1 m up to 0.3 m before the point. An old point is stale when its 0.2 m voxel was crossed by rays of at
+  least 2 new frames and no new point lies in that voxel or one of its 26 neighbours (the neighbours keep surfaces seen
+  at grazing angles).
+
+Data: RTK-SLAM Construction 1 and 2 (/home/user/bench/ms_cons, report chapter 56.2), recorded about 13 minutes apart on
+  one day with the same MID-360 rig. Poses: each session's corrected per-frame trajectory (replay/*/dense.tum), session 2
+  mapped into session 1's frame by the join's transform (runs/j12, joined).
+
+Evaluations
+  E1 (real points, little change): old = session 1, new = session 2, and the reverse (old = session 2 in session 1's
+     frame, new = session 1). Measure: the fraction of the old map's points removed. Between two visits 13 minutes apart
+     only moving people and machines should go.
+  E2 (known stale points): the same two runs with --ghosts: 0.4 m cubes of points (0.05 m spacing on the faces) added
+     to the old map on the new session's trajectory every 10 m of its path, where the new sensor itself passed, so
+     the new session saw that space empty. Measure: the fraction of the cubes' points removed (recall).
+  Reported besides: the fraction of the old map in voxels the new rays crossed at least twice, the removed fraction of
+  those, the time, and top-down images of the removed points.
+Decision: the method goes on to a product option (an opt-in step of `lidarslam-map merge --place-recognition`, which
+  has every run's backend input) if, in both directions, E1 removes at most 1.0 % of the old map and E2 removes at least
+  90 % of the cube points. Otherwise it is recorded as not good enough and the product does not change.
+
+Record
+  2026-11-08, step 1 (p6_map_change.py at 303d1bbc), Construction 1 + 2, 1,175 / 1,457 new frames used, 77 / 85 s:
+    old 1, new 2: removed 1.08 % of 2,009,376 old points (1.74 % of those in voxels the new rays crossed twice; 62 % of
+      the old map is in such voxels); cubes: 58.3 % of 16,598 points in 43 cubes removed.
+    old 2, new 1: removed 1.27 % of 1,732,453 (1.87 % of the crossed; 68 % crossed); cubes: 66.2 % of 20,458 in 53.
+  Both criteria fail in both directions. Decision: not good enough; the product does not change.
+  Why (looked at after the decision; images old1_new2.png, old2_new1.png): the removed points form dotted trails along
+  the old session's path. 78 % of them lie within 2 m of the old path, within about 1 m of the sensor in its own frame
+  (body-frame offsets p10-p90: x -0.76 to 0.46, y -0.96 to 0.83, z -0.69 to 0.40 m): the carrier of the sensor, seen just
+  beyond the 1 m minimum range in every frame. The new session saw through those places, so removing them is right, but
+  they are not the change the method is for, and they count against E1. The same points of the new session lie next to
+  its own path, so they protect the planted cubes there (one-voxel neighbourhood), which is why the cubes' recall is low.
+
+Step 2 plan (fixed 2026-11-08 before any run of it)
+  One change: the minimum range becomes 1.5 m (MIN_RANGE), for the old map and for the new session's rays and points,
+  so the carrier is in neither. Everything else as step 1. p6_map_change.py also takes --extrinsic (the LiDAR pose in
+  the base frame of the backend input; identity, as before, when omitted), for a rig whose scans are in the LiDAR frame.
+  The 1.5 m comes from step 1's look at Construction, so Construction is no longer independent of it. A second pair is
+  added that played no part: GrandTour CON-1 + CON-2 (development missions, the construction site Halter, 7 minutes
+  apart, ANYmal with Hesai XT-32, /home/user/bench/ms_outdoor; poses: each mission's replayed backend densified onto its
+  frontend trajectory, CON-2 mapped by the joined run runs/conA12; extrinsic con-1/extrinsic.txt).
+  Evaluations E1 and E2 as in step 1, both directions, on both pairs (four runs).
+  Decision: as step 1 (E1 at most 1.0 %, E2 at least 90 %), required in all four runs; reported for each pair apart.
+  2026-11-08, step 2 (the origin of each new frame was first passed as a 4-vector, a script error that stopped all four
+  runs before any result; fixed and run again). Removed real points / cube recall:
+    Construction, old 1 new 2: 1.01 % of 1,998,299 / 66.0 % of 16,598 in 43 cubes
+    Construction, old 2 new 1: 1.09 % of 1,721,683 / 69.5 % of 20,458 in 53 cubes
+    GrandTour CON, old 1 new 2: 1.41 % of 1,327,111 / 84.2 % of 10,036 in 26 cubes
+    GrandTour CON, old 2 new 1: 0.74 % of 1,302,805 / 71.7 % of 10,036 in 26 cubes
+  E1 holds in one run of four, E2 in none. Decision: not good enough; the product does not change.
+  Why (images step2/*.png, looked at after the decision): with the carrier out, the removed points still lie along the
+  old path, now beyond 1.5 m: on GrandTour a person walks with the robot, and in Construction someone walks near the
+  operator. The newer session saw those places empty, so removing them is what a map update should do; E1 as written
+  counts every removal between two visits minutes apart as an error, so it measures the people as much as the method.
+  The cubes are missed for a different reason: only every 5th frame and one ray per 0.2 m voxel are cast, so parts of
+  a 0.4 m cube are crossed by fewer than two frames.
+  Not run: a step 3. A fair test needs an E1 that tells moving people from the static scene (for example, labelled
+  points, or the removed points' distance to every session's path) and denser rays; both are changes to the test, and
+  the result above stands as the record of this design.

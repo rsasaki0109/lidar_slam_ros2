@@ -1,0 +1,11 @@
+lidar_topic: /hesai/pandar
+imu_topic: /alphasense/imu
+lidar_to_imu_quat_xyzw_xyz:
+- 0.7071068
+- -0.7071068
+- 0.0
+- 0.0
+- -0.001
+- -0.00855
+- 0.055
+g_params: /home/user/bench/blind_v7/configs/g_params_h4.yaml

@@ -1,0 +1,13 @@
+{
+ "old_points": 2009376,
+ "new_frames_used": 1175,
+ "old_frames_stride": 5,
+ "removed": 21768,
+ "removed_fraction": 0.01083,
+ "observed_free_fraction": 0.6228,
+ "removed_of_observed": 0.01739,
+ "seconds": 77.4,
+ "ghost_cubes": 43,
+ "ghost_points": 16598,
+ "ghost_recall": 0.5834
+}

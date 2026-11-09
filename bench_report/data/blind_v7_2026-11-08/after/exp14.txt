@@ -1,0 +1,9 @@
+exp14: windows of 10 s with the largest growth of G
+start_s             G         bievr       fastlio          glim  rko_upstream
+    7.2         0.439         0.123         0.296         1.097         1.265
+   57.4         0.195         0.053         0.283         1.809         0.745
+   47.3         0.134         0.030         0.140         0.307         0.428
+   29.9         0.101         0.002         0.153         0.469         0.683
+   17.2         0.098         0.015         0.088         0.252         0.529
+   73.3           nan           nan           nan           nan           nan
+final horizontal / vertical error: G 0.11 / -0.05, bievr 0.05 / 0.03, fastlio 0.03 / 0.42, glim 1.24 / -0.51, rko_upstream 0.52 / 0.28
