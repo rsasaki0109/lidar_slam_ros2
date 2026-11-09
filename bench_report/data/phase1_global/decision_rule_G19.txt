@@ -69,3 +69,13 @@ Record
     The 9 moving-start runs are G17's byte for byte (HS arc-4 06d60dbe, arc-5 bf138bde, arc-6 26559fdc, ice-1
     bbda33ab, snow-3 0dd34420, snow-1 0eb8c0a8; LS arc-4 565e1e5a, arc-6 5b35d5c0, snow-3 45dd72ae).
     The Phase 1 batch (criteria 2, 3) started next with OXFORD_SCORE=1.
+  2026-11-09, criterion 2 (p7_g16_phase1.sh, OXFORD_SCORE=1; data/phase1_global/g19_phase1.csv; G12 / G19):
+    exp04 0.0527 / 0.0517 (limit 0.0572; G12 md5 5dff1cb9 as in Phase 1).
+    MapsHD calib1 0.0261 / 0.0250, calib2 0.0207 / 0.0237, flat 0.0148 / 0.0142, corridor 0.0712 / 0.0714,
+    urk 0.0545 / 0.0589, garage1 0.0440 / 0.0600, garage2 0.0293 / 0.0341, garage3 0.0267 / 0.0310 (G12's eight
+    equal decision_rule_G10.txt's). Geometric mean of G19 / G12 1.097, so the family ratio is 1.010 x 1.097 = 1.108,
+    above 1.10: criterion 2 fails. G19 is not adopted. The batch was stopped there: Koide (criterion 3) and Oxford
+    were not run, and Oxford's ground truth was not read (gt_sealed untouched).
+    Where it breaks: the MapsHD rig's IMU is the Livox's own, and it loses on the underground garage (+16 to +36 %)
+    and outdoor-urk (+8 %), where a handheld sensor turns quickly; the STIM320 rigs of GrandTour and exp04's
+    Alphasense gain. A 0.05-deg limit per scan, fixed for every IMU, holds back corrections this IMU needs.
