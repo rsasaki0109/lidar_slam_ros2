@@ -52,3 +52,19 @@ Commands: CAND_CFG=<G18 file> CAND_NAME=G18 OUT_NAME=g18 bash bench_report/scrip
 (criteria 2, 3, 5).
 
 Record
+  2026-11-09, criteria 1 and 4 (GrandTour, both rigs run together in p7_g16_grandtour.sh's order; ATE without
+  reference spikes, m, G12 / G18; the screen's runs copied for HS heap-1 / arc-3):
+    HS heap-1 0.0281 / 0.0219, LS heap-1 0.0453 / 0.0469, HS arc-3 0.1262 / 0.0463, LS arc-3 0.0466 / 0.0649,
+    HS arc-4 0.0233 / 0.0272.
+    Criterion 1 fails at HS arc-4 (+16.7 %, +3.9 mm), and criterion 4 would fail at LS arc-3 (+39 %, +18.3 mm; G17
+    had 0.0319 there). G18 is not adopted. The batch was stopped there (the next run, LS arc-4, had not started);
+    the Phase 1 batch was not started and Oxford's ground truth was not read. Every G18 run was real-time.
+    Where it breaks: on LS arc-3 G18 has height errors of -0.10 m at 180-250 s and +0.10 m at 300-370 s around the
+    stairwell, where G17 stays within 0.02 m and G12 has about half of them. The bias that follows the kept correction
+    takes in the registration's tilt on long stairs even through the 0.05-deg limit (with no limit, HS arc-3 0.4275
+    in the screen). The time constant cannot serve both: 10 s fixes the start (LS spx-1 0.0457) but follows the
+    stairs, 30 s follows the stairs less but leaves LS spx-1 at 0.0503.
+    Per-scan diagnostic (screen_g18/diag_summary.txt): the registration's roll/pitch correction of the mean-rate
+    prediction and of the sample-wise gyro integral differ by less than 0.005 deg rms on every mission, so the
+    prediction's integration is not the issue; the mean correction (systematic part) is 0.0057 deg/scan on con-2,
+    0.0083 on eig-2 and 0.0232 on LS spx-1 (the initialization biases), 0.0003-0.0024 elsewhere.

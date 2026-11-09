@@ -1,0 +1,11 @@
+hs,G12,heap-1,1ff60969,0,61.2752,289.8,reference points 4596 of 4598, path 154.0 m, ATE rmse 0.0281 m, median 0.0190, max 0.1323, without 0 reference spikes 0.0281
+hs,G18,heap-1,e41acdec,0,70.0124,289.8,reference points 4596 of 4598, path 154.0 m, ATE rmse 0.0219 m, median 0.0176, max 0.0930, without 0 reference spikes 0.0219
+ls,G12,heap-1,10d841e5,0,19.0826,289.8,reference points 4597 of 4598, path 154.0 m, ATE rmse 0.0453 m, median 0.0359, max 0.1231, without 0 reference spikes 0.0453
+ls,G18,heap-1,4f32033f,0,20.1914,289.8,reference points 4597 of 4598, path 154.0 m, ATE rmse 0.0469 m, median 0.0379, max 0.1382, without 0 reference spikes 0.0469
+hs,G12,arc-3,7cc7dc4e,0,86.4177,713.0,reference points 3654 of 3654, path 196.9 m, ATE rmse 0.2959 m, median 0.0284, max 16.1727, without 1 reference spikes 0.1262
+hs,G18,arc-3,ed3b57da,0,84.1644,713.0,reference points 3654 of 3654, path 196.9 m, ATE rmse 0.2715 m, median 0.0162, max 16.1662, without 1 reference spikes 0.0463
+ls,G12,arc-3,e368b320,0,26.3578,684.8,reference points 3654 of 3654, path 196.9 m, ATE rmse 0.2714 m, median 0.0418, max 16.1573, without 1 reference spikes 0.0466
+ls,G18,arc-3,56234a57,0,28.3388,684.8,reference points 3654 of 3654, path 196.9 m, ATE rmse 0.2752 m, median 0.0642, max 16.1637, without 1 reference spikes 0.0649
+hs,G12,arc-4,42a02405,0,34.9427,396.9,reference points 1514 of 1514, path 43.8 m, ATE rmse 0.0233 m, median 0.0154, max 0.0906, without 0 reference spikes 0.0233
+hs,G18,arc-4,281c7fb5,0,35.8467,396.9,reference points 1514 of 1514, path 43.8 m, ATE rmse 0.0272 m, median 0.0149, max 0.1701, without 0 reference spikes 0.0272
+ls,G12,arc-4,8fee4313,0,13.1774,397.0,reference points 1514 of 1514, path 43.8 m, ATE rmse 0.0207 m, median 0.0162, max 0.0621, without 0 reference spikes 0.0207
