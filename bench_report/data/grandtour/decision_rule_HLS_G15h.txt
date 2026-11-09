@@ -1,0 +1,30 @@
+HLS-G15h: the HS-G15h file, unchanged, on the Hesai XT-32 + Livox MID-360 merged cloud (fixed 2026-11-09 before any
+run of it). TEST-INFORMED LINEAGE: the merged cloud (HLS) was proposed after submission 5's test arc-2
+(decision_rule_HLS_G15g.txt); HLS-G15g, submitted as submission 6 by the maintainer's decision, scored 0.0299 m on the
+test. HLS-G15h adds the three keys of HS-G15h (decision_rule_G15h.txt), chosen on development data only; no test score
+was used to choose them. A COMFORT submission with it is the maintainer's decision and is stated as test-informed.
+
+Configuration: configs/sota_v7/rko_lio_grandtour_hs_G15h_2026-11-09.yaml (md5 c599cc59f432506835ab17f6056c8007, committed with
+decision_rule_G15h.txt), rko_lio a3828fa (this repository's install, offline_node md5
+d611a8fb217e6ec71cbe3556c0e28324), LIDAR=hesai_points+livox_points IMU=stim320_imu (p1_grandtour_to_ros2.py merging
+both clouds as for HLS-G15g).
+Reference: HLS-G15g (configs/sota_v7/rko_lio_grandtour_hs_G15g_2026-10-28.yaml on the same merged cloud) run beside it
+with the same build on every mission (p7_g16_grandtour.sh, MAIN_RIG=hls, BASE_NAME=G15g, LS off; con-3's data under
+/dev/shm because its merged bag does not fit on the disk).
+
+Adopt HLS-G15h as the HLS configuration in place of HLS-G15g if all hold (one run each; ATE without reference spikes):
+  1. The 15 HS development missions of decision_rule_G14.txt: mean below HLS-G15g's, and no mission worse than
+     HLS-G15g by more than 10 % and more than 2 mm at once (deterministic runs: a mission outside fails outright).
+  2. The stair passages hidden from the reference (p1_grandtour_climb_err.py: arc-3 x3, eig-2 x2, con-3 x2, pil-2,
+     spx-1): each within 50 mm, as for HLS-G15g.
+  3. Every HLS-G15h run real-time (node time below the mission span).
+snow-1 is run and reported only. Reported besides: HLS-G15g's runs in this build against its recorded values
+(decision_rule_HLS_G15g.txt, mean 0.0178 m), and HLS-G15h against HS-G15h (0.0164 m, same missions).
+If HLS-G15h is adopted, it is the candidate for a seventh COMFORT submission, which needs its own preregistration and
+the maintainer's decision. If not, HLS-G15g stays the HLS configuration of submission 6.
+
+Command: MAIN_RIG=hls BASE_CFG=configs/sota_v7/rko_lio_grandtour_hs_G15g_2026-10-28.yaml BASE_NAME=G15g
+CAND_CFG=configs/sota_v7/rko_lio_grandtour_hs_G15h_2026-11-09.yaml CAND_NAME=G15h OUT_NAME=hls_g15h LS_MISSIONS=
+bash bench_report/scripts/p7_g16_grandtour.sh (con-3 alone with DATA_ROOT=/dev/shm/grandtour).
+
+Record
