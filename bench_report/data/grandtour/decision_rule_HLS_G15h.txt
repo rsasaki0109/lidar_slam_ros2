@@ -28,3 +28,17 @@ CAND_CFG=configs/sota_v7/rko_lio_grandtour_hs_G15h_2026-11-09.yaml CAND_NAME=G15
 bash bench_report/scripts/p7_g16_grandtour.sh (con-3 alone with DATA_ROOT=/dev/shm/grandtour).
 
 Record
+  2026-11-09 (data/grandtour/hls_g15h_grandtour.csv; ATE without reference spikes, mm, full precision,
+  HLS-G15g / HLS-G15h):
+    heap-1 24.659 / 24.094, arc-3 22.764 / 20.918, arc-4 13.417 / 13.707, arc-6 9.635 / 10.153, con-1 25.471 / 24.814,
+    eig-2 22.517 / 21.981, snow-3 15.027 / 14.406, spx-1 20.575 / 18.736, spx-3 8.163 / 8.128, ice-1 11.707 / 10.524,
+    arc-1 12.070 / 11.812, arc-5 12.677 / 11.852, con-2 27.623 / 26.853, pil-2 28.097 / 26.912, con-3 13.157 / 12.573.
+    1. Mean 17.837 / 17.164 mm (-3.8 %); 13 of 15 better, the two others arc-6 +0.52 mm (+5.4 %) and arc-4 +0.29 mm
+       (+2.2 %), inside the tolerance. Criterion 1 holds.
+    2. Stair passages, mm (HLS-G15g / HLS-G15h): arc-3 -12 +34 -0 / -7 +27 -0, eig-2 +19 -10 / +18 -9, con-3 +2 -8 /
+       -4 -6, pil-2 +8 / +10, spx-1 +12 / +10: all within 50. Criterion 2 holds.
+    3. Node time at most 0.584 of the mission span (heap-1 169 / 290 s). Criterion 3 holds.
+    HLS-G15h IS ADOPTED as the HLS configuration (the HS-G15h file on the merged cloud), the candidate for a seventh
+    COMFORT submission. Reported: HLS-G15g's runs in this build give its recorded values (decision_rule_HLS_G15g.txt) on
+    all 15 to 0.1 mm and its stair passages exactly; snow-1 376.6 / 376.6 mm. On the development data HS-G15h (16.36 mm)
+    stays below HLS-G15h (17.16 mm), as HS-G15g was below HLS-G15g: the merged cloud's case rests on the test's arc-2.
