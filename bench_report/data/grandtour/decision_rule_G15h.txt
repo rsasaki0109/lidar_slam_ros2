@@ -1,0 +1,49 @@
+GrandTour HS configuration G15h (fixed 2026-11-09 before any run with the file).
+
+HS-G15h = HS-G15g (configs/sota_v7/rko_lio_grandtour_hs_G15g_2026-10-28.yaml) plus the three keys of the Phase 1
+candidate G19 (data/phase1_global/decision_rule_G19.txt): max_tilt_correction_deg 0.05, gyro_bias_time_constant_sec
+10.0, gyro_bias_start_sec 30.0. File: data/grandtour/rko_lio_candidate_hs_G15h_2026-11-09.yaml (md5
+0385226a7f8b0f446467a8114ec1ac3a). Build: rko_lio a3828fa, this repository's install (offline_node md5
+d611a8fb217e6ec71cbe3556c0e28324). A configuration for the HS rig of GrandTour only (Hesai XT-32 + STIM320), like
+G15g; not the global configuration G.
+
+Why: on top of G12 the three keys lowered the HS development mean from 0.0421 to 0.0289 m (decision_rule_G19.txt,
+criterion 1), mostly on stairs and moving starts (arc-3 0.126 -> 0.047, arc-5 0.055 -> 0.018, pil-2 0.077 -> 0.055)
+and on the static starts whose 0.1-s gyro bias took in the robot's sway (con-2 0.029 -> 0.022). G19 failed only on
+MapsHD's handheld Livox IMU, which the HS rig does not use. HS-G15g already handles stairs with bump images (arc-3
+0.0188) and moving starts with its start hold and output filter; whether the tilt limit adds to that is open. On the
+opened blind mission PIL-1 HS-G15g's world frame still tilts 2.4 deg (ATE 1.465 m, median 0.537), where G12 + the
+three keys had 1.321 m (median 0.28). No run of HS-G15h has been made; the keys are G19's, not chosen again.
+
+HS-G15g is run beside HS-G15h with the same build on every mission (p7_g16_grandtour.sh with BASE_NAME=G15g, LS off),
+and the comparisons are with those runs. Adopt HS-G15h in place of HS-G15g if all hold (one run each; ATE without
+reference spikes against the prism reference, p1_grandtour_ate.py):
+  1. All 15 HS development missions of decision_rule_G14.txt (all but snow-1): mean below HS-G15g's, and no mission
+     worse than HS-G15g by more than 10 % and more than 2 mm at once. The runs are deterministic, so a mission outside
+     the tolerance fails outright (no repeated runs). snow-1 is run and reported only.
+  2. Every HS-G15h run real-time (node time below the mission span).
+Reported besides, not deciding: HS-G15g's runs in this build against its recorded values (decision_rule_G15g.txt,
+mean 0.0174 m), the final gyro bias of each run, and the moving starts, where HS-G15h differs from HS-G15g by the tilt
+limit alone.
+If HS-G15h is adopted, configs/sota_v7 gets it as the HS configuration; a COMFORT submission with it needs its own
+preregistration and the maintainer's decision. The development missions have been used to design the keys (through
+G16-G19); an adoption is a development result only.
+
+Command: BASE_CFG=configs/sota_v7/rko_lio_grandtour_hs_G15g_2026-10-28.yaml BASE_NAME=G15g CAND_CFG=<G15h file>
+CAND_NAME=G15h OUT_NAME=g15h LS_MISSIONS= bash bench_report/scripts/p7_g16_grandtour.sh
+
+Record
+  2026-11-09 (p7_g16_grandtour.sh, BASE_NAME=G15g; data/grandtour/g15h_grandtour.csv; ATE without reference spikes,
+  mm, full precision, HS-G15g / HS-G15h, start type, scans that moved the gyro bias):
+    heap-1 23.339 / 22.582 (static, 300), arc-3 18.826 / 17.885 (static, 300), arc-4 17.954 / 16.862 (moving, 0),
+    arc-6 9.717 / 9.621 (moving, 0), con-1 24.398 / 22.799 (static, 299), eig-2 25.319 / 23.514 (static, 300),
+    snow-3 13.982 / 12.701 (moving, 0), spx-1 19.591 / 19.385 (static, 300), spx-3 7.512 / 7.520 (static, 300),
+    ice-1 11.007 / 10.950 (moving, 0), arc-1 11.689 / 11.259 (static, 300), arc-5 16.294 / 11.276 (moving, 0),
+    con-2 20.741 / 20.870 (static, 300), pil-2 26.148 / 24.798 (static, 300), con-3 14.069 / 13.316 (static, 300).
+    Mean 17.372 / 16.356 mm (-5.9 %). 13 of 15 better; the two others within 0.13 mm (con-2 +0.6 %, spx-3 +0.1 %).
+    Criterion 1 holds. Node time at most 0.495 of the mission span: criterion 2 holds. HS-G15h IS ADOPTED as the
+    GrandTour HS configuration (configs/sota_v7/rko_lio_grandtour_hs_G15h_2026-11-09.yaml).
+    Reported: HS-G15g's runs in this build give its recorded values (decision_rule_G15g.txt) on all 15 to 0.1 mm;
+    snow-1 375.7 / 375.7 mm. The final gyro biases of the static starts are 0.2-0.8 mrad/s about x (positive on every
+    mission: the STIM320's own small bias). The largest gain is on the moving starts (tilt limit alone): arc-5 -31 %, snow-3 -9 %,
+    arc-4 -6 %.
