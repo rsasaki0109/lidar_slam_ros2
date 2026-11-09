@@ -4,9 +4,10 @@ These files hold RKO-LIO algorithm keys only. Combine each with a rig's own keys
 acceleration unit), as the headers say.
 
 - `rko_lio_global_G12_2026-10-26.yaml`: the Phase 1 global configuration G12 (`bench_report/REPORT.md` chapter 31.3).
-- `rko_lio_grandtour_hs_G15g_2026-10-28.yaml`: the GrandTour Hesai XT-32 + STIM320 configuration HS-G15g (chapter 35).
-  It is for that rig only, not a global configuration.
-- The other files are earlier revisions (G, G15 to G15f), kept as the record.
+- `rko_lio_grandtour_hs_G15h_2026-11-09.yaml`: the GrandTour Hesai XT-32 + STIM320 configuration HS-G15h (chapter
+  60.6): HS-G15g plus a per-scan tilt-correction limit and start-window gyro bias tracking. It is for that rig only,
+  not a global configuration; it needs `Thirdparty/rko_lio` a3828fa or later.
+- The other files are earlier revisions (G, G15 to G15g), kept as the record.
 
 Do not edit these files, not even their comments. The COMFORT preregistrations and decision rules under
 `bench_report/data/grandtour/` name several of them by md5.
