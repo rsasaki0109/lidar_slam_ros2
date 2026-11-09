@@ -1,0 +1,14 @@
+HS-G15h on the opened H5 missions (2026-11-09, report chapter 60.7; written before any HS-G15h run on these missions)
+
+What: the GrandTour HS configuration HS-G15h (configs/sota_v7/rko_lio_grandtour_hs_G15h_2026-11-09.yaml, adopted
+under data/grandtour/decision_rule_G15h.txt) on the 11 H5 missions of the first blind run, with the blind run's HS rig
+keys (p7_h5_variant.sh hsg15h; build rko_lio a3828fa, offline_node md5 d611a8fb), one run each, scored against the
+prism reference that was opened on 2026-11-08 (p1_grandtour_ate.py).
+Compared with: HS-G15g on the same missions (after/hsg15g_scores.csv, chapter 60; its eth-1 run is repeated first with
+this build and must give md5 b000746f, otherwise HS-G15g is run again on all 11) and the blind run's medians of G12,
+FAST-LIO2, BIEVR-LIO, upstream RKO-LIO and GLIM (score.csv; benchmark ATE with reference spikes, as score.md).
+Reported: the geometric mean over the 11 (with and without reference spikes), the missions where HS-G15h is more than
+10 % worse than the best rival, and PIL-1 (the stairs where the world frame of G12 tilted 8 deg).
+Not a blind result: the ground truth of these missions is open, HS-G15g and the tilt limit were chosen after the
+loss analysis of chapter 60 looked at them (PIL-1 in particular), and HS-G15h is a rig-specific configuration, not G.
+No claim tier follows; a claim needs fresh data.
