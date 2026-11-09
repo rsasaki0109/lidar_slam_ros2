@@ -1,0 +1,20 @@
+Frontend memory on the blind run's largest sequence, GrandTour HOEB-1 (Hesai XT-32 + STIM320, G12; the converted bag
+gives the blind run's trajectory, md5 b944afd8). Investigation and byte-identical changes only.
+
+Blind run peak RSS (MB, /usr/bin/time, repetition 1): G 233-954 (HOEB-1 954); upstream RKO-LIO (1 m voxels) 97-420;
+FAST-LIO2 250-496; BIEVR-LIO 113-2087; GLIM 385-3483. Every rival but upstream RKO-LIO is above 330 MB on every
+GrandTour sequence.
+
+heaptrack (run_ht.sh; hoeb-1_heaptrack_peaks.txt): peak heap 859 MB, of which the local map 737 MB:
+  voxel point storage 402 MB (13.07 M points, capacity 16.75 M, 24 bytes each), map_ buckets 2^22 x 48 B = 201 MB,
+  voxel front list 2^21 x 40 B = 84 MB, normal_map_ buckets 50 MB; the LiDAR queue about 71 MB.
+Map at the end (RKO_LIO_MAP_DIAG, hoeb-1_map_end_G12.txt: voxels, map_ buckets, normals, normal buckets, fronts,
+front capacity, points, point capacity, voxels with 1 / 2 / 3-4 / 5-8 / 9-16 / 17+ points):
+  1.81 M voxels; 415 k hold one point, 227 k two, 298 k 17 or more.
+
+Byte-identical changes (rko_lio after 6b345fd): storage growing from one point, the front list without the key,
+the offline queue at 10 frames. HOEB-1: peak RSS 971 -> 859 MB (diagnostic build, same binary otherwise),
+trajectory md5 b944afd8 unchanged. A 5-frame queue (parameter only) gave 899 MB, also b944afd8.
+
+The map points alone are 314 MB (13 M x 24 bytes): 330 MB on this sequence needs fewer or smaller map points
+(a change of outputs), not only a tighter layout.
