@@ -1,0 +1,55 @@
+Phase 1, candidate G19 (fixed 2026-11-09 before any G19 run other than the screen below, whose results are known and
+count as G19's runs for those missions).
+
+G19 = G12 + max_tilt_correction_deg 0.05 + gyro_bias_time_constant_sec 10.0 + gyro_bias_start_sec 30.0 (the other keys
+of G12 unchanged; gyro_bias_standstill_max_speed stays 0, gyro_bias_max_correction_deg 1.0). File:
+data/phase1_global/rko_lio_candidate_G19_2026-11-09.yaml (md5 57ffeb2ed7b16f0bbbb53ce672b12e18). Build: rko_lio
+a3828fa, installed in this repository and in /home/user/ws/rko_g19 (offline_node md5 d611a8fb217e6ec71cbe3556c0e28324
+in both). After each registration the change it makes to the gyro-predicted roll and pitch is limited to 0.05 deg
+(G17). For the first 30 s after a static initialization the gyro bias moves by -delta / 10 s each scan (delta: the
+correction the scan keeps of the gyro-predicted attitude, body frame); after that, and after a moving start (whose
+biases start at zero), it is not changed. So on a moving start G19 is G17 byte for byte (checked: HS arc-4 06d60dbe).
+
+Why (report chapters 60.4-60.5): G17 lost where the 0.1-s initialization took a standing robot's sway as gyro bias
+(6.4 mrad/s on HS con-2, 13.5 on LS spx-1); tracking the bias over the whole mission (G18) fixed those but took in the
+registration's tilt on long stairs (LS arc-3 0.0649) and the attitude correction after a moving start (HS arc-4
+0.0272); tracking it only while standing (screen_g19, time constants 2 / 5 s) leaves LS spx-1, which walks off at once,
+at 0.0531 / 0.0774.
+
+Known before the rule (development screens, one run each, ATE without reference spikes, m; G12 / G17 / G19):
+  HS arc-4 0.0233 / 0.0256 / 0.0256 (moving start, = G17), HS con-2 0.0290 / 0.1005 / 0.0221,
+  HS eig-2 0.0375 / 0.0415 / 0.0357, HS arc-3 0.1262 / 0.0463 / 0.0465, HS pil-2 0.0768 / 0.0513 / 0.0552,
+  LS spx-1 0.0444 / 0.4719 / 0.0438, LS arc-3 0.0466 / 0.0319 / 0.0280. Screened and not chosen: a 60-s window
+  (0.0256, 0.0221, 0.0352, 0.0466, 0.0552, 0.0435, 0.0290 on the same missions); G18 and the standstill-only screens
+  (decision_rule_G18.txt, screen_g19/screen.csv). The 30-s window was chosen over 60 s, which is within 1 mm on
+  every screened mission, because a shorter window gives the registration less time to move the bias.
+  Also known: on every moving-start mission G19 equals G17 (decision_rule_G17.txt Record: HS arc-5 0.0181, arc-6
+  0.0104, ice-1 0.0129, snow-3 0.0869, snow-1 0.3759; LS arc-4 0.0202, arc-6 0.0174, snow-3 0.0259); these are run
+  again and must match G17's md5.
+  These G19 screen runs (build d611a8fb) are copied as G19's runs for those missions; the others are run under this rule.
+
+G12's GrandTour runs of the G16/G17 confirmations (build ac64178) are reused: G12 is byte-identical in this build
+(checked: HS con-2 605d6e0c, PIL-1 c98589b7, and with the diagnostic on 7 missions x G12/G17). On the Phase 1 data
+G12 is run beside G19 with this build. Adopt G19 as G if all of these hold (one run each, frontend only), checked in
+this order, stopping at the first that fails:
+  1. GrandTour HS rig, the 15 development missions of decision_rule_G14.txt (all but snow-1), ATE without reference
+     spikes: mean not above G12's, and no mission worse than G12 by more than 10 % and more than 2 mm at once. snow-1 is
+     run and reported only.
+  2. The Phase 1 gate: MapsHD's eight with a geometric mean within 1.10 x the best profiles' (G12's is 1.010 x it,
+     decision_rule_G10.txt), Oxford Keble 05 at most 1.10 x 0.0503 m, exp04 at most 1.10 x 0.0520 m, and the all-ten
+     geometric mean at most 1.05 x 0.0348 m and not above G12's in this build. Oxford's ground truth is read only to
+     score these runs, under the maintainer's permission of decision_rule_G17.txt (Record).
+  3. Koide outdoor_hard 02a / 02b / 01b / 01a: no sequence worse than G12 by more than 5 %, and 01a below 1.5 m.
+  4. GrandTour LS rig (Livox MID-360 with range scale 0.9985 + STIM320), the 8 missions of decision_rule_G14.txt: mean
+     not above G12's, and no mission worse than G12 by more than 10 % and more than 2 mm at once.
+  5. Every G19 run real-time (node time below the data duration).
+Reported besides, not deciding: the opened blind-run sequences (11 GrandTour H5 missions, HS rig; HILTI exp14/16/18),
+G12 against G19, and the final gyro bias of each run.
+If G19 is adopted, configs/sota_v7 gets it as G; a later blind run needs fresh data. The development missions have
+now been used to design G16-G19; an adoption is a development result only.
+
+Commands: CAND_CFG=<G19 file> CAND_NAME=G19 OUT_NAME=g19 bash bench_report/scripts/p7_g16_grandtour.sh (criteria 1,
+4, 5), then CAND_CFG=<G19 file> CAND_NAME=G19 OUT_NAME=g19 OXFORD_SCORE=1 bash bench_report/scripts/p7_g16_phase1.sh
+(criteria 2, 3, 5).
+
+Record
