@@ -12,3 +12,22 @@ Reported: the geometric mean over the 11 (with and without reference spikes), th
 Not a blind result: the ground truth of these missions is open, HS-G15g and the tilt limit were chosen after the
 loss analysis of chapter 60 looked at them (PIL-1 in particular), and HS-G15h is a rig-specific configuration, not G.
 No claim tier follows; a claim needs fresh data.
+
+Result (2026-11-09; after/hsg15h_scores.csv; benchmark ATE with reference spikes, m; HS-G15h / HS-G15g / G12 / best
+rival of the blind run, by median of three):
+  alb-1 0.0650 / 0.0650 / 0.0651 / 0.0658 (FAST-LIO2), eth-1 0.0196 / 0.0240 / 0.0544 / 0.0232 (GLIM),
+  gri-1 0.0194 / 0.0203 / 0.0427 / 0.0193 (GLIM), haus-1 0.0089 / 0.0088 / 0.0123 / 0.0115 (FAST-LIO2),
+  hoeb-1 0.0126 / 0.0125 / 0.0105 / 0.0201 (BIEVR-LIO), kaeb-1 0.0140 / 0.0136 / 0.0271 / 0.0276 (FAST-LIO2),
+  leica-1 0.0133 / 0.0133 / 0.1168 / 0.0148 (FAST-LIO2), lmb-1 0.0185 / 0.0183 / 0.0156 / 0.0202 (FAST-LIO2),
+  pil-1 1.2687 / 1.4650 / 2.7203 / 1.2157 (FAST-LIO2), sbb-1 0.0337 / 0.0287 / 0.0307 / 0.0304 (FAST-LIO2),
+  trim-1 0.2666 / 0.2666 / 0.2668 / 0.2671 (FAST-LIO2).
+  HS-G15g's eth-1 run in this build gave md5 b000746f, as before, so its earlier scores stand for all 11.
+  Geometric mean over the 11: HS-G15h 0.0354, HS-G15g 0.0359; blind run G12 0.0572, upstream RKO-LIO 0.0583,
+  BIEVR-LIO 0.0489, FAST-LIO2 0.0422, GLIM 0.0547. Without reference spikes: HS-G15h 0.0223, HS-G15g 0.0227, G12 0.0369,
+  upstream 0.0430, BIEVR-LIO 0.0346, FAST-LIO2 0.0286, GLIM 0.0396.
+  More than 10 % worse than the best rival: HS-G15h on sbb-1 only (1.11); HS-G15g on pil-1 only (1.21).
+  PIL-1: 1.465 -> 1.269 (median 0.537 -> 0.251); about 1.2 m of every method's ATE there is the reference's first
+  point (70 m off). SBB-1 (a static start whose 0.1-s bias was 6.4 / 6.3 mrad/s): 0.0287 -> 0.0337, the same error
+  shape as HS-G15g (a +-0.06 m vertical bowl over the mission, shared by both) with a slightly larger amplitude
+  throughout, not a failure at the start.
+  Not a blind result (see above): no claim tier follows.
