@@ -1,0 +1,28 @@
+Frontend memory on the blind run's largest sequence, GrandTour HOEB-1 (Hesai XT-32 + STIM320, G12; the converted bag
+gives the blind run's trajectory, md5 b944afd8). Investigation and byte-identical changes only.
+
+Blind run peak RSS (MB, /usr/bin/time, repetition 1): G 233-954 (HOEB-1 954); upstream RKO-LIO (1 m voxels) 97-420;
+FAST-LIO2 250-496; BIEVR-LIO 113-2087; GLIM 385-3483. Every rival but upstream RKO-LIO is above 330 MB on every
+GrandTour sequence.
+
+heaptrack (run_ht.sh; hoeb-1_heaptrack_peaks.txt): peak heap 859 MB, of which the local map 737 MB:
+  voxel point storage 402 MB (13.07 M points, capacity 16.75 M, 24 bytes each), map_ buckets 2^22 x 48 B = 201 MB,
+  voxel front list 2^21 x 40 B = 84 MB, normal_map_ buckets 50 MB; the LiDAR queue about 71 MB.
+Map at the end (RKO_LIO_MAP_DIAG, hoeb-1_map_end_G12.txt: voxels, map_ buckets, normals, normal buckets, fronts,
+front capacity, points, point capacity, voxels with 1 / 2 / 3-4 / 5-8 / 9-16 / 17+ points):
+  1.81 M voxels; 415 k hold one point, 227 k two, 298 k 17 or more.
+
+Byte-identical changes (rko_lio after 6b345fd): storage growing from one point, the front list without the key,
+the offline queue at 10 frames. HOEB-1: peak RSS 971 -> 859 MB (diagnostic build, same binary otherwise),
+trajectory md5 b944afd8 unchanged. A 5-frame queue (parameter only) gave 899 MB, also b944afd8.
+
+The map points alone are 314 MB (13 M x 24 bytes): 330 MB on this sequence needs fewer or smaller map points
+(a change of outputs), not only a tighter layout.
+
+Compact map points (local_map_compact_points, rko_lio dbb6e85 / tables 0.9 after it; run_f.sh, the blind run's G12
+parameters plus the key; ATE against the opened HOEB-1 reference, development data since the blind run):
+  default (64-bit points)      peak RSS 861 MB   md5 b944afd8   ATE 0.0105 m (median 0.0095, max 0.1005)
+  compact points               peak RSS 671 MB   md5 8a5242a5   ATE 0.0105 m (median 0.0095, max 0.1004)
+  compact, tables filled 0.9   peak RSS 603 MB   md5 8a5242a5   ATE 0.0105 m
+  The table fill does not change the trajectory (same md5): G12 never walks the map in table order.
+  HOEB-1: 954 MB in the blind run -> 603 MB (-37 %); still above 330 MB.

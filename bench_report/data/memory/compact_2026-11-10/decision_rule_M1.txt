@@ -1,0 +1,79 @@
+M1: compact local map points on top of G (G21) (fixed 2026-11-10 before any run of these files other than the HOEB-1
+check below, whose result is known).
+
+M1 = G with local_map_compact_points true: the local map keeps its points as 32-bit offsets from their voxel's corner
+instead of 64-bit coordinates (12 instead of 24 bytes a point, within about 1e-8 m at a 0.25 m voxel), in hash
+tables filled to 0.9 instead of 0.5. rko_lio a232df3, the repository install (offline_node md5
+a96647bab6da952688ddd69893ae209f). Files: rko_lio_candidate_G21c_tactical.yaml (md5 3d7235ccd99b9d12274017ba9108232d;
+G21 on a tactical-grade gyro's rig = the G19 keys, plus the key) and rko_lio_candidate_G12c.yaml (md5
+cfdc616e2447830db50e5739612d8e57; G21 on every other rig = G12, plus the key).
+
+Why: the blind run's peak RSS was above 330 MB on 10 of 14 sequences (report chapter 57); the local map's points are
+the largest part (GrandTour HOEB-1: 13 M points, 314 MB as 64-bit; bench_report/data/memory/frontend_2026-11-09/).
+Known before the rule (HOEB-1, an opened H5 mission, G12 parameters): peak RSS 861 MB -> 603 MB with the key, ATE
+0.0105 m in both (max 0.1005 / 0.1004 m). The trajectories differ (md5 b944afd8 / 8a5242a5): the rounding changes
+the registration slightly, so this rule checks accuracy as for an algorithm change.
+
+Adopt M1 (the key in G for every rig) if all hold, one run each, checked in this order, stopping at the first that
+fails:
+  1. GrandTour HS rig, the 15 development missions of decision_rule_G14.txt (all but snow-1), ATE without reference
+     spikes: mean not above G21's (G19's runs, decision_rule_G19.txt, 0.0289 m), and no mission worse than G21 by
+     more than 10 % and more than 2 mm at once. snow-1 is run and reported only.
+  2. GrandTour LS rig, the 8 missions: mean not above G21's (0.0376 m), and the same per-mission tolerance.
+  3. The Phase 1 gate with the G12c file against G12 in this build: MapsHD's eight with a geometric mean at most
+     1.089 x G12's (so within 1.10 x the best profiles, decision_rule_G10.txt), Oxford Keble 05 at most 1.10 x
+     0.0503 m, exp04 at most 1.10 x 0.0520 m, and the all-ten geometric mean at most 1.05 x 0.0348 m and not above
+     G12's in this build. Oxford's ground truth is read only to score these runs (decision_rule_G17.txt Record).
+  4. Koide outdoor_hard 02a / 02b / 01b / 01a: no sequence worse than G12 by more than 5 %, and 01a below 1.5 m.
+  5. Every M1 run real-time (node time below the data duration).
+Reported besides, not deciding: the peak RSS of every M1 run (and of the G12 runs of step 3/4), against the blind
+run's and the 64-bit runs'.
+If M1 is adopted, configs/sota_v7 gets the key as part of G. The development missions have been used to design G;
+an adoption is a development result only.
+
+Commands (bench_report/scripts):
+  MAIN_RIG=hs BASE_CFG=bench_report/data/phase1_global/rko_lio_candidate_G19_2026-11-09.yaml BASE_NAME=G19
+  CAND_CFG=bench_report/data/memory/compact_2026-11-10/rko_lio_candidate_G21c_tactical.yaml CAND_NAME=G21c OUT_NAME=m1
+  DATA_ROOT=/dev/shm/gt_m1 bash p7_g16_grandtour.sh   (G19's existing runs are reused: G19 is byte-identical in this
+  build, decision_rule_G21.txt Record; peak RSS from /usr/bin/time in run_front.sh)
+  CAND_CFG=bench_report/data/memory/compact_2026-11-10/rko_lio_candidate_G12c.yaml CAND_NAME=G12c OUT_NAME=m1
+  OXFORD_SCORE=1 bash p7_g16_phase1.sh
+
+Record
+  2026-11-10 (m1_grandtour.csv, m1_phase1.csv; GrandTour ATE without reference spikes at full precision, m, G21 / M1;
+  the batch was cut by a container restart after HS ice-1 and resumed from there, the finished runs kept):
+    1. HS 15: heap-1 0.0219325 / 0.0219437, arc-3 0.0465438 / 0.0463314, arc-4 0.0255847 / 0.0255847,
+       arc-6 0.0103646 / 0.0103646, con-1 0.0240165 / 0.0240332, eig-2 0.0356639 / 0.0348362, snow-3 0.0869285 /
+       0.0869193, spx-1 0.0183452 / 0.0181049, spx-3 0.0095908 / 0.0095908, ice-1 0.0129474 / 0.0129474,
+       arc-1 0.0274134 / 0.0275420, arc-5 0.0180646 / 0.0168648, con-2 0.0220738 / 0.0221058, pil-2 0.0551592 /
+       0.0553122, con-3 0.0183079 / 0.0181654; mean 0.0288625 / 0.0287098. No mission outside the tolerance (the
+       largest change +0.47 %, arc-1). snow-1 0.3759 / 0.3759 (reported). Criterion 1 holds.
+    2. LS 8: heap-1 0.0459025 / 0.0458360, arc-3 0.0279615 / 0.0274844, arc-4 0.0202100 / 0.0207854, arc-6
+       0.0173643 / 0.0174365, con-1 0.0816794 / 0.0816740, eig-2 0.0379275 / 0.0386253, snow-3 0.0258610 /
+       0.0258610, spx-1 0.0438063 / 0.0438063; mean 0.0375891 / 0.0376886. No mission outside the tolerance (the
+       largest +2.85 %, +0.58 mm, arc-4), but the mean is 0.0995 mm above G21's. Criterion 2 FAILS: M1 is not
+       adopted under this rule.
+    Reported after the failure, not deciding (the Phase 1 batch ran beside the GrandTour one):
+    3. Phase 1, G12 / G12c in this build: exp04 0.0527 / 0.0535 (limit 0.0572; G12 md5 5dff1cb9 as in Phase 1);
+       MapsHD calib1 0.0261 / 0.0263, calib2 0.0207 / 0.0207, flat 0.0148 / 0.0148, corridor 0.0712 / 0.0712,
+       urk 0.0545 / 0.0548, garage1 0.0440 / 0.0442, garage2 0.0293 / 0.0289, garage3 0.0267 / 0.0268 (every G12 md5
+       as in g19_phase1.csv), geometric mean ratio 1.0003 (limit 1.089); Oxford Keble 05 0.0533 / 0.0541 (limit
+       0.0553); all-ten geometric mean 0.03531 / 0.03542 (limit 0.03654, but 0.3 % above G12's: that clause would
+       fail too).
+    4. Koide G12 / G12c: 02a 0.8366 / 0.8388 (+0.25 %), 02b 0.7146 / 0.7190 (+0.62 %), 01b 1.8399 / 1.9019 (+3.37 %),
+       01a 0.9768 / 0.9917 (+1.52 %, below 1.5 m): within 5 %.
+    5. Every run real-time (GrandTour node time at most 0.14 of the data time, Phase 1 at most 0.26).
+    Peak RSS (MB, /usr/bin/time; frontend only): GrandTour M1 runs 59-253 (HS heap-1 213, arc-3 245, arc-1 253;
+    LS at most 133). Phase 1 G12 -> G12c: exp04 271 -> 208, MapsHD 64-162 -> 61-142 (garages 111-124 -> 91),
+    Koide 267-376 -> 209-260 (01b 367 -> 256, 02b 376 -> 260), Oxford 430 -> 289. HOEB-1 (before the rule) 861 -> 603.
+    Reading: the key changes no sequence by more than 3.4 % either way and the means by 0.1-0.3 %; the two
+    "not above" clauses it misses (LS mean +0.26 %, all-ten +0.3 %) were written for algorithm changes expected to
+    improve accuracy, not for a rounding change whose effect is noise of either sign. The rule stands as written:
+    M1 is not adopted by it. local_map_compact_points stays an opt-in key, off in G.
+  2026-11-10, the maintainer's decision: M1 ADOPTED despite the miss of criterion 2 (LS mean +0.0995 mm, +0.26 %) and
+  of the all-ten "not above G12" clause (+0.3 %), as min_icp_keypoints was adopted despite a +1.0 % miss on Koide 02a
+  (report chapter 30.11): a rounding change, every development sequence within 3.4 % either way, the HS mean 0.5 %
+  lower, peak RSS 22-37 % lower. G is now G22: configs/sota_v7/rko_lio_global_G22_2026-11-10.yaml (md5
+  bfc55f306ed74df36bdd0a913adf1264; the G12 keys plus local_map_compact_points, the same keys as rko_lio_candidate_G12c.yaml),
+  with rig_tactical_gyro_2026-11-09.yaml on top for a tactical-grade gyro's rig (G21). The runs above are G22's
+  development runs. A claim still needs a blind run on fresh data.

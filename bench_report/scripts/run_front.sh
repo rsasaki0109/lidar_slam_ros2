@@ -11,7 +11,7 @@ export ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-42}"
 read -r l1 l5 l15 _ < /proc/loadavg
 start_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 t0=$(date +%s.%N)
-timeout -s INT "${RUN_TIMEOUT:-1800}" "${ws}/install/rko_lio/lib/rko_lio/offline_node" --ros-args \
+/usr/bin/time -v -o "${out}/time.txt" timeout -s INT "${RUN_TIMEOUT:-1800}" "${ws}/install/rko_lio/lib/rko_lio/offline_node" --ros-args \
   --params-file "${params}" -p bag_path:="${bag}" -p lidar_topic:="${lidar}" -p imu_topic:="${imu}" \
   -p results_dir:="${out}" "$@" > "${out}/stdout.log" 2>&1
 rc=$?

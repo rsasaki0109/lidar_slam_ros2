@@ -1,0 +1,1087 @@
+reading file "hoeb-1/heap.gz" - please wait, this might take some time...
+Debuggee command was: /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node --ros-args --params-file /home/user/bench/grandtour/mem_G12/hoeb-1/params.yaml -p bag_path:=/dev/shm/gt_mem/hoeb-1/bag_stim320_imu_hesai_points -p lidar_topic:=/hesai_points -p imu_topic:=/stim320_imu -p results_dir:=/home/user/bench/mem_g/ht/hoeb-1
+finished reading file, now analyzing data:
+
+PEAK MEMORY CONSUMERS
+687.13M peak memory consumed over 4073301 calls from
+rko_lio::core::VoxelHashMap::add_points(std::vector<> const&)
+  in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+401.92M consumed over 4073257 calls from:
+    rko_lio::core::VoxelHashMap::update(std::vector<> const&, Sophus::SE3<> const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::core::LIO::update_maps(std::vector<> const&, Sophus::SE3<> const&, std::vector<> const*)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::core::LIO::register_scan(std::vector<> const&, std::vector<> const&, std::vector<> const*)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::core::LIO::register_scan(Sophus::SE3<> const&, std::vector<> const&, std::vector<> const&, std::vector<> const*)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::BaseNode::register_scan_locked(std::vector<> const&, std::vector<> const&, std::vector<> const*)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::ThreadedNode::registration_loop()
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    0x7f69fb2ecdb3
+      in /lib/x86_64-linux-gnu/libstdc++.so.6
+    start_thread
+      at ./nptl/pthread_create.c:447
+      in /lib/x86_64-linux-gnu/libc.so.6
+    __clone3
+      at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:78
+      in /lib/x86_64-linux-gnu/libc.so.6
+201.33M consumed over 22 calls from:
+    rko_lio::core::VoxelHashMap::update(std::vector<> const&, Sophus::SE3<> const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::core::LIO::update_maps(std::vector<> const&, Sophus::SE3<> const&, std::vector<> const*)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::core::LIO::register_scan(std::vector<> const&, std::vector<> const&, std::vector<> const*)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::core::LIO::register_scan(Sophus::SE3<> const&, std::vector<> const&, std::vector<> const&, std::vector<> const*)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::BaseNode::register_scan_locked(std::vector<> const&, std::vector<> const&, std::vector<> const*)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::ThreadedNode::registration_loop()
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    0x7f69fb2ecdb3
+      in /lib/x86_64-linux-gnu/libstdc++.so.6
+    start_thread
+      at ./nptl/pthread_create.c:447
+      in /lib/x86_64-linux-gnu/libc.so.6
+    __clone3
+      at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:78
+      in /lib/x86_64-linux-gnu/libc.so.6
+83.89M consumed over 22 calls from:
+    rko_lio::core::VoxelHashMap::update(std::vector<> const&, Sophus::SE3<> const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::core::LIO::update_maps(std::vector<> const&, Sophus::SE3<> const&, std::vector<> const*)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::core::LIO::register_scan(std::vector<> const&, std::vector<> const&, std::vector<> const*)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::core::LIO::register_scan(Sophus::SE3<> const&, std::vector<> const&, std::vector<> const&, std::vector<> const*)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::BaseNode::register_scan_locked(std::vector<> const&, std::vector<> const&, std::vector<> const*)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::ThreadedNode::registration_loop()
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    0x7f69fb2ecdb3
+      in /lib/x86_64-linux-gnu/libstdc++.so.6
+    start_thread
+      at ./nptl/pthread_create.c:447
+      in /lib/x86_64-linux-gnu/libc.so.6
+    __clone3
+      at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:78
+      in /lib/x86_64-linux-gnu/libc.so.6
+
+71.20M peak memory consumed over 8531 calls from
+rko_lio::ros::ThreadedNode::lidar_callback(std::shared_ptr<> const&)
+  in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+53.40M consumed over 4228 calls from:
+    rko_lio::ros::OfflineNode::run()
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    main
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+17.80M consumed over 4228 calls from:
+    rko_lio::ros::OfflineNode::run()
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    main
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+
+50.33M peak memory consumed over 20 calls from
+tsl::detail_robin_hash::robin_hash<>::rehash_impl(unsigned long)
+  in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+50.33M consumed over 20 calls from:
+    rko_lio::core::VoxelHashMap::refresh_normal(Eigen::Matrix<> const&, std::vector<> const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::core::VoxelHashMap::add_points(std::vector<> const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::core::VoxelHashMap::update(std::vector<> const&, Sophus::SE3<> const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::core::LIO::update_maps(std::vector<> const&, Sophus::SE3<> const&, std::vector<> const*)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::core::LIO::register_scan(std::vector<> const&, std::vector<> const&, std::vector<> const*)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::core::LIO::register_scan(Sophus::SE3<> const&, std::vector<> const&, std::vector<> const&, std::vector<> const*)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::BaseNode::register_scan_locked(std::vector<> const&, std::vector<> const&, std::vector<> const*)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::ThreadedNode::registration_loop()
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    0x7f69fb2ecdb3
+      in /lib/x86_64-linux-gnu/libstdc++.so.6
+    start_thread
+      at ./nptl/pthread_create.c:447
+      in /lib/x86_64-linux-gnu/libc.so.6
+    __clone3
+      at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:78
+      in /lib/x86_64-linux-gnu/libc.so.6
+
+17.81M peak memory consumed over 3170 calls from
+void std::deque<>::_M_push_back_aux<>(rko_lio::core::Timestamps const&, std::vector<> const&, std::vector<> const&)
+  in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+13.35M consumed over 1056 calls from:
+    rko_lio::ros::ThreadedNode::lidar_callback(std::shared_ptr<> const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::OfflineNode::run()
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    main
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+4.45M consumed over 1056 calls from:
+    rko_lio::ros::ThreadedNode::lidar_callback(std::shared_ptr<> const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::OfflineNode::run()
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    main
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+4.84K consumed over 1056 calls from:
+    rko_lio::ros::ThreadedNode::lidar_callback(std::shared_ptr<> const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::OfflineNode::run()
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    main
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+304B consumed over 2 calls from:
+    rko_lio::ros::ThreadedNode::lidar_callback(std::shared_ptr<> const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::OfflineNode::run()
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    main
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+
+15.58M peak memory consumed over 527837 calls from
+rcutils_uint8_array_init
+  in /opt/ros/jazzy/lib/librcutils.so
+13.35M consumed over 259722 calls from:
+    rosbag2_storage::make_empty_serialized_message(unsigned long)
+      in /opt/ros/jazzy/lib/librosbag2_storage.so
+    rosbag2_storage::make_serialized_message(void const*, unsigned long)
+      in /opt/ros/jazzy/lib/librosbag2_storage.so
+    rosbag2_storage_plugins::MCAPStorage::read_and_enqueue_message()
+      in /opt/ros/jazzy/lib/librosbag2_storage_mcap.so
+    rosbag2_cpp::readers::SequentialReader::has_next()
+      in /opt/ros/jazzy/lib/librosbag2_cpp.so
+    rko_lio::ros::utils::BufferableBag::finished() const
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::OfflineNode::run()
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    main
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+1.11M consumed over 263914 calls from:
+    rclcpp::SerializedMessage::SerializedMessage(rcutils_uint8_array_s const&)
+      in /opt/ros/jazzy/lib/librclcpp.so
+    rko_lio::ros::OfflineNode::run()
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    main
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+1.11M consumed over 3691 calls from:
+    rosbag2_storage::make_empty_serialized_message(unsigned long)
+      in /opt/ros/jazzy/lib/librosbag2_storage.so
+    rosbag2_storage::make_serialized_message(void const*, unsigned long)
+      in /opt/ros/jazzy/lib/librosbag2_storage.so
+    rosbag2_storage_plugins::MCAPStorage::read_and_enqueue_message()
+      in /opt/ros/jazzy/lib/librosbag2_storage_mcap.so
+    rosbag2_cpp::readers::SequentialReader::has_next()
+      in /opt/ros/jazzy/lib/librosbag2_cpp.so
+    rko_lio::ros::utils::BufferableBag::BufferMessages()
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::utils::BufferableBag::PopNextMessage()
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::OfflineNode::run()
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    main
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+  and 0B from 10 other places
+
+5.33M peak memory consumed over 491791 calls from
+0x7f69f1bdf508
+  in /opt/ros/jazzy/lib/libmcap.so
+1.32M consumed over 1 calls from:
+    mcap::ZStdReader::DecompressAll(std::byte const*, unsigned long, unsigned long, std::vector<>*)
+      in /opt/ros/jazzy/lib/libmcap.so
+    mcap::IndexedMessageReader::decompressChunk(mcap::Chunk const&, mcap::IndexedMessageReader::ChunkSlot&)
+      in /opt/ros/jazzy/lib/libmcap.so
+    mcap::IndexedMessageReader::next()
+      in /opt/ros/jazzy/lib/libmcap.so
+    mcap::LinearMessageView::Iterator::Impl::increment()
+      in /opt/ros/jazzy/lib/libmcap.so
+    mcap::LinearMessageView::Iterator::Impl::Impl(mcap::LinearMessageView&)
+      in /opt/ros/jazzy/lib/libmcap.so
+    mcap::LinearMessageView::Iterator::Iterator(mcap::LinearMessageView&)
+      in /opt/ros/jazzy/lib/libmcap.so
+    mcap::LinearMessageView::begin()
+      in /opt/ros/jazzy/lib/libmcap.so
+    rosbag2_storage_plugins::MCAPStorage::reset_iterator()
+      in /opt/ros/jazzy/lib/librosbag2_storage_mcap.so
+    rko_lio::ros::utils::BufferableBag::BufferableBag(std::__cxx11::basic_string<> const&, std::shared_ptr<>, std::vector<> const&, std::chrono::duration<>, std::chrono::duration<>)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::OfflineNode::OfflineNode(rclcpp::NodeOptions const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    main
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+1.18M consumed over 14 calls from:
+    0x7f69f1bde1fd
+      in /opt/ros/jazzy/lib/libmcap.so
+    mcap::TypedRecordReader::next()
+      in /opt/ros/jazzy/lib/libmcap.so
+    mcap::McapReader::readSummarySection_(mcap::IReadable&)
+      in /opt/ros/jazzy/lib/libmcap.so
+    mcap::McapReader::readSummary(mcap::ReadSummaryMethod, std::function<> const&)
+      in /opt/ros/jazzy/lib/libmcap.so
+    rosbag2_storage_plugins::MCAPStorage::ensure_summary_read()
+      in /opt/ros/jazzy/lib/librosbag2_storage_mcap.so
+    rosbag2_storage_plugins::MCAPStorage::reset_iterator()
+      in /opt/ros/jazzy/lib/librosbag2_storage_mcap.so
+    rosbag2_storage_plugins::MCAPStorage::open_impl(std::__cxx11::basic_string<> const&, std::__cxx11::basic_string<> const&, rosbag2_storage::storage_interfaces::IOFlag, std::__cxx11::basic_string<> const&)
+      in /opt/ros/jazzy/lib/librosbag2_storage_mcap.so
+    0x7f69fbb8cf43
+      in /opt/ros/jazzy/lib/librosbag2_storage.so
+    rosbag2_storage::StorageFactory::open_read_only(rosbag2_storage::StorageOptions const&)
+      in /opt/ros/jazzy/lib/librosbag2_storage.so
+    rosbag2_cpp::readers::SequentialReader::load_current_file()
+      in /opt/ros/jazzy/lib/librosbag2_cpp.so
+    rosbag2_cpp::readers::SequentialReader::open(rosbag2_storage::StorageOptions const&, rosbag2_cpp::ConverterOptions const&)
+      in /opt/ros/jazzy/lib/librosbag2_cpp.so
+    rosbag2_cpp::Reader::open(std::__cxx11::basic_string<> const&)
+      in /opt/ros/jazzy/lib/librosbag2_cpp.so
+    rko_lio::ros::utils::BufferableBag::BufferableBag(std::__cxx11::basic_string<> const&, std::shared_ptr<>, std::vector<> const&, std::chrono::duration<>, std::chrono::duration<>)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::OfflineNode::OfflineNode(rclcpp::NodeOptions const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    main
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+826.93K consumed over 1 calls from:
+    mcap::FileStreamReader::read(std::byte**, unsigned long, unsigned long)
+      in /opt/ros/jazzy/lib/libmcap.so
+    mcap::McapReader::ReadRecord(mcap::IReadable&, unsigned long, mcap::Record*)
+      in /opt/ros/jazzy/lib/libmcap.so
+    mcap::RecordReader::next()
+      in /opt/ros/jazzy/lib/libmcap.so
+    mcap::TypedRecordReader::next()
+      in /opt/ros/jazzy/lib/libmcap.so
+    mcap::LinearMessageView::Iterator::Impl::increment()
+      in /opt/ros/jazzy/lib/libmcap.so
+    mcap::LinearMessageView::Iterator::Impl::Impl(mcap::LinearMessageView&)
+      in /opt/ros/jazzy/lib/libmcap.so
+    mcap::LinearMessageView::Iterator::Iterator(mcap::LinearMessageView&)
+      in /opt/ros/jazzy/lib/libmcap.so
+    mcap::LinearMessageView::begin()
+      in /opt/ros/jazzy/lib/libmcap.so
+    rosbag2_storage_plugins::MCAPStorage::reset_iterator()
+      in /opt/ros/jazzy/lib/librosbag2_storage_mcap.so
+    rosbag2_storage_plugins::MCAPStorage::open_impl(std::__cxx11::basic_string<> const&, std::__cxx11::basic_string<> const&, rosbag2_storage::storage_interfaces::IOFlag, std::__cxx11::basic_string<> const&)
+      in /opt/ros/jazzy/lib/librosbag2_storage_mcap.so
+    0x7f69fbb8cf43
+      in /opt/ros/jazzy/lib/librosbag2_storage.so
+    rosbag2_storage::StorageFactory::open_read_only(rosbag2_storage::StorageOptions const&)
+      in /opt/ros/jazzy/lib/librosbag2_storage.so
+    rosbag2_cpp::readers::SequentialReader::load_current_file()
+      in /opt/ros/jazzy/lib/librosbag2_cpp.so
+    rosbag2_cpp::readers::SequentialReader::open(rosbag2_storage::StorageOptions const&, rosbag2_cpp::ConverterOptions const&)
+      in /opt/ros/jazzy/lib/librosbag2_cpp.so
+    rosbag2_cpp::Reader::open(std::__cxx11::basic_string<> const&)
+      in /opt/ros/jazzy/lib/librosbag2_cpp.so
+    rko_lio::ros::utils::BufferableBag::BufferableBag(std::__cxx11::basic_string<> const&, std::shared_ptr<>, std::vector<> const&, std::chrono::duration<>, std::chrono::duration<>)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::OfflineNode::OfflineNode(rclcpp::NodeOptions const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    main
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+126.48K consumed over 5270 calls from:
+    0x7f69f1bee189
+      in /opt/ros/jazzy/lib/libmcap.so
+    0x7f69f1bde1fd
+      in /opt/ros/jazzy/lib/libmcap.so
+    mcap::TypedRecordReader::next()
+      in /opt/ros/jazzy/lib/libmcap.so
+    mcap::McapReader::readSummarySection_(mcap::IReadable&)
+      in /opt/ros/jazzy/lib/libmcap.so
+    mcap::McapReader::readSummary(mcap::ReadSummaryMethod, std::function<> const&)
+      in /opt/ros/jazzy/lib/libmcap.so
+    rosbag2_storage_plugins::MCAPStorage::ensure_summary_read()
+      in /opt/ros/jazzy/lib/librosbag2_storage_mcap.so
+    rosbag2_storage_plugins::MCAPStorage::reset_iterator()
+      in /opt/ros/jazzy/lib/librosbag2_storage_mcap.so
+    rosbag2_storage_plugins::MCAPStorage::open_impl(std::__cxx11::basic_string<> const&, std::__cxx11::basic_string<> const&, rosbag2_storage::storage_interfaces::IOFlag, std::__cxx11::basic_string<> const&)
+      in /opt/ros/jazzy/lib/librosbag2_storage_mcap.so
+    0x7f69fbb8cf43
+      in /opt/ros/jazzy/lib/librosbag2_storage.so
+    rosbag2_storage::StorageFactory::open_read_only(rosbag2_storage::StorageOptions const&)
+      in /opt/ros/jazzy/lib/librosbag2_storage.so
+    rosbag2_cpp::readers::SequentialReader::load_current_file()
+      in /opt/ros/jazzy/lib/librosbag2_cpp.so
+    rosbag2_cpp::readers::SequentialReader::open(rosbag2_storage::StorageOptions const&, rosbag2_cpp::ConverterOptions const&)
+      in /opt/ros/jazzy/lib/librosbag2_cpp.so
+    rosbag2_cpp::Reader::open(std::__cxx11::basic_string<> const&)
+      in /opt/ros/jazzy/lib/librosbag2_cpp.so
+    rko_lio::ros::utils::BufferableBag::BufferableBag(std::__cxx11::basic_string<> const&, std::shared_ptr<>, std::vector<> const&, std::chrono::duration<>, std::chrono::duration<>)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::OfflineNode::OfflineNode(rclcpp::NodeOptions const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    main
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+  and 1.88M from 4709 other places
+
+1.78M peak memory consumed over 15852 calls from
+rko_lio::ros::utils::point_cloud2_to_eigen_with_timestamps(std::shared_ptr<> const&)
+  in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+1.33M consumed over 5284 calls from:
+    rko_lio::ros::BaseNode::process_lidar_msg(std::shared_ptr<> const&) const
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::ThreadedNode::lidar_callback(std::shared_ptr<> const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::OfflineNode::run()
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    main
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+444.98K consumed over 5284 calls from:
+    rko_lio::ros::BaseNode::process_lidar_msg(std::shared_ptr<> const&) const
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::ThreadedNode::lidar_callback(std::shared_ptr<> const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::OfflineNode::run()
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    main
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+
+1.78M peak memory consumed over 10568 calls from
+rko_lio::ros::BaseNode::process_lidar_msg(std::shared_ptr<> const&) const
+  in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+1.33M consumed over 5284 calls from:
+    rko_lio::ros::ThreadedNode::lidar_callback(std::shared_ptr<> const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::OfflineNode::run()
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    main
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+444.98K consumed over 5284 calls from:
+    rko_lio::ros::ThreadedNode::lidar_callback(std::shared_ptr<> const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::OfflineNode::run()
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    main
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+
+1.30M peak memory consumed over 5870 calls from
+0x7f69f8ac023d
+  in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+29.90K consumed over 101 calls from:
+    eprosima::fastrtps::rtps::CacheChangePool::allocateGroup(unsigned int)
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    eprosima::fastdds::dds::DataWriterImpl::get_change_pool() const
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    eprosima::fastdds::dds::DataWriterImpl::enable()
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    0x7f69f8da004f
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    eprosima::fastdds::dds::DataWriter::enable()
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    eprosima::fastdds::dds::PublisherImpl::create_datawriter(eprosima::fastdds::dds::Topic*, eprosima::fastdds::dds::DataWriterImpl*, eprosima::fastdds::dds::StatusMask const&)
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    eprosima::fastdds::dds::PublisherImpl::create_datawriter(eprosima::fastdds::dds::Topic*, eprosima::fastdds::dds::DataWriterQos const&, eprosima::fastdds::dds::DataWriterListener*, eprosima::fastdds::dds::StatusMask const&, std::shared_ptr<>)
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    eprosima::fastdds::dds::Publisher::create_datawriter(eprosima::fastdds::dds::Topic*, eprosima::fastdds::dds::DataWriterQos const&, eprosima::fastdds::dds::DataWriterListener*, eprosima::fastdds::dds::StatusMask const&, std::shared_ptr<>)
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    rmw_create_service
+      in /opt/ros/jazzy/lib/librmw_fastrtps_cpp.so
+    rcl_service_init
+      in /opt/ros/jazzy/lib/librcl.so
+    0x7f69fb7b0abe
+      in /opt/ros/jazzy/lib/librclcpp.so
+    rclcpp::ParameterService::ParameterService(std::shared_ptr<>, std::shared_ptr<>, rclcpp::node_interfaces::NodeParametersInterface*, rclcpp::QoS const&)
+      in /opt/ros/jazzy/lib/librclcpp.so
+    rclcpp::node_interfaces::NodeParameters::NodeParameters(std::shared_ptr<>, std::shared_ptr<>, std::shared_ptr<>, std::shared_ptr<>, std::shared_ptr<>, std::vector<> const&, bool, bool, rclcpp::QoS const&, rclcpp::PublisherOptionsBase const&, bool, bool)
+      in /opt/ros/jazzy/lib/librclcpp.so
+    rclcpp::Node::Node(std::__cxx11::basic_string<> const&, std::__cxx11::basic_string<> const&, rclcpp::NodeOptions const&)
+      in /opt/ros/jazzy/lib/librclcpp.so
+    rclcpp::Node::Node(std::__cxx11::basic_string<> const&, rclcpp::NodeOptions const&)
+      in /opt/ros/jazzy/lib/librclcpp.so
+    rko_lio::ros::BaseNode::BaseNode(std::__cxx11::basic_string<> const&, rclcpp::NodeOptions const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::ThreadedNode::ThreadedNode(std::__cxx11::basic_string<> const&, rclcpp::NodeOptions const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::OfflineNode::OfflineNode(rclcpp::NodeOptions const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    main
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+29.90K consumed over 101 calls from:
+    eprosima::fastrtps::rtps::CacheChangePool::allocateGroup(unsigned int)
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    eprosima::fastdds::dds::DataWriterImpl::get_change_pool() const
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    eprosima::fastdds::dds::DataWriterImpl::enable()
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    0x7f69f8da004f
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    eprosima::fastdds::dds::DataWriter::enable()
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    eprosima::fastdds::dds::PublisherImpl::create_datawriter(eprosima::fastdds::dds::Topic*, eprosima::fastdds::dds::DataWriterImpl*, eprosima::fastdds::dds::StatusMask const&)
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    eprosima::fastdds::dds::PublisherImpl::create_datawriter(eprosima::fastdds::dds::Topic*, eprosima::fastdds::dds::DataWriterQos const&, eprosima::fastdds::dds::DataWriterListener*, eprosima::fastdds::dds::StatusMask const&, std::shared_ptr<>)
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    eprosima::fastdds::dds::Publisher::create_datawriter(eprosima::fastdds::dds::Topic*, eprosima::fastdds::dds::DataWriterQos const&, eprosima::fastdds::dds::DataWriterListener*, eprosima::fastdds::dds::StatusMask const&, std::shared_ptr<>)
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    rmw_create_service
+      in /opt/ros/jazzy/lib/librmw_fastrtps_cpp.so
+    rcl_service_init
+      in /opt/ros/jazzy/lib/librcl.so
+    rclcpp::ParameterService::ParameterService(std::shared_ptr<>, std::shared_ptr<>, rclcpp::node_interfaces::NodeParametersInterface*, rclcpp::QoS const&)
+      in /opt/ros/jazzy/lib/librclcpp.so
+    rclcpp::node_interfaces::NodeParameters::NodeParameters(std::shared_ptr<>, std::shared_ptr<>, std::shared_ptr<>, std::shared_ptr<>, std::shared_ptr<>, std::vector<> const&, bool, bool, rclcpp::QoS const&, rclcpp::PublisherOptionsBase const&, bool, bool)
+      in /opt/ros/jazzy/lib/librclcpp.so
+    rclcpp::Node::Node(std::__cxx11::basic_string<> const&, std::__cxx11::basic_string<> const&, rclcpp::NodeOptions const&)
+      in /opt/ros/jazzy/lib/librclcpp.so
+    rclcpp::Node::Node(std::__cxx11::basic_string<> const&, rclcpp::NodeOptions const&)
+      in /opt/ros/jazzy/lib/librclcpp.so
+    rko_lio::ros::BaseNode::BaseNode(std::__cxx11::basic_string<> const&, rclcpp::NodeOptions const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::ThreadedNode::ThreadedNode(std::__cxx11::basic_string<> const&, rclcpp::NodeOptions const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::OfflineNode::OfflineNode(rclcpp::NodeOptions const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    main
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+29.90K consumed over 101 calls from:
+    eprosima::fastrtps::rtps::CacheChangePool::allocateGroup(unsigned int)
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    eprosima::fastdds::dds::DataWriterImpl::get_change_pool() const
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    eprosima::fastdds::dds::DataWriterImpl::enable()
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    0x7f69f8da004f
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    eprosima::fastdds::dds::DataWriter::enable()
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    eprosima::fastdds::dds::PublisherImpl::create_datawriter(eprosima::fastdds::dds::Topic*, eprosima::fastdds::dds::DataWriterImpl*, eprosima::fastdds::dds::StatusMask const&)
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    eprosima::fastdds::dds::PublisherImpl::create_datawriter(eprosima::fastdds::dds::Topic*, eprosima::fastdds::dds::DataWriterQos const&, eprosima::fastdds::dds::DataWriterListener*, eprosima::fastdds::dds::StatusMask const&, std::shared_ptr<>)
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    eprosima::fastdds::dds::Publisher::create_datawriter(eprosima::fastdds::dds::Topic*, eprosima::fastdds::dds::DataWriterQos const&, eprosima::fastdds::dds::DataWriterListener*, eprosima::fastdds::dds::StatusMask const&, std::shared_ptr<>)
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    0x7f69f935a367
+      in /opt/ros/jazzy/lib/librmw_fastrtps_cpp.so
+    rmw_create_publisher
+      in /opt/ros/jazzy/lib/librmw_fastrtps_cpp.so
+    rcl_publisher_init
+      in /opt/ros/jazzy/lib/librcl.so
+    rclcpp::PublisherBase::PublisherBase(rclcpp::node_interfaces::NodeBaseInterface*, std::__cxx11::basic_string<> const&, rosidl_message_type_support_t const&, rcl_publisher_options_s const&, rclcpp::PublisherEventCallbacks const&, bool)
+      in /opt/ros/jazzy/lib/librclcpp.so
+    std::_Function_handler<>::_M_invoke(std::_Any_data const&, rclcpp::node_interfaces::NodeBaseInterface*&&, std::__cxx11::basic_string<> const&, rclcpp::QoS const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rclcpp::node_interfaces::NodeTopics::create_publisher(std::__cxx11::basic_string<> const&, rclcpp::PublisherFactory const&, rclcpp::QoS const&)
+      in /opt/ros/jazzy/lib/librclcpp.so
+    std::shared_ptr<> rclcpp::detail::create_publisher<>(rclcpp::Node&, rclcpp::Node&, std::__cxx11::basic_string<> const&, rclcpp::QoS const&, rclcpp::PublisherOptionsWithAllocator<> const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::BaseNode::BaseNode(std::__cxx11::basic_string<> const&, rclcpp::NodeOptions const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::ThreadedNode::ThreadedNode(std::__cxx11::basic_string<> const&, rclcpp::NodeOptions const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::OfflineNode::OfflineNode(rclcpp::NodeOptions const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    main
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+29.90K consumed over 101 calls from:
+    eprosima::fastrtps::rtps::CacheChangePool::allocateGroup(unsigned int)
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    eprosima::fastdds::dds::DataWriterImpl::get_change_pool() const
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    eprosima::fastdds::dds::DataWriterImpl::enable()
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    0x7f69f8da004f
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    eprosima::fastdds::dds::DataWriter::enable()
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    eprosima::fastdds::dds::PublisherImpl::create_datawriter(eprosima::fastdds::dds::Topic*, eprosima::fastdds::dds::DataWriterImpl*, eprosima::fastdds::dds::StatusMask const&)
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    eprosima::fastdds::dds::PublisherImpl::create_datawriter(eprosima::fastdds::dds::Topic*, eprosima::fastdds::dds::DataWriterQos const&, eprosima::fastdds::dds::DataWriterListener*, eprosima::fastdds::dds::StatusMask const&, std::shared_ptr<>)
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    eprosima::fastdds::dds::Publisher::create_datawriter(eprosima::fastdds::dds::Topic*, eprosima::fastdds::dds::DataWriterQos const&, eprosima::fastdds::dds::DataWriterListener*, eprosima::fastdds::dds::StatusMask const&, std::shared_ptr<>)
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    rmw_create_service
+      in /opt/ros/jazzy/lib/librmw_fastrtps_cpp.so
+    rcl_service_init
+      in /opt/ros/jazzy/lib/librcl.so
+    0x7f69fb7b235e
+      in /opt/ros/jazzy/lib/librclcpp.so
+    rclcpp::ParameterService::ParameterService(std::shared_ptr<>, std::shared_ptr<>, rclcpp::node_interfaces::NodeParametersInterface*, rclcpp::QoS const&)
+      in /opt/ros/jazzy/lib/librclcpp.so
+    rclcpp::node_interfaces::NodeParameters::NodeParameters(std::shared_ptr<>, std::shared_ptr<>, std::shared_ptr<>, std::shared_ptr<>, std::shared_ptr<>, std::vector<> const&, bool, bool, rclcpp::QoS const&, rclcpp::PublisherOptionsBase const&, bool, bool)
+      in /opt/ros/jazzy/lib/librclcpp.so
+    rclcpp::Node::Node(std::__cxx11::basic_string<> const&, std::__cxx11::basic_string<> const&, rclcpp::NodeOptions const&)
+      in /opt/ros/jazzy/lib/librclcpp.so
+    rclcpp::Node::Node(std::__cxx11::basic_string<> const&, rclcpp::NodeOptions const&)
+      in /opt/ros/jazzy/lib/librclcpp.so
+    rko_lio::ros::BaseNode::BaseNode(std::__cxx11::basic_string<> const&, rclcpp::NodeOptions const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::ThreadedNode::ThreadedNode(std::__cxx11::basic_string<> const&, rclcpp::NodeOptions const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::OfflineNode::OfflineNode(rclcpp::NodeOptions const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    main
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+  and 1.18M from 2686 other places
+
+1.11M peak memory consumed over 5284 calls from
+0x7f69f1ad5682
+  in /opt/ros/jazzy/lib/libsensor_msgs__rosidl_typesupport_fastrtps_cpp.so
+1.11M consumed over 5284 calls from:
+    sensor_msgs::msg::typesupport_fastrtps_cpp::cdr_deserialize(eprosima::fastcdr::Cdr&, sensor_msgs::msg::PointCloud2_<>&)
+      in /opt/ros/jazzy/lib/libsensor_msgs__rosidl_typesupport_fastrtps_cpp.so
+    0x7f69f9365aba
+      in /opt/ros/jazzy/lib/librmw_fastrtps_cpp.so
+    rmw_deserialize
+      in /opt/ros/jazzy/lib/librmw_fastrtps_cpp.so
+    rclcpp::SerializationBase::deserialize_message(rclcpp::SerializedMessage const*, void*) const
+      in /opt/ros/jazzy/lib/librclcpp.so
+    std::shared_ptr<> (anonymous namespace)::deserialize_next_msg<>(rclcpp::SerializedMessage const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::OfflineNode::run()
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    main
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+
+834.46K peak memory consumed over 89 calls from
+eprosima::fastrtps::types::TypeObjectFactory::add_type_object(std::__cxx11::basic_string<> const&, eprosima::fastrtps::types::TypeIdentifier const*, eprosima::fastrtps::types::TypeObject const*)
+  in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+18.75K consumed over 2 calls from:
+    0x7f69f930ffe6
+      in /opt/ros/jazzy/lib/librmw_fastrtps_shared_cpp.so
+    0x7f69f930f8fa
+      in /opt/ros/jazzy/lib/librmw_fastrtps_shared_cpp.so
+    0x7f69f930fe9d
+      in /opt/ros/jazzy/lib/librmw_fastrtps_shared_cpp.so
+    0x7f69f930f8fa
+      in /opt/ros/jazzy/lib/librmw_fastrtps_shared_cpp.so
+    0x7f69f930fe9d
+      in /opt/ros/jazzy/lib/librmw_fastrtps_shared_cpp.so
+    0x7f69f930313a
+      in /opt/ros/jazzy/lib/librmw_fastrtps_shared_cpp.so
+    rmw_fastrtps_shared_cpp::register_type_object(rosidl_message_type_support_t const*, std::__cxx11::basic_string<> const&)
+      in /opt/ros/jazzy/lib/librmw_fastrtps_shared_cpp.so
+    0x7f69f9359d87
+      in /opt/ros/jazzy/lib/librmw_fastrtps_cpp.so
+    rmw_create_publisher
+      in /opt/ros/jazzy/lib/librmw_fastrtps_cpp.so
+    rcl_publisher_init
+      in /opt/ros/jazzy/lib/librcl.so
+    rclcpp::PublisherBase::PublisherBase(rclcpp::node_interfaces::NodeBaseInterface*, std::__cxx11::basic_string<> const&, rosidl_message_type_support_t const&, rcl_publisher_options_s const&, rclcpp::PublisherEventCallbacks const&, bool)
+      in /opt/ros/jazzy/lib/librclcpp.so
+    std::_Function_handler<>::_M_invoke(std::_Any_data const&, rclcpp::node_interfaces::NodeBaseInterface*&&, std::__cxx11::basic_string<> const&, rclcpp::QoS const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rclcpp::node_interfaces::NodeTopics::create_publisher(std::__cxx11::basic_string<> const&, rclcpp::PublisherFactory const&, rclcpp::QoS const&)
+      in /opt/ros/jazzy/lib/librclcpp.so
+    std::shared_ptr<> rclcpp::detail::create_publisher<>(std::shared_ptr<>&, std::shared_ptr<>&, std::__cxx11::basic_string<> const&, rclcpp::QoS const&, rclcpp::PublisherOptionsWithAllocator<> const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    std::__detail::_MakeUniq<>::__single_object std::make_unique<>(rclcpp::Node&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::BaseNode::BaseNode(std::__cxx11::basic_string<> const&, rclcpp::NodeOptions const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::ThreadedNode::ThreadedNode(std::__cxx11::basic_string<> const&, rclcpp::NodeOptions const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::OfflineNode::OfflineNode(rclcpp::NodeOptions const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    main
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+18.75K consumed over 2 calls from:
+    0x7f69f930ffe6
+      in /opt/ros/jazzy/lib/librmw_fastrtps_shared_cpp.so
+    0x7f69f930f8fa
+      in /opt/ros/jazzy/lib/librmw_fastrtps_shared_cpp.so
+    0x7f69f930fe9d
+      in /opt/ros/jazzy/lib/librmw_fastrtps_shared_cpp.so
+    0x7f69f930313a
+      in /opt/ros/jazzy/lib/librmw_fastrtps_shared_cpp.so
+    rmw_fastrtps_shared_cpp::register_type_object(rosidl_message_type_support_t const*, std::__cxx11::basic_string<> const&)
+      in /opt/ros/jazzy/lib/librmw_fastrtps_shared_cpp.so
+    0x7f69f9359d87
+      in /opt/ros/jazzy/lib/librmw_fastrtps_cpp.so
+    0x7f69f935adfe
+      in /opt/ros/jazzy/lib/librmw_fastrtps_cpp.so
+    rmw_create_node
+      in /opt/ros/jazzy/lib/librmw_fastrtps_cpp.so
+    rcl_node_init
+      in /opt/ros/jazzy/lib/librcl.so
+    rclcpp::node_interfaces::NodeBase::NodeBase(std::__cxx11::basic_string<> const&, std::__cxx11::basic_string<> const&, std::shared_ptr<>, rcl_node_options_s const&, bool, bool, std::shared_ptr<>)
+      in /opt/ros/jazzy/lib/librclcpp.so
+    rclcpp::Node::Node(std::__cxx11::basic_string<> const&, std::__cxx11::basic_string<> const&, rclcpp::NodeOptions const&)
+      in /opt/ros/jazzy/lib/librclcpp.so
+    rclcpp::Node::Node(std::__cxx11::basic_string<> const&, rclcpp::NodeOptions const&)
+      in /opt/ros/jazzy/lib/librclcpp.so
+    rko_lio::ros::BaseNode::BaseNode(std::__cxx11::basic_string<> const&, rclcpp::NodeOptions const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::ThreadedNode::ThreadedNode(std::__cxx11::basic_string<> const&, rclcpp::NodeOptions const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::OfflineNode::OfflineNode(rclcpp::NodeOptions const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    main
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+18.75K consumed over 2 calls from:
+    0x7f69f930ffe6
+      in /opt/ros/jazzy/lib/librmw_fastrtps_shared_cpp.so
+    0x7f69f930f8fa
+      in /opt/ros/jazzy/lib/librmw_fastrtps_shared_cpp.so
+    0x7f69f930fe9d
+      in /opt/ros/jazzy/lib/librmw_fastrtps_shared_cpp.so
+    0x7f69f930f8fa
+      in /opt/ros/jazzy/lib/librmw_fastrtps_shared_cpp.so
+    0x7f69f930fe9d
+      in /opt/ros/jazzy/lib/librmw_fastrtps_shared_cpp.so
+    0x7f69f930f8fa
+      in /opt/ros/jazzy/lib/librmw_fastrtps_shared_cpp.so
+    0x7f69f930fe9d
+      in /opt/ros/jazzy/lib/librmw_fastrtps_shared_cpp.so
+    0x7f69f930313a
+      in /opt/ros/jazzy/lib/librmw_fastrtps_shared_cpp.so
+    rmw_fastrtps_shared_cpp::register_type_object(rosidl_message_type_support_t const*, std::__cxx11::basic_string<> const&)
+      in /opt/ros/jazzy/lib/librmw_fastrtps_shared_cpp.so
+    0x7f69f9359d87
+      in /opt/ros/jazzy/lib/librmw_fastrtps_cpp.so
+    rmw_create_publisher
+      in /opt/ros/jazzy/lib/librmw_fastrtps_cpp.so
+    rcl_publisher_init
+      in /opt/ros/jazzy/lib/librcl.so
+    rclcpp::PublisherBase::PublisherBase(rclcpp::node_interfaces::NodeBaseInterface*, std::__cxx11::basic_string<> const&, rosidl_message_type_support_t const&, rcl_publisher_options_s const&, rclcpp::PublisherEventCallbacks const&, bool)
+      in /opt/ros/jazzy/lib/librclcpp.so
+    std::_Function_handler<>::_M_invoke(std::_Any_data const&, rclcpp::node_interfaces::NodeBaseInterface*&&, std::__cxx11::basic_string<> const&, rclcpp::QoS const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rclcpp::node_interfaces::NodeTopics::create_publisher(std::__cxx11::basic_string<> const&, rclcpp::PublisherFactory const&, rclcpp::QoS const&)
+      in /opt/ros/jazzy/lib/librclcpp.so
+    std::shared_ptr<> rclcpp::detail::create_publisher<>(std::shared_ptr<>&, std::shared_ptr<>&, std::__cxx11::basic_string<> const&, rclcpp::QoS const&, rclcpp::PublisherOptionsWithAllocator<> const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    std::__detail::_MakeUniq<>::__single_object std::make_unique<>(rclcpp::Node&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::BaseNode::BaseNode(std::__cxx11::basic_string<> const&, rclcpp::NodeOptions const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::ThreadedNode::ThreadedNode(std::__cxx11::basic_string<> const&, rclcpp::NodeOptions const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::OfflineNode::OfflineNode(rclcpp::NodeOptions const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    main
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+18.75K consumed over 2 calls from:
+    0x7f69f9310546
+      in /opt/ros/jazzy/lib/librmw_fastrtps_shared_cpp.so
+    0x7f69f930fab9
+      in /opt/ros/jazzy/lib/librmw_fastrtps_shared_cpp.so
+    0x7f69f9310343
+      in /opt/ros/jazzy/lib/librmw_fastrtps_shared_cpp.so
+    0x7f69f9303127
+      in /opt/ros/jazzy/lib/librmw_fastrtps_shared_cpp.so
+    rmw_fastrtps_shared_cpp::register_type_object(rosidl_message_type_support_t const*, std::__cxx11::basic_string<> const&)
+      in /opt/ros/jazzy/lib/librmw_fastrtps_shared_cpp.so
+    0x7f69f9359d87
+      in /opt/ros/jazzy/lib/librmw_fastrtps_cpp.so
+    0x7f69f935adfe
+      in /opt/ros/jazzy/lib/librmw_fastrtps_cpp.so
+    rmw_create_node
+      in /opt/ros/jazzy/lib/librmw_fastrtps_cpp.so
+    rcl_node_init
+      in /opt/ros/jazzy/lib/librcl.so
+    rclcpp::node_interfaces::NodeBase::NodeBase(std::__cxx11::basic_string<> const&, std::__cxx11::basic_string<> const&, std::shared_ptr<>, rcl_node_options_s const&, bool, bool, std::shared_ptr<>)
+      in /opt/ros/jazzy/lib/librclcpp.so
+    rclcpp::Node::Node(std::__cxx11::basic_string<> const&, std::__cxx11::basic_string<> const&, rclcpp::NodeOptions const&)
+      in /opt/ros/jazzy/lib/librclcpp.so
+    rclcpp::Node::Node(std::__cxx11::basic_string<> const&, rclcpp::NodeOptions const&)
+      in /opt/ros/jazzy/lib/librclcpp.so
+    rko_lio::ros::BaseNode::BaseNode(std::__cxx11::basic_string<> const&, rclcpp::NodeOptions const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::ThreadedNode::ThreadedNode(std::__cxx11::basic_string<> const&, rclcpp::NodeOptions const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::OfflineNode::OfflineNode(rclcpp::NodeOptions const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    main
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+  and 759.46K from 74 other places
+
+655.52K peak memory consumed over 6 calls from
+eprosima::fastrtps::rtps::SendBuffersManager::init(eprosima::fastrtps::rtps::RTPSParticipantImpl const*)
+  in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+655.04K consumed over 1 calls from:
+    eprosima::fastrtps::rtps::RTPSParticipantImpl::setup_output_traffic()
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    eprosima::fastrtps::rtps::RTPSParticipantImpl::RTPSParticipantImpl(unsigned int, eprosima::fastrtps::rtps::RTPSParticipantAttributes const&, eprosima::fastrtps::rtps::GuidPrefix_t const&, eprosima::fastrtps::rtps::GuidPrefix_t const&, eprosima::fastrtps::rtps::RTPSParticipant*, eprosima::fastrtps::rtps::RTPSParticipantListener*)
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    eprosima::fastrtps::rtps::RTPSParticipantImpl::RTPSParticipantImpl(unsigned int, eprosima::fastrtps::rtps::RTPSParticipantAttributes const&, eprosima::fastrtps::rtps::GuidPrefix_t const&, eprosima::fastrtps::rtps::RTPSParticipant*, eprosima::fastrtps::rtps::RTPSParticipantListener*)
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    eprosima::fastrtps::rtps::RTPSDomainImpl::createParticipant(unsigned int, bool, eprosima::fastrtps::rtps::RTPSParticipantAttributes const&, eprosima::fastrtps::rtps::RTPSParticipantListener*)
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    eprosima::fastdds::dds::DomainParticipantImpl::enable()
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    eprosima::fastdds::statistics::dds::DomainParticipantImpl::enable()
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    eprosima::fastdds::dds::DomainParticipantFactory::create_participant(unsigned int, eprosima::fastdds::dds::DomainParticipantQos const&, eprosima::fastdds::dds::DomainParticipantListener*, eprosima::fastdds::dds::StatusMask const&)
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    0x7f69f92f218a
+      in /opt/ros/jazzy/lib/librmw_fastrtps_shared_cpp.so
+    rmw_fastrtps_shared_cpp::create_participant(char const*, unsigned long, rmw_security_options_s const*, rmw_discovery_options_s const*, char const*, rmw_dds_common::Context*)
+      in /opt/ros/jazzy/lib/librmw_fastrtps_shared_cpp.so
+    0x7f69f935ad0a
+      in /opt/ros/jazzy/lib/librmw_fastrtps_cpp.so
+    rmw_create_node
+      in /opt/ros/jazzy/lib/librmw_fastrtps_cpp.so
+    rcl_node_init
+      in /opt/ros/jazzy/lib/librcl.so
+    rclcpp::node_interfaces::NodeBase::NodeBase(std::__cxx11::basic_string<> const&, std::__cxx11::basic_string<> const&, std::shared_ptr<>, rcl_node_options_s const&, bool, bool, std::shared_ptr<>)
+      in /opt/ros/jazzy/lib/librclcpp.so
+    rclcpp::Node::Node(std::__cxx11::basic_string<> const&, std::__cxx11::basic_string<> const&, rclcpp::NodeOptions const&)
+      in /opt/ros/jazzy/lib/librclcpp.so
+    rclcpp::Node::Node(std::__cxx11::basic_string<> const&, rclcpp::NodeOptions const&)
+      in /opt/ros/jazzy/lib/librclcpp.so
+    rko_lio::ros::BaseNode::BaseNode(std::__cxx11::basic_string<> const&, rclcpp::NodeOptions const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::ThreadedNode::ThreadedNode(std::__cxx11::basic_string<> const&, rclcpp::NodeOptions const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::OfflineNode::OfflineNode(rclcpp::NodeOptions const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    main
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+480B consumed over 5 calls from:
+    eprosima::fastrtps::rtps::RTPSParticipantImpl::setup_output_traffic()
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    eprosima::fastrtps::rtps::RTPSParticipantImpl::RTPSParticipantImpl(unsigned int, eprosima::fastrtps::rtps::RTPSParticipantAttributes const&, eprosima::fastrtps::rtps::GuidPrefix_t const&, eprosima::fastrtps::rtps::GuidPrefix_t const&, eprosima::fastrtps::rtps::RTPSParticipant*, eprosima::fastrtps::rtps::RTPSParticipantListener*)
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    eprosima::fastrtps::rtps::RTPSParticipantImpl::RTPSParticipantImpl(unsigned int, eprosima::fastrtps::rtps::RTPSParticipantAttributes const&, eprosima::fastrtps::rtps::GuidPrefix_t const&, eprosima::fastrtps::rtps::RTPSParticipant*, eprosima::fastrtps::rtps::RTPSParticipantListener*)
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    eprosima::fastrtps::rtps::RTPSDomainImpl::createParticipant(unsigned int, bool, eprosima::fastrtps::rtps::RTPSParticipantAttributes const&, eprosima::fastrtps::rtps::RTPSParticipantListener*)
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    eprosima::fastdds::dds::DomainParticipantImpl::enable()
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    eprosima::fastdds::statistics::dds::DomainParticipantImpl::enable()
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    eprosima::fastdds::dds::DomainParticipantFactory::create_participant(unsigned int, eprosima::fastdds::dds::DomainParticipantQos const&, eprosima::fastdds::dds::DomainParticipantListener*, eprosima::fastdds::dds::StatusMask const&)
+      in /opt/ros/jazzy/lib/libfastrtps.so.2.14
+    0x7f69f92f218a
+      in /opt/ros/jazzy/lib/librmw_fastrtps_shared_cpp.so
+    rmw_fastrtps_shared_cpp::create_participant(char const*, unsigned long, rmw_security_options_s const*, rmw_discovery_options_s const*, char const*, rmw_dds_common::Context*)
+      in /opt/ros/jazzy/lib/librmw_fastrtps_shared_cpp.so
+    0x7f69f935ad0a
+      in /opt/ros/jazzy/lib/librmw_fastrtps_cpp.so
+    rmw_create_node
+      in /opt/ros/jazzy/lib/librmw_fastrtps_cpp.so
+    rcl_node_init
+      in /opt/ros/jazzy/lib/librcl.so
+    rclcpp::node_interfaces::NodeBase::NodeBase(std::__cxx11::basic_string<> const&, std::__cxx11::basic_string<> const&, std::shared_ptr<>, rcl_node_options_s const&, bool, bool, std::shared_ptr<>)
+      in /opt/ros/jazzy/lib/librclcpp.so
+    rclcpp::Node::Node(std::__cxx11::basic_string<> const&, std::__cxx11::basic_string<> const&, rclcpp::NodeOptions const&)
+      in /opt/ros/jazzy/lib/librclcpp.so
+    rclcpp::Node::Node(std::__cxx11::basic_string<> const&, rclcpp::NodeOptions const&)
+      in /opt/ros/jazzy/lib/librclcpp.so
+    rko_lio::ros::BaseNode::BaseNode(std::__cxx11::basic_string<> const&, rclcpp::NodeOptions const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::ThreadedNode::ThreadedNode(std::__cxx11::basic_string<> const&, rclcpp::NodeOptions const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::OfflineNode::OfflineNode(rclcpp::NodeOptions const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    main
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+
+655.36K peak memory consumed over 15486 calls from
+rko_lio::core::LIO::register_scan(std::vector<> const&, std::vector<> const&, std::vector<> const*)
+  in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+655.36K consumed over 13 calls from:
+    rko_lio::core::LIO::register_scan(Sophus::SE3<> const&, std::vector<> const&, std::vector<> const&, std::vector<> const*)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::BaseNode::register_scan_locked(std::vector<> const&, std::vector<> const&, std::vector<> const*)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::ThreadedNode::registration_loop()
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    0x7f69fb2ecdb3
+      in /lib/x86_64-linux-gnu/libstdc++.so.6
+    start_thread
+      at ./nptl/pthread_create.c:447
+      in /lib/x86_64-linux-gnu/libc.so.6
+    __clone3
+      at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:78
+      in /lib/x86_64-linux-gnu/libc.so.6
+
+444.98K peak memory consumed over 10568 calls from
+rko_lio::core::process_timestamps(std::vector<> const&, std::chrono::duration<>, rko_lio::core::TimestampProcessingConfig const&)
+  in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+444.98K consumed over 5284 calls from:
+    rko_lio::ros::BaseNode::process_lidar_msg(std::shared_ptr<> const&) const
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::ThreadedNode::lidar_callback(std::shared_ptr<> const&)
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    rko_lio::ros::OfflineNode::run()
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+    main
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+
+417.04K peak memory consumed over 401 calls from
+__new_exitfn
+  at ./stdlib/cxa_atexit.c:112
+  in /lib/x86_64-linux-gnu/libc.so.6
+1.04K consumed over 1 calls from:
+    __GI___cxa_atexit::__internal_atexit
+      at ./stdlib/cxa_atexit.c:44
+      in /lib/x86_64-linux-gnu/libc.so.6
+    __GI___cxa_atexit
+      at ./stdlib/./stdlib/cxa_atexit.c:68
+    0x7f69f8a2ba50
+      in ??
+    0x7f69f8a995bf
+      in ??
+    call_init
+      at ./elf/dl-init.c:74
+      in /lib64/ld-linux-x86-64.so.2
+    _dl_init::call_init
+      at ./elf/dl-init.c:120
+      in /lib64/ld-linux-x86-64.so.2
+    _dl_init
+      at ./elf/./elf/dl-init.c:121
+    __GI__dl_catch_exception
+      at ./elf/dl-catch.c:211
+      in /lib64/ld-linux-x86-64.so.2
+    dl_open_worker::dl_open_worker
+      at ./elf/dl-open.c:829
+      in /lib64/ld-linux-x86-64.so.2
+    dl_open_worker
+      at ./elf/./elf/dl-open.c:792
+    __GI__dl_catch_exception
+      at ./elf/dl-catch.c:237
+      in /lib64/ld-linux-x86-64.so.2
+    _dl_open
+      at ./elf/dl-open.c:905
+      in /lib64/ld-linux-x86-64.so.2
+    dlopen_doit
+      at ./dlfcn/dlopen.c:56
+      in /lib/x86_64-linux-gnu/libc.so.6
+    __GI__dl_catch_exception
+      at ./elf/dl-catch.c:237
+      in /lib64/ld-linux-x86-64.so.2
+    _dl_catch_error
+      at ./elf/dl-catch.c:256
+      in /lib64/ld-linux-x86-64.so.2
+    _dlerror_run
+      at ./dlfcn/dlerror.c:138
+      in /lib/x86_64-linux-gnu/libc.so.6
+    ___dlopen::dlopen_implementation
+      at ./dlfcn/dlopen.c:71
+      in /lib/x86_64-linux-gnu/libc.so.6
+    ___dlopen
+      at ./dlfcn/./dlfcn/dlopen.c:81
+    dlopen
+      in /usr/lib/heaptrack/libheaptrack_preload.so
+    rcutils_load_shared_library
+      in /opt/ros/jazzy/lib/librcutils.so
+    rcpputils::SharedLibrary::SharedLibrary(std::__cxx11::basic_string<> const&)
+      in /opt/ros/jazzy/lib/librcpputils.so
+    0x7f69fb8a5e6b
+      in /opt/ros/jazzy/lib/librmw_implementation.so
+    0x7f69fb8a6551
+      in /opt/ros/jazzy/lib/librmw_implementation.so
+    rmw_init_options_init
+      in /opt/ros/jazzy/lib/librmw_implementation.so
+    rcl_init_options_init
+      in /opt/ros/jazzy/lib/librcl.so
+    rclcpp::InitOptions::InitOptions(rcutils_allocator_s)
+      in /opt/ros/jazzy/lib/librclcpp.so
+    main
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+1.04K consumed over 1 calls from:
+    __GI___cxa_atexit::__internal_atexit
+      at ./stdlib/cxa_atexit.c:44
+      in /lib/x86_64-linux-gnu/libc.so.6
+    __GI___cxa_atexit
+      at ./stdlib/./stdlib/cxa_atexit.c:68
+    0x7f69f8a25d03
+      in ??
+    0x7f69f8a995f1
+      in ??
+    call_init
+      at ./elf/dl-init.c:74
+      in /lib64/ld-linux-x86-64.so.2
+    _dl_init::call_init
+      at ./elf/dl-init.c:120
+      in /lib64/ld-linux-x86-64.so.2
+    _dl_init
+      at ./elf/./elf/dl-init.c:121
+    __GI__dl_catch_exception
+      at ./elf/dl-catch.c:211
+      in /lib64/ld-linux-x86-64.so.2
+    dl_open_worker::dl_open_worker
+      at ./elf/dl-open.c:829
+      in /lib64/ld-linux-x86-64.so.2
+    dl_open_worker
+      at ./elf/./elf/dl-open.c:792
+    __GI__dl_catch_exception
+      at ./elf/dl-catch.c:237
+      in /lib64/ld-linux-x86-64.so.2
+    _dl_open
+      at ./elf/dl-open.c:905
+      in /lib64/ld-linux-x86-64.so.2
+    dlopen_doit
+      at ./dlfcn/dlopen.c:56
+      in /lib/x86_64-linux-gnu/libc.so.6
+    __GI__dl_catch_exception
+      at ./elf/dl-catch.c:237
+      in /lib64/ld-linux-x86-64.so.2
+    _dl_catch_error
+      at ./elf/dl-catch.c:256
+      in /lib64/ld-linux-x86-64.so.2
+    _dlerror_run
+      at ./dlfcn/dlerror.c:138
+      in /lib/x86_64-linux-gnu/libc.so.6
+    ___dlopen::dlopen_implementation
+      at ./dlfcn/dlopen.c:71
+      in /lib/x86_64-linux-gnu/libc.so.6
+    ___dlopen
+      at ./dlfcn/./dlfcn/dlopen.c:81
+    dlopen
+      in /usr/lib/heaptrack/libheaptrack_preload.so
+    rcutils_load_shared_library
+      in /opt/ros/jazzy/lib/librcutils.so
+    rcpputils::SharedLibrary::SharedLibrary(std::__cxx11::basic_string<> const&)
+      in /opt/ros/jazzy/lib/librcpputils.so
+    0x7f69fb8a5e6b
+      in /opt/ros/jazzy/lib/librmw_implementation.so
+    0x7f69fb8a6551
+      in /opt/ros/jazzy/lib/librmw_implementation.so
+    rmw_init_options_init
+      in /opt/ros/jazzy/lib/librmw_implementation.so
+    rcl_init_options_init
+      in /opt/ros/jazzy/lib/librcl.so
+    rclcpp::InitOptions::InitOptions(rcutils_allocator_s)
+      in /opt/ros/jazzy/lib/librclcpp.so
+    main
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+1.04K consumed over 1 calls from:
+    __GI___cxa_atexit::__internal_atexit
+      at ./stdlib/cxa_atexit.c:44
+      in /lib/x86_64-linux-gnu/libc.so.6
+    __GI___cxa_atexit
+      at ./stdlib/./stdlib/cxa_atexit.c:68
+    0x7f69f8a2703c
+      in ??
+    0x7f69f8a995e7
+      in ??
+    call_init
+      at ./elf/dl-init.c:74
+      in /lib64/ld-linux-x86-64.so.2
+    _dl_init::call_init
+      at ./elf/dl-init.c:120
+      in /lib64/ld-linux-x86-64.so.2
+    _dl_init
+      at ./elf/./elf/dl-init.c:121
+    __GI__dl_catch_exception
+      at ./elf/dl-catch.c:211
+      in /lib64/ld-linux-x86-64.so.2
+    dl_open_worker::dl_open_worker
+      at ./elf/dl-open.c:829
+      in /lib64/ld-linux-x86-64.so.2
+    dl_open_worker
+      at ./elf/./elf/dl-open.c:792
+    __GI__dl_catch_exception
+      at ./elf/dl-catch.c:237
+      in /lib64/ld-linux-x86-64.so.2
+    _dl_open
+      at ./elf/dl-open.c:905
+      in /lib64/ld-linux-x86-64.so.2
+    dlopen_doit
+      at ./dlfcn/dlopen.c:56
+      in /lib/x86_64-linux-gnu/libc.so.6
+    __GI__dl_catch_exception
+      at ./elf/dl-catch.c:237
+      in /lib64/ld-linux-x86-64.so.2
+    _dl_catch_error
+      at ./elf/dl-catch.c:256
+      in /lib64/ld-linux-x86-64.so.2
+    _dlerror_run
+      at ./dlfcn/dlerror.c:138
+      in /lib/x86_64-linux-gnu/libc.so.6
+    ___dlopen::dlopen_implementation
+      at ./dlfcn/dlopen.c:71
+      in /lib/x86_64-linux-gnu/libc.so.6
+    ___dlopen
+      at ./dlfcn/./dlfcn/dlopen.c:81
+    dlopen
+      in /usr/lib/heaptrack/libheaptrack_preload.so
+    rcutils_load_shared_library
+      in /opt/ros/jazzy/lib/librcutils.so
+    rcpputils::SharedLibrary::SharedLibrary(std::__cxx11::basic_string<> const&)
+      in /opt/ros/jazzy/lib/librcpputils.so
+    0x7f69fb8a5e6b
+      in /opt/ros/jazzy/lib/librmw_implementation.so
+    0x7f69fb8a6551
+      in /opt/ros/jazzy/lib/librmw_implementation.so
+    rmw_init_options_init
+      in /opt/ros/jazzy/lib/librmw_implementation.so
+    rcl_init_options_init
+      in /opt/ros/jazzy/lib/librcl.so
+    rclcpp::InitOptions::InitOptions(rcutils_allocator_s)
+      in /opt/ros/jazzy/lib/librclcpp.so
+    main
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+1.04K consumed over 1 calls from:
+    __GI___cxa_atexit::__internal_atexit
+      at ./stdlib/cxa_atexit.c:44
+      in /lib/x86_64-linux-gnu/libc.so.6
+    __GI___cxa_atexit
+      at ./stdlib/./stdlib/cxa_atexit.c:68
+    0x7f69f8a26b5c
+      in ??
+    0x7f69f8a995e7
+      in ??
+    call_init
+      at ./elf/dl-init.c:74
+      in /lib64/ld-linux-x86-64.so.2
+    _dl_init::call_init
+      at ./elf/dl-init.c:120
+      in /lib64/ld-linux-x86-64.so.2
+    _dl_init
+      at ./elf/./elf/dl-init.c:121
+    __GI__dl_catch_exception
+      at ./elf/dl-catch.c:211
+      in /lib64/ld-linux-x86-64.so.2
+    dl_open_worker::dl_open_worker
+      at ./elf/dl-open.c:829
+      in /lib64/ld-linux-x86-64.so.2
+    dl_open_worker
+      at ./elf/./elf/dl-open.c:792
+    __GI__dl_catch_exception
+      at ./elf/dl-catch.c:237
+      in /lib64/ld-linux-x86-64.so.2
+    _dl_open
+      at ./elf/dl-open.c:905
+      in /lib64/ld-linux-x86-64.so.2
+    dlopen_doit
+      at ./dlfcn/dlopen.c:56
+      in /lib/x86_64-linux-gnu/libc.so.6
+    __GI__dl_catch_exception
+      at ./elf/dl-catch.c:237
+      in /lib64/ld-linux-x86-64.so.2
+    _dl_catch_error
+      at ./elf/dl-catch.c:256
+      in /lib64/ld-linux-x86-64.so.2
+    _dlerror_run
+      at ./dlfcn/dlerror.c:138
+      in /lib/x86_64-linux-gnu/libc.so.6
+    ___dlopen::dlopen_implementation
+      at ./dlfcn/dlopen.c:71
+      in /lib/x86_64-linux-gnu/libc.so.6
+    ___dlopen
+      at ./dlfcn/./dlfcn/dlopen.c:81
+    dlopen
+      in /usr/lib/heaptrack/libheaptrack_preload.so
+    rcutils_load_shared_library
+      in /opt/ros/jazzy/lib/librcutils.so
+    rcpputils::SharedLibrary::SharedLibrary(std::__cxx11::basic_string<> const&)
+      in /opt/ros/jazzy/lib/librcpputils.so
+    0x7f69fb8a5e6b
+      in /opt/ros/jazzy/lib/librmw_implementation.so
+    0x7f69fb8a6551
+      in /opt/ros/jazzy/lib/librmw_implementation.so
+    rmw_init_options_init
+      in /opt/ros/jazzy/lib/librmw_implementation.so
+    rcl_init_options_init
+      in /opt/ros/jazzy/lib/librcl.so
+    rclcpp::InitOptions::InitOptions(rcutils_allocator_s)
+      in /opt/ros/jazzy/lib/librclcpp.so
+    main
+      in /home/user/lidar_slam_ros2/install/rko_lio/lib/rko_lio/offline_node
+  and 412.88K from 397 other places
+
+
+total runtime: 241.06s.
+calls to allocation functions: 9900714 (41071/s)
+temporary memory allocations: 1658386 (6879/s)
+peak heap memory consumption: 859.04M
+peak RSS (including heaptrack overhead): 1.01G
+total memory leaked: 325.97K
+suppressed leaks: 82.11K
