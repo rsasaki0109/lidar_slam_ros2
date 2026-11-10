@@ -1,0 +1,38 @@
+SOTA v7 Phase 5, second blind run: families and pipeline sequences (fixed 2026-11-10, before any sensor byte of either
+dataset is read). The preregistration of the run itself (preregistration.txt) follows after the pipeline check below and
+before any byte of a blind sequence.
+
+Why these two families
+  The first blind run (blind_v7_2026-11-08) used unseen sequences of two development families, so it could not support
+  a claim (plan section 2: at least two fresh families per tier). Neither family below gave a development sequence, a
+  tuning run or a ground-truth read at any time in this project:
+    H6 FusionPortable V2 (HKUST / HKUST-GZ): Ouster OS1-128, STIM300 IMU; handheld, quadruped, UGV, car.
+       Google Drive folder 1PYhnf3PlY5r0hbyzWDGTUTPxRMl6SYa-; sensor_data/<platform>_<scene><nn>.7z, each one ROS 1 bag
+       (LZMA2); 27 archives, names, sizes and ids in fusionportable_v2_archives.txt (sizes from the HTTP headers).
+    H7 MCD (MCD VIRAL; NTU, KTH, TUHH): Ouster OS1-128 + VN-100 on an all-terrain vehicle (ntu_*), Ouster OS1-64 +
+       VN-200 handheld (kth_*, tuhh_*); 18 sequences, one ROS 1 bag per sensor (mcdviral.github.io/Download.html).
+  What was read to choose them: the datasets' web pages and papers' sensor descriptions, the Drive folder listings (file
+  names), HTTP headers (sizes), the 7z header of ugv_parking02 (one file name and its size), the calibration files, and
+  the MCD documentation pages. The MCD ground-truth page prints five example rows of one pose file (a standing start;
+  by its time span it is ntu_day_01); ntu_day_01 is therefore not used as a blind sequence. No ground-truth file, no
+  sensor data and no other method's result file of either dataset was downloaded.
+  Other candidates looked at and left: VBR (about 2 TB; ground truth only for its training split), Odyssey (no download
+  route confirmed from this VM), M3DGR (OneDrive; not reachable by ranged requests).
+
+Pipeline sequences (development from now on; never part of a blind score)
+  The fetch-and-convert pipeline and the rivals' sensor settings have to be made to work on real bytes. For that, and
+  for nothing else, these sequences are read now. No ground truth of them is opened for the pipeline check; the check is
+  that every method runs, with plausible rates, sizes and a closed standing start, not a score.
+    FusionPortable V2  ugv_parking02  (the smallest archive, 1.97 GB)
+    MCD                ntu_night_04   (ATV rig; the first 600 LiDAR scans only)
+    MCD                tuhh_night_07  (handheld rig; the first 600 LiDAR scans only)
+  They stay out of the blind set whatever the pipeline check shows.
+
+What is already fixed for the run
+  The candidate is G22 as it stands on develop (configs/sota_v7/rko_lio_global_G22_2026-11-10.yaml, rko_lio a232df3),
+  with the per-rig tactical-gyro input of G21 decided from the manufacturers' published figures only (criterion: angular
+  random walk <= 0.2 deg/sqrt(h) and bias instability <= 1 deg/h):
+    STIM300 (FusionPortable V2): 0.15 deg/sqrt(h), 0.3 deg/h (0.5 deg/h in an older brochure)  -> on
+    VN-100 / VN-200 (MCD):       0.0035 deg/s/sqrt(Hz) = 0.21 deg/sqrt(h), 5 deg/h typical      -> off
+  The yaw limit studied on HILTI exp14 after the first run (after/exp14_start) is not part of G and is not used.
+  The rivals are the four of the first run at the same revisions.
