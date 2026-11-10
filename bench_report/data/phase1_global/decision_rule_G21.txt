@@ -1,0 +1,49 @@
+Phase 1, G21: the three tilt keys of G19 as a per-rig input for tactical-grade gyros (the maintainer's decision of
+2026-11-09, made with the G19 runs and the G20 screen below known; development data only).
+
+G21 = G12 (configs/sota_v7/rko_lio_global_G12_2026-10-26.yaml, unchanged) plus, for a rig whose gyro is tactical grade,
+the per-rig file configs/sota_v7/rig_tactical_gyro_2026-11-09.yaml (md5 6f193ab670dea8d1ecf53a773761e274):
+max_tilt_correction_deg 0.05, gyro_bias_time_constant_sec 10.0, gyro_bias_start_sec 30.0 (G19's keys). Like the
+gravity window (report chapter 30.9), it is a rig input chosen from the IMU's own specification, never from a
+reference trajectory, and it is off for every other rig.
+
+Tactical grade: the gyro's datasheet publishes an angle random walk of at most 0.2 deg/sqrt(h) and an in-run bias
+instability of at most 1 deg/h. The rigs of the development and holdout data:
+  STIM320 (GrandTour HS, LS and merged rigs; H5): 0.10-0.15 deg/sqrt(h), 0.3-0.4 deg/h (Safran product page and
+    Sensonor product brief, which differ slightly)                                           -> on
+  Bosch BMI085 (Alphasense Core: HILTI 2022 exp04 and H4, Oxford Spires): noise density 0.014 deg/s/sqrt(Hz)
+    = 0.84 deg/sqrt(h), bias instability below 2 deg/h (Bosch flyer)                         -> off
+  TDK ICM-40609-D (Livox MID-360 built-in: MapsHD): 4.5 mdps/sqrt(Hz) = 0.27 deg/sqrt(h), no bias instability
+    published (TDK product page)                                                             -> off
+  Livox built-in IMU of Koide outdoor_hard (consumer MEMS)                                   -> off
+  OXTS RT3003 (KITTI raw): no published gyro figures found                                   -> off until one is
+Off is the default: a rig without published figures runs G12.
+
+Why (known before the decision):
+  G19 (= G21 on a STIM320 rig) on GrandTour, decision_rule_G19.txt Record: HS 15 mean 0.0421 -> 0.0289 m, LS 8 mean
+  0.0401 -> 0.0376 m, no mission outside the tolerance, real-time; G19 failed only the Phase 1 gate, on MapsHD's
+  ICM-40609 (family ratio 1.108 > 1.10). G21 is G12 on every Phase 1 rig (MapsHD, exp04, Oxford, Koide), so the
+  gate is G12's.
+  G20 screen (not preregistered, not adopted; screen_g20/): the tilt limit at least c x the median of the run's own
+  roll/pitch corrections (max_tilt_correction_median_factor, rko_lio 3761efd). On MapsHD's eight the family ratio
+  falls to 1.040 / 1.027 / 1.014 (c = 1.0 / 1.5 / 2.0); on GrandTour HS c = 1.0 stays with G19 and c >= 1.5 puts arc-4
+  outside the tolerance against G12 (0.0258, 0.0267 against 0.0233); on the LS rig c = 1.0 loses arc-3's stairs
+  (0.0280 -> 0.0499), so LS 8's mean would sit at G12's. The median correction cannot tell a poor gyro (MapsHD,
+  0.16 deg per moving scan) from a noisy registration with a good gyro (MID-360 points on the STIM320: 0.13 deg);
+  the gyro's own grade can.
+
+Checks in this build (rko_lio a232df3, the repository install, offline_node md5 a96647bab6da952688ddd69893ae209f):
+G12 gives the blind run's HOEB-1 trajectory (b944afd8), and G19 the screen build's (Record). The G19 GrandTour runs
+(build d611a8fb, decision_rule_G19.txt) stand as G21's GrandTour runs; G12's Phase 1 runs stand as G21's there.
+
+The development data have been used to design G16-G21; G21 is a development result. A claim needs a blind run on
+fresh data with G21 frozen.
+
+Record
+  2026-11-10, build checks on GrandTour HOEB-1 (an opened H5 mission, STIM320, development data since the blind run;
+  bench_report/data/memory/frontend_2026-11-09/): G12 in the repository build a232df3 gives the blind run's
+  trajectory, md5 b944afd8; G21 there (= G19's keys on G12) gives 77f3d094 in both the G20 screen build (3761efd) and
+  the repository build. ATE 0.0105 m for both G12 and G21 on this mission. Peak RSS of G21 there: 982 MB in the screen
+  build, 784 MB in the repository build (the byte-identical map and queue savings of rko_lio ecf8f56).
+  G21 ADOPTED as the global configuration G by the maintainer's decision: the G12 file plus, on a tactical-grade
+  gyro's rig, rig_tactical_gyro_2026-11-09.yaml.

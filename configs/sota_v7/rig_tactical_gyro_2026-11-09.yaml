@@ -1,0 +1,16 @@
+# Per-rig input of the SOTA v7 global configuration G (decision_rule_G21.txt, the maintainer's decision of
+# 2026-11-09): for a rig whose gyro is tactical grade by its datasheet (angle random walk at most 0.2 deg/sqrt(h)
+# and in-run bias instability at most 1 deg/h, both published), add these three keys on top of the G file
+# (rko_lio_global_G12_2026-10-26.yaml) and the rig's own keys. Off for every other rig, like the gravity window
+# (report chapter 30.9). Needs rko_lio a3828fa or later (an older build ignores the keys).
+#   - In each scan the registration may change the gyro-predicted roll and pitch by at most 0.05 deg.
+#   - For the first 30 s after a static initialization the gyro bias follows the correction the scan keeps
+#     (10-s time constant); never after a moving start.
+# Rigs (datasheets in decision_rule_G21.txt): on for the STIM320 (GrandTour HS, LS and merged rigs); off for the
+# Bosch BMI085 (Alphasense Core: HILTI 2022, Oxford Spires), the Livox built-in ICM-40609 (MID-360: MapsHD), the
+# Livox built-in IMUs of Koide outdoor_hard, and the OXTS RT3003 of KITTI (no published gyro figures found).
+/**:
+  ros__parameters:
+    max_tilt_correction_deg: 0.05
+    gyro_bias_time_constant_sec: 10.0
+    gyro_bias_start_sec: 30.0
