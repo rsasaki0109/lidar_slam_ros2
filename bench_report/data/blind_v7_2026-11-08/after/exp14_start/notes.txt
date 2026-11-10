@@ -1,0 +1,23 @@
+HILTI exp14 (opened H4 sequence, development data): why G loses 2.96 x to BIEVR-LIO (2026-11-10; a look, no decision).
+Runs: /home/user/bench/loss/exp14dev (bag streamed again, sha256 checked; G22 run md5 ccc0e5fe as in g22_scores.csv).
+
+Where: with the trajectory aligned on 12-60 s, G's first 10 s (5 s standing, then lifted and carried to the stairs)
+sit 0.43 m off and the error falls to zero by 12.5 s. Against the ground-truth attitude the estimate's world-frame
+offset is constant up to 10 s and after 13 s, and turns in between by 3.5 deg in pitch (10.4-10.8 s) and 4 deg in yaw
+(11.2-12.1 s): the first steps down the stairs. BIEVR-LIO's yaw changes by 0.3 deg there.
+Per-scan diagnostic (RKO_LIO_TILT_DIAG): the registration's corrections of the gyro prediction are 0.2-1 deg a scan all
+along (BMI085, hand-carried); at 10.4-10.8 s five in a row add +3.05 deg of pitch, at 11.2-12.1 s the yaw ones add
+about -2 deg. The yaw information of the ICP system is at its lowest at 8.6-10.1 s (3-4 against 7-20), not where
+the yaw turns.
+
+Screens on exp14 alone (APE m; BIEVR-LIO 0.0491, FAST-LIO2 0.1421):
+  G22                                         0.1455
+  + tilt keys of G21 (0.05 deg, bias 30 s)    0.1156   (pitch offset gone, yaw offset -3.5 deg stays)
+  + tilt limit 0.2 / 0.5 deg                  0.1689 / 0.1418
+  + tilt keys, limit >= 1 / 2 x median        0.1384 / 0.1499
+  + yaw limit 0.05 / 0.1 / 0.2 / 0.5 deg      0.0927 / 0.1172 / 0.1263 / 0.1498   (max_yaw_correction_deg, rko_lio after a232df3)
+  + tilt keys + yaw 0.05 / 0.1 / 0.2 / 0.5    0.0893 / 0.1060 / 0.1367 / 0.1504
+  + tilt keys + yaw 0.02 / 0.01 / 0.002       0.0844 / 0.0681 / 0.0680
+So on this 74-s sequence the gyro's yaw is right and the registration's is wrong: with the yaw left to the gyro the
+error is 0.068 m. A limit that still lets the registration correct a gyro bias on long runs is not chosen here; it
+needs the other BMI085 sequences (exp04, exp16, exp18, Oxford) and a rule.
