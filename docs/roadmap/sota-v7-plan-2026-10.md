@@ -172,6 +172,10 @@ Status (2026-10-26, [report chapter 30](https://github.com/rsasaki0109/lidar_sla
   tracking in the first 30 s after a static start). On GrandTour (STIM320) it lowers the HS 15 mean from 0.0421 to
   0.0289 m and the LS 8 mean from 0.0401 to 0.0376 m; every Phase 1 rig keeps G12. G16-G20 were not adopted
   (chapters 60.2-60.9).
+- **G22 adopted (2026-11-10, report chapter 61, maintainer's decision):** G21 with `local_map_compact_points` (the
+  local map's points as 32-bit offsets from their voxel's corner): `configs/sota_v7/rko_lio_global_G22_2026-11-10.yaml`.
+  Peak RSS 22-37 % lower on the development data, every sequence within 3.4 % in ATE; adopted despite a 0.26 % miss of
+  its rule's LS-mean clause.
 
 ### Phase 2 — Frontend accuracy, driven by the remaining development error
 

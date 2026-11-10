@@ -70,3 +70,10 @@ Record
     "not above" clauses it misses (LS mean +0.26 %, all-ten +0.3 %) were written for algorithm changes expected to
     improve accuracy, not for a rounding change whose effect is noise of either sign. The rule stands as written:
     M1 is not adopted by it. local_map_compact_points stays an opt-in key, off in G.
+  2026-11-10, the maintainer's decision: M1 ADOPTED despite the miss of criterion 2 (LS mean +0.0995 mm, +0.26 %) and
+  of the all-ten "not above G12" clause (+0.3 %), as min_icp_keypoints was adopted despite a +1.0 % miss on Koide 02a
+  (report chapter 30.11): a rounding change, every development sequence within 3.4 % either way, the HS mean 0.5 %
+  lower, peak RSS 22-37 % lower. G is now G22: configs/sota_v7/rko_lio_global_G22_2026-11-10.yaml (md5
+  bfc55f306ed74df36bdd0a913adf1264; the G12 keys plus local_map_compact_points, the same keys as rko_lio_candidate_G12c.yaml),
+  with rig_tactical_gyro_2026-11-09.yaml on top for a tactical-grade gyro's rig (G21). The runs above are G22's
+  development runs. A claim still needs a blind run on fresh data.
