@@ -115,3 +115,10 @@ What was read before this file
 
 Record
   (filled in as the run proceeds; nothing above is changed)
+  2026-11-10 12:27 UTC: the H6 batch was started and stopped within a minute. Google Drive answered the first ranged
+    request for handheld_escalator00.7z's header with its download-quota page; since then it answers every request from
+    this VM that way, a 1.5 kB calibration file included, so the limit is on this VM's address, not on one file. No
+    byte of a blind archive was decoded. The limit is not worked around (no splitting into small ranges, no other
+    address). p8_7z_http_stream.py was changed to recognise that answer (status 200 instead of 206) and to wait half
+    an hour before asking again, also in the middle of a stream; nothing else changed. The batch was started again and
+    waits. Until the data arrive, nothing is measured.

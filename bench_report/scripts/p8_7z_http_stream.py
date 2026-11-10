@@ -24,13 +24,29 @@ import py7zr
 import requests
 
 
+QUOTA_WAIT_S = 1800
+
+
+def ranged_get(session, url, first, last, stream=False):
+    """GET bytes [first, last] of the URL. A reply that is not the range (Google Drive's download-quota page comes with
+    status 200) is not worked around: wait half an hour and ask again, for up to four days."""
+    for _ in range(192):
+        r = session.get(url, headers={'Range': f'bytes={first}-{last}'}, stream=stream, timeout=120)
+        if r.status_code == 206:
+            return r
+        r.close()
+        print(f'p8_7z_http_stream: status {r.status_code} ({r.headers.get("Content-Type")}) instead of the range, '
+              f'waiting {QUOTA_WAIT_S} s', file=sys.stderr, flush=True)
+        time.sleep(QUOTA_WAIT_S)
+    raise IOError('the server did not serve the range for four days')
+
+
 class HttpFile(io.RawIOBase):
     """Seekable read-only file over HTTP range requests, for the archive header only."""
 
     def __init__(self, url, block=1 << 20):
         self.url, self.block, self.pos, self.session, self.cache = url, block, 0, requests.Session(), {}
-        r = self.session.get(url, headers={'Range': 'bytes=0-0'}, timeout=60)
-        r.raise_for_status()
+        r = ranged_get(self.session, url, 0, 0)
         self.size = int(r.headers['Content-Range'].split('/')[1])
 
     def readable(self):
@@ -50,8 +66,7 @@ class HttpFile(io.RawIOBase):
         if i not in self.cache:
             a = i * self.block
             b = min(self.size, a + self.block) - 1
-            r = self.session.get(self.url, headers={'Range': f'bytes={a}-{b}'}, timeout=120)
-            r.raise_for_status()
+            r = ranged_get(self.session, self.url, a, b)
             if len(r.content) != b - a + 1:
                 raise IOError(f'short range {a}-{b}')
             if len(self.cache) > 8:
@@ -81,9 +96,7 @@ def packed_bytes(url, start, length):
     done, failures = 0, 0
     while done < length:
         try:
-            r = requests.get(url, headers={'Range': f'bytes={start + done}-{start + length - 1}'}, stream=True,
-                             timeout=120)
-            r.raise_for_status()
+            r = ranged_get(requests.Session(), url, start + done, start + length - 1, stream=True)
             for part in r.iter_content(1 << 20):
                 failures = 0
                 done += len(part)
