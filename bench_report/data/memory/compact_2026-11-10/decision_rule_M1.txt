@@ -40,3 +40,33 @@ Commands (bench_report/scripts):
   OXFORD_SCORE=1 bash p7_g16_phase1.sh
 
 Record
+  2026-11-10 (m1_grandtour.csv, m1_phase1.csv; GrandTour ATE without reference spikes at full precision, m, G21 / M1;
+  the batch was cut by a container restart after HS ice-1 and resumed from there, the finished runs kept):
+    1. HS 15: heap-1 0.0219325 / 0.0219437, arc-3 0.0465438 / 0.0463314, arc-4 0.0255847 / 0.0255847,
+       arc-6 0.0103646 / 0.0103646, con-1 0.0240165 / 0.0240332, eig-2 0.0356639 / 0.0348362, snow-3 0.0869285 /
+       0.0869193, spx-1 0.0183452 / 0.0181049, spx-3 0.0095908 / 0.0095908, ice-1 0.0129474 / 0.0129474,
+       arc-1 0.0274134 / 0.0275420, arc-5 0.0180646 / 0.0168648, con-2 0.0220738 / 0.0221058, pil-2 0.0551592 /
+       0.0553122, con-3 0.0183079 / 0.0181654; mean 0.0288625 / 0.0287098. No mission outside the tolerance (the
+       largest change +0.47 %, arc-1). snow-1 0.3759 / 0.3759 (reported). Criterion 1 holds.
+    2. LS 8: heap-1 0.0459025 / 0.0458360, arc-3 0.0279615 / 0.0274844, arc-4 0.0202100 / 0.0207854, arc-6
+       0.0173643 / 0.0174365, con-1 0.0816794 / 0.0816740, eig-2 0.0379275 / 0.0386253, snow-3 0.0258610 /
+       0.0258610, spx-1 0.0438063 / 0.0438063; mean 0.0375891 / 0.0376886. No mission outside the tolerance (the
+       largest +2.85 %, +0.58 mm, arc-4), but the mean is 0.0995 mm above G21's. Criterion 2 FAILS: M1 is not
+       adopted under this rule.
+    Reported after the failure, not deciding (the Phase 1 batch ran beside the GrandTour one):
+    3. Phase 1, G12 / G12c in this build: exp04 0.0527 / 0.0535 (limit 0.0572; G12 md5 5dff1cb9 as in Phase 1);
+       MapsHD calib1 0.0261 / 0.0263, calib2 0.0207 / 0.0207, flat 0.0148 / 0.0148, corridor 0.0712 / 0.0712,
+       urk 0.0545 / 0.0548, garage1 0.0440 / 0.0442, garage2 0.0293 / 0.0289, garage3 0.0267 / 0.0268 (every G12 md5
+       as in g19_phase1.csv), geometric mean ratio 1.0003 (limit 1.089); Oxford Keble 05 0.0533 / 0.0541 (limit
+       0.0553); all-ten geometric mean 0.03531 / 0.03542 (limit 0.03654, but 0.3 % above G12's: that clause would
+       fail too).
+    4. Koide G12 / G12c: 02a 0.8366 / 0.8388 (+0.25 %), 02b 0.7146 / 0.7190 (+0.62 %), 01b 1.8399 / 1.9019 (+3.37 %),
+       01a 0.9768 / 0.9917 (+1.52 %, below 1.5 m): within 5 %.
+    5. Every run real-time (GrandTour node time at most 0.14 of the data time, Phase 1 at most 0.26).
+    Peak RSS (MB, /usr/bin/time; frontend only): GrandTour M1 runs 59-253 (HS heap-1 213, arc-3 245, arc-1 253;
+    LS at most 133). Phase 1 G12 -> G12c: exp04 271 -> 208, MapsHD 64-162 -> 61-142 (garages 111-124 -> 91),
+    Koide 267-376 -> 209-260 (01b 367 -> 256, 02b 376 -> 260), Oxford 430 -> 289. HOEB-1 (before the rule) 861 -> 603.
+    Reading: the key changes no sequence by more than 3.4 % either way and the means by 0.1-0.3 %; the two
+    "not above" clauses it misses (LS mean +0.26 %, all-ten +0.3 %) were written for algorithm changes expected to
+    improve accuracy, not for a rounding change whose effect is noise of either sign. The rule stands as written:
+    M1 is not adopted by it. local_map_compact_points stays an opt-in key, off in G.
