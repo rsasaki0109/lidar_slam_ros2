@@ -16,3 +16,28 @@ Not a blind result: the ground truth of these 14 is open, and G21 was designed w
 in view. No claim tier follows; it shows where G stands and which weakness is next.
 
 Result
+  2026-11-10 (after/g22_scores.csv; one run each; score m (H4 APE, H5 benchmark ATE with reference spikes),
+  G12 of the blind run / G22 / best rival of the blind run, G22 / best; node time / data time; peak RSS MB G12 -> G22):
+    exp14   0.1455 / 0.1455 / 0.0491  2.96  0.087  234 -> 140
+    exp16   1.2935 / 1.2935 / 1.3848  0.93  0.090  298 -> 179
+    exp18   0.3856 / 0.3856 / 0.2900  1.33  0.091  276 -> 167
+    alb-1   0.0651 / 0.0651 / 0.0658  0.99  0.281  549 -> 384
+    eth-1   0.0544 / 0.0308 / 0.0232  1.33  0.210  472 -> 242
+    gri-1   0.0427 / 0.0226 / 0.0193  1.17  0.176  501 -> 259
+    haus-1  0.0123 / 0.0109 / 0.0115  0.95  0.114  263 -> 141
+    hoeb-1  0.0105 / 0.0105 / 0.0201  0.52  0.368  955 -> 529
+    kaeb-1  0.0271 / 0.0153 / 0.0276  0.55  0.244  543 -> 300
+    leica-1 0.1168 / 0.0155 / 0.0148  1.05  0.214  479 -> 251
+    lmb-1   0.0156 / 0.0157 / 0.0202  0.78  0.230  796 -> 408
+    pil-1   2.7203 / 1.3408 / 1.2157  1.10  0.096  338 -> 191
+    sbb-1   0.0307 / 0.0336 / 0.0304  1.11  0.204  340 -> 190
+    trim-1  0.2668 / 0.2669 / 0.2671  1.00  0.261  748 -> 387
+  Geometric means, G12 -> G22 (rivals of the blind run): H4 0.4172 -> 0.4172 (BIEVR-LIO 0.2702); H5 0.0572 -> 0.0379
+  (FAST-LIO2 0.0422, BIEVR-LIO 0.0489); all 14 0.0876 -> 0.0634 (BIEVR-LIO 0.0706, upstream RKO-LIO 0.0698 with 2 failed).
+  More than 10 % worse than the best rival: 6 of 14 before and after, but by less: exp14 2.96 and exp18 1.33 (HILTI,
+  no change: the tilt keys are off there and the compact points do not move the result), eth-1 1.33 (was 2.34),
+  gri-1 1.17 (2.21), pil-1 1.103 (2.24; median 0.32 m against the rivals' 0.03-0.04), sbb-1 1.11 (was 1.01: the
+  static start whose bias the 0.1-s average got wrong, as for HS-G15h). leica-1, 7.89 before, is 1.05.
+  Peak RSS above 330 MB: 4 of 14 (alb-1 384, trim-1 387, lmb-1 408, hoeb-1 529), 10 of 14 before. Real-time on all
+  (at most 0.37). Completion 14 / 14.
+  The win condition is still not met (the 10 % clause on 6, the memory on 4), and this is not a blind result.
