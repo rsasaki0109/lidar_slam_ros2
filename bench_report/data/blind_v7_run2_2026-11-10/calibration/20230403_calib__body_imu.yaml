@@ -1,0 +1,39 @@
+#Accelerometer
+accelerometer_noise_density: 0.0011501915187049582 
+accelerometer_random_walk: 3.729854069064516e-05 
+
+#Gyroscope
+gyroscope_noise_density: 5.084312924828687e-05 
+gyroscope_random_walk: 6.509823412408377e-07 
+
+rostopic: '/stim300/imu/data_raw' #Make sure this is correct
+update_rate: 200.0 #Make sure this is correct
+
+# extrinsics from the sensor (reference) to the motion capture marker
+# calibration approach: hand-eye calibration implemented by the ETH ASL
+
+# TODO: googjjh, BUT not used in this case
+# quaternion_sensor_marker:
+#   rows: 1
+#   cols: 4
+#   dt: f
+#   data: [1.0, 0.0, 0.0, 0.0] # (qw, qx, qy, qz)
+# translation_sensor_marker:
+#   rows: 1
+#   cols: 3
+#   dt: f
+#   data: [0.0, 0.0, 0.0]
+# timeshift_sensor_marker: 0.0
+
+# TODO: googjjh, BUT not used in this case
+# quaternion_leica_marker:
+#   rows: 1
+#   cols: 4
+#   dt: f
+#   data: [1.0, 0.0, 0.0, 0.0] # (qw, qx, qy, qz)
+# translation_leica_marker:
+#   rows: 1
+#   cols: 3
+#   dt: f
+#   data: [0.0, 0.0, 0.0]
+# timeshift_leica_marker: 0.0

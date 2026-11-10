@@ -1,0 +1,10 @@
+{
+ "file": "ugv_parking02.bag",
+ "packed_bytes": 1969160991,
+ "packed_sha256": "904e03a0731b64ce4551bb78e1715058b9a06648424fe20afdb98fc939372645",
+ "unpacked_bytes": 7541787934,
+ "unpacked_expected": 7541787934,
+ "crc32": "9d5de255",
+ "crc32_expected": "9d5de255",
+ "complete": true
+}

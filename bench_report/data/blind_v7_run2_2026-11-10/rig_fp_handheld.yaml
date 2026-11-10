@@ -1,0 +1,22 @@
+lidar_topic: /os_cloud_node/points
+imu_topic: /stim300/imu/data_raw
+lidar_to_imu_quat_xyzw_xyz:
+- 0.000333
+- -0.002831999
+- 0.008507998
+- 0.999959741
+- 0.009918761
+- 0.025118682
+- 0.043298764
+g_params: /home/user/lidar_slam_ros2/bench_report/data/blind_v7_run2_2026-11-10/g_params_fp_handheld.yaml
+tactical_gyro: true
+fastlio_config: ouster64.yaml
+fastlio_preprocess:
+  lidar_type: 3
+  scan_line: 128
+  timestamp_unit: 3
+  blind: 0.5
+convert:
+  keep: x,y,z,intensity,t,reflectivity,ring,ambient,range
+  drop_zero: true
+  lidar_stamp_offset: 0.0

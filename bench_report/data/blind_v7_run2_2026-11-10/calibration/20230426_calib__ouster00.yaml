@@ -1,0 +1,75 @@
+dataset_name: calib_20230425
+lidar_width_resolution: 1024
+lidar_height_resolution: 128
+lidar_name: OS1-128
+rostopic: '/os_cloud_node/points'
+update_rate: 10.0
+
+# Extrinsics from the sensor (reference) to osimu (target)
+quaternion_sensor_ouster00_imu:
+  rows: 1
+  cols: 4
+  dt: f
+  data: [1.0, 0.0, 0.0, 0.0] # (qw, qx, qy, qz)
+translation_sensor_ouster00_imu:
+  rows: 1
+  cols: 3
+  dt: f
+  data: [0.006253, -0.011775, 0.007645]  # obtain using rosrun tf tf_echo os_sensor os_imu
+timeshift_sensor_ouster00_imu: 0.0
+
+# Extrinsics from the sensor (reference) to frame_cam00 (target)
+# calibration approach: LCE-calib
+quaternion_sensor_frame_cam00:
+  rows: 1
+  cols: 4
+  dt: f
+  data: [0.5059, -0.4952, 0.5025, -0.4963]
+translation_sensor_frame_cam00:
+  rows: 1
+  cols: 3
+  dt: f
+  data: [0.0488, 0.0872, -0.0507] 
+timeshift_sensor_frame_cam00: 0.0  # unknown
+
+# Extrinsics from the sensor (reference) to event_cam00 (target)
+# calibration approach: LCE-calib
+quaternion_sensor_event_cam00:
+  rows: 1
+  cols: 4
+  dt: f
+  data: [0.5066, -0.4914, 0.5027, -0.4992]
+translation_sensor_event_cam00:
+  rows: 1
+  cols: 3
+  dt: f
+  data: [0.0252, 0.1316, -0.0392]
+timeshift_sensor_event_cam00: 0.0  # unknown
+
+# Extrinsics from the sensor (reference) to body_imu (target)
+# option 1: T_sensor_body_imu = T_sensor_frame_cam00 * T_frame_cam00_body_imu
+quaternion_sensor_body_imu:
+  rows: 1
+  cols: 4
+  dt: f
+  data: [0.999989, 0.000659, -0.001855, 0.004155]
+translation_sensor_body_imu:
+  rows: 1
+  cols: 3
+  dt: f
+  data: [-0.035980, 0.017385, -0.033028]
+timeshift_sensor_body_imu: 0.0  # unknown
+
+# # Extrinsics from the sensor (reference) to vehicle_frame_cam00 (target)
+# # calibration approach: LCE-calib
+# quaternion_sensor_vehicle_frame_cam00:
+#   rows: 1
+#   cols: 4
+#   dt: f
+#   data: [ 0.49528, -0.50506, 0.503696, -0.4958782 ]
+# translation_sensor_vehicle_frame_cam00:
+#   rows: 1
+#   cols: 3
+#   dt: f
+#   data: [ 0.2751, 0.40420, -0.097767 ]
+# timeshift_sensor_vehicle_frame_cam00: 0.0  # unknown

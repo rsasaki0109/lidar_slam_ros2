@@ -1,0 +1,117 @@
+SOTA v7 Phase 5, second blind run: preregistration (fixed 2026-11-10, before any sensor byte of a blind sequence is
+decoded; see "What was read before this file" for the one exception in bytes fetched).
+
+What this run can and cannot show
+  docs/roadmap/sota-v7-plan-2026-10.md section 2 asks for at least two fresh dataset families per tier. H6 and H7 below
+  are fresh families (selection.txt): no sequence of either was a development sequence, and no ground truth of either
+  has been read. The run measures the frozen global configuration G on them against the same rivals as the first run,
+  for the frontend-odometry tier only (no backend, no loop closure). If the win condition below holds over both
+  families, it is reported as holding for this tier on these two families, with the limits written here: the sequences
+  are the ones this VM can hold, there is no car sequence in H6, and Point-LIO is not among the rivals. If it does not
+  hold, that is reported the same way. Either way every sequence is reported, failed runs included (REPORT.md).
+  H6 runs first. H7 cannot be fetched today: Google Drive refuses the MCD files with its download-quota page ("up to
+  24 hours"). That limit is not worked around. H7 runs when the files are served again; its pipeline check and an
+  addendum to this file (nothing above the Record changed) come before its first blind byte. A result on H6 alone is
+  one family and supports no claim.
+
+The candidate (frozen; not changed after this file)
+  G = G22, the RKO-LIO frontend alone (every pose is the frontend's online estimate):
+    configs/sota_v7/rko_lio_global_G22_2026-11-10.yaml                      md5 bfc55f306ed74df36bdd0a913adf1264
+    Thirdparty/rko_lio a232df3 (develop), this repository's install, offline_node md5 a96647bab6da952688ddd69893ae209f
+  Per-rig inputs only (plan section 2; p8_make_rigs.py writes them from the calibration files stored in calibration/):
+    topics, base frame = the IMU, the LiDAR pose in the IMU frame, imu_acceleration_unit auto, and the tactical-gyro
+    input of G21 (configs/sota_v7/rig_tactical_gyro_2026-11-09.yaml), decided from the manufacturers' figures against
+    the G21 criterion (angular random walk <= 0.2 deg/sqrt(h) and bias instability <= 1 deg/h), as fixed in
+    selection.txt: STIM300 on (all of H6), VN-100 and VN-200 off (all of H7).
+    H6: /os_cloud_node/points (Ouster OS1-128) and /stim300/imu/data_raw; extrinsic = the inverse of ouster00.yaml's
+        quaternion_sensor_body_imu / translation_sensor_body_imu (the uncommented entries), from 20230403_calib for
+        handheld_*, 20230912_calib for legged_*, 20230426_calib for ugv_* (the dataset page's pairing).
+    H7: /os_cloud_node/points (OS1-128 on ntu_*, OS1-64 on kth_* and tuhh_*) and /vn100/imu (ntu_*) or /vn200/imu
+        (kth_*, tuhh_*); extrinsic = body.os_sensor.T of the dataset's yaml (the body frame is that IMU).
+  The gravity-window alignment stays off. The yaw limit studied on HILTI exp14 is not part of G and is not used.
+
+Rivals (the four of the first run, same revisions and builds; each its published configuration, sensor settings only)
+  R1 FAST-LIO2   hku-mars/FAST_LIO ROS 2 branch cc3c9e8. Its published Ouster file config/ouster64.yaml with lidar_type
+                 3, timestamp_unit 3 (ns), scan_line 128 or 64, blind 0.5 (4.0 as published would remove most of an
+                 indoor scan; 0.5 is the first run's value and BIEVR-LIO's minimum range here), the rig's extrinsic and
+                 topics. Bag played at rate 1.0, shared-memory DDS transport (first run).
+  R2 BIEVR-LIO   leggedrobotics/BIEVR-LIO 2112169, config/params.yaml as published, sensor file with the topics, the
+                 calibration, min/max range 0.5 / 100 m; process_bag.
+  R3 RKO-LIO upstream, PyPI rko_lio 0.4.0, default configuration with only the extrinsics and topics set.
+  R4 GLIM        v1.2.2 CPU build of the first run, the same configuration with the rig's T_lidar_imu and topics.
+  Point-LIO is not run (no official ROS 2 release, no ROS 1 on this VM).
+  All run through bench_report/scripts/p8_blind_method.sh.
+
+Holdouts
+  H6 FusionPortable V2. Rule, from the archive names and sizes only (fusionportable_v2_archives.txt): for the handheld,
+     legged and ugv platforms, one sequence per scene (the name between the platform and the number): the lowest-
+     numbered sequence whose archive is at most 9 GB. This VM has 15 GiB of memory and about 7 GB of free disk; the
+     converted bag has to sit in /dev/shm beside the methods. That gives nine sequences (h6_sequences.txt):
+       handheld_escalator00, handheld_grass00, handheld_room00,
+       legged_grass01 (grass00 is 10.2 GB), legged_room00, legged_transition00, legged_underground00,
+       ugv_campus01 (campus00 is 10.0 GB), ugv_parking00.
+     Left out by the size rule: handheld_underground (13.8 GB), ugv_transition00/01 (14.8 / 11.5 GB), and every
+     vehicle_* archive (11 to 22 GB). ugv_parking02 is the pipeline sequence and is not blind.
+     If a converted bag is above 9 GB, the sequence is not run and is recorded as too large; the next-numbered
+     sequence of the same platform and scene with an archive of at most 9 GB takes its place if there is one.
+  H7 MCD. Rule, from the download page only (mcd_files.txt): for each site and time of day, the sequence with the
+     smallest Ouster bag, pipeline sequences and ntu_day_01 excluded (selection.txt). Six sequences:
+       ntu_day_02, ntu_night_13, kth_day_10, kth_night_05, tuhh_day_04, tuhh_night_09.
+  Conversion (the same input for every method; p8_7z_http_stream.py, p8_ros1_stream_to_ros2.py): the bag is streamed
+  and never stored whole; only the LiDAR and the IMU topic are kept; LiDAR points with x = y = z = 0 (no return) are
+  dropped and the nine Ouster fields (x, y, z, intensity, t, reflectivity, ring, ambient, range) are stored packed, so
+  the cloud is unorganized; messages are written in stamp order. H6: the unpacked size and CRC32 must equal the 7z
+  header's. H7: the IMU comes from its own bag; the LiDAR header stamp is moved by -0.1 s, because MCD stamps the end
+  of the sweep while `t` counts from its start (the dataset's user manual), and every method here expects the start.
+  No groundtruth/, evaluation/ or other-method file of either dataset is downloaded before sealing.
+
+Run protocol
+  Machine: this cloud VM (4 vCPU, 15 GiB, Ubuntu 24.04, ROS 2 Jazzy). One method run at a time; G and FAST-LIO2 hold
+  an exclusive lock, the offline rivals a shared one (first run). Order: h6_sequences.txt, then H7 as listed. Per
+  sequence: G, R3, R2, R1, R4, three repetitions each, then the bag is deleted (bench_report/scripts/p8_blind_h6.sh).
+  Each run: exit status, wall time, peak RSS of the method's process, the trajectory (T_world_imu) and its sha256.
+  A run that fails for a reason that is not a property of the method (a download, conversion or script fault, a VM
+  restart) is rerun after the fix, and the fix is recorded here. A poor or failed trajectory caused by the method stays.
+
+Sealing and the ground truth
+  After the last run of a holdout, a manifest with the sha256 of every trajectory, log summary and bag summary is
+  committed and pushed (sealed_manifest_h6.txt, sealed_manifest_h7.txt). Only after that is the maintainer asked
+  whether to open that holdout's ground truth.
+
+Metrics (scored only after the ground truth is opened)
+  ATE RMSE of position (m): rigid SE(3) Umeyama fit without scale, the estimate interpolated at the reference
+  timestamps, no time offset estimated. The estimate is every method's T_world_imu, moved to the point the reference
+  measures:
+    H7: the reference is the pose of the body (IMU) frame (pose_inW.csv, 10 Hz); no lever arm.
+    H6: total-station sequences (handheld_*, legged_*) measure the prism; INS sequences (ugv_campus01, ugv_parking00)
+        give a 6-DoF pose. The public pages do not say in which frame the files are written. Before any score is
+        computed, the frame is taken from the ground-truth files' own headers or the dataset tools if they state it;
+        otherwise the IMU origin is compared for the INS sequences and the prism for the total-station sequences, with
+        the IMU-to-prism translation of the platform's body_imu.yaml (translation_sensor_leica_marker; the handheld
+        file has it commented out, the 20230426 value of the same sensor head is used). The choice is recorded before
+        scoring and is the same for all methods; the score under the other choice is reported beside it.
+  A method's score on a sequence is the median of its three repetitions.
+  Completion: a run completes if it exits by itself, writes a trajectory without NaN, and its trajectory spans at least
+  95 % of the reference's time span. A sequence where a method has no complete run is a failure of that method.
+  Per holdout and over all sequences run: each method's geometric mean; for G, the number of sequences where it is more
+  than 10 % worse than the best rival on that sequence; G's completion, real-time factor (wall time / data duration)
+  and peak RSS on every sequence.
+  Win condition (the plan's, unchanged): G has the lowest geometric mean among the rivals run, no sequence more than
+  10 % worse than its best rival, 100 % completion, RTF at most 0.85 and peak RSS at most 330 MB on every sequence.
+  It is evaluated per holdout and over both; only the result over both families counts for the tier.
+
+What was read before this file
+  selection.txt lists what was read to choose the families. Since then:
+  - ugv_parking02 (pipeline sequence): decoded and converted in full (archive sha256 904e03a0..., CRC32 equal to the
+    header's, 800 clouds and 16000 IMU messages over 80 s, 40 % of the points are returns, 1.2 GB). All five methods
+    ran on it once: every one exited 0 with 770 to 799 poses and a path length of 247 to 254 m (pipeline_check/). No
+    ground truth of it was read.
+  - While probing which byte ranges Google Drive serves, one request was sent with the id of handheld_room00.7z by
+    mistake: 164 MB of that archive's packed stream were received and discarded unread (written to /dev/null, never
+    decoded). handheld_room00 stays in the blind set.
+  - MCD: the two calibration yaml files, the download page and three documentation pages. Two attempts to fetch the
+    pipeline sequences returned Google's quota page; no MCD sensor byte was received.
+  - The dataset paper's sequence table (durations, distances, ground-truth device per sequence) through a web summary.
+
+Record
+  (filled in as the run proceeds; nothing above is changed)

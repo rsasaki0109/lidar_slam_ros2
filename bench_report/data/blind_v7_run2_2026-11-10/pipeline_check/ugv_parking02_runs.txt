@@ -1,0 +1,5 @@
+G exit 0 wall_seconds 38.6 maxrss_kb 247136 poses 799
+rko_upstream exit 0 wall_seconds 25.4 maxrss_kb 74756 poses 799
+bievr exit 0 wall_seconds 36.7 maxrss_kb 339360 poses 798
+glim exit 0 wall_seconds 40.9 maxrss_kb 965192 poses 770
+fastlio exit 0 wall_seconds 92.0 maxrss_kb 284424 poses 796
