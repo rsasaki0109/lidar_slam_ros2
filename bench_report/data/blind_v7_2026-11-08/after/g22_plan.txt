@@ -1,0 +1,18 @@
+G22 on the 14 opened sequences of the first blind run (2026-11-10, written before any G22 run on them other than
+HOEB-1, whose G12 + tilt keys and G12 + compact runs are known: ATE 0.0105 m in both, decision_rule_G21.txt and
+data/memory/frontend_2026-11-09/notes.txt).
+
+What: the global configuration G22 (configs/sota_v7/rko_lio_global_G22_2026-11-10.yaml), one run each, build rko_lio
+a232df3 (the repository install, offline_node md5 a96647bab6da952688ddd69893ae209f):
+  H5, 11 GrandTour missions (STIM320, tactical grade): G22 plus rig_tactical_gyro_2026-11-09.yaml (after/g22_tactical.yaml),
+    the blind run's HS rig keys, p7_h5_variant.sh g22; benchmark ATE against the prism reference (p1_grandtour_ate.py).
+  H4, HILTI exp14 / exp16 / exp18 (BMI085, not tactical): G22 alone on the blind run's rig keys, the bags streamed
+    again from the frozen revision with the sha256 check (p7_g22_h4.sh); APE as p5_blind_score.py (ape_from_tum.py
+    --interpolate against the opened 6-DoF ground truth).
+Compared with: the blind run's medians of G12, FAST-LIO2, BIEVR-LIO, upstream RKO-LIO and GLIM (score.csv, score.md).
+Reported: per sequence the score, G22 / best rival, node time / data time and peak RSS; geometric means over H4, H5
+and all 14; the sequences more than 10 % worse than the best rival; the sequences above 330 MB.
+Not a blind result: the ground truth of these 14 is open, and G21 was designed with their loss analysis (chapter 60)
+in view. No claim tier follows; it shows where G stands and which weakness is next.
+
+Result
