@@ -28,7 +28,10 @@ calibrated clock offsets, and the LiDAR beam model. The gravity-window alignment
 a per-rig input (decided 2026-10-26, report chapter 30.9). It is on only for a rig whose IMU
 calibration (for example static multi-orientation data, never a reference trajectory)
 shows a small horizontal accelerometer bias. It is off for public data without such a
-calibration. Nothing else may differ by dataset or
+calibration. The tilt-correction limit with start-window gyro bias tracking is a per-rig input too (decided
+2026-11-09, report chapter 60.9, G21). It is on only for a rig whose gyro datasheet publishes an angle random walk of
+at most 0.2 deg/sqrt(h) and an in-run bias instability of at most 1 deg/h (tactical grade, such as the STIM320), and
+off otherwise. Nothing else may differ by dataset or
 sequence. Self-adaptation inside the algorithm is allowed when it uses only sensor data
 and its rule and thresholds are frozen before any holdout is opened.
 
@@ -164,6 +167,11 @@ Status (2026-10-26, [report chapter 30](https://github.com/rsasaki0109/lidar_sla
   - The checked development sequences (flat-room 1, Oxford, Koide ×4), HEAP-1, and the
     COMFORT test trajectories are byte-identical to G.
   - Configuration: `configs/sota_v7/rko_lio_global_G12_2026-10-26.yaml`.
+- **G21 adopted (2026-11-09, report chapter 60.9, maintainer's decision):** G12 plus, on a rig with a tactical-grade
+  gyro, `configs/sota_v7/rig_tactical_gyro_2026-11-09.yaml` (a 0.05 deg per-scan tilt-correction limit and gyro bias
+  tracking in the first 30 s after a static start). On GrandTour (STIM320) it lowers the HS 15 mean from 0.0421 to
+  0.0289 m and the LS 8 mean from 0.0401 to 0.0376 m; every Phase 1 rig keeps G12. G16-G20 were not adopted
+  (chapters 60.2-60.9).
 
 ### Phase 2 — Frontend accuracy, driven by the remaining development error
 
