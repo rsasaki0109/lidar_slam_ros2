@@ -1,0 +1,33 @@
+SOTA v7 Phase 5, second blind run: selection of H9 Odyssey (fixed 2026-11-12, before any byte of an Odyssey archive is
+fetched). H8 PASTEL is scored (preregistration_h8.txt); the tier needs a second fresh family, and H6 / H7 still wait
+for Google Drive, which answers whole-archive requests from this VM with its quota page (checked again today).
+
+Family
+  Odyssey (University of Goettingen, arXiv 2512.14428): a car with an Ouster OS1-128 (rev. 7, 10 Hz, 128 x 2048) and
+  an iMAR iNAT-M300/TLE-LN1 MEMS IMU at 300 Hz; reference from a ring-laser-gyro INS (iMAR iPRENA-M-II). Twelve routes,
+  three drives each, among them tunnels and car parks. One tar.gz per drive on owncloud.gwdg.de
+  (odyssey_archives.txt), no account needed. No Odyssey file was ever in this repository's records and no sequence was
+  a development sequence. It is a car, the platform H8 and H6's reachable part do not have.
+
+Rule for the sequences, from the archive names and sizes only
+  Every drive whose archive is at most 9 GB (the size rule of H6: the converted bag has to sit in /dev/shm beside the
+  methods on a VM with 15 GiB), except the pipeline sequence. Pipeline sequence: UndergroundCarPark3 (not blind).
+  Blind (h9_sequences.txt): Beltway1, Beltway2, Beltway3, Marketplace3, Tunnel2, UndergroundCarPark1,
+  UndergroundCarPark2. Seven sequences on four routes. Left out by size: every drive of CountryRoad, ForestRoad,
+  Highway, HighwayTunnel, InnerCity, ParkingGarage, Suburb and Theater, Marketplace1/2, Tunnel1/3. So H9 has no
+  highway and no long drive; that is a limit of this VM and is reported with the result.
+  As for H6: a converted bag above 9 GB is not run and is recorded as too large.
+
+Tactical-gyro input (the G21 criterion: angular random walk <= 0.2 deg/sqrt(h) and bias instability <= 1 deg/h, from
+the manufacturer's figures, decided here)
+  The dataset paper's Table 2 gives 0.8 deg/h for this IMU's gyro bias instability. iMAR's tables for the TLE-LN1
+  sensor give an angular random walk below 0.08 deg/sqrt(h) and a bias instability "< 1 deg/h" (iATTHEMO TLE-LN1
+  sheet) or "< 1.2 deg/h" (a TraceRT MVT-300 table, read through a web summary whose row mapping was garbled). The
+  figure the dataset's authors state for the unit they used is taken: 0.08 and 0.8, inside the criterion. On.
+
+What was read to choose
+  The paper through web summaries asked for the sensors, the data format, the frames and the table of route lengths
+  and durations, and told not to report results: Beltway 221 s / 1.75 km, Marketplace 221 s / 0.87 km, Tunnel 305 s /
+  0.47 km, UndergroundCarPark 161 s / 0.30 km (means of the three drives). The project site's front, system and
+  download pages (archive sizes); the devkit's README and its two Python files (file layout and loaders). The HTTP
+  headers of the 37 share links (name, length). No per-sequence page, no archive byte, no result table of any method.
