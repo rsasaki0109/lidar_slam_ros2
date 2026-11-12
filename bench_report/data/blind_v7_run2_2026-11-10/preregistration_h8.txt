@@ -54,3 +54,8 @@ Record
     1985608927 bytes remaining"); the converter saw a truncated stream and nothing was run. Not a property of any
     method: the batch now fetches through p8_http_stream.py, which resumes a dropped transfer at the byte it stopped
     at; the md5 check of the whole stream is unchanged. Restarted from bag 1.
+  2026-11-12 08:41 UTC: the VM restarted again before bag 1 was down (Zenodo at 1.5 to 3 MB/s; a restart empties
+    /dev/shm and kills the batch), so nothing had run. Procedure change, with no effect on any method's input: a bag
+    that fits on the disk is now downloaded to a file that a restart does not lose (curl resumes it), its md5 checked,
+    converted from the file, and deleted when the sequence's fifteen runs are done; a bag that does not fit is streamed
+    as before. The converted bag still sits in /dev/shm and is rebuilt from the file after a restart.
