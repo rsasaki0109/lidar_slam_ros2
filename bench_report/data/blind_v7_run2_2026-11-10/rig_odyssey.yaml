@@ -1,0 +1,22 @@
+lidar_topic: /ouster/points
+imu_topic: /m300/imu
+lidar_to_imu_quat_xyzw_xyz:
+- 0.0
+- 0.0
+- 0.0
+- 1.0
+- 0.0
+- 0.0
+- 0.0
+g_params: /home/user/lidar_slam_ros2/bench_report/data/blind_v7_run2_2026-11-10/g_params_odyssey.yaml
+tactical_gyro: true
+fastlio_config: ouster64.yaml
+fastlio_preprocess:
+  lidar_type: 3
+  scan_line: 128
+  timestamp_unit: 3
+  blind: 0.5
+convert:
+  keep: x,y,z,t,ring
+  drop_zero: true
+  lidar_stamp_offset: 0.0

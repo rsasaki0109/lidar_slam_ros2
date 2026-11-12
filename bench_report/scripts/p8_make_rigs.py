@@ -9,7 +9,7 @@ tactical-grade gyro, the keys of rig_tactical_gyro_2026-11-09.yaml).
 FusionPortable V2: ouster00.yaml gives the body IMU (STIM300) pose in the LiDAR frame (quaternion_sensor_body_imu as
 w, x, y, z and translation_sensor_body_imu); the uncommented entries are taken. MCD: the yaml gives each sensor's pose
 in the body frame, which is the VN-100 (ATV) or VN-200 (handheld) frame; os_sensor is the LiDAR. PASTEL: the OS0-128
-with the OS1-16's IMU, the pair of the authors' FAST-LIO file (selection_h8.txt).
+with the OS1-16's IMU, the pair of the authors' FAST-LIO file (selection_h8.txt). Odyssey: identity (selection_h9.txt).
 """
 import sys
 
@@ -68,6 +68,10 @@ def main():
                         ext=mcd(f'{d}/calibration/mcd_hhs.yaml')),
         'pastel': dict(lidar='/os0_128/points_filtered', imu='/os1_16/imu', lines=128, tactical=False, offset=0.0,
                        ext=pastel(f'{d}/calibration/pastel/os0_128_lidar.yaml')),
+        # Odyssey: the dataset gives the M300's IMU data in the LiDAR frame (selection_h9.txt); the converter writes
+        # five fields (p8_odyssey_stream_to_ros2.py)
+        'odyssey': dict(lidar='/ouster/points', imu='/m300/imu', lines=128, tactical=True, offset=0.0,
+                        ext=(np.eye(3), np.zeros(3)), keep='x,y,z,t,ring'),
     }
     for name, r in rigs.items():
         R, t = r['ext']
@@ -79,7 +83,7 @@ def main():
                'tactical_gyro': r['tactical'],
                'fastlio_config': 'ouster64.yaml',
                'fastlio_preprocess': {'lidar_type': 3, 'scan_line': r['lines'], 'timestamp_unit': 3, 'blind': 0.5},
-               'convert': {'keep': OUSTER_FIELDS, 'drop_zero': True, 'lidar_stamp_offset': r['offset']}}
+               'convert': {'keep': r.get('keep', OUSTER_FIELDS), 'drop_zero': True, 'lidar_stamp_offset': r['offset']}}
         yaml.safe_dump(rig, open(f'{d}/rig_{name}.yaml', 'w'), sort_keys=False)
         keys = {'base_frame': 'base_link', 'odom_frame': 'odom', 'lidar_frame': '', 'imu_frame': '',
                 'odom_topic': '/rko_lio/odometry', 'publish_deskewed_scan': False, 'dump_results': True,
