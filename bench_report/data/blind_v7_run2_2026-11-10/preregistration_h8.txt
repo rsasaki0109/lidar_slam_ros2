@@ -50,3 +50,7 @@ Record
     same end-to-start distance (23.36 to 23.44 m). GLIM's trajectory starts about 3 s after the others (its
     initialisation); on a sequence this short that is 93 % of the span, under the 95 % completion rule, which stays
     as written.
+  2026-11-12 07:22 UTC: the first start of the batch (05:50) ended in bag 1's download ("transfer closed with
+    1985608927 bytes remaining"); the converter saw a truncated stream and nothing was run. Not a property of any
+    method: the batch now fetches through p8_http_stream.py, which resumes a dropped transfer at the byte it stopped
+    at; the md5 check of the whole stream is unchanged. Restarted from bag 1.

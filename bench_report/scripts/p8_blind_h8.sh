@@ -8,6 +8,7 @@
 set -uo pipefail
 REPO=/home/user/lidar_slam_ros2; S=${REPO}/bench_report/scripts; D=${REPO}/bench_report/data/blind_v7_run2_2026-11-10
 PY=/home/user/mapshd/venv/bin/python
+PY7=${PY7:-/home/user/venvs/blind2/bin/python}
 B=/home/user/bench/blind2; DATA=/dev/shm/blind2_h8; RIG=${D}/rig_pastel.yaml
 METHODS=${METHODS:-G rko_upstream bievr fastlio glim}
 mkdir -p "${DATA}" "${B}/runs_h8"
@@ -22,7 +23,8 @@ for seq in "${seqs[@]}"; do
       [[ -f ${DATA}/${seq}/ok ]] && break
       rm -rf "${DATA:?}/${seq:?}"; mkdir -p "${DATA}/${seq}" "${B}/runs_h8/${seq}"
       echo "$(date -u +%FT%TZ) ${seq}: streaming (attempt ${k})"
-      curl -sSL --fail --retry 3 "https://zenodo.org/api/records/22145476/files/${seq}.bag/content" |
+      "${PY7}" -I "${S}/p8_http_stream.py" "https://zenodo.org/api/records/22145476/files/${seq}.bag/content" \
+        2> "${DATA}/${seq}/stream.err" |
         tee >(md5sum | cut -d' ' -f1 > "${DATA}/${seq}/md5.txt") |
         (cd /tmp && "${PY}" -I "${S}/p8_ros1_stream_to_ros2.py" - "${bag}" --lidar /os0_128/points_filtered \
           --imu /os1_16/imu --drop-zero --keep x,y,z,intensity,t,reflectivity,ring,ambient,range \
