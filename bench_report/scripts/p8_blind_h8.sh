@@ -26,7 +26,10 @@ for seq in "${seqs[@]}"; do
       rm -rf "${DATA:?}/${seq:?}"; mkdir -p "${DATA}/${seq}" "${B}/runs_h8/${seq}"
       echo "$(date -u +%FT%TZ) ${seq}: streaming (attempt ${k})"
       url="https://zenodo.org/api/records/22145476/files/${seq}.bag/content"
-      conv=("${PY}" -I "${S}/p8_ros1_stream_to_ros2.py" - "${bag}" --lidar /os0_128/points_filtered --imu /os1_16/imu
+      # some bags name the OS0-128 cloud /os0_128/points_filtered, others /os0_128/points; a bag with both is converted
+      # again from the filtered topic alone (attempt 2 on)
+      alt=(--lidar-alt /os0_128/points); [[ -f ${B}/runs_h8/${seq}/both_topics ]] && alt=()
+      conv=("${PY}" -I "${S}/p8_ros1_stream_to_ros2.py" - "${bag}" --lidar /os0_128/points_filtered "${alt[@]}" --imu /os1_16/imu
         --drop-zero --keep x,y,z,intensity,t,reflectivity,ring,ambient,range --summary "${DATA}/${seq}/summary.json")
       have=$(stat -c %s "${RAW}/${seq}.bag" 2>/dev/null || echo 0)
       if (( (bytes - have) / 1024 + 512 * 1024 < $(df -k --output=avail /home/user | tail -1) )); then
@@ -42,10 +45,15 @@ for seq in "${seqs[@]}"; do
           (cd /tmp && "${conv[@]}" > "${DATA}/${seq}/convert.log" 2>&1)
       fi
       sleep 2
-      if [[ $(cat "${DATA}/${seq}/md5.txt" 2>/dev/null) == "${md5}" && -s ${DATA}/${seq}/summary.json ]]; then
+      clouds=$("${PY}" -I -c 'import json, sys; d = json.load(open(sys.argv[1])); print(len(d["lidar_source_topics"]), d["written"]["/os0_128/points_filtered"]["messages"])' "${DATA}/${seq}/summary.json" 2>/dev/null)
+      if [[ $(cat "${DATA}/${seq}/md5.txt" 2>/dev/null) != "${md5}" ]]; then
+        echo "${seq}: md5 $(cat "${DATA}/${seq}/md5.txt" 2>/dev/null) != ${md5}"; rm -f "${RAW}/${seq}.bag"; sleep 300
+      elif [[ ${clouds} == 2\ * ]]; then
+        echo "${seq}: both cloud topics in the bag, converting the filtered one"; touch "${B}/runs_h8/${seq}/both_topics"
+      elif [[ ${clouds} == 1\ * && ${clouds#1 } -gt 0 ]]; then
         touch "${DATA}/${seq}/ok"
       else
-        echo "${seq}: md5 $(cat "${DATA}/${seq}/md5.txt" 2>/dev/null) != ${md5}"; rm -f "${RAW}/${seq}.bag"; sleep 300
+        echo "${seq}: conversion failed (${clouds}): $(tail -n 2 "${DATA}/${seq}/convert.log")"; sleep 60
       fi
     done
     [[ -f ${DATA}/${seq}/ok ]] || { echo "${seq}: conversion failed five times"; exit 1; }

@@ -14,6 +14,9 @@ usage: producer | p8_ros1_stream_to_ros2.py - OUT_BAG --lidar TOPIC --imu TOPIC 
 --drop-zero            points with x = y = z = 0 (no return) are not stored; the cloud becomes unorganized
                        (height 1, is_dense true).
 --max-lidar N          stop after N clouds (pipeline checks).
+--lidar-alt TOPIC      a second name the LiDAR topic may have in the stream (PASTEL: some bags hold /os0_128/points,
+                       others /os0_128/points_filtered); its clouds are written under the --lidar name. The summary
+                       lists the source topics seen; a stream that holds both must be converted again without this.
 
 Every message is written with its header stamp as the bag time. The summary lists every topic of the stream with its
 type and message count, the sha256 of the bytes read, and what was written.
@@ -43,11 +46,15 @@ class Converter(p5.Converter):
         self.imu_i = 0
         self.imu_from_stream = a.imu_bag is None
         self.layout = None
+        self.lidar_sources = set()
 
     def connection(self, header, data):
         cid = struct.unpack('<I', header['conn'])[0]
         if cid not in self.seen:
             self.seen[cid] = [header['topic'].decode(), p5.fields_of(data)['type'].decode(), 0]
+        if header['topic'].decode() in (self.lidar, self.a.lidar_alt):
+            self.lidar_sources.add(header['topic'].decode())
+            header = dict(header, topic=self.lidar.encode())
         if header['topic'].decode() == self.imu and not self.imu_from_stream:
             return
         super().connection(header, data)
@@ -176,6 +183,7 @@ def main():
     ap.add_argument('--lidar', required=True)
     ap.add_argument('--imu', required=True)
     ap.add_argument('--imu-bag')
+    ap.add_argument('--lidar-alt')
     ap.add_argument('--lidar-stamp-offset', type=float, default=0.0)
     ap.add_argument('--keep')
     ap.add_argument('--drop-zero', action='store_true')
@@ -200,7 +208,7 @@ def main():
         conv.flush_imu(1 << 62)
     conv.close()
     summary = {'bytes_read': s.count, 'sha256': s.sha.hexdigest() if complete else None, 'complete': complete,
-               'written': conv.stats, 'lidar_layout': conv.layout,
+               'written': conv.stats, 'lidar_layout': conv.layout, 'lidar_source_topics': sorted(conv.lidar_sources),
                'stream_topics': sorted([t, ty, c] for t, ty, c in conv.seen.values())}
     text = json.dumps(summary, indent=1)
     print(text)

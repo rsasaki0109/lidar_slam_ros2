@@ -59,3 +59,16 @@ Record
     that fits on the disk is now downloaded to a file that a restart does not lose (curl resumes it), its md5 checked,
     converted from the file, and deleted when the sequence's fifteen runs are done; a bag that does not fit is streamed
     as before. The converted bag still sits in /dev/shm and is rebuilt from the file after a restart.
+  2026-11-12 11:45 UTC: the batch ran bags 1 to 4 (09:44 to 11:38) and every one of the 60 runs is void: the converted
+    bags held no cloud. Bags 1 to 4 name the OS0-128 cloud /os0_128/points (873 to 1045 messages each); only the
+    pipeline bag 22 was known, and it names it /os0_128/points_filtered. The rig line above ("the bags hold this
+    topic") was written from that one bag and is wrong for these four. With no cloud, G, BIEVR-LIO, FAST-LIO2 and GLIM
+    exited 0 with no pose and RKO-LIO upstream exited 1; no trajectory exists, so nothing of any method's behaviour
+    was seen. A conversion fault, not a property of a method: the 60 runs are set aside
+    (/home/user/bench/blind2/void_h8_no_lidar, kept, not scored) and the sequences are run again.
+    Fix, the same input rule for every method: the cloud is taken from /os0_128/points_filtered if the bag has it and
+    from /os0_128/points otherwise (the topic the authors' FAST-LIO file names), and is written under the rig's topic
+    name; the bag summary records which (lidar_source_topics). A bag with both is converted from the filtered topic
+    alone. Points with x = y = z = 0 are dropped and the nine fields packed as before. No method setting changes.
+    The summaries of bags 1 to 4 list their topics and message counts, the /leica topics among them (1206 to 1574
+    poses); no /leica message was deserialised. The batch now runs in pieces of two sequences, 5 and 1 first.
