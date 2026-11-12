@@ -72,3 +72,10 @@ Record
     alone. Points with x = y = z = 0 are dropped and the nine fields packed as before. No method setting changes.
     The summaries of bags 1 to 4 list their topics and message counts, the /leica topics among them (1206 to 1574
     poses); no /leica message was deserialised. The batch now runs in pieces of two sequences, 5 and 1 first.
+  2026-11-12 20:24 UTC: all seventeen sequences are run (11:45 to 20:23, in pieces of one to three sequences): 255
+    runs, every one exit 0 with a trajectory (runs_h8.csv, bag_summaries_h8/). Every bag's md5 equalled the record's.
+    Fourteen bags name the cloud /os0_128/points, three /os0_128/points_filtered, none both. Bag 15 (7.8 GB) was
+    streamed, the others downloaded to disk first. No run was repeated or dropped after the void 60 above.
+    G: wall time 9 to 46 s on 53 to 186 s of data, peak RSS 127 to 216 MB. sealed_manifest_h8.txt holds the sha256 of
+    every trajectory, bag summary and of runs_h8.csv. No ground truth of H8 has been read; the maintainer is asked
+    before it is.

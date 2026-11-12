@@ -1,0 +1,181 @@
+{
+ "bytes_read": 2147454600,
+ "sha256": "5e3a08752429383e14029b56171e51f234a75ff4f792002166a288a42c16eebd",
+ "complete": true,
+ "written": {
+  "/os0_128/points_filtered": {
+   "messages": 529,
+   "points_in": 29470543,
+   "points_out": 29470543,
+   "first_stamp": 1715859693719305515,
+   "last_stamp": 1715859746520327329
+  },
+  "/os1_16/imu": {
+   "messages": 5289,
+   "first_stamp": 1715859693769235849,
+   "last_stamp": 1715859746654829978
+  }
+ },
+ "lidar_layout": {
+  "point_step": 48,
+  "height": 1,
+  "width": 56692,
+  "frame_id": "os0_128/os_sensor",
+  "fields": [
+   [
+    "x",
+    0,
+    7,
+    1
+   ],
+   [
+    "y",
+    4,
+    7,
+    1
+   ],
+   [
+    "z",
+    8,
+    7,
+    1
+   ],
+   [
+    "intensity",
+    16,
+    7,
+    1
+   ],
+   [
+    "t",
+    20,
+    6,
+    1
+   ],
+   [
+    "reflectivity",
+    24,
+    4,
+    1
+   ],
+   [
+    "ring",
+    26,
+    4,
+    1
+   ],
+   [
+    "ambient",
+    28,
+    4,
+    1
+   ],
+   [
+    "range",
+    32,
+    6,
+    1
+   ]
+  ]
+ },
+ "lidar_source_topics": [
+  "/os0_128/points_filtered"
+ ],
+ "stream_topics": [
+  [
+   "/leica/original/pose",
+   "geometry_msgs/PoseStamped",
+   816
+  ],
+  [
+   "/leica/pose",
+   "geometry_msgs/PoseStamped",
+   683
+  ],
+  [
+   "/mavros/global_position/global",
+   "sensor_msgs/NavSatFix",
+   1605
+  ],
+  [
+   "/mavros/global_position/local",
+   "nav_msgs/Odometry",
+   1605
+  ],
+  [
+   "/mavros/global_position/raw/fix",
+   "sensor_msgs/NavSatFix",
+   1605
+  ],
+  [
+   "/mavros/global_position/raw/gps_vel",
+   "geometry_msgs/TwistStamped",
+   1605
+  ],
+  [
+   "/mavros/global_position/raw/satellites",
+   "std_msgs/UInt32",
+   1605
+  ],
+  [
+   "/mavros/imu/data",
+   "sensor_msgs/Imu",
+   1605
+  ],
+  [
+   "/mavros/imu/data_raw",
+   "sensor_msgs/Imu",
+   1605
+  ],
+  [
+   "/original_header/os0_128/imu",
+   "std_msgs/Header",
+   5288
+  ],
+  [
+   "/original_header/os0_128/points_filtered",
+   "std_msgs/Header",
+   529
+  ],
+  [
+   "/original_header/os1_16/imu",
+   "std_msgs/Header",
+   5289
+  ],
+  [
+   "/original_header/os1_16/points_filtered",
+   "std_msgs/Header",
+   529
+  ],
+  [
+   "/original_header/velodyne_points",
+   "std_msgs/Header",
+   525
+  ],
+  [
+   "/os0_128/imu",
+   "sensor_msgs/Imu",
+   5288
+  ],
+  [
+   "/os0_128/points_filtered",
+   "sensor_msgs/PointCloud2",
+   529
+  ],
+  [
+   "/os1_16/imu",
+   "sensor_msgs/Imu",
+   5289
+  ],
+  [
+   "/os1_16/points_filtered",
+   "sensor_msgs/PointCloud2",
+   529
+  ],
+  [
+   "/velodyne_points",
+   "sensor_msgs/PointCloud2",
+   525
+  ]
+ ]
+}

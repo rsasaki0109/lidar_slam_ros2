@@ -1,0 +1,151 @@
+{
+ "bytes_read": 4740422680,
+ "sha256": "fac6ad81233f4509ab9028b4b87d8eee9bc3194ee6df9d8bd4dbad2c1e16928a",
+ "complete": true,
+ "written": {
+  "/os0_128/points_filtered": {
+   "messages": 799,
+   "points_in": 72972589,
+   "points_out": 72972589,
+   "first_stamp": 1716292610215027332,
+   "last_stamp": 1716292690015380144
+  },
+  "/os1_16/imu": {
+   "messages": 7998,
+   "first_stamp": 1716292610219645738,
+   "last_stamp": 1716292690198134660
+  }
+ },
+ "lidar_layout": {
+  "point_step": 48,
+  "height": 1,
+  "width": 89130,
+  "frame_id": "os0_128/os_sensor",
+  "fields": [
+   [
+    "x",
+    0,
+    7,
+    1
+   ],
+   [
+    "y",
+    4,
+    7,
+    1
+   ],
+   [
+    "z",
+    8,
+    7,
+    1
+   ],
+   [
+    "intensity",
+    16,
+    7,
+    1
+   ],
+   [
+    "t",
+    20,
+    6,
+    1
+   ],
+   [
+    "reflectivity",
+    24,
+    4,
+    1
+   ],
+   [
+    "ring",
+    26,
+    4,
+    1
+   ],
+   [
+    "ambient",
+    28,
+    4,
+    1
+   ],
+   [
+    "range",
+    32,
+    6,
+    1
+   ]
+  ]
+ },
+ "lidar_source_topics": [
+  "/os0_128/points"
+ ],
+ "stream_topics": [
+  [
+   "/leica/original/pose",
+   "geometry_msgs/PoseStamped",
+   1046
+  ],
+  [
+   "/leica/pose",
+   "geometry_msgs/PoseStamped",
+   1046
+  ],
+  [
+   "/mavros/imu/data",
+   "sensor_msgs/Imu",
+   2337
+  ],
+  [
+   "/original_header/os0_128/imu",
+   "std_msgs/Header",
+   7999
+  ],
+  [
+   "/original_header/os0_128/points",
+   "std_msgs/Header",
+   799
+  ],
+  [
+   "/original_header/os1_16/imu",
+   "std_msgs/Header",
+   7998
+  ],
+  [
+   "/original_header/os1_16/points",
+   "std_msgs/Header",
+   799
+  ],
+  [
+   "/original_header/velodyne_points",
+   "std_msgs/Header",
+   793
+  ],
+  [
+   "/os0_128/imu",
+   "sensor_msgs/Imu",
+   7999
+  ],
+  [
+   "/os0_128/points",
+   "sensor_msgs/PointCloud2",
+   799
+  ],
+  [
+   "/os1_16/imu",
+   "sensor_msgs/Imu",
+   7998
+  ],
+  [
+   "/os1_16/points",
+   "sensor_msgs/PointCloud2",
+   799
+  ],
+  [
+   "/velodyne_points",
+   "sensor_msgs/PointCloud2",
+   793
+  ]
+ ]
+}
