@@ -1,0 +1,9 @@
+# Transformation from mavros imu to leica prism
+T_Body_Prism: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: d
+   data: [ 1.0,  0.0,  0.0, 0.046,
+           0.0,  1.0,  0.0, 0.031,
+           0.0,  0.0,  1.0, 0.089,
+           0.0,  0.0,  0.0,  1.0 ]

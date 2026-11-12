@@ -1,0 +1,56 @@
+<robot name="X4-drone">
+
+  <link name="fcu"/>
+  <link name="base_link" />
+
+  <link name="leica_prism" />
+
+  <link name="os1_16/os_imu"/>
+  <link name="os0_128/os_imu"/>
+  
+  <link name="os1_16/os_sensor"/>
+  <link name="os0_128/os_sensor"/>
+  <link name="velodyne"/>
+
+  <joint name="mavros_imu_link_joint" type="fixed">
+    <parent link="base_link" />
+    <child link="fcu" />
+    <origin xyz="0 0 0" rpy="0 0 0" />
+  </joint>
+  
+  <joint name="leica_prism_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="leica_prism"/>
+    <origin xyz="0.046 0.031 0.089" rpy="0 0 0"/>
+  </joint>
+
+  <joint name="os1_16_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="os1_16/os_sensor"/>
+    <origin xyz="0.00 0.00 -0.267" rpy="0.0229159 -0.0138985 0.0457955"/>
+  </joint>
+  <joint name="os0_128_joint" type="fixed">
+    <parent link="base_link" />
+    <child link="os0_128/os_sensor" />
+    <origin xyz="0.00 0.00 -0.390" rpy="0.035504 -0.048842 0.0259483" />
+  </joint>
+  <joint name="velodyne_link_joint" type="fixed">
+    <parent link="base_link" />
+    <child link="velodyne" />
+    <origin xyz="0.00 0.00 -0.505" rpy="0.000949171 -0.014893 -0.0295737" />
+  </joint>
+
+  <joint name="os1_16_imu_joint" type="fixed">
+    <parent link="os1_16/os_sensor" />
+    <child link="os1_16/os_imu" />
+    <origin xyz="-0.006253 0.011775 -0.007645" rpy="0 0 0" />
+  </joint>
+  <joint name="os0_128_imu_joint" type="fixed">
+    <parent link="os0_128/os_sensor" />
+    <child link="os0_128/os_imu" />
+    <origin xyz="-0.006253 0.011775 -0.011645" rpy="0 0 0" />
+  </joint>
+
+</robot>
+
+

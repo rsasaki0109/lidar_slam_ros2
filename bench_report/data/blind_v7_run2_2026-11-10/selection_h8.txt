@@ -1,0 +1,29 @@
+SOTA v7 Phase 5, second blind run: a third fresh family, H8 PASTEL (fixed 2026-11-12, before any sensor byte of it is
+read). Addendum to selection.txt; nothing there or in preregistration.txt is changed.
+
+Why
+  H6 (FusionPortable V2) and H7 (MCD) are served only from Google Drive, which has refused this VM's large downloads
+  since 2026-11-10 12:27 UTC (preregistration.txt, Record). They stay preregistered and run when the data can be
+  fetched. Meanwhile a family on another host is added, so that the frozen G is measured on fresh data at all.
+  A survey of hosts reachable from this VM (HTTPS, no Drive / OneDrive / Baidu / FTP) gave PASTEL, Odyssey and Boreas
+  as the usable ones. PASTEL is taken first because its sequences are single ROS 1 bags of 2 to 11 GB with published
+  md5 sums, which the converter of this run streams as it is. Odyssey (car, Ouster OS1-128) may follow as H9 with its
+  own addendum; it needs a new converter.
+
+H8 PASTEL (Milijas et al., IEEE Access 2025, DOI 10.1109/ACCESS.2025.3603733; Zenodo record 22145476, CC BY 4.0)
+  A multirotor with three LiDARs recorded at once (Velodyne VLP-16, Ouster OS0-128, Ouster OS1-16), their IMUs, the
+  flight controller's IMU and a total-station prism. 20 bags, 2.1 to 11.4 GB (pastel_files.txt: name, bytes, md5).
+  No sequence of it was a development sequence; no ground truth of it has been read.
+  What was read to choose it: the Zenodo record's metadata and file list, calibration.zip (eight small files, stored
+  in calibration/pastel/) and supplementary_files.zip (the authors' launch and parameter files for FAST-LIO, VoxelMap,
+  KISS-ICP and Cartographer; no results). A survey helper also read the first bytes of 6.bag ("#ROSBAG V2.0").
+  ground_truth.zip (230 MB; trajectories and maps) was not downloaded. The record says the total-station trajectory is
+  also inside each bag: the converter copies only the LiDAR and IMU topics and skips every other message without
+  deserialising it, so those bytes pass through the stream unread; the summary lists topic names and message counts.
+  Rig (per-rig inputs, fixed here from the dataset's own files):
+    LiDAR /os0_128/points (Ouster OS0-128) and IMU /os1_16/imu, the pair the authors' own FAST-LIO file uses
+    (supplementary_files/FAST_LIO/os0_128.yaml); the LiDAR pose in that IMU's frame is T_OS1_IMU_OS0 of
+    os0_128_lidar.yaml, the matrix the same file gives FAST-LIO. The IMU is the Ouster's built-in consumer-grade unit:
+    the tactical-gyro input of G21 is off.
+  Pipeline sequence (development from now on, never part of a blind score): 22.bag, the smallest. No ground truth of
+  it is opened for the pipeline check.
