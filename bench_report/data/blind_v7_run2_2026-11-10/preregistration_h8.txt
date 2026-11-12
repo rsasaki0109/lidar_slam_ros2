@@ -1,0 +1,52 @@
+SOTA v7 Phase 5, second blind run: preregistration of H8 PASTEL (fixed 2026-11-12, before any sensor byte of a blind
+H8 bag is read). Addendum to preregistration.txt: everything there holds for H8 unless said otherwise here (candidate
+G22 frozen, the four rivals and their settings, run protocol, three repetitions, sealing before the one question about
+the ground truth, completion rule, win condition). Nothing there is changed. H6 and H7 stay preregistered and wait
+for Google Drive.
+
+What H8 adds, and its limits
+  A third fresh family (selection_h8.txt), fetched from Zenodo. It is a multirotor, a platform no development family
+  has. A result on H8 alone is one family and supports no claim; the tier needs two fresh families with the win
+  condition holding over them.
+
+Rig (per-rig inputs; rig_pastel.yaml and g_params_pastel.yaml from p8_make_rigs.py)
+  LiDAR /os0_128/points_filtered (Ouster OS0-128; the bags hold this topic, not /os0_128/points as the authors' file
+  names it), IMU /os1_16/imu (100 Hz, the built-in IMU of the second Ouster): the pair of the authors' FAST-LIO file.
+  Tactical-gyro input off. Base frame = that IMU.
+  The LiDAR pose in the IMU frame is T_OS1_IMU_OS0 of os0_128_lidar.yaml with one correction: as printed the matrix
+  is a reflection (determinant -1, its [2, 2] entry -0.9992). With +0.9992 it is orthonormal and equals the rotation
+  between the two sensors in the dataset's own X4_pastel.urdf; and on the pipeline bag the three IMUs read gravity on
+  the same axis with the same sign and their gyro signals are related by rotations within 9 degrees of the identity.
+  The corrected matrix is used for every method.
+  FAST-LIO2: its published ouster64.yaml with scan_line 128 and blind 0.5 as in preregistration.txt (the authors' own
+  file uses blind 4; the first run's value is kept for all families).
+  Conversion: as in preregistration.txt (points with x = y = z = 0 dropped, the nine Ouster fields packed, stamp
+  order). The md5 of the streamed bytes must equal the Zenodo record's (pastel_files.txt). The bags also hold the
+  total-station topics /leica/pose and /leica/original/pose: the converter does not deserialise them.
+
+Sequences
+  Every bag of the record of at most 9 GB except the pipeline bag 22: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 16,
+  20, 21, 23 (h8_sequences.txt; 12 and 14 are 9.5 and 11.4 GB). Seventeen sequences, in that order
+  (bench_report/scripts/p8_blind_h8.sh).
+
+Metric
+  ATE RMSE of the prism position (m): rigid SE(3) Umeyama fit without scale, the estimate interpolated at the
+  reference timestamps, no time offset estimated. The estimate's prism is T_world_imu * t, with t the prism in the
+  OS1-16 IMU frame = T_OS1_IMU_OS0 * inverse(T_Body_OS0) * T_Body_Prism (os0_128_lidar.yaml with the same sign
+  correction for T_Body_OS0, leica_prism.yaml). The reference is the total-station trajectory: the per-sequence file of
+  ground_truth.zip if it holds one, otherwise the bag's /leica/pose; which one is recorded before any score is
+  computed. Scores per sequence = median of three repetitions; H8's geometric means and G's worst ratio to the best
+  rival as in preregistration.txt.
+
+What was read before this file
+  selection_h8.txt lists what was read to choose H8. Since then, the pipeline bag 22 (md5 2ffc98b4..., equal to the
+  record's): its topic list; the LiDAR layout (unorganized, 48-byte points, about 74 000 per scan, 430 scans over
+  43 s); the three IMU topics, read to check the mounting (above). All five methods were run on it once
+  (pipeline_check/pastel22_runs.txt). Its /leica topics were not deserialised and no ground truth of H8 was read.
+
+Record
+  (filled in as the run proceeds; nothing above is changed)
+  2026-11-12, pipeline check on bag 22 before any blind byte: all five methods exited 0 with 399 to 430 poses and the
+    same end-to-start distance (23.36 to 23.44 m). GLIM's trajectory starts about 3 s after the others (its
+    initialisation); on a sequence this short that is 93 % of the span, under the 95 % completion rule, which stays
+    as written.

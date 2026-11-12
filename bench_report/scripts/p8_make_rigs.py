@@ -8,7 +8,8 @@ tactical-grade gyro, the keys of rig_tactical_gyro_2026-11-09.yaml).
 
 FusionPortable V2: ouster00.yaml gives the body IMU (STIM300) pose in the LiDAR frame (quaternion_sensor_body_imu as
 w, x, y, z and translation_sensor_body_imu); the uncommented entries are taken. MCD: the yaml gives each sensor's pose
-in the body frame, which is the VN-100 (ATV) or VN-200 (handheld) frame; os_sensor is the LiDAR.
+in the body frame, which is the VN-100 (ATV) or VN-200 (handheld) frame; os_sensor is the LiDAR. PASTEL: the OS0-128
+with the OS1-16's IMU, the pair of the authors' FAST-LIO file (selection_h8.txt).
 """
 import sys
 
@@ -33,6 +34,25 @@ def mcd(path):
     return T[:3, :3], T[:3, 3]
 
 
+def pastel(path):
+    # os0_128_lidar.yaml is an OpenCV yaml; T_OS1_IMU_OS0 is the OS0-128 pose in the OS1-16 IMU frame (the matrix the
+    # authors' FAST-LIO file passes as extrinsic_R / extrinsic_T)
+    text = open(path).read()
+    block = text[text.index('T_OS1_IMU_OS0'):]
+    data = block[block.index('data:'):]
+    T = np.array([float(v) for v in data[data.index('[') + 1:data.index(']')].split(',')]).reshape(4, 4)
+    R = T[:3, :3].copy()
+    # As printed the matrix is a reflection (determinant -1): its [2, 2] entry is -0.9992. With +0.9992 it is the
+    # rotation the dataset's own URDF gives between the two sensors, and the three IMUs of the pipeline bag agree
+    # that the sensors are mounted the same way up (selection_h8.txt). The sign is corrected for every method.
+    if np.linalg.det(R) < 0:
+        R[2, 2] = -R[2, 2]
+    U, _, Vt = np.linalg.svd(R)  # the file gives four decimals; take the nearest rotation
+    R = U @ Vt
+    assert np.linalg.det(R) > 0.99
+    return R, T[:3, 3]
+
+
 def main():
     d = sys.argv[1]
     g22 = yaml.safe_load(open(f'{REPO}/configs/sota_v7/rko_lio_global_G22_2026-11-10.yaml'))['/**']['ros__parameters']
@@ -46,6 +66,8 @@ def main():
                         ext=mcd(f'{d}/calibration/mcd_atv.yaml')),
         'mcd_hhs': dict(lidar='/os_cloud_node/points', imu='/vn200/imu', lines=64, tactical=False, offset=-0.1,
                         ext=mcd(f'{d}/calibration/mcd_hhs.yaml')),
+        'pastel': dict(lidar='/os0_128/points_filtered', imu='/os1_16/imu', lines=128, tactical=False, offset=0.0,
+                       ext=pastel(f'{d}/calibration/pastel/os0_128_lidar.yaml')),
     }
     for name, r in rigs.items():
         R, t = r['ext']

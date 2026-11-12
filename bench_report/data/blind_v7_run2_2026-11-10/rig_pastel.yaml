@@ -1,0 +1,22 @@
+lidar_topic: /os0_128/points_filtered
+imu_topic: /os1_16/imu
+lidar_to_imu_quat_xyzw_xyz:
+- 0.00600158
+- -0.018004439
+- -0.009001994
+- 0.999779368
+- 0.005
+- -0.015
+- -0.115
+g_params: /home/user/lidar_slam_ros2/bench_report/data/blind_v7_run2_2026-11-10/g_params_pastel.yaml
+tactical_gyro: false
+fastlio_config: ouster64.yaml
+fastlio_preprocess:
+  lidar_type: 3
+  scan_line: 128
+  timestamp_unit: 3
+  blind: 0.5
+convert:
+  keep: x,y,z,intensity,t,reflectivity,ring,ambient,range
+  drop_zero: true
+  lidar_stamp_offset: 0.0
