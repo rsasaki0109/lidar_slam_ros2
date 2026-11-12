@@ -1,0 +1,65 @@
+{
+ "bytes_read": 6865834791,
+ "sha256": "52e6224f8a2850d126e9c9e7f353d88ba6b89535e57e040911a7a83910b6b1c8",
+ "complete": true,
+ "written": {
+  "/ouster/points": {
+   "messages": 1625,
+   "points_in": 425984000,
+   "points_out": 407166815,
+   "first_stamp": 1761222616500024576,
+   "last_stamp": 1761222778900298496
+  },
+  "/m300/imu": {
+   "messages": 40675,
+   "first_stamp": 1761222616400666112,
+   "last_stamp": 1761222779096728064
+  }
+ },
+ "lidar_layout": {
+  "points": 262144,
+  "columns": 2048,
+  "t_max_ns": 100192712.0
+ },
+ "members_per_folder": {
+  "(top)": 0,
+  "ouster": 1625,
+  "refsys": 3,
+  "m300": 1,
+  "metadata": 4
+ },
+ "other_members": [
+  [
+   "./UndergroundCarPark3/refsys/navsatfix.txt",
+   4848311
+  ],
+  [
+   "./UndergroundCarPark3/refsys/imu.txt",
+   13790852
+  ],
+  [
+   "./UndergroundCarPark3/refsys/lidar_poses_ref.txt",
+   498011
+  ],
+  [
+   "./UndergroundCarPark3/m300/imu.txt",
+   17222034
+  ],
+  [
+   "./UndergroundCarPark3/metadata/lidar_timestamps.txt",
+   32500
+  ],
+  [
+   "./UndergroundCarPark3/metadata/trajectory.jpg",
+   1458729
+  ],
+  [
+   "./UndergroundCarPark3/metadata/velocity.jpg",
+   195566
+  ],
+  [
+   "./UndergroundCarPark3/metadata/summary_statistics.txt",
+   169
+  ]
+ ]
+}

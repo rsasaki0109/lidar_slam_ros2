@@ -1,0 +1,57 @@
+SOTA v7 Phase 5, second blind run: preregistration of H9 Odyssey (fixed 2026-11-12, before any byte of a blind H9
+archive is fetched). Addendum to preregistration.txt: everything there holds for H9 unless said otherwise here
+(candidate G22 frozen, the four rivals and their settings, three repetitions, one method at a time, sealing before the
+one question about the ground truth, win condition). selection_h9.txt fixes the family, the seven sequences and the
+tactical-gyro input (on).
+
+What H9 adds, and its limits
+  A fourth fresh family and the first with a car. With H8 PASTEL (scored; its win condition is not met as written,
+  on the completion clause of sequence 11, preregistration_h8.txt) it makes two fresh families measured. Whatever H9
+  gives, the result over the families is reported as it is; H8's result is not changed by anything here.
+  Limits: seven drives on four short routes (the ones whose archive is at most 9 GB), no highway, no drive over 5 min.
+
+Rig (rig_odyssey.yaml, g_params_odyssey.yaml from p8_make_rigs.py)
+  LiDAR /ouster/points, IMU /m300/imu, base frame = the IMU. The LiDAR pose in the IMU frame is the identity: the
+  project site states that all outputs are given in one coordinate system (the LiDAR's) and that no extrinsic
+  calibration is needed. Tactical-gyro input on (selection_h9.txt).
+  FAST-LIO2: ouster64.yaml with lidar_type 3, timestamp_unit 3, scan_line 128, blind 0.5, as for the other families.
+  Conversion (p8_odyssey_stream_to_ros2.py; the same bag for every method): the tar.gz is streamed and never stored;
+  only ouster/<ns>.bin and m300/imu.txt are read; points without a return (NaN) are dropped; each point is stored as
+  x, y, z, t (uint32 ns since the start of the revolution) and ring (the row of the 128 x 2048 grid), 18 bytes.
+  Reflectivity and near-infrared are not copied: with them a 221 s drive does not fit /dev/shm (the pipeline sequence
+  is 42 MB per second of data at 18 bytes), and no method here uses them for its estimate. The cloud's stamp is the
+  file name (taken as the start of the revolution: t counts from it); the IMU's orientation columns are not copied.
+  The whole archive must be read (its length equals the share link's).
+  refsys/ (the reference) and metadata/ (statistics and a trajectory image) pass through the stream unread; only
+  their member names and sizes are listed in the bag summary.
+
+Run protocol
+  bench_report/scripts/p8_blind_h9.sh, in the order of h9_sequences.txt, G, R3, R2, R1, R4, three repetitions each.
+  A converted bag above 9 GB is not run and is recorded as too large (selection_h9.txt).
+
+Metric
+  ATE RMSE of position (m) as in preregistration.txt (rigid SE(3) Umeyama fit without scale, the estimate
+  interpolated at the reference stamps, no time offset estimated). The reference is refsys/lidar_poses_ref.txt, the
+  pose of the LiDAR at each revolution relative to the first (the devkit's load_ground_truth_poses), stamped with the
+  sorted ouster file names. The estimate is every method's T_world_imu; the IMU frame is the LiDAR frame, so no lever
+  arm. The reference is fetched only after sealing and the maintainer's approval, by streaming the archives again
+  and reading that one member.
+  Completion, written for H9 after sequence 11 of H8 (whose reference file spans more time than its bag): a run
+  completes if it exits by itself, writes a trajectory without NaN, and spans at least 95 % of the time between the
+  first and the last reference stamp that lie within the converted bag's LiDAR stamps. For H9 the reference stamps are
+  the LiDAR stamps, so this is 95 % of the drive.
+  RTF = wall time / data duration; peak RSS of the method's process. Geometric means, G's ratio to the best rival and
+  the win condition as in preregistration.txt, for H9 and over H8 + H9.
+
+What was read before this file
+  selection_h9.txt lists what was read to choose. Since then, the pipeline sequence UndergroundCarPark3 in full
+  (archive sha256 52e6224f..., 1625 revolutions over 162.4 s, 95.6 % of the points are returns, 6.9 GB converted;
+  IMU at 250 Hz, not the 300 Hz of the paper; gravity on +z, 9.81 m/s^2). All five methods ran on it once and agree
+  on the path (293 to 299 m) and on the end point within 0.3 m (pipeline_check/odyssey_ucp3_runs.txt). Seen there
+  and not acted on: G's peak RSS was 452 MB, above the 330 MB of the win condition, and its wall time 71 s for 162 s.
+  G is not changed. No refsys or metadata member of any archive was read; no ground truth of H9 was read.
+  A first conversion attempt of the same pipeline sequence with 22-byte points was stopped at 481 revolutions, when
+  its size showed that a 221 s drive would not fit; the 18-byte layout was fixed then, before any blind byte.
+
+Record
+  (filled in as the run proceeds; nothing above is changed)

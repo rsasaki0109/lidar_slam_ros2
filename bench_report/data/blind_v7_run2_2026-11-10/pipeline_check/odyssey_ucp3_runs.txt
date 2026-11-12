@@ -1,0 +1,9 @@
+Odyssey UndergroundCarPark3 (pipeline sequence, not blind), 2026-11-12, one run per method (p8_blind_method.sh, rig_odyssey.yaml)
+G exit 0 wall_seconds 71.0 maxrss_kb 452296 poses 1625
+rko_upstream exit 0 wall_seconds 142.7 maxrss_kb 165788 poses 1625
+bievr exit 0 wall_seconds 100.2 maxrss_kb 1201284 poses 1624
+fastlio exit 0 wall_seconds 178.6 maxrss_kb 373500 poses 1622
+glim exit 0 wall_seconds 49.1 maxrss_kb 834028 poses 1594
+path length (m): G 294.7, rko_upstream 299.3, bievr 293.8, fastlio 293.9, glim 293.1
+end minus start (m): G -6.30 6.65 0.09; rko_upstream -6.43 6.60 -0.06; bievr -6.42 6.56 0.08; fastlio -6.41 6.54 -0.06; glim -6.11 6.64 0.08
+IMU in the converted bag: 250.0 Hz; mean acceleration of the first 2 s (-0.33, -0.08, 9.80) m/s^2; largest gyro axis z (0.51 rad/s)
