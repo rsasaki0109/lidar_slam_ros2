@@ -122,3 +122,10 @@ Record
     address). p8_7z_http_stream.py was changed to recognise that answer (status 200 instead of 206) and to wait half
     an hour before asking again, also in the middle of a stream; nothing else changed. The batch was started again and
     waits. Until the data arrive, nothing is measured.
+  2026-11-12 05:20 UTC: 41 hours on, Google Drive serves small ranges of every file again (up to 20 MB tried) but still
+    answers the request for an archive's whole packed stream with the quota page. While finding that out, the first
+    21 MB of handheld_escalator00.7z's packed stream and 0.8 MB of its header were received and discarded unread
+    (/dev/null, never decoded); the sequence stays in the blind set. Fetching an archive as many small ranges would be
+    a way around the limit and is not done. The batch keeps waiting (the container restarted several times since
+    11-10 and the batch was restarted each time). Nothing has been measured. Other hosts for a fresh family are being
+    looked at; any addition comes as an addendum before its first byte.
