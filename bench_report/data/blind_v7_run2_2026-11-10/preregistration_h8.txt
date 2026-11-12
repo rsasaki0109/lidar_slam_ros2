@@ -79,3 +79,7 @@ Record
     G: wall time 9 to 46 s on 53 to 186 s of data, peak RSS 127 to 216 MB. sealed_manifest_h8.txt holds the sha256 of
     every trajectory, bag summary and of runs_h8.csv. No ground truth of H8 has been read; the maintainer is asked
     before it is.
+  2026-11-12 20:40 UTC: the maintainer approved opening H8's ground truth. ground_truth.zip (md5 equal to the
+    record's) holds one file per sequence, trajectories/<n>.csv (time in ns, prism position; the orientation columns
+    are the identity), for all seventeen sequences. By the rule above the reference is that file for every sequence;
+    the bags' /leica topics are not used. Recorded before any score is computed.
