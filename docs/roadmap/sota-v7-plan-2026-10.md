@@ -282,6 +282,13 @@ Status (2026-10-30, report chapter 39):
   G's geometric mean over 14 is 0.0876 m against BIEVR-LIO 0.0706, it is more than 10 % worse than its best rival on
   6 of 14, and its peak RSS exceeds 330 MB on 10 of 14; it completes all 14 in real time (RTF at most 0.49), and
   upstream RKO-LIO fails 2 of 14.
+- Second blind run, first family (2026-11-12, report chapter 63, `bench_report/data/blind_v7_run2_2026-11-10/`):
+  G22 frozen, the same four rivals, on H8 PASTEL (multirotor, 17 sequences, a fresh family), sealed before the ground
+  truth was opened. G has the lowest geometric mean (0.0745 m against 0.0850 for upstream RKO-LIO), is never more
+  than 10 % worse than its best rival on the 16 scored sequences, with RTF at most 0.28 and peak RSS at most 211 MB.
+  The win condition is not met as written: on sequence 11 the reference spans more time than the bag, so no method
+  reaches the 95 % completion rule and G completes 16 of 17. One family supports no tier claim; H6 FusionPortable V2
+  and H7 MCD are preregistered and wait for Google Drive's download limit on this VM.
 - Publish only through the generated claim block in the README, one row per tier, with
   failed tiers shown.
 - C4: KITTI Odometry (LiDAR-only track) is the canonical hidden-ground-truth LiDAR

@@ -83,3 +83,18 @@ Record
     record's) holds one file per sequence, trajectories/<n>.csv (time in ns, prism position; the orientation columns
     are the identity), for all seventeen sequences. By the rule above the reference is that file for every sequence;
     the bags' /leica topics are not used. Recorded before any score is computed.
+  2026-11-12 20:55 UTC: scored (bench_report/scripts/p8_blind_score_h8.py; score_h8.csv, score_h8.md). By the rules
+    as written:
+    - Sequence 11 is a failure of every method under the completion rule: 11.csv spans 215 s (from 10.8 s before the
+      bag's first sensor message to 75 s after its last), the bag holds 129 s of LiDAR and IMU, so no trajectory can
+      span 95 % of the reference (all span 58 to 60 %). The rule is not changed. G's completion on H8 is therefore
+      16 of 17 and the win condition is not met on H8 as written. Beside it, not as the result: over the part of the
+      reference the bag covers, sequence 11 reads G 0.1481, RKO-LIO upstream 0.1526, BIEVR-LIO 0.1540, FAST-LIO2
+      0.1609, GLIM 0.1869 m (G / best rival 0.97).
+    - GLIM fails 6, 20 and 21 as well (its trajectory starts 2.9 s late; 93 to 95 % of the span), as on the
+      pipeline bag.
+    - The other clauses: geometric mean over each method's completed sequences G 0.0745, RKO-LIO upstream 0.0850,
+      BIEVR-LIO 0.0888, FAST-LIO2 0.1136, GLIM 0.1244 m; over the 13 sequences all five completed, G 0.0827 against
+      0.0931 (RKO-LIO upstream). On the 16 scored sequences G is never more than 10 % worse than its best rival
+      (0.68 to 1.02; 1.02 on sequence 7 against BIEVR-LIO). G's RTF is at most 0.277 and its peak RSS at most 210.5 MB.
+    H8 is one family; no claim follows from it either way.
