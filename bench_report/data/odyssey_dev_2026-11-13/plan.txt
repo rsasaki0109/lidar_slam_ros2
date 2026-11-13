@@ -50,3 +50,17 @@ Addendum 2 (2026-11-13, after up032 / up040 on Tunnel2 and UndergroundCarPark2, 
   then Tunnel2. If ros032 lands near up032 (UndergroundCarPark2 about 0.110), (a): the fork changed default
   behaviour. If ros032 lands near the fork's "up" (about 0.125; Tunnel2 tens of metres), (b): the node path differs
   from the Python pipeline, and G22's gap on Odyssey is at least partly a property of the ROS node path.
+
+Addendum 3 (2026-11-13, after up032 / up040 on Beltway3 and ros032 on UndergroundCarPark2 and Tunnel2)
+  Results (ATE m):          up040    up032    ros032   fork "up"   G22
+    Tunnel2                 1.2599   1.5119   1.5119   32.3586     1.5400
+    UndergroundCarPark2     0.1122   0.1097   0.1097    0.1247     0.1314
+    Beltway3                1.2735   1.3051   -         1.9003     1.5606
+  Addendum 2's test answers (a): the unmodified 0.3.2 ROS node scores as the 0.3.2 Python pipeline, so the fork's own
+  code changes what a run with upstream's keys does. 0.3.2 -> 0.4.0 matters on Tunnel2 only (20 %).
+  Next: find the commit. `git bisect` over the fork between 48e12f9 (good) and a232df3 (bad), 167 commits, each step
+  built in /home/user/ws/rko_bisect and run with the "up" parameter file on Tunnel2 (p9_odyssey_bisect_step.sh).
+  Good if ATE < 5 m (0.3.2: 1.51; the fork: 32.4), bad otherwise; a commit that does not build is skipped. More than
+  one commit may change the default behaviour: after the first is found, UndergroundCarPark2 (0.1097 against 0.1247)
+  is checked at that commit and its parent, and the search repeats there if the gap is not explained.
+  No change to the fork or to G follows from this alone.
