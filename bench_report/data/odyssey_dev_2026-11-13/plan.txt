@@ -94,3 +94,21 @@ Addendum 5 (2026-11-13, after up_ug / g_ug on Tunnel2 and UndergroundCarPark2; B
   Next: bisect on UndergroundCarPark2 instead, which is not degenerate and where every G22 variant stayed within
   0.1215-0.1388: "up" parameter file, good if ATE < 0.115 m (0.3.2: 0.1097; the fork: 0.1247), bad otherwise.
   The first bad commit is then checked by reading it, and by a run of its parent and of itself on Beltway3.
+
+Addendum 6 (2026-11-13, after Beltway3 up_ug / g_ug and the bisect on UndergroundCarPark2, before the runs below)
+  Beltway3: up_ug 1.8944 (up 1.9003), g_ug 1.5606 (g 1.5606): the gravity term is not the cause on any of the three.
+  Bisect on UndergroundCarPark2 (bisect_UndergroundCarPark2.log, "up" file): good 45b918b1 / ea96cc18 0.1106; bad
+  416f4e93, 4cba0336, 1c897758, 67ef8762 0.1254, cce5cf47 0.1247; a93a1b85 does not build. First bad: a93a1b85 or
+  416f4e93, the fork's merge of upstream master at d6a0966 (v0.2.0 + 47 commits, before 0.3.0), which brought
+  upstream's "improved voxel down sampling, use robin set, explicit hash sorting" (#136). Upstream reverted the sorted
+  downsampling in 5dd043e (#141), before 0.3.0. The fork merged 0.3.2 later but kept #136's samplers as its default
+  (preprocess_scan.cpp: the first pass sorted by voxel hash, the second in input order) and has upstream 0.3.2's
+  sampler (first point per voxel, unordered_map order) only behind legacy_voxel_downsample, default false. G22 does
+  not set it, so G was developed and frozen on a sampler upstream had dropped.
+  Hypothesis: this sampler is what separates the fork at upstream's defaults from upstream 0.3.2 on Odyssey.
+  Test, no code change (the fork's sealed build): legacy_voxel_downsample true on Tunnel2, UndergroundCarPark2,
+  Beltway3:
+    up_legacy  "up" file + the key - holds if at ros032 / up032 (1.5119, 0.1097, 1.3051), within 1 %
+    g_legacy   G22 + the key       - reported against g (1.5400, 0.1314, 1.5606) and up040 (1.2599, 0.1122, 1.2735)
+  Nothing follows for G from this alone: G22 + the key would be a candidate that needs its own preregistered rule on
+  all development data, and a claim needs fresh blind data.

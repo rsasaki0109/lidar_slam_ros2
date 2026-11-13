@@ -31,6 +31,9 @@ VARIANTS = {
     # RKO_LIO_GRAVITY_RESIDUAL=upstream (upstream 0.3.2's gravity term)
     'up_ug': (UP, TAC + KP + CLOSE + ['local_map_compact_points', 'initialization_max_gyro_rad_s']),
     'g_ug': ({}, []),
+    # addendum 6: upstream 0.3.2's voxel downsampling (legacy_voxel_downsample), the fork's own build
+    'up_legacy': (dict(UP, legacy_voxel_downsample=True), TAC + KP + CLOSE + ['local_map_compact_points', 'initialization_max_gyro_rad_s']),
+    'g_legacy': ({'legacy_voxel_downsample': True}, []),
     'ros032': (UP, TAC + KP + CLOSE + ['local_map_compact_points', 'initialization_max_gyro_rad_s']),
     # second round (plan.txt, addendum): combinations
     'vox1_notac': ({'voxel_size': 1.0}, TAC),
