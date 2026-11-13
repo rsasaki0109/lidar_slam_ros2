@@ -55,3 +55,8 @@ What was read before this file
 
 Record
   (filled in as the run proceeds; nothing above is changed)
+  2026-11-13 00:08 UTC: the container restarted at about 00:07 during Beltway1's third BIEVR-LIO run (eight runs were
+    finished: G x3, RKO-LIO upstream x3, BIEVR-LIO x2; the converted bag, 7.2 GB, was lost with /dev/shm). Cause not
+    known; BIEVR-LIO held 4.1 GB beside the bag, so memory is possible. Not a property of a method by the protocol:
+    the unfinished run's directory is removed, the archive is streamed again and the remaining runs of Beltway1 are
+    made; the eight finished runs stay.
