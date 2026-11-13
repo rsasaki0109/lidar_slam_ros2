@@ -64,3 +64,8 @@ Record
     no restart since 00:08). The container restarted at about 07:07 while UndergroundCarPark1's archive was being
     streamed and converted (started 06:31; no run of that sequence had begun; the partial bag was lost with
     /dev/shm). Cause not known. The archive is streamed again from the start.
+  2026-11-13 10:49 UTC: UndergroundCarPark1 is finished (second stream; 15 runs, every exit 0). The container
+    restarted again during UndergroundCarPark2's third FAST-LIO2 run (11 runs were finished, the last at 10:20;
+    the machine came back at 10:48; the converted bag was lost with /dev/shm). Cause not known. As at 00:08: the
+    unfinished run's directory is removed, the archive is streamed again and the remaining four runs are made; the
+    11 finished runs stay.
