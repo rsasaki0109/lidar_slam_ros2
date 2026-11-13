@@ -11,14 +11,15 @@ REPO=/home/user/lidar_slam_ros2; S=${REPO}/bench_report/scripts; PY=/home/user/m
 P=${REPO}/bench_report/params; OUT=/home/user/bench/g16; CFG=${OUT}/phase1_cfg; mkdir -p "${OUT}" "${CFG}"
 CN=${CAND_NAME:-G16}  # CAND_CFG / CAND_NAME: another candidate in the place of G16; OUT_NAME: the output directory
 OUT=/home/user/bench/${OUT_NAME:-g16}; CFG=${OUT}/phase1_cfg; mkdir -p "${OUT}" "${CFG}"
-declare -A GF=([G12]=${REPO}/configs/sota_v7/rko_lio_global_G12_2026-10-26.yaml
+BN=${BASE_NAME:-G12}  # BASE_CFG / BASE_NAME: another reference in the place of G12
+declare -A GF=([${BN}]=${BASE_CFG:-${REPO}/configs/sota_v7/rko_lio_global_G12_2026-10-26.yaml}
                [${CN}]=${CAND_CFG:-${REPO}/bench_report/data/phase1_global/rko_lio_candidate_G16_2026-11-08.yaml})
 set +u; source /opt/ros/jazzy/setup.bash; set -u
 
 # rig <name> <rig file> <lidar topic> <imu topic>: the merged parameter files and rig yamls for G12 and G16
 rig() {
   local name=$1 file=$2 lidar=$3 imu=$4
-  for c in G12 ${CN}; do
+  for c in ${BN} ${CN}; do
     "${PY}" - "${file}" "${GF[$c]}" "${CFG}/${name}_${c}.yaml" "${lidar}" "${imu}" "${CFG}/${name}_${c}_rig.yaml" <<'PY'
 import sys
 import yaml
@@ -35,7 +36,7 @@ PY
 # runpair <family> <rig name> <sequence> <bag> <score command prefix ('' = none)>
 runpair() {
   local fam=$1 name=$2 seq=$3 bag=$4 score=$5
-  for c in G12 ${CN}; do
+  for c in ${BN} ${CN}; do
     local o=${OUT}/phase1/${fam}/${seq}_${c}
     [[ -s ${o}/traj_imu.tum ]] || bash "${S}/p5_blind_method.sh" G "${CFG}/${name}_${c}_rig.yaml" "${bag}" "${o}" > /dev/null 2>&1
     if [[ ! -s ${o}/traj_imu.tum ]]; then echo "${fam},${c},${seq},FAILED" | tee -a "${OUT}/phase1.csv"; continue; fi
