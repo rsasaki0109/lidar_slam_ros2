@@ -82,3 +82,15 @@ Addendum 4 (2026-11-13, after the bisect on Tunnel2, before the runs below)
   The gravity term was in the fork during all of G's development, so every adopted decision was measured with it:
   no change to the fork or to G follows from this alone; a candidate needs its own preregistered rule on all
   development data, and a claim needs fresh blind data.
+
+Addendum 5 (2026-11-13, after up_ug / g_ug on Tunnel2 and UndergroundCarPark2; Beltway3 running)
+  Result of addendum 4's test (ATE m):   up032    up       up_ug     g        g_ug
+    Tunnel2                              1.5119   32.3586  30.2029   1.5400   1.5400 (trajectory differs from line 614)
+    UndergroundCarPark2                  0.1097    0.1247   0.1262   0.1314   0.1314 (byte-identical to g)
+  The test fails on both counts: with upstream's gravity term the fork at upstream's defaults stays where it was, and
+  G22's output does not move. The gravity term is not the cause. The Tunnel2 bisect was misled: the tunnel is
+  degenerate, the score there jumps between 1.5 and 32 m on small changes, and a threshold on it does not order the
+  commits.
+  Next: bisect on UndergroundCarPark2 instead, which is not degenerate and where every G22 variant stayed within
+  0.1215-0.1388: "up" parameter file, good if ATE < 0.115 m (0.3.2: 0.1097; the fork: 0.1247), bad otherwise.
+  The first bad commit is then checked by reading it, and by a run of its parent and of itself on Beltway3.

@@ -1,0 +1,7 @@
+2026-11-13T20:05:55Z cce5cf47 Merge pull request #29 from rsasaki0109/feat/bump-rotation-persistence | Tunnel2 bis_cce5cf47 ATE 32.3586 m  wall 85.9 s  RSS 621 MB  poses 783
+2026-11-13T20:08:54Z 67ef8762 fix: wait for offline output subscribers when requested | Tunnel2 bis_67ef8762 ATE 3.5695 m  wall 60.5 s  RSS 622 MB  poses 783
+2026-11-13T20:12:10Z 877bf182 feat: make the minimum ICP keypoint count configurable | Tunnel2 bis_877bf182 ATE 32.3586 m  wall 74.0 s  RSS 630 MB  poses 783
+2026-11-13T20:15:10Z 12987f40 refactor: move adopted queue tests into the standard test directory | Tunnel2 bis_12987f40 ATE 32.3586 m  wall 75.2 s  RSS 653 MB  poses 783
+2026-11-13T20:17:57Z f60d92ae experiment: robustify gravity-vector residual with fixed Tukey loss | Tunnel2 bis_f60d92ae ATE 2.1654 m  wall 52.0 s  RSS 612 MB  poses 783
+2026-11-13T20:21:06Z 68c2df71 experiment: use bounded samplewise gyro history for deskew rotation | Tunnel2 bis_68c2df71 ATE 32.3586 m  wall 76.7 s  RSS 633 MB  poses 783
+2026-11-13T20:23:56Z fdaae6cc experiment: normalize gravity direction before robust weighting | Tunnel2 bis_fdaae6cc ATE 29.8128 m  wall 56.1 s  RSS 654 MB  poses 783
