@@ -15,3 +15,12 @@ Reading, fixed now: G23 goes on to a decision rule on all development data (the 
 with G22 as the reference, plus Odyssey as a family) only if the MapsHD geometric mean of G23 / G22 is at most 1.02,
 exp04 is at most 1.05 x G22's, and the Odyssey geometric mean over the seven drives is below G22's. Otherwise the
 candidate is dropped and the sampler is taken up together with a rebase onto upstream 0.4.x instead.
+
+Record
+  2026-11-14, runs 1 and 2 (screen_g23/phase1.csv; ATE m, G22 / G23):
+    MapsHD calib1 0.0263 / 0.0264, calib2 0.0207 / 0.0212, flat 0.0148 / 0.0133, corridor 0.0712 / 0.0712,
+    urk 0.0548 / 0.0546, garage1 0.0442 / 0.0413, garage2 0.0289 / 0.0291, garage3 0.0268 / 0.0263. Geometric mean
+    of G23 / G22: 0.980 (limit 1.02): holds. Worst trial +2.4 %.
+    exp04 0.053487 / 0.056218: 1.0511 x G22's (limit 1.05): fails, by 0.1 %.
+    By the reading fixed above the candidate does not go on to a decision rule. The limit is not moved.
+    Run 3 (Odyssey's other four drives) is still done, as information for the maintainer.
