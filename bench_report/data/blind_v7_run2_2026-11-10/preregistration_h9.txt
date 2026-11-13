@@ -69,3 +69,12 @@ Record
     the machine came back at 10:48; the converted bag was lost with /dev/shm). Cause not known. As at 00:08: the
     unfinished run's directory is removed, the archive is streamed again and the remaining four runs are made; the
     11 finished runs stay.
+  2026-11-13 11:33 UTC: all 105 runs are finished (7 sequences x 5 methods x 3), every exit 0 with a trajectory;
+    no converted bag was above 9 GB. Sealed in sealed_manifest_h9.txt (sha256 of runs_h9.csv, the seven bag
+    summaries and every traj.tum / traj_imu.tum; the manifest's own sha256:
+    78ecbc6872b397fa37a35298a4aad59168989a88a0bd92f3d3c7368e0163f3fe).
+    Seen without any reference (wall time of the whole run over the bag's length; peak RSS): G 0.55-0.99 and
+    408-463 MB, so the RTF clause (0.85; above it on Beltway2, Beltway3, Marketplace3, Tunnel2) and the memory
+    clause (330 MB; above it on all seven) of the win condition are not met on H9. G is not changed.
+    Rivals: RKO-LIO upstream up to 1.04 / 178 MB, BIEVR-LIO 1.38 / 4044 MB, FAST-LIO2 1.15 / 1032 MB,
+    GLIM 0.43 / 1904 MB. No refsys or metadata member of any H9 archive has been read.

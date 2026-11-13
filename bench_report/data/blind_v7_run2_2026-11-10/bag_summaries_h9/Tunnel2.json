@@ -1,0 +1,65 @@
+{
+ "bytes_read": 3367944096,
+ "sha256": "d967700c117963413f9b21790c464d1c072276aab478aa7be591b1a25f9541df",
+ "complete": true,
+ "written": {
+  "/ouster/points": {
+   "messages": 783,
+   "points_in": 205258752,
+   "points_out": 185293812,
+   "first_stamp": 1761298174199948288,
+   "last_stamp": 1761298252400090112
+  },
+  "/m300/imu": {
+   "messages": 19625,
+   "first_stamp": 1761298174103624960,
+   "last_stamp": 1761298252599653120
+  }
+ },
+ "lidar_layout": {
+  "points": 262144,
+  "columns": 2048,
+  "t_max_ns": 100040792.0
+ },
+ "members_per_folder": {
+  "(top)": 0,
+  "ouster": 783,
+  "refsys": 3,
+  "m300": 1,
+  "metadata": 4
+ },
+ "other_members": [
+  [
+   "./Tunnel2/refsys/navsatfix.txt",
+   2339300
+  ],
+  [
+   "./Tunnel2/refsys/imu.txt",
+   6642060
+  ],
+  [
+   "./Tunnel2/refsys/lidar_poses_ref.txt",
+   240530
+  ],
+  [
+   "./Tunnel2/m300/imu.txt",
+   8301171
+  ],
+  [
+   "./Tunnel2/metadata/lidar_timestamps.txt",
+   15660
+  ],
+  [
+   "./Tunnel2/metadata/trajectory.jpg",
+   3443630
+  ],
+  [
+   "./Tunnel2/metadata/velocity.jpg",
+   140225
+  ],
+  [
+   "./Tunnel2/metadata/summary_statistics.txt",
+   150
+  ]
+ ]
+}

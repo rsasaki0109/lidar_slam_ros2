@@ -1,0 +1,65 @@
+{
+ "bytes_read": 8553151296,
+ "sha256": "0b305b4dafa7dd4c841e3718d793a0ac450706ddec434fd3a7f4f0c8d817ccc2",
+ "complete": true,
+ "written": {
+  "/ouster/points": {
+   "messages": 2301,
+   "points_in": 603193344,
+   "points_out": 401369625,
+   "first_stamp": 1748861530400149504,
+   "last_stamp": 1748861760399956992
+  },
+  "/m300/imu": {
+   "messages": 57575,
+   "first_stamp": 1748861530300632064,
+   "last_stamp": 1748861760596721920
+  }
+ },
+ "lidar_layout": {
+  "points": 262144,
+  "columns": 2048,
+  "t_max_ns": 99842168.0
+ },
+ "members_per_folder": {
+  "(top)": 0,
+  "ouster": 2301,
+  "refsys": 3,
+  "m300": 1,
+  "metadata": 4
+ },
+ "other_members": [
+  [
+   "./Beltway1/refsys/navsatfix.txt",
+   6862791
+  ],
+  [
+   "./Beltway1/refsys/imu.txt",
+   19506888
+  ],
+  [
+   "./Beltway1/refsys/lidar_poses_ref.txt",
+   701573
+  ],
+  [
+   "./Beltway1/m300/imu.txt",
+   24347299
+  ],
+  [
+   "./Beltway1/metadata/lidar_timestamps.txt",
+   46020
+  ],
+  [
+   "./Beltway1/metadata/trajectory.jpg",
+   4054213
+  ],
+  [
+   "./Beltway1/metadata/velocity.jpg",
+   147925
+  ],
+  [
+   "./Beltway1/metadata/summary_statistics.txt",
+   158
+  ]
+ ]
+}
