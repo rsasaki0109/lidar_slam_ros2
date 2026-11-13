@@ -78,3 +78,13 @@ Record
     clause (330 MB; above it on all seven) of the win condition are not met on H9. G is not changed.
     Rivals: RKO-LIO upstream up to 1.04 / 178 MB, BIEVR-LIO 1.38 / 4044 MB, FAST-LIO2 1.15 / 1032 MB,
     GLIM 0.43 / 1904 MB. No refsys or metadata member of any H9 archive has been read.
+  2026-11-13: the maintainer approved opening the reference after the seal. Each archive was streamed again
+    (p8_blind_h9_reference.sh; its sha256 equals the converted one's) and only refsys/lidar_poses_ref.txt and the
+    ouster file names were kept; every sequence has one reference pose per LiDAR stamp. Scored with
+    p8_blind_score_h9.py (score_h9.csv, score_h9.md). All 105 runs complete by the rule.
+    H9 geometric means (m): BIEVR-LIO 0.5041, RKO-LIO upstream 0.5231, G 0.6345, FAST-LIO2 0.6781, GLIM 0.7102.
+    G is more than 10 % worse than its best rival on all seven sequences (1.23 to 1.27 on six, 5.27 on Tunnel2),
+    its RTF reaches 0.99 and its peak RSS 463 MB: the win condition is not met on H9, on accuracy, RTF and memory.
+    H8 + H9 (23 sequences completed by G): G 0.1430, RKO-LIO upstream 0.1477, BIEVR-LIO 0.1506, FAST-LIO2 0.1957.
+    score_h9.md also carries a diagnostic written after the reference was opened (one constant time offset per run):
+    it changes no ranking and is not the preregistered score.

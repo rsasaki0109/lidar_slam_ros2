@@ -289,6 +289,12 @@ Status (2026-10-30, report chapter 39):
   The win condition is not met as written: on sequence 11 the reference spans more time than the bag, so no method
   reaches the 95 % completion rule and G completes 16 of 17. One family supports no tier claim; H6 FusionPortable V2
   and H7 MCD are preregistered and wait for Google Drive's download limit on this VM.
+- Second blind run, second family (2026-11-13, report chapter 64): H9 Odyssey (car, OS1-128, 7 drives), sealed
+  before the reference was opened. G does not meet the win condition: it is more than 10 % worse than its best rival
+  on all seven drives (1.23 to 1.27 on six, 5.27 on Tunnel2), third by geometric mean (0.6345 m against 0.5041 for
+  BIEVR-LIO and 0.5231 for upstream RKO-LIO), with RTF up to 0.99 and peak RSS up to 463 MB. G loses to upstream
+  RKO-LIO on every drive here, so one of G's changes hurts on this rig; which one is the next question. Over
+  H8 + H9 G still has the lowest geometric mean (0.1430 against 0.1477). No SOTA claim follows from the second run.
 - Publish only through the generated claim block in the README, one row per tier, with
   failed tiers shown.
 - C4: KITTI Odometry (LiDAR-only track) is the canonical hidden-ground-truth LiDAR
