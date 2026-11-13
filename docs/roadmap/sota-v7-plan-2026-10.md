@@ -295,6 +295,13 @@ Status (2026-10-30, report chapter 39):
   BIEVR-LIO and 0.5231 for upstream RKO-LIO), with RTF up to 0.99 and peak RSS up to 463 MB. G loses to upstream
   RKO-LIO on every drive here, so one of G's changes hurts on this rig; which one is the next question. Over
   H8 + H9 G still has the lowest geometric mean (0.1430 against 0.1477). No SOTA claim follows from the second run.
+- Odyssey diagnosis (2026-11-13, report chapter 65; H9 is development data from here): no group of G22's keys
+  explains the loss to upstream. The fork's default voxel downsampling is the hash-sorted one upstream reverted
+  before 0.3.0 (upstream 0.3.2's is behind `legacy_voxel_downsample`, off in G22); with the key the fork at
+  upstream's defaults returns to 0.3.2 on the two drives that are not degenerate, and G22 moves -14 %, -47 % and
+  +24 % on the three drives tested. Voxel 0.25 is what exceeds the RTF and memory limits on the 128-beam rig. Open:
+  a candidate on upstream's sampler (and a rebase onto upstream 0.4.x) needs its own preregistered rule on all
+  development data, with Odyssey as a development family, and fresh blind data for a claim.
 - Publish only through the generated claim block in the README, one row per tier, with
   failed tiers shown.
 - C4: KITTI Odometry (LiDAR-only track) is the canonical hidden-ground-truth LiDAR

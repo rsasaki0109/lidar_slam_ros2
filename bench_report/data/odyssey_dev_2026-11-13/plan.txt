@@ -112,3 +112,20 @@ Addendum 6 (2026-11-13, after Beltway3 up_ug / g_ug and the bisect on Undergroun
     g_legacy   G22 + the key       - reported against g (1.5400, 0.1314, 1.5606) and up040 (1.2599, 0.1122, 1.2735)
   Nothing follows for G from this alone: G22 + the key would be a candidate that needs its own preregistered rule on
   all development data, and a claim needs fresh blind data.
+
+Addendum 7 (2026-11-13, result of addendum 6's test; all scores in results.txt)
+  ATE m                  up032    up        up_legacy   g        g_legacy   up040    best rival
+    Tunnel2              1.5119   32.3586   41.5194     1.5400   0.8169     1.2599   0.2924
+    UndergroundCarPark2  0.1097    0.1247    0.1086     0.1314   0.1135     0.1122   0.1047
+    Beltway3             1.3051    1.9003    1.3204     1.5606   1.9295     1.2735   1.2735
+  up_legacy: within 1 % of 0.3.2 on UndergroundCarPark2 (-1.0 %), 1.2 % off on Beltway3, not on Tunnel2. By the rule
+  as written the hypothesis holds on one drive of three; the sampler explains most of the fork-at-upstream-defaults
+  gap on the two drives that are not degenerate, and something else remains on Tunnel2.
+  g_legacy: better than g on UndergroundCarPark2 (-14 %) and Tunnel2 (-47 %), worse on Beltway3 (+24 %). G22's keys
+  were chosen on the sorted sampler; with the other sampler they are not a uniform gain. G22 + the key is more than
+  10 % from the best rival on all three.
+  Conclusions: (1) G22's keys are not what loses to upstream on Odyssey (no key group closes the gap); (2) the fork's
+  default voxel sampler is one upstream reverted, and it changes results by 10-50 % on this rig in both directions;
+  (3) 0.3.2 -> 0.4.0 matters little here except on Tunnel2; (4) voxel 0.25 is what costs RTF and memory;
+  (5) the Tunnel2 bisect and the gravity-term hypothesis were wrong (addendum 5).
+  No change to G or to the fork is made here.
