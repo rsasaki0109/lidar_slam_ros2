@@ -1,0 +1,23 @@
+Odyssey as development data: why G22 loses to upstream RKO-LIO on H9 (written 2026-11-13, before any run below)
+
+H9 Odyssey is scored (report chapter 64): its reference is open, so the seven drives are development data from now
+on and can never again count as a blind family. G22 is 1.11 to 1.27 times upstream RKO-LIO's ATE on all seven; both
+are deterministic (three identical repetitions), so one run per variant is enough.
+
+This is a diagnosis, not a decision. Each variant is G22's parameter file for the rig (g_params_odyssey.yaml) with
+one group of keys changed, run with the same fork build on the same converted bag, scored as in H9
+(p8_blind_score_h9.py's ATE):
+  g         G22 as sealed (must reproduce the sealed score)
+  notac     without the tactical-gyro keys (max_tilt_correction_deg, gyro_bias_time_constant_sec, gyro_bias_start_sec)
+  vox1      voxel_size 1.0 (upstream's default; G22 has 0.25)
+  vox05     voxel_size 0.5
+  noclose   without the close_scene_* keys
+  jerk3     max_expected_jerk 3.0 (upstream's default; G22 has 1000)
+  noinit    initialization_phase false (upstream's default)
+  nocompact local_map_compact_points false
+  nokp      without icp_keypoint_voxel_multiplier, min_icp_keypoints, keypoint_shortfall_voxel_multiplier
+  up        every core key at upstream's default (voxel 1.0, min_range 1.0, jerk 3, no initialization phase,
+            100 iterations, convergence 1e-5) and none of G22's added keys: the fork as upstream
+Order: Tunnel2 (78 s) with all ten; then the variants that move the score on UndergroundCarPark2 and one Beltway.
+No change to G follows from this alone: a candidate needs its own preregistered rule on all development data, and a
+claim needs fresh blind data.
