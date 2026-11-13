@@ -35,3 +35,18 @@ Addendum 1 (2026-11-13, after Tunnel2 and UndergroundCarPark2 with the ten varia
   and PyPI 0.4.0 again ("up040", must reproduce the sealed rival score) on Tunnel2 and UndergroundCarPark2, then on
   the Beltway drive of the variant runs. The hypothesis holds if up032 lands near the fork's "up" (Tunnel2: tens of
   metres; UndergroundCarPark2: about 0.125) and away from up040; it fails if up032 lands near up040.
+
+Addendum 2 (2026-11-13, after up032 / up040 on Tunnel2 and UndergroundCarPark2, before the runs below)
+  Result of addendum 1's test (ATE m):          up040    up032    fork "up"   G22
+    Tunnel2                                     1.2599   1.5119   32.3586     1.5400
+    UndergroundCarPark2                         0.1122   0.1097    0.1247     0.1314
+  up040 reproduces the sealed rival scores. The hypothesis fails as written: up032 is not near the fork's "up" on
+  either drive, and on UndergroundCarPark2 it is as good as up040. (On Tunnel2 0.3.2 is 20 % behind 0.4.0, about
+  where G22 is.) So the fork at upstream's defaults is not upstream 0.3.2 either.
+  Two explanations remain: (a) the fork's own code changes what a run with upstream's keys does; (b) the ROS offline
+  node and the Python pipeline of the same version differ (reading of stamps, IMU handling, buffering).
+  Test: build upstream v0.3.2 (48e12f9) unmodified as a ROS package (/home/user/ws/rko032, Release) and run its
+  offline node with the "up" parameter file through the same harness as the fork ("ros032"), on UndergroundCarPark2,
+  then Tunnel2. If ros032 lands near up032 (UndergroundCarPark2 about 0.110), (a): the fork changed default
+  behaviour. If ros032 lands near the fork's "up" (about 0.125; Tunnel2 tens of metres), (b): the node path differs
+  from the Python pipeline, and G22's gap on Odyssey is at least partly a property of the ROS node path.

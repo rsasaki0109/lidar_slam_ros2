@@ -26,6 +26,8 @@ VARIANTS = {
     'nocompact': ({'local_map_compact_points': False}, []),
     'nokp': ({}, KP),
     'up': (UP, TAC + KP + CLOSE + ['local_map_compact_points', 'initialization_max_gyro_rad_s']),
+    # addendum 2: the same file as 'up', run by p9_odyssey_dev.sh with the unmodified upstream 0.3.2 ROS node
+    'ros032': (UP, TAC + KP + CLOSE + ['local_map_compact_points', 'initialization_max_gyro_rad_s']),
     # second round (plan.txt, addendum): combinations
     'vox1_notac': ({'voxel_size': 1.0}, TAC),
     'vox05_notac': ({'voxel_size': 0.5}, TAC),

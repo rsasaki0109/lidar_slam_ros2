@@ -26,7 +26,8 @@ for k in 1 2 3; do
 done
 [[ -f ${DATA}/${seq}/ok ]] || exit 1
 for v in "${todo[@]}"; do
-  line=$(bash "${S}/p8_blind_method.sh" G "${B}/variants/rig_${v}.yaml" "${bag}" "${B}/${seq}/${v}" 2>>"${B}/${seq}/errors.log" | tail -1)
+  ws=${REPO}; [[ ${v} == ros032 ]] && ws=/home/user/ws/rko032  # upstream v0.3.2 (48e12f9), unmodified, Release
+  line=$(RKO_WS=${ws} bash "${S}/p8_blind_method.sh" G "${B}/variants/rig_${v}.yaml" "${bag}" "${B}/${seq}/${v}" 2>>"${B}/${seq}/errors.log" | tail -1)
   echo "${seq},${v},$(date -u +%FT%TZ),${line}" | tee -a "${B}/runs.csv"
 done
 rm -rf "${DATA:?}/${seq:?}"
