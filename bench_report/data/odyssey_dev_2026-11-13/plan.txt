@@ -64,3 +64,21 @@ Addendum 3 (2026-11-13, after up032 / up040 on Beltway3 and ros032 on Undergroun
   one commit may change the default behaviour: after the first is found, UndergroundCarPark2 (0.1097 against 0.1247)
   is checked at that commit and its parent, and the search repeats there if the gap is not explained.
   No change to the fork or to G follows from this alone.
+
+Addendum 4 (2026-11-13, after the bisect on Tunnel2, before the runs below)
+  Bisect (bisect.log; "up" parameter file, Tunnel2 ATE m): 67ef8762 3.57 good, f60d92ae 2.17 good ("robustify
+  gravity-vector residual with fixed Tukey loss"), fdaae6cc 29.81 bad ("normalize gravity direction before robust
+  weighting"), 68c2df71 / 877bf182 / 12987f40 / cce5cf47 32.36 bad. First bad commit: fdaae6cc. It and f60d92ae
+  replace upstream's orientation term (predicted gravity minus the accelerometer-derived local gravity estimate, unit
+  weight) by a Tukey-weighted difference to the estimate rescaled to 9.81 m/s^2, with no parameter: on in every
+  configuration, still at the fork's head (lio.cpp, build_orientation_linear_system). The "good" commits before it
+  are already not 0.3.2 (3.57 and 2.17 against 1.51): earlier commits change the default behaviour too, less.
+  Test: the fork's head a232df3 with gravity_residual_diag.patch (environment switch back to upstream's term, a
+  diagnostic, not committed to the fork), on Tunnel2, UndergroundCarPark2 and Beltway3:
+    up_ug  the "up" parameter file  - compare with ros032 / up032 (1.5119, 0.1097, 1.3051) and "up"
+    g_ug   G22 as sealed            - compare with g (1.5400, 0.1314, 1.5606) and up040 (1.2599, 0.1122, 1.2735)
+  If up_ug is at up032 on the three drives, the gravity term is the fork's whole default-behaviour change there. If
+  g_ug is within 10 % of up040, it also explains G22's loss on H9.
+  The gravity term was in the fork during all of G's development, so every adopted decision was measured with it:
+  no change to the fork or to G follows from this alone; a candidate needs its own preregistered rule on all
+  development data, and a claim needs fresh blind data.

@@ -27,6 +27,10 @@ VARIANTS = {
     'nokp': ({}, KP),
     'up': (UP, TAC + KP + CLOSE + ['local_map_compact_points', 'initialization_max_gyro_rad_s']),
     # addendum 2: the same file as 'up', run by p9_odyssey_dev.sh with the unmodified upstream 0.3.2 ROS node
+    # addendum 4: 'up' and 'g' run by p9_odyssey_dev.sh with the fork's head plus gravity_residual_diag.patch and
+    # RKO_LIO_GRAVITY_RESIDUAL=upstream (upstream 0.3.2's gravity term)
+    'up_ug': (UP, TAC + KP + CLOSE + ['local_map_compact_points', 'initialization_max_gyro_rad_s']),
+    'g_ug': ({}, []),
     'ros032': (UP, TAC + KP + CLOSE + ['local_map_compact_points', 'initialization_max_gyro_rad_s']),
     # second round (plan.txt, addendum): combinations
     'vox1_notac': ({'voxel_size': 1.0}, TAC),
