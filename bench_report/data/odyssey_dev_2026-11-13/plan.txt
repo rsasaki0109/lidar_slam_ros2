@@ -21,3 +21,17 @@ one group of keys changed, run with the same fork build on the same converted ba
 Order: Tunnel2 (78 s) with all ten; then the variants that move the score on UndergroundCarPark2 and one Beltway.
 No change to G follows from this alone: a candidate needs its own preregistered rule on all development data, and a
 claim needs fresh blind data.
+
+Addendum 1 (2026-11-13, after Tunnel2 and UndergroundCarPark2 with the ten variants, before the runs below)
+  Seen: no single group of G22's keys explains the gap. On UndergroundCarPark2 every variant stays between 0.1215 and
+  0.1388 m (upstream 0.4.0: 0.1122); on Tunnel2 the variants scatter from 1.02 to 3.64 m, and the fork at upstream's
+  defaults ("up") slips 64 m along the tunnel (32.4 m ATE) where upstream 0.4.0 has 1.26 m. So the fork at upstream's
+  defaults is not upstream 0.4.0.
+  Found: the fork's base is upstream 0.3.2 (48e12f9); the rival is PyPI 0.4.0. Between them upstream changed the core
+  (48 commits: ICP on the right perturbation, a new convergence criterion, a quantised voxel map, deskew without a
+  per-point exponential, motion prior extrapolated across a LiDAR gap, ...).
+  Hypothesis: the gap to "upstream" on Odyssey is mostly 0.3.2 -> 0.4.0, not G22's keys.
+  Test (p9_odyssey_dev_pypi.sh): PyPI rko_lio 0.3.2 with its own defaults (rko_upstream_0.3.2_default.yaml, "up032")
+  and PyPI 0.4.0 again ("up040", must reproduce the sealed rival score) on Tunnel2 and UndergroundCarPark2, then on
+  the Beltway drive of the variant runs. The hypothesis holds if up032 lands near the fork's "up" (Tunnel2: tens of
+  metres; UndergroundCarPark2: about 0.125) and away from up040; it fails if up032 lands near up040.
