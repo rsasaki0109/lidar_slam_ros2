@@ -60,3 +60,7 @@ Record
     known; BIEVR-LIO held 4.1 GB beside the bag, so memory is possible. Not a property of a method by the protocol:
     the unfinished run's directory is removed, the archive is streamed again and the remaining runs of Beltway1 are
     made; the eight finished runs stay.
+  2026-11-13 07:09 UTC: Beltway1, Beltway2, Beltway3, Marketplace3 and Tunnel2 are finished (75 runs, every exit 0,
+    no restart since 00:08). The container restarted at about 07:07 while UndergroundCarPark1's archive was being
+    streamed and converted (started 06:31; no run of that sequence had begun; the partial bag was lost with
+    /dev/shm). Cause not known. The archive is streamed again from the start.
