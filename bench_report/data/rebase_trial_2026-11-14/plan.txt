@@ -147,3 +147,13 @@ Last addendum (written 2026-11-14 before the runs): is the outdoor gain reachabl
   matter of voxel size and sampler, and the next candidate is a GT-free choice of the voxel size by scene scale in the
   fork (to be designed and preregistered), with the rebase kept for the memory. If not, the keys G22 adds hurt
   outdoors at voxel 1.0 and are looked at one by one.
+  2026-11-14, g_legacy_vox1 (ATE m; ros041 / g_legacy_vox1 / G22):
+    Beltway3 1.2526 / 1.5932 / 1.5606, Marketplace3 0.4262 / 0.9095 / 0.4982, UndergroundCarPark2 0.1119 / 0.1113 /
+    0.1314. Peak RSS 234-258 MB, 46-66 s. Within 5 % of ros041 only on UndergroundCarPark2: the keys G22 adds hurt on
+    the open drives at voxel 1.0. They are looked at one by one, as fixed above.
+
+One key at a time (written 2026-11-14 before the runs), Marketplace3 and Beltway3, each g_legacy_vox1 with one change:
+  lv1_kp15 (keypoint multiplier 1.5 instead of 2.25, i.e. keypoints at 1.5 m instead of 2.25 m), lv1_jerk3
+  (max_expected_jerk 3), lv1_noclose (no close-scene keys), lv1_noinit (no initialization phase), lv1_conv
+  (100 iterations, convergence 1e-5), lv1_minr1 (min range 1.0). Reported; a key "explains" the loss if its variant
+  comes within 10 % of ros041 on both drives.
