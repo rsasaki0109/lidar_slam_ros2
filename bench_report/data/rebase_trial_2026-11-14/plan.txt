@@ -36,3 +36,22 @@ Questions and the reading, fixed now
   Wall time is reported; RTF is not compared here (the fork ran with its own thread default).
 
 Record
+  2026-11-14, step 1 (Odyssey, /home/user/bench/odyssey_dev/<drive>/ros041*; ATE m, wall s, peak RSS MB):
+    drive                 G22      PyPI 0.4.0   ros041              ros041g              ros041v05
+    Tunnel2               1.5400   1.2599       2.8288  18 s 165    1.7895 164 s 273     2.2940  55 s 185
+    UndergroundCarPark1   0.1061   0.0952       0.0986  27 s 162    0.0917 126 s 254     0.0933  51 s 179
+    UndergroundCarPark2   0.1314   0.1122       0.1119  22 s 157    0.1167  95 s 228     0.1132  38 s 175
+    Beltway1              1.6652   1.3074       1.3416  55 s 156    1.7402 479 s 266     1.6226 171 s 173
+    Beltway2              1.4886   1.1794       1.2085  52 s 154    1.6691 474 s 266     1.5649 161 s 173
+    Beltway3              1.5606   1.2735       1.2526  51 s 151    1.6694 459 s 260     1.5273 165 s 169
+    Marketplace3          0.4982   0.4058       0.4262  35 s 158    0.8621 311 s 294     0.7765  98 s 184
+    geometric mean        0.6344   0.5231       0.5970              0.6972               0.6880
+  Q1: no. ros041 is within 3 % of PyPI 0.4.0 on four of the seven (UndergroundCarPark2 -0.3 %, Beltway3 -1.6 %,
+    Beltway2 +2.5 %, Beltway1 +2.6 %), not on UndergroundCarPark1 (+3.6 %), Marketplace3 (+5.0 %) and Tunnel2
+    (2.2 x). The ROS node of 0.4.1 is close to the Python pipeline of 0.4.0 but not the same, and Tunnel2 stays a
+    drive that small differences move by a factor.
+  Q2: yes. The best variant is ros041, upstream's defaults: geometric mean 0.5970 m against G22's 0.6344 m (-5.9 %),
+    worst peak RSS 165 MB against 454 MB, on one thread 18-55 s a drive. It is more than 10 % behind G22 only on
+    Tunnel2. On this base G22's finer voxel is worse than voxel 1.0 on the open drives (ros041g 0.6972, ros041v05
+    0.6880), and slower by 4-9 x.
+  So step 2 follows: ros041 on the other development families.
