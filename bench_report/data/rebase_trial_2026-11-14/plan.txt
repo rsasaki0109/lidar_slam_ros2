@@ -98,3 +98,26 @@ Port 2 and the convergence value (written 2026-11-14 before the runs)
     C  convergence 1e-5, multiplier 2.25     (keys_C.yaml)
   against P1g / R041g (3e-5, 1.5) and G22. Reported as the ratio to G22; the best of the four by MapsHD geometric
   mean, if also within 1.10 of the best on exp04, is the configuration later ports are measured on. No adoption.
+
+  2026-11-14, port 2 and the convergence value (phase1_port2.csv; the outdoor trial's download failed its md5 and is
+    being fetched again, so seven MapsHD trials here; ratio to G22):
+    variant                         exp04    MapsHD (7) geometric mean
+    R041g (3e-5, 1.5)               1.26     1.90
+    A     (1e-5, 1.5)               1.30     1.95
+    B     (3e-5, 2.25)              1.31     2.10
+    C     (1e-5, 2.25)              1.25     2.06
+    Neither (a) nor (b) is the cause: all four are about 2 x behind G22 on MapsHD and 1.25-1.31 x on exp04.
+
+Where the indoor gap comes from: core changes of 0.4 or the fork's features (written 2026-11-14 before the runs)
+  Known: on MapsHD the fork with upstream's sampler (G23) equals G22 (0.980), so the sampler is not it.
+  Two runs separate the remaining explanations, on exp04 and MapsHD's eight trials, with keys_P.yaml (G22's file,
+  multiplier 1.5 = what R041g ran):
+    D  upstream 0.3.2's ROS node, unmodified (/home/user/ws/rko032). It ignores the fork's keys like 0.4.1 does.
+    E  0.4.1 with ports 1 and 2 built with RKO_LIO_SCALAR=double (/home/user/ws/rko041d).
+  Reading, fixed now (MapsHD geometric mean of the ratio to G22, eight trials):
+    D <= 1.2: 0.3.2 without the fork's features is near G22, so 0.4's core changes cost the accuracy indoors; then
+      E <= 1.2 names the single-precision scalar (and the int8 map built on it), E > 1.5 names the other changes
+      (right perturbation, convergence test, deskew, motion prior over gaps).
+    D >= 1.5: the fork's own features (close scene, keypoint shortfall, gyro limit of the initialization, robust
+      gravity term) make the difference indoors, and they are what has to be ported.
+    Between: both contribute; reported as such.
