@@ -306,6 +306,12 @@ Status (2026-10-30, report chapter 39):
   holds on MapsHD (0.980) but fails exp04 (1.0511, limit 1.05) and Odyssey (geometric mean 1.122 x G22's: better on
   the three enclosed drives, worse on the four open ones). Dropped; G stays G22. The sampler is taken up together
   with a rebase onto upstream 0.4.x.
+- Rebase trial (2026-11-14, report chapter 66, `bench_report/data/rebase_trial_2026-11-14/plan.txt`): a merge of
+  upstream 0.4.2 conflicts in 20 files; unmodified 0.4.1 at upstream's defaults beats G22 on Odyssey by 5.9 % with a
+  third of the memory, but with the keys it shares with G22 it is 1.25 x (exp04) and 1.8 x (MapsHD) behind indoors,
+  as 0.3.2 is: the indoor accuracy is the fork's features at voxel 0.25, the outdoor gain is voxel 1.0 with
+  upstream's sampler and keypoint multiplier 1.5. Open: a GT-free choice between the two operating points by scene
+  scale, as a candidate with its own rule; the rebase itself is worth it for memory and is a feature-by-feature port.
 - Publish only through the generated claim block in the README, one row per tier, with
   failed tiers shown.
 - C4: KITTI Odometry (LiDAR-only track) is the canonical hidden-ground-truth LiDAR

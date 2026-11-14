@@ -157,3 +157,28 @@ One key at a time (written 2026-11-14 before the runs), Marketplace3 and Beltway
   (max_expected_jerk 3), lv1_noclose (no close-scene keys), lv1_noinit (no initialization phase), lv1_conv
   (100 iterations, convergence 1e-5), lv1_minr1 (min range 1.0). Reported; a key "explains" the loss if its variant
   comes within 10 % of ros041 on both drives.
+  2026-11-14, one key at a time (ATE m; ros041 Marketplace3 0.4262, Beltway3 1.2526; g_legacy_vox1 0.9095, 1.5932):
+    variant        Marketplace3   Beltway3
+    lv1_kp15       0.5988         1.2796
+    lv1_jerk3      0.8799         1.5806
+    lv1_noclose    0.9095         1.5932   (identical to g_legacy_vox1: the close-scene keys never act here)
+    lv1_noinit     0.8850         1.5760
+    lv1_conv       0.8978         1.5613
+    lv1_minr1      0.8893         1.5521
+    No key meets "within 10 % of ros041 on both". The keypoint multiplier is the one that matters: with 1.5 the fork
+    is at ros041 on Beltway3 (+2.2 %) and recovers most of Marketplace3 (0.9095 -> 0.5988; ros041 0.4262, G22
+    0.4982). The other five move the score by 3 % or less.
+
+Conclusion of the trial (2026-11-14)
+  1. The base: 0.4.1 is not worse than 0.3.2 anywhere measured, uses a third of the fork's memory, and float against
+     double makes no difference. Rebasing is worth it for the memory, but it is a port of the fork's features one by
+     one (20 files / 83 hunks conflict in a merge), and by itself it does not bring accuracy.
+  2. Accuracy: indoors the fork's features at voxel 0.25 are worth 1.25-2.1 x over bare upstream; outdoors on the
+     vehicle rig voxel 1.0 with upstream's sampler and a keypoint multiplier of 1.5 is worth 6-20 % over G22, and
+     G22's multiplier of 2.25 is what loses it at voxel 1.0 (keypoints 2.25 m apart). G22's voxel 0.25 with its
+     multiplier 2.25 (keypoints 0.56 m apart) and upstream's 1.0 with 1.5 (1.5 m apart) are two operating points; no
+     fixed file has both.
+  3. What follows is a design question, not a rebase: a GT-free choice between the two operating points from the
+     scan itself (scene scale), in the fork, as a candidate with its own preregistered rule on all development data.
+  Nothing was changed in the fork or in G. Scratch builds: /home/user/ws/rko041 (unmodified), rko041p (ports 1, 2),
+  rko041d (double).
