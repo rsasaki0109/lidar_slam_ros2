@@ -64,3 +64,18 @@ Step 2, first part (written 2026-11-14 before its runs): exp04 and MapsHD's eigh
   says where the bare 0.4.x base stands on handheld indoor data and so which of the fork's features to port first.
   The MapsHD rig is a Livox with per-point offset times; if the upstream node cannot read them, that is recorded as
   the first thing to port.
+
+  2026-11-14, step 2 first part (phase1_r041.csv; ATE m, G22 / R041 / R041g):
+    exp04 0.0535 / 0.0855 / 0.0675 (R041g 1.26 x G22).
+    MapsHD calib1 0.0263 / 0.0893 / 0.0614, calib2 0.0207 / 1.7759 / 0.0639, flat 0.0148 / 0.2117 / 0.0231,
+    corridor 0.0712 / 1.5655 / 0.0685, urk 0.0548 / 0.0588 / 0.0672, garage1 0.0442 / 0.1101 / 0.0802,
+    garage2 0.0289 / 0.0925 / 0.0600, garage3 0.0268 / 0.0895 / 0.0594.
+    Geometric mean of the ratio to G22: R041 6.34, R041g 1.80. Peak RSS 48-84 MB (exp04 121 / 189 MB).
+    Not a fair reading of the base on MapsHD: its Livox IMU reports acceleration in g (the fork's log: first sample
+    |a| = 0.999, scaled by 9.80665 under imu_acceleration_unit auto), and the upstream node has no such key, so it
+    integrated a tenth of the acceleration. The first thing to port is therefore imu_acceleration_unit.
+
+Port 1 (written 2026-11-14 before its runs): imu_acceleration_unit on upstream 0.4.1
+  port1_imu_acceleration_unit.patch on v0.4.1, built in /home/user/ws/rko041p (scratch; the fork is not touched).
+  MapsHD's eight trials again, P1 = upstream's default keys, P1g = G22's file (OUT_NAME=r041p). exp04 and Odyssey are
+  in m/s^2 and are not rerun. Reported as above; the rig file's imu_acceleration_unit auto now takes effect.

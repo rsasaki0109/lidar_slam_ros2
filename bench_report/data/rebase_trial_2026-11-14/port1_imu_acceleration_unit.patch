@@ -1,0 +1,123 @@
+From c554e8e8ae1c4cfd6e5a114a8a222a552f63063e Mon Sep 17 00:00:00 2001
+From: trial <trial@localhost>
+Date: Sat, 14 Nov 2026 05:39:58 +0000
+Subject: [PATCH] port: imu_acceleration_unit (mps2 / g / auto)
+
+---
+ rko_lio/core/imu_acceleration_unit.hpp | 58 ++++++++++++++++++++++++++
+ rko_lio/ros/base_node.cpp              | 15 +++++++
+ 2 files changed, 73 insertions(+)
+ create mode 100644 rko_lio/core/imu_acceleration_unit.hpp
+
+diff --git a/rko_lio/core/imu_acceleration_unit.hpp b/rko_lio/core/imu_acceleration_unit.hpp
+new file mode 100644
+index 0000000..043be18
+--- /dev/null
++++ b/rko_lio/core/imu_acceleration_unit.hpp
+@@ -0,0 +1,58 @@
++/*
++ * MIT License
++ *
++ * Copyright (c) 2026 Sasaki
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a copy
++ * of this software and associated documentation files (the "Software"), to deal
++ * in the Software without restriction, including without limitation the rights
++ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++ * copies of the Software, and to permit persons to whom the Software is
++ * furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in all
++ * copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++
++// Unit of the incoming IMU linear acceleration.
++//
++// The LIO expects m/s^2, but Livox drivers (MID-360, the Unitree Go2's LiDAR)
++// publish acceleration in units of g. Read as m/s^2, gravity then has
++// magnitude 1: initialization absorbs the missing ~8.8 m/s^2 into the
++// accelerometer bias, and once the sensor tilts (a Go2 standing up) that bias
++// becomes a spurious acceleration that moves the odometry.
++#pragma once
++
++#include <stdexcept>
++#include <string>
++
++namespace rko_lio::core {
++
++inline constexpr double STANDARD_GRAVITY = 9.80665;
++
++// m/s^2 per unit of the incoming acceleration: "mps2", "g", or "auto", which
++// decides from the first sample. Below half of standard gravity, a reading in
++// m/s^2 is implausible for a sensor that feels gravity, so it is taken as g.
++inline double acceleration_scale(const std::string& unit, double first_magnitude) {
++  if (unit == "mps2") {
++    return 1.0;
++  }
++  if (unit == "g") {
++    return STANDARD_GRAVITY;
++  }
++  if (unit == "auto") {
++    return first_magnitude < 0.5 * STANDARD_GRAVITY ? STANDARD_GRAVITY : 1.0;
++  }
++  throw std::invalid_argument("imu_acceleration_unit must be mps2, g or auto, got: " + unit);
++}
++
++} // namespace rko_lio::core
+diff --git a/rko_lio/ros/base_node.cpp b/rko_lio/ros/base_node.cpp
+index 14a0a62..0e4993f 100644
+--- a/rko_lio/ros/base_node.cpp
++++ b/rko_lio/ros/base_node.cpp
+@@ -23,6 +23,7 @@
+  */
+ 
+ #include "base_node.hpp"
++#include "rko_lio/core/imu_acceleration_unit.hpp"
+ #include "rko_lio/ros/utils/spdlog_sink.hpp"
+ #include "rko_lio/ros/utils/utils.hpp"
+ // other
+@@ -59,11 +60,23 @@ std::string config_to_yaml(const rko_lio::core::LIO::Config& config) {
+ 
+ namespace rko_lio::ros {
+ 
++namespace {
++std::string imu_acceleration_unit = "mps2"; // NOLINT: one node per process
++double imu_acceleration_scale = 0.0;       // NOLINT
++} // namespace
++
+ core::ImuControl imu_msg_to_imu_data(const sensor_msgs::msg::Imu& imu_msg) {
+   core::ImuControl imu_data;
+   imu_data.time = utils::to_ns(imu_msg.header.stamp);
+   imu_data.angular_velocity = utils::ros_xyz_to_eigen_vector(imu_msg.angular_velocity);
+   imu_data.acceleration = utils::ros_xyz_to_eigen_vector(imu_msg.linear_acceleration);
++  // port of the fork's imu_acceleration_unit: the scale is fixed by the first IMU message
++  if (!(imu_acceleration_scale > 0.0)) {
++    imu_acceleration_scale = core::acceleration_scale(imu_acceleration_unit, imu_data.acceleration.norm());
++    spdlog::info("IMU acceleration unit {}: first sample |a| = {:.3f}, scaling by {}", imu_acceleration_unit,
++                 imu_data.acceleration.norm(), imu_acceleration_scale);
++  }
++  imu_data.acceleration *= static_cast<core::Scalar>(imu_acceleration_scale);
+   return imu_data;
+ }
+ 
+@@ -76,6 +89,8 @@ BaseNode::BaseNode(const std::string& node_name, const rclcpp::NodeOptions& opti
+   imu_topic = node->declare_parameter<std::string>("imu_topic");     // required
+   lidar_topic = node->declare_parameter<std::string>("lidar_topic"); // required
+   base_frame = node->declare_parameter<std::string>("base_frame");   // required
++  imu_acceleration_unit = node->declare_parameter<std::string>("imu_acceleration_unit", imu_acceleration_unit);
++  core::acceleration_scale(imu_acceleration_unit, 0.0); // reject an unknown unit at startup
+   imu_frame = node->declare_parameter<std::string>("imu_frame", imu_frame);
+   lidar_frame = node->declare_parameter<std::string>("lidar_frame", lidar_frame);
+   odom_frame = node->declare_parameter<std::string>("odom_frame", odom_frame);
+-- 
+2.43.0
+
