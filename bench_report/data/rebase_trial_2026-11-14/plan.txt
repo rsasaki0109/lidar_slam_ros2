@@ -196,3 +196,15 @@ Port 3 (written 2026-11-14 before its runs): the close-scene registration on ups
   Reading, fixed now: the port "carries" if the better of the two has a MapsHD geometric mean of the ratio to G22 of
   at most 1.2 (bare 0.4.1: 1.80; the fork without close scene: 2.10). Between 1.2 and 1.5: partly. Above: it does
   not, and the difference is in how the base stores the map (8 points, int8) or converges.
+
+  2026-11-14, port 3 (phase1_port3.csv; ratio to G22):
+    variant                 exp04   MapsHD (8) geometric mean   per trial
+    P3   multiplier 1.5     1.24    0.926   0.86 0.98 0.84 1.00 1.08 0.85 0.97 0.86
+    P3b  multiplier 2.25    1.31    1.005   1.07 1.06 1.02 0.99 1.05 0.89 1.03 0.95
+    The port carries (<= 1.2): with the close-scene registration 0.4.1 is 7.4 % better than G22 on MapsHD at
+    multiplier 1.5 and level with it at 2.25, at 51-90 MB peak RSS (exp04 194 MB). Close-scene scans: 2605 on
+    flat-room as in the fork, 212 on exp04 (the fork 178).
+    exp04 stays 1.24-1.31 x behind G22: the close-scene settings do not act there (ablation), so this is the part
+    still to find. Candidates: the fork's sorted first pass of the voxel downsampling (G23, upstream's sampler in the
+    fork, was 5.1 % worse on exp04), the fork's 20 points a voxel against upstream's 8, the gyro limit of the
+    initialization, the robust gravity term.
