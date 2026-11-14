@@ -24,3 +24,11 @@ Record
     exp04 0.053487 / 0.056218: 1.0511 x G22's (limit 1.05): fails, by 0.1 %.
     By the reading fixed above the candidate does not go on to a decision rule. The limit is not moved.
     Run 3 (Odyssey's other four drives) is still done, as information for the maintainer.
+  2026-11-14, run 3 (Odyssey, /home/user/bench/odyssey_dev/<drive>/g_legacy; ATE m, G22 / G23):
+    Tunnel2 1.5400 / 0.8169, UndergroundCarPark1 0.1061 / 0.0921, UndergroundCarPark2 0.1314 / 0.1135,
+    Beltway3 1.5606 / 1.9295, Beltway1 1.6652 / 2.0526, Beltway2 1.4886 / 1.9969, Marketplace3 0.4982 / 1.3718.
+    Geometric mean over the seven drives: G22 0.6344, G23 0.7119, G23 / G22 1.122: not below G22's, fails.
+    G23 is better on the three enclosed drives (-13 % to -47 %) and worse on the four open ones (+23 % to +175 %).
+    G23 peak RSS 381-454 MB, as G22: the sampler does not bring the memory under 330 MB.
+    Verdict by the fixed reading: two of the three conditions fail. G23 is dropped; it does not go on to a decision
+    rule. G stays G22. The sampler is taken up together with a rebase onto upstream 0.4.x.

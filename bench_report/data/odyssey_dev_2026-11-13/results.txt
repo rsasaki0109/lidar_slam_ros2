@@ -1,3 +1,5 @@
+Beltway1 g_legacy     ATE 2.0526 m  wall 201.1 s  RSS 391 MB  poses 2301
+Beltway2 g_legacy     ATE 1.9969 m  wall 243.9 s  RSS 428 MB  poses 2207
 Beltway3 g            ATE 1.5606 m  wall 221.9 s  RSS 426 MB  poses 2112
 Beltway3 g_legacy     ATE 1.9295 m  wall 215.9 s  RSS 398 MB  poses 2112
 Beltway3 g_ug         ATE 1.5606 m  wall 192.7 s  RSS 421 MB  poses 2112
@@ -14,6 +16,7 @@ Beltway3 up_legacy    ATE 1.3204 m  wall 62.4 s  RSS 248 MB  poses 2112
 Beltway3 up_ug        ATE 1.8944 m  wall 61.3 s  RSS 258 MB  poses 2112
 Beltway3 vox05        ATE 1.6260 m  wall 119.9 s  RSS 305 MB  poses 2112
 Beltway3 vox1         ATE 1.8310 m  wall 81.3 s  RSS 253 MB  poses 2112
+Marketplace3 g_legacy     ATE 1.3718 m  wall 167.3 s  RSS 454 MB  poses 1911
 Tunnel2 g            ATE 1.5400 m  wall 92.2 s  RSS 427 MB  poses 783
 Tunnel2 g_legacy     ATE 0.8169 m  wall 84.9 s  RSS 416 MB  poses 783
 Tunnel2 g_ug         ATE 1.5400 m  wall 77.7 s  RSS 432 MB  poses 783
@@ -31,6 +34,7 @@ Tunnel2 up_legacy    ATE 41.5194 m  wall 24.4 s  RSS 268 MB  poses 783
 Tunnel2 up_ug        ATE 30.2029 m  wall 26.8 s  RSS 273 MB  poses 783
 Tunnel2 vox05        ATE 3.6366 m  wall 43.9 s  RSS 319 MB  poses 783
 Tunnel2 vox1         ATE 1.9761 m  wall 33.4 s  RSS 285 MB  poses 783
+UndergroundCarPark1 g_legacy     ATE 0.0921 m  wall 91.2 s  RSS 425 MB  poses 1783
 UndergroundCarPark2 g            ATE 0.1314 m  wall 91.5 s  RSS 418 MB  poses 1431
 UndergroundCarPark2 g_legacy     ATE 0.1135 m  wall 67.8 s  RSS 381 MB  poses 1431
 UndergroundCarPark2 g_ug         ATE 0.1314 m  wall 76.2 s  RSS 393 MB  poses 1431
