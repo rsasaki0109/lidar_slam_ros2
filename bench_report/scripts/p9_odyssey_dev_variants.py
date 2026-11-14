@@ -35,6 +35,11 @@ VARIANTS = {
     'up_legacy': (dict(UP, legacy_voxel_downsample=True), TAC + KP + CLOSE + ['local_map_compact_points', 'initialization_max_gyro_rad_s']),
     'g_legacy': ({'legacy_voxel_downsample': True}, []),
     'ros032': (UP, TAC + KP + CLOSE + ['local_map_compact_points', 'initialization_max_gyro_rad_s']),
+    # rebase trial (data/rebase_trial_2026-11-14/plan.txt): run by p9_odyssey_dev.sh with the unmodified upstream
+    # 0.4.1 ROS node, which ignores the fork's own keys
+    'ros041': (UP, TAC + KP + CLOSE + ['local_map_compact_points', 'initialization_max_gyro_rad_s']),
+    'ros041g': ({}, []),
+    'ros041v05': (dict(UP, voxel_size=0.5), TAC + KP + CLOSE + ['local_map_compact_points', 'initialization_max_gyro_rad_s']),
     # second round (plan.txt, addendum): combinations
     'vox1_notac': ({'voxel_size': 1.0}, TAC),
     'vox05_notac': ({'voxel_size': 0.5}, TAC),

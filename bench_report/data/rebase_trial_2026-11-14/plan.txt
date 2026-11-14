@@ -1,0 +1,38 @@
+Rebase trial onto upstream RKO-LIO 0.4.x: plan (written 2026-11-14, before any run of the 0.4.1 ROS node)
+
+Why
+  The G23 screen (data/phase1_global/screen_g23/plan.txt) ended with "the sampler is taken up together with a rebase
+  onto upstream 0.4.x". A direct merge of upstream v0.4.2 into the fork (a6559cd) conflicts in 20 files and 83 hunks:
+  upstream rewrote the scalar type (float by default), the voxel map (int8 offsets in fixed blocks), the ICP
+  (right perturbation, a function-tolerance convergence test) and the deskew, and the fork's lio.cpp is 2835 lines
+  against upstream's 532. The fork's features have to be ported one by one, not merged. Before porting anything,
+  measure what the new base does alone.
+
+Build
+  Upstream v0.4.1 (b2eec8d), unmodified, Release, as a ROS package in /home/user/ws/rko041. v0.4.2 differs from it
+  in no file under rko_lio/core and needs point_cloud_transport, which this machine does not have.
+
+Runs (step 1, Odyssey's seven drives, development data; p9_odyssey_dev.sh, one run each, the fork's harness)
+  ros041     the "up" parameter file (upstream's defaults: voxel 1.0, min range 1.0, jerk 3, no initialization phase,
+             100 iterations, convergence 1e-5).
+  ros041g    G22's parameter file as it is. The upstream node reads the keys it knows (voxel 0.25, min range 0.7,
+             initialization phase, 50 iterations, convergence 3e-5, jerk 1000) and ignores the fork's own
+             (keypoint multiplier and shortfall, close scene, compact points, the gyro limit of the initialization,
+             the tactical keys). The convergence value does not mean in 0.4 what it means in the fork.
+  ros041v05  "up" with voxel 0.5.
+  Threads: the node's default (max_num_threads 1 in 0.4.1), not changed.
+
+Questions and the reading, fixed now
+  Q1 Does the 0.4.1 ROS node give the pinned PyPI 0.4.0's scores (Tunnel2 1.2599, UndergroundCarPark1 0.0952,
+     UndergroundCarPark2 0.1122, Beltway1 1.3074, Beltway2 1.1794, Beltway3 1.2735, Marketplace3 0.4058)?
+     "Yes" if ros041 is within 3 % on at least six of the seven.
+  Q2 Is the new base worth porting onto? "Yes" if the better of ros041 / ros041g / ros041v05 by Odyssey geometric
+     mean is below G22's 0.6344 m and its worst peak RSS is below G22's on Odyssey (454 MB).
+     If yes: step 2 runs that variant and ros041 on the other development families (MapsHD 8, exp04, then Koide,
+     Oxford, GrandTour LS 8), and the fork's adopted features are ported onto 0.4.x in the order of what the step 2
+     losses point at, each port measured on all development data. Nothing replaces G22 or the fork without its own
+     decision rule written before its confirmation runs, and a claim needs fresh blind data.
+     If no: the rebase is not pursued for accuracy; it stays a maintenance question for the maintainer.
+  Wall time is reported; RTF is not compared here (the fork ran with its own thread default).
+
+Record
