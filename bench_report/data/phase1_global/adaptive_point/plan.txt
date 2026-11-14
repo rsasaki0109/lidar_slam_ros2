@@ -67,3 +67,18 @@ Next (written 2026-11-14 before the runs): which of the fork's features carry th
     FB  both, and without the gyro limit of the initialization and the compact map points: only the keys upstream
         also has. FB against D (unmodified 0.3.2, 2.14 x G22 on MapsHD) is what the fork's always-on changes are worth.
   Reported as the ratio to G22. No adoption.
+
+Record of the ablation (2026-11-14; ablate.csv; ratio to G22)
+  variant   exp04    MapsHD (8) geometric mean   per trial
+  NC        0.99     2.10    1.83 3.01 1.88 1.00 1.09 2.91 3.16 3.63
+  NK        1.00     1.00    (byte-identical scores)
+  FB        -        2.10    1.83 3.01 1.88 1.00 1.08 2.91 3.16 3.68
+  Correction of what NK and FB are: the rig files of Phase 1 carry icp_keypoint_voxel_multiplier 2.25 and
+  initialization_max_gyro_rad_s 0.02 themselves, so dropping them from the G file changed nothing. NK is G22 without
+  the shortfall keys only (never triggered here: identical), FB is G22 without close scene, shortfall and compact
+  points. exp04 FB did not run (the exp04 download failed at its second fetch).
+  Reading: on MapsHD the close-scene settings alone are the whole difference: without them the fork is at 2.10 x,
+  where unmodified 0.3.2 is (2.14 x) and bare 0.4.1 nearly (1.80 x). On exp04 they change nothing (0.99), so exp04's
+  1.22-1.26 x against upstream has another source, not found here.
+  So the first feature to port onto 0.4.x is the close-scene registration (per-voxel normals, the normal-only
+  localizability weight, the shorter correspondence distance, the inlier-fraction fallback).
