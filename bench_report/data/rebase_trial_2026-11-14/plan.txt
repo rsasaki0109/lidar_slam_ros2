@@ -208,3 +208,10 @@ Port 3 (written 2026-11-14 before its runs): the close-scene registration on ups
     still to find. Candidates: the fork's sorted first pass of the voxel downsampling (G23, upstream's sampler in the
     fork, was 5.1 % worse on exp04), the fork's 20 points a voxel against upstream's 8, the gyro limit of the
     initialization, the robust gravity term.
+
+Port 4 (written 2026-11-14 before its runs): the fork's sorted sampler on 0.4.1
+  port4_sorted_sampler.patch: key sorted_voxel_downsample (default off), the first downsampling pass ordered by
+  voxel hash as in the fork. Runs: exp04 and MapsHD's eight trials, P4 = keys_P.yaml + sorted_voxel_downsample
+  (keys_P4.yaml), against P3. Reading: the sampler "explains exp04" if P4 is within 1.10 of G22 on exp04 (P3 1.24)
+  with MapsHD's geometric mean not above P3's 0.926 by more than 5 %. Otherwise reported and the next candidate
+  (points per voxel, gyro limit of the initialization, gravity term) is taken.

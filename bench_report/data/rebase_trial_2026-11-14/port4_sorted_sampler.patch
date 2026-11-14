@@ -1,0 +1,117 @@
+From b023fe32e05df272b712a0abdbcc37b23a5eec84 Mon Sep 17 00:00:00 2001
+From: trial <trial@localhost>
+Date: Sat, 14 Nov 2026 18:25:40 +0000
+Subject: [PATCH] port: sorted first pass of the voxel downsampling
+ (sorted_voxel_downsample)
+
+---
+ rko_lio/core/lio.hpp               |  3 +++
+ rko_lio/core/preprocess_scan.cpp   |  4 +++-
+ rko_lio/core/voxel_down_sample.cpp | 28 ++++++++++++++++++++++++++++
+ rko_lio/core/voxel_down_sample.hpp |  3 +++
+ rko_lio/ros/base_node.cpp          |  2 ++
+ 5 files changed, 39 insertions(+), 1 deletion(-)
+
+diff --git a/rko_lio/core/lio.hpp b/rko_lio/core/lio.hpp
+index 91b3610..6b7cac7 100644
+--- a/rko_lio/core/lio.hpp
++++ b/rko_lio/core/lio.hpp
+@@ -92,6 +92,9 @@ public:
+     Scalar close_scene_min_inlier_fraction = 0.0;
+     Scalar localizability_min_step_m = 0.05;
+ 
++    /** Port of the fork: order the first downsampling pass by voxel hash (the fork's default sampler). */
++    bool sorted_voxel_downsample = false;
++
+     /** Minimum weight for orientation regularization. */
+     Scalar min_beta = 200;
+   };
+diff --git a/rko_lio/core/preprocess_scan.cpp b/rko_lio/core/preprocess_scan.cpp
+index 373bcc9..13a5e9e 100644
+--- a/rko_lio/core/preprocess_scan.cpp
++++ b/rko_lio/core/preprocess_scan.cpp
+@@ -13,7 +13,9 @@ PreprocessingResult preprocess_scan(Vector3sVector scan, const LIO::Config& conf
+   });
+ 
+   if (config.double_downsample) {
+-    Vector3sVector downsampled = voxel_down_sample(scan, config.voxel_size * static_cast<Scalar>(0.5));
++    const Scalar first_pass = config.voxel_size * static_cast<Scalar>(0.5);
++    Vector3sVector downsampled = config.sorted_voxel_downsample ? voxel_down_sample_sorted(scan, first_pass)
++                                                                : voxel_down_sample(scan, first_pass);
+     Vector3sVector keypoints = voxel_down_sample(downsampled, config.voxel_size * std::max(static_cast<Scalar>(0.5), config.icp_keypoint_voxel_multiplier));
+     return {.filtered_scan = std::move(scan), .keypoints = std::move(keypoints), .map_points = std::move(downsampled)};
+   }
+diff --git a/rko_lio/core/voxel_down_sample.cpp b/rko_lio/core/voxel_down_sample.cpp
+index 2a4c099..c87a064 100644
+--- a/rko_lio/core/voxel_down_sample.cpp
++++ b/rko_lio/core/voxel_down_sample.cpp
+@@ -27,6 +27,8 @@
+ #include <memory_resource>
+ #include <sophus/se3.hpp>
+ #include <unordered_map>
++#include <unordered_set>
++#include <utility>
+ #include <vector>
+ 
+ namespace rko_lio::core {
+@@ -49,4 +51,30 @@ std::vector<Eigen::Vector3s> voxel_down_sample(const std::vector<Eigen::Vector3s
+   return downsampled;
+ }
+ 
++// Port of the fork (upstream PR 136, reverted upstream in PR 141): the first point of each voxel, ordered by the
++// voxel's hash.
++std::vector<Eigen::Vector3s> voxel_down_sample_sorted(const std::vector<Eigen::Vector3s>& points,
++                                                     const Scalar voxel_size) {
++  const auto inv_voxel_size = static_cast<Scalar>(1.0 / voxel_size);
++  std::pmr::monotonic_buffer_resource arena;
++  std::pmr::unordered_set<Eigen::Vector3i, VoxelHash> seen{&arena};
++  seen.reserve(points.size());
++  std::vector<std::pair<std::size_t, Eigen::Vector3s>> hashed;
++  hashed.reserve(points.size());
++  const VoxelHash hasher{};
++  for (const auto& point : points) {
++    const auto voxel = point_to_voxel(point, inv_voxel_size);
++    if (seen.insert(voxel).second) {
++      hashed.emplace_back(hasher(voxel), point);
++    }
++  }
++  std::sort(hashed.begin(), hashed.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
++  std::vector<Eigen::Vector3s> downsampled;
++  downsampled.reserve(hashed.size());
++  for (const auto& [_, v] : hashed) {
++    downsampled.emplace_back(v);
++  }
++  return downsampled;
++}
++
+ } // namespace rko_lio::core
+diff --git a/rko_lio/core/voxel_down_sample.hpp b/rko_lio/core/voxel_down_sample.hpp
+index ad1b521..0ee7605 100644
+--- a/rko_lio/core/voxel_down_sample.hpp
++++ b/rko_lio/core/voxel_down_sample.hpp
+@@ -32,6 +32,9 @@ namespace rko_lio::core {
+ /// Voxelize point cloud keeping the original coordinates
+ std::vector<Eigen::Vector3s> voxel_down_sample(const std::vector<Eigen::Vector3s>& points, const Scalar voxel_size);
+ 
++std::vector<Eigen::Vector3s> voxel_down_sample_sorted(const std::vector<Eigen::Vector3s>& points,
++                                                     const Scalar voxel_size);
++
+ inline Eigen::Vector3i point_to_voxel(const Eigen::Vector3s& point, const Scalar inv_voxel_size) {
+   return (point * inv_voxel_size).array().floor().cast<int>();
+ }
+diff --git a/rko_lio/ros/base_node.cpp b/rko_lio/ros/base_node.cpp
+index 4b6f382..4355fc8 100644
+--- a/rko_lio/ros/base_node.cpp
++++ b/rko_lio/ros/base_node.cpp
+@@ -171,6 +171,8 @@ BaseNode::BaseNode(const std::string& node_name, const rclcpp::NodeOptions& opti
+       "close_scene_localizability_normal_only", lio_config.close_scene_localizability_normal_only);
+   lio_config.close_scene_min_inlier_fraction = static_cast<core::Scalar>(
+       node->declare_parameter<double>("close_scene_min_inlier_fraction", lio_config.close_scene_min_inlier_fraction));
++  lio_config.sorted_voxel_downsample =
++      node->declare_parameter<bool>("sorted_voxel_downsample", lio_config.sorted_voxel_downsample);
+   lio_config.min_beta = static_cast<core::Scalar>(node->declare_parameter<double>("min_beta", lio_config.min_beta));
+   lio = std::make_unique<core::LIO>(lio_config);
+ 
+-- 
+2.43.0
+
