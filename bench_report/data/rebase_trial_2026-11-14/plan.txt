@@ -215,3 +215,12 @@ Port 4 (written 2026-11-14 before its runs): the fork's sorted sampler on 0.4.1
   (keys_P4.yaml), against P3. Reading: the sampler "explains exp04" if P4 is within 1.10 of G22 on exp04 (P3 1.24)
   with MapsHD's geometric mean not above P3's 0.926 by more than 5 %. Otherwise reported and the next candidate
   (points per voxel, gyro limit of the initialization, gravity term) is taken.
+
+  2026-11-14, port 4 (phase1_port4.csv; ratio to G22): P4 exp04 1.16, MapsHD geometric mean 0.966
+    (1.03 1.04 0.94 0.98 1.05 0.86 0.96 0.88). The sorted sampler takes exp04 from 1.24 to 1.16 and costs MapsHD
+    4.3 % (0.926 -> 0.966, inside the 5 %). It does not "explain exp04" (not within 1.10): partly.
+
+The rest of exp04's gap, tested in the fork first (written 2026-11-14 before the runs): no code, exp04 only
+  F8  G22 with max_points_per_voxel 8 (upstream's fixed block size; the fork's default is 20).
+  FG0 G22 with initialization_max_gyro_rad_s 0 (the gyro limit of the initialization off; upstream has none).
+  A key "explains" the rest if the fork with it comes to 1.10 x G22 or worse on exp04 (P4 on 0.4.1: 1.16).
