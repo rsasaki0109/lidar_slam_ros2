@@ -40,6 +40,8 @@ VARIANTS = {
     'ros041': (UP, TAC + KP + CLOSE + ['local_map_compact_points', 'initialization_max_gyro_rad_s']),
     'ros041g': ({}, []),
     'ros041v05': (dict(UP, voxel_size=0.5), TAC + KP + CLOSE + ['local_map_compact_points', 'initialization_max_gyro_rad_s']),
+    # rebase trial, last addendum: the fork itself, upstream's sampler and voxel 1.0 under G22's other keys
+    'g_legacy_vox1': ({'legacy_voxel_downsample': True, 'voxel_size': 1.0}, []),
     # second round (plan.txt, addendum): combinations
     'vox1_notac': ({'voxel_size': 1.0}, TAC),
     'vox05_notac': ({'voxel_size': 0.5}, TAC),

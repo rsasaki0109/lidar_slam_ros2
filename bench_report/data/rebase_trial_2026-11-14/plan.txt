@@ -121,3 +121,29 @@ Where the indoor gap comes from: core changes of 0.4 or the fork's features (wri
     D >= 1.5: the fork's own features (close scene, keypoint shortfall, gyro limit of the initialization, robust
       gravity term) make the difference indoors, and they are what has to be ported.
     Between: both contribute; reported as such.
+
+  2026-11-14, D and E (phase1_DE.csv; ratio to G22):
+    variant                       exp04   MapsHD (8) geometric mean   per trial
+    R041g  0.4.1 float            1.26    1.80    2.34 3.08 1.56 0.96 1.23 1.81 2.07 2.22
+    E      0.4.1 double           1.25    1.76    2.07 3.79 1.30 0.97 1.15 1.87 2.00 2.17
+    D      0.3.2 unmodified       1.22    2.14    2.11 4.10 1.85 0.96 1.17 2.71 2.82 3.23
+    D >= 1.5: the fork's own features make the difference indoors, not the core changes of 0.4 (0.4.1 is in fact
+    nearer to G22 than 0.3.2 is). The scalar type does not matter (E against R041g).
+    Note on D: the unmodified 0.3.2 node does not exit at the end of the three garage bags (all scans registered,
+    then idle); it was sent SIGINT once idle and wrote its full trajectory (3610, 3409, 3008 poses).
+
+Summary of the trial
+  - Outdoors on the vehicle rig (Odyssey) bare 0.4.1 at upstream's defaults beats G22 by 5.9 % in geometric mean with
+    a third of the memory; with G22's fine voxel it is worse than G22.
+  - Indoors, handheld (MapsHD, exp04), bare upstream with G22's shared keys is 1.25 x (exp04) and 1.8 x (MapsHD)
+    behind G22, at 0.3.2 as at 0.4.1, float or double; at upstream's defaults it is 6-7 x behind on MapsHD.
+  - So the two results come from different things: the outdoor gain from voxel 1.0 with upstream's sampler, the
+    indoor accuracy from the fork's features at voxel 0.25. No one parameter file on the bare base has both.
+
+Last addendum (written 2026-11-14 before the runs): is the outdoor gain reachable inside the fork, without a rebase?
+  The fork with upstream's keys and sampler already gave 1.3204 on Beltway3 (up_legacy; G22 1.5606, 0.4.1 1.2526).
+  Variant g_legacy_vox1: G22's file with legacy_voxel_downsample and voxel_size 1.0, the fork's own build, on
+  Beltway3, Marketplace3 and UndergroundCarPark2. If it is within 5 % of ros041 on all three, the outdoor gain is a
+  matter of voxel size and sampler, and the next candidate is a GT-free choice of the voxel size by scene scale in the
+  fork (to be designed and preregistered), with the rebase kept for the memory. If not, the keys G22 adds hurt
+  outdoors at voxel 1.0 and are looked at one by one.
