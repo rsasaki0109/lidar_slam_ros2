@@ -1,8 +1,10 @@
 Beltway1 g_legacy     ATE 2.0526 m  wall 201.1 s  RSS 391 MB  poses 2301
+Beltway1 lv1_kp15     ATE 1.3498 m  wall 69.1 s  RSS 236 MB  poses 2301
 Beltway1 ros041       ATE 1.3416 m  wall 54.7 s  RSS 156 MB  poses 2301
 Beltway1 ros041g      ATE 1.7402 m  wall 479.0 s  RSS 266 MB  poses 2301
 Beltway1 ros041v05    ATE 1.6226 m  wall 171.1 s  RSS 173 MB  poses 2301
 Beltway2 g_legacy     ATE 1.9969 m  wall 243.9 s  RSS 428 MB  poses 2207
+Beltway2 lv1_kp15     ATE 1.2700 m  wall 69.2 s  RSS 239 MB  poses 2207
 Beltway2 ros041       ATE 1.2085 m  wall 52.4 s  RSS 154 MB  poses 2207
 Beltway2 ros041g      ATE 1.6691 m  wall 474.1 s  RSS 266 MB  poses 2207
 Beltway2 ros041v05    ATE 1.5649 m  wall 161.3 s  RSS 173 MB  poses 2207
@@ -47,6 +49,7 @@ Tunnel2 g            ATE 1.5400 m  wall 92.2 s  RSS 427 MB  poses 783
 Tunnel2 g_legacy     ATE 0.8169 m  wall 84.9 s  RSS 416 MB  poses 783
 Tunnel2 g_ug         ATE 1.5400 m  wall 77.7 s  RSS 432 MB  poses 783
 Tunnel2 jerk3        ATE 1.1114 m  wall 82.8 s  RSS 419 MB  poses 783
+Tunnel2 lv1_kp15     ATE 2.2528 m  wall 27.8 s  RSS 269 MB  poses 783
 Tunnel2 noclose      ATE 1.5400 m  wall 81.3 s  RSS 404 MB  poses 783
 Tunnel2 nocompact    ATE 1.0186 m  wall 81.0 s  RSS 543 MB  poses 783
 Tunnel2 noinit       ATE 1.1988 m  wall 78.9 s  RSS 440 MB  poses 783
@@ -64,6 +67,7 @@ Tunnel2 up_ug        ATE 30.2029 m  wall 26.8 s  RSS 273 MB  poses 783
 Tunnel2 vox05        ATE 3.6366 m  wall 43.9 s  RSS 319 MB  poses 783
 Tunnel2 vox1         ATE 1.9761 m  wall 33.4 s  RSS 285 MB  poses 783
 UndergroundCarPark1 g_legacy     ATE 0.0921 m  wall 91.2 s  RSS 425 MB  poses 1783
+UndergroundCarPark1 lv1_kp15     ATE 0.0951 m  wall 52.7 s  RSS 264 MB  poses 1783
 UndergroundCarPark1 ros041       ATE 0.0986 m  wall 27.2 s  RSS 162 MB  poses 1783
 UndergroundCarPark1 ros041g      ATE 0.0917 m  wall 126.4 s  RSS 254 MB  poses 1783
 UndergroundCarPark1 ros041v05    ATE 0.0933 m  wall 50.9 s  RSS 179 MB  poses 1783
@@ -72,6 +76,7 @@ UndergroundCarPark2 g_legacy     ATE 0.1135 m  wall 67.8 s  RSS 381 MB  poses 14
 UndergroundCarPark2 g_legacy_vox1 ATE 0.1113 m  wall 45.9 s  RSS 258 MB  poses 1431
 UndergroundCarPark2 g_ug         ATE 0.1314 m  wall 76.2 s  RSS 393 MB  poses 1431
 UndergroundCarPark2 jerk3        ATE 0.1328 m  wall 95.6 s  RSS 405 MB  poses 1431
+UndergroundCarPark2 lv1_kp15     ATE 0.1103 m  wall 44.2 s  RSS 265 MB  poses 1431
 UndergroundCarPark2 noclose      ATE 0.1388 m  wall 86.8 s  RSS 387 MB  poses 1431
 UndergroundCarPark2 nocompact    ATE 0.1314 m  wall 87.3 s  RSS 470 MB  poses 1431
 UndergroundCarPark2 noinit       ATE 0.1303 m  wall 91.6 s  RSS 418 MB  poses 1431
