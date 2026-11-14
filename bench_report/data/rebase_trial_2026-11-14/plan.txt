@@ -55,3 +55,12 @@ Record
     Tunnel2. On this base G22's finer voxel is worse than voxel 1.0 on the open drives (ros041g 0.6972, ros041v05
     0.6880), and slower by 4-9 x.
   So step 2 follows: ros041 on the other development families.
+
+Step 2, first part (written 2026-11-14 before its runs): exp04 and MapsHD's eight trials
+  p7_g16_phase1.sh with RKO_WS=/home/user/ws/rko041, OUT_NAME=r041: R041 = the rig file with
+  rko_upstream_defaults_keys.yaml on top, R041g = the rig file with G22's file on top (the upstream node ignores the
+  fork's keys). Reference: G22's scores of the G23 screen (screen_g23/phase1.csv), same machine, same harness.
+  Reported per sequence and as the MapsHD geometric mean of the ratio to G22. No adoption follows from this part: it
+  says where the bare 0.4.x base stands on handheld indoor data and so which of the fork's features to port first.
+  The MapsHD rig is a Livox with per-point offset times; if the upstream node cannot read them, that is recorded as
+  the first thing to port.

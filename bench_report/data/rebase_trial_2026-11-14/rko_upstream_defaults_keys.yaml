@@ -1,0 +1,9 @@
+# The keys of the "up" variant (p9_odyssey_dev_variants.py): upstream RKO-LIO's defaults, laid over a rig file.
+/**:
+  ros__parameters:
+    voxel_size: 1.0
+    min_range: 1.0
+    max_expected_jerk: 3.0
+    initialization_phase: false
+    max_iterations: 100
+    convergence_criterion: 1.0e-05
