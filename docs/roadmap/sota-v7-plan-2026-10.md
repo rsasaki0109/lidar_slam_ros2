@@ -302,6 +302,10 @@ Status (2026-10-30, report chapter 39):
   +24 % on the three drives tested. Voxel 0.25 is what exceeds the RTF and memory limits on the 128-beam rig. Open:
   a candidate on upstream's sampler (and a rebase onto upstream 0.4.x) needs its own preregistered rule on all
   development data, with Odyssey as a development family, and fresh blind data for a claim.
+- G23 screen (2026-11-14, `bench_report/data/phase1_global/screen_g23/plan.txt`): G22 with upstream's sampler
+  holds on MapsHD (0.980) but fails exp04 (1.0511, limit 1.05) and Odyssey (geometric mean 1.122 x G22's: better on
+  the three enclosed drives, worse on the four open ones). Dropped; G stays G22. The sampler is taken up together
+  with a rebase onto upstream 0.4.x.
 - Publish only through the generated claim block in the README, one row per tier, with
   failed tiers shown.
 - C4: KITTI Odometry (LiDAR-only track) is the canonical hidden-ground-truth LiDAR
