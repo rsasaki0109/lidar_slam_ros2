@@ -1,0 +1,25 @@
+A GT-free choice between two operating points: plan (written 2026-11-14, before any run of point B outside Odyssey)
+
+Background (report chapter 66): G22 is operating point A (voxel 0.25 m, keypoint multiplier 2.25, the fork's sorted
+sampler). On Odyssey's open drives point B (voxel 1.0 m, multiplier 1.5, upstream's sampler; point_B.yaml = G22's
+file with these three keys, no code change) is better; indoors bare upstream at voxel 1.0 is far worse. The candidate
+is one configuration that picks A or B from the scans themselves.
+
+Step 1 (this plan): where is B better, and what GT-free statistic says so
+  Runs, fork's build, G22 and B side by side:
+    exp04, MapsHD's eight trials, Koide's four (p7_g16_phase1.sh, BASE=G22, CAND=B, OUT_NAME=adapt, SCAN_STATS=1);
+    Odyssey's seven drives (p9_odyssey_dev.sh; B is the variant lv1_kp15, already run on Marketplace3 and Beltway3);
+    GrandTour LS 8 after these, if the picture is not already clear.
+  Oxford is left out of step 1: its ground truth is read only for a Phase 1 gate.
+  Statistics (p10_scan_stats.py, no ground truth): per sequence, over 20 scans spread from the start, the medians of
+  the point count, the median and 90 % range, and the occupied voxels at 1.5 m and at 0.5625 m.
+  Output: a table sequence x (ATE of A, ATE of B, the statistics). No decision in this step.
+
+Step 2 (after step 1; its rule is written before its runs)
+  If one statistic with one threshold separates "B better than A by more than 5 %" from "A better than B by more
+  than 5 %" on every sequence of step 1, the selector is that test on the first scans, implemented in a scratch
+  worktree of the fork (choice made once, before the map is built), and the candidate gets a decision rule on all
+  development data with G22 as the reference. If no statistic separates them, that is reported and the selector is
+  not built on a fit.
+  Caveat fixed now: a threshold chosen on these sequences is fitted to them. Whatever comes out is a candidate; a
+  claim needs the blind families (H6, H7) or other fresh data.

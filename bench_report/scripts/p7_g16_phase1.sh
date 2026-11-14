@@ -36,6 +36,11 @@ PY
 # runpair <family> <rig name> <sequence> <bag> <score command prefix ('' = none)>
 runpair() {
   local fam=$1 name=$2 seq=$3 bag=$4 score=$5
+  # SCAN_STATS=1: GT-free scene statistics of the bag (p10_scan_stats.py), one line per sequence in scan_stats.csv
+  if [[ ${SCAN_STATS:-0} == 1 ]] && ! grep -q "^${fam},${seq}," "${OUT}/scan_stats.csv" 2>/dev/null; then
+    local lt; lt=$(awk '$1 == "lidar_topic:" {print $2}' "${CFG}/${name}_${BN}_rig.yaml")
+    echo "${fam},${seq},$(cd /tmp && "${PY}" -I "${S}/p10_scan_stats.py" "${bag}" "${lt}" 2>/dev/null)" >> "${OUT}/scan_stats.csv"
+  fi
   for c in ${BN} ${CN}; do
     local o=${OUT}/phase1/${fam}/${seq}_${c}
     [[ -s ${o}/traj_imu.tum ]] || bash "${S}/p5_blind_method.sh" G "${CFG}/${name}_${c}_rig.yaml" "${bag}" "${o}" > /dev/null 2>&1

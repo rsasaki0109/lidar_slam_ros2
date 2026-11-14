@@ -25,6 +25,9 @@ for k in 1 2 3; do
   [[ ${got} == "${bytes}" ]] && touch "${DATA}/${seq}/ok" || { echo "${seq}: conversion failed (${got})"; sleep 60; }
 done
 [[ -f ${DATA}/${seq}/ok ]] || exit 1
+if [[ ${SCAN_STATS:-0} == 1 ]] && ! grep -q "^odyssey,${seq}," "${B}/scan_stats.csv" 2>/dev/null; then
+  echo "odyssey,${seq},$(cd /tmp && "${PY}" -I "${S}/p10_scan_stats.py" "${bag}" /ouster/points 2>/dev/null)" >> "${B}/scan_stats.csv"
+fi
 for v in "${todo[@]}"; do
   ws=${REPO}; [[ ${v} == ros032 ]] && ws=/home/user/ws/rko032  # upstream v0.3.2 (48e12f9), unmodified, Release
   [[ ${v} == ros041* ]] && ws=/home/user/ws/rko041  # upstream v0.4.1 (b2eec8d), unmodified, Release
