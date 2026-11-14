@@ -10,7 +10,7 @@ seq=$1; shift
 mkdir -p "${B}/variants" "${B}/${seq}" "${DATA}"
 "${PY}" "${S}/p9_odyssey_dev_variants.py" "${D}/g_params_odyssey.yaml" "${D}/rig_odyssey.yaml" "${B}/variants"
 todo=(); for v in "$@"; do [[ -f ${B}/${seq}/${v}/exit.txt ]] || todo+=("${v}"); done
-[[ ${#todo[@]} -gt 0 ]] || { echo "${seq}: nothing to do"; exit 0; }
+[[ ${#todo[@]} -gt 0 ]] || { [[ ${SCAN_STATS:-0} == 1 ]] && ! grep -q "^odyssey,${seq}," "${B}/scan_stats.csv" 2>/dev/null; } || { echo "${seq}: nothing to do"; exit 0; }
 bytes=$(awk -v s="${seq}.tar.gz" '$1 == s {print $2}' "${D}/odyssey_archives.txt")
 url=$(awk -v s="${seq}.tar.gz" '$1 == s {print $3}' "${D}/odyssey_archives.txt")
 bag=${DATA}/${seq}/bag
@@ -28,7 +28,7 @@ done
 if [[ ${SCAN_STATS:-0} == 1 ]] && ! grep -q "^odyssey,${seq}," "${B}/scan_stats.csv" 2>/dev/null; then
   echo "odyssey,${seq},$(cd /tmp && "${PY}" -I "${S}/p10_scan_stats.py" "${bag}" /ouster/points 2>/dev/null)" >> "${B}/scan_stats.csv"
 fi
-for v in "${todo[@]}"; do
+for v in ${todo[@]+"${todo[@]}"}; do
   ws=${REPO}; [[ ${v} == ros032 ]] && ws=/home/user/ws/rko032  # upstream v0.3.2 (48e12f9), unmodified, Release
   [[ ${v} == ros041* ]] && ws=/home/user/ws/rko041  # upstream v0.4.1 (b2eec8d), unmodified, Release
   gr=; [[ ${v} == *_ug ]] && { ws=/home/user/ws/rko_bisect; gr=upstream; }  # a232df3 + gravity_residual_diag.patch
