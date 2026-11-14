@@ -79,3 +79,22 @@ Port 1 (written 2026-11-14 before its runs): imu_acceleration_unit on upstream 0
   port1_imu_acceleration_unit.patch on v0.4.1, built in /home/user/ws/rko041p (scratch; the fork is not touched).
   MapsHD's eight trials again, P1 = upstream's default keys, P1g = G22's file (OUT_NAME=r041p). exp04 and Odyssey are
   in m/s^2 and are not rerun. Reported as above; the rig file's imu_acceleration_unit auto now takes effect.
+
+  2026-11-14, port 1 (phase1_port1.csv; MapsHD, ratio to G22): P1 4.19 26.99 112.32 25.64 1.05 2.69 3.08 3.38,
+    geometric mean 7.46; P1g 2.07 3.96 1.50 0.97 1.19 1.78 1.97 2.24, geometric mean 1.80.
+    The key takes effect (log: scaling by 9.80665) and changes nothing in the mean (R041g 1.80). The guess that the
+    unit explained MapsHD was wrong: with G22's keys the base is 1.8 x behind G22 on MapsHD and 1.26 x on exp04 for
+    other reasons. The port stays (the unit was wrong before it), but it is not the cause.
+
+Port 2 and the convergence value (written 2026-11-14 before the runs)
+  Two candidates for the gap that cost little to test:
+  (a) G22's convergence_criterion 3e-5 was chosen for the fork's test (norm of the step). In 0.4 the same key is a
+      relative cost change, so 3e-5 may stop the ICP at another point than intended. Upstream's value is 1e-5.
+  (b) G22's icp_keypoint_voxel_multiplier 2.25 (keypoints at 0.5625 m) is ignored by the base, which uses 1.5.
+      port2_icp_keypoint_voxel_multiplier.patch adds the key (default 1.5: no change without it).
+  Runs on exp04 and MapsHD's eight trials, rko041p with ports 1 and 2, G22's file with:
+    A  convergence 1e-5, multiplier 1.5      (keys_A.yaml)
+    B  convergence 3e-5, multiplier 2.25     (keys_B.yaml = G22's keys)
+    C  convergence 1e-5, multiplier 2.25     (keys_C.yaml)
+  against P1g / R041g (3e-5, 1.5) and G22. Reported as the ratio to G22; the best of the four by MapsHD geometric
+  mean, if also within 1.10 of the best on exp04, is the configuration later ports are measured on. No adoption.
