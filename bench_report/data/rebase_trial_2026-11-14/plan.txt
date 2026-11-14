@@ -224,3 +224,16 @@ The rest of exp04's gap, tested in the fork first (written 2026-11-14 before the
   F8  G22 with max_points_per_voxel 8 (upstream's fixed block size; the fork's default is 20).
   FG0 G22 with initialization_max_gyro_rad_s 0 (the gyro limit of the initialization off; upstream has none).
   A key "explains" the rest if the fork with it comes to 1.10 x G22 or worse on exp04 (P4 on 0.4.1: 1.16).
+
+  2026-11-14, the fork-side checks on exp04 (ATE m; G22 0.053487): F8 0.055645 (1.040 x), FG0 0.053487 (identical:
+    the gyro limit never acts on exp04). Neither explains the rest. Eight points a voxel is worth 4 %; with the
+    sampler's 7 % about half of exp04's 1.24 is accounted for. The remainder (about 1.1 x) is in what 0.3.2 and
+    0.4.1 share and the fork changed (0.3.2 unmodified: 1.22) and is left open here.
+
+Where the ported base stands on the other families (written 2026-11-14 before the runs)
+  Before more is ported for exp04: P3 (ports 1-3, G22's keys, multiplier 1.5) and P4 (P3 + sorted sampler) on
+  Odyssey's seven drives (variants p3, p4) and on Koide's four (p7_g16_phase1.sh koide, OUT_NAME=r041pk), against
+  G22 and, on Odyssey, bare 0.4.1 (ros041 0.5970, ros041g 0.6972). Reported per sequence with peak RSS and wall
+  time; geometric means per family. No adoption: this decides whether the ported base is worth a decision rule of
+  its own (it would need: every family's geometric mean within 1.05 of G22's, none of the sequences more than 10 %
+  worse, peak RSS lower on every family).

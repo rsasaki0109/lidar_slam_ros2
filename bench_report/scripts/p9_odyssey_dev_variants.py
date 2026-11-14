@@ -49,6 +49,9 @@ VARIANTS = {
     'lv1_conv': ({'legacy_voxel_downsample': True, 'voxel_size': 1.0, 'max_iterations': 100,
                   'convergence_criterion': 1.0e-5}, []),
     'lv1_minr1': ({'legacy_voxel_downsample': True, 'voxel_size': 1.0, 'min_range': 1.0}, []),
+    # rebase trial, ports 1-4 on upstream 0.4.1 (/home/user/ws/rko041p), G22's keys with keypoint multiplier 1.5
+    'p3': ({'icp_keypoint_voxel_multiplier': 1.5}, []),
+    'p4': ({'icp_keypoint_voxel_multiplier': 1.5, 'sorted_voxel_downsample': True}, []),
     # second round (plan.txt, addendum): combinations
     'vox1_notac': ({'voxel_size': 1.0}, TAC),
     'vox05_notac': ({'voxel_size': 0.5}, TAC),

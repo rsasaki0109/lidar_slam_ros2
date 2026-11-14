@@ -31,6 +31,7 @@ fi
 for v in ${todo[@]+"${todo[@]}"}; do
   ws=${REPO}; [[ ${v} == ros032 ]] && ws=/home/user/ws/rko032  # upstream v0.3.2 (48e12f9), unmodified, Release
   [[ ${v} == ros041* ]] && ws=/home/user/ws/rko041  # upstream v0.4.1 (b2eec8d), unmodified, Release
+  [[ ${v} == p3 || ${v} == p4 ]] && ws=/home/user/ws/rko041p  # upstream v0.4.1 + ports 1-4 (rebase trial)
   gr=; [[ ${v} == *_ug ]] && { ws=/home/user/ws/rko_bisect; gr=upstream; }  # a232df3 + gravity_residual_diag.patch
   line=$(RKO_LIO_GRAVITY_RESIDUAL=${gr} RKO_WS=${ws} bash "${S}/p8_blind_method.sh" G "${B}/variants/rig_${v}.yaml" "${bag}" "${B}/${seq}/${v}" 2>>"${B}/${seq}/errors.log" | tail -1)
   echo "${seq},${v},$(date -u +%FT%TZ),${line}" | tee -a "${B}/runs.csv"
