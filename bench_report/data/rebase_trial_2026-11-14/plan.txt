@@ -182,3 +182,17 @@ Conclusion of the trial (2026-11-14)
      scan itself (scene scale), in the fork, as a candidate with its own preregistered rule on all development data.
   Nothing was changed in the fork or in G. Scratch builds: /home/user/ws/rko041 (unmodified), rko041p (ports 1, 2),
   rko041d (double).
+
+Port 3 (written 2026-11-14 before its runs): the close-scene registration on upstream 0.4.1
+  The ablation (data/phase1_global/adaptive_point/plan.txt) names the close-scene settings as what carries MapsHD.
+  port3_close_scene.patch on ports 1 and 2 (/home/user/ws/rko041p): a unit normal per map voxel (5 or more of the
+  block's up to 8 points, surface-like by the fork's two eigenvalue tests), the weight 1 + boost cos^2(normal, travel
+  direction) on a correspondence, along the normal only when asked, the close-scene correspondence distance, and the
+  second registration when too few keypoints end within it. Same keys and defaults (off) as the fork.
+  Differences from the fork that the port does not remove: upstream keeps at most 8 points a voxel (the fork 20),
+  stores them as int8 offsets, and its ICP has another convergence test.
+  Runs: exp04 and MapsHD's eight trials, P3 = keys_P.yaml (G22's keys, multiplier 1.5), P3b = G22's file as it is
+  (multiplier 2.25). The close-scene keys now take effect in both.
+  Reading, fixed now: the port "carries" if the better of the two has a MapsHD geometric mean of the ratio to G22 of
+  at most 1.2 (bare 0.4.1: 1.80; the fork without close scene: 2.10). Between 1.2 and 1.5: partly. Above: it does
+  not, and the difference is in how the base stores the map (8 points, int8) or converges.
