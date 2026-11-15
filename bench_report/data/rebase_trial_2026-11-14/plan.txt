@@ -237,3 +237,13 @@ Where the ported base stands on the other families (written 2026-11-14 before th
   time; geometric means per family. No adoption: this decides whether the ported base is worth a decision rule of
   its own (it would need: every family's geometric mean within 1.05 of G22's, none of the sequences more than 10 %
   worse, peak RSS lower on every family).
+
+  2026-11-14, ported base on Odyssey, first four drives (ATE m, wall s, peak RSS MB; G22 / p3 / p4):
+    UndergroundCarPark2  0.1314 / 0.1160  96 s 234 / 0.1221 105 s 237
+    Tunnel2              1.5400 / 1.7895 170 s 281 / 1.6471 179 s 287
+    Marketplace3         0.4982 / 0.8621 347 s 312 / 0.4379 364 s 310
+    Beltway3             1.5606 / 1.6694 493 s 275 / 1.7057 522 s 273
+    p3 equals ros041g on the three open drives to the digit (the close-scene settings never act there, and ros041g
+    already ran with multiplier 1.5); on UndergroundCarPark2 they act (0.1167 -> 0.1160). The sorted sampler halves
+    Marketplace3's error (0.8621 -> 0.4379, 12 % better than G22) and helps Tunnel2, costs 2-5 % elsewhere.
+    Peak RSS 234-312 MB against G22's 381-454 MB. Wall time on one thread up to 522 s (G22 222 s on Beltway3).
