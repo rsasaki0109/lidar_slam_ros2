@@ -312,6 +312,10 @@ Status (2026-10-30, report chapter 39):
   as 0.3.2 is: the indoor accuracy is the fork's features at voxel 0.25, the outdoor gain is voxel 1.0 with
   upstream's sampler and keypoint multiplier 1.5. Open: a GT-free choice between the two operating points by scene
   scale, as a candidate with its own rule; the rebase itself is worth it for memory and is a feature-by-feature port.
+- Ported base (2026-11-15, report 66 addendum): no GT-free statistic separates where voxel 1.0 beats 0.25, so no
+  selector. Upstream 0.4.1 with four ports (IMU unit, keypoint multiplier, close-scene registration, sorted sampler)
+  is at 0.966 x G22 on MapsHD and 0.997 x on Odyssey with a third less memory, but 1.16 x on exp04 and 1.28 x on
+  Koide; the missing pieces are not identified. Rebase paused with the patches kept.
 - Publish only through the generated claim block in the README, one row per tier, with
   failed tiers shown.
 - C4: KITTI Odometry (LiDAR-only track) is the canonical hidden-ground-truth LiDAR

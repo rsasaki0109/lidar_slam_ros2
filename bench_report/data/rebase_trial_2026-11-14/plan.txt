@@ -255,3 +255,21 @@ Where the ported base stands on the other families (written 2026-11-14 before th
     not unzip; the file was removed and is fetched again).
     The ported base fails the Koide family clearly; on the outdoor handheld Livox rig the fork has something more
     that ports 1-4 do not carry.
+
+  2026-11-15, ported base on Odyssey, all seven (ATE m; G22 / p3 / p4; ratio of p4):
+    Tunnel2 1.5400 / 1.7895 / 1.6471 (1.07), UndergroundCarPark1 0.1061 / 0.0906 / 0.0969 (0.91),
+    UndergroundCarPark2 0.1314 / 0.1160 / 0.1221 (0.93), Beltway1 1.6652 / 1.7402 / 1.7381 (1.04),
+    Beltway2 1.4886 / 1.6691 / 1.5961 (1.07), Beltway3 1.5606 / 1.6694 / 1.7057 (1.09),
+    Marketplace3 0.4982 / 0.8621 / 0.4379 (0.88). Geometric mean: G22 0.6344, p3 0.6954 (1.096), p4 0.6322 (0.997).
+    Peak RSS 234-312 MB (G22 381-454 MB). One thread: up to 576 s a drive.
+
+Where the ported base stands (P4 = upstream 0.4.1 + IMU unit, keypoint multiplier, close scene, sorted sampler;
+G22's keys with multiplier 1.5), ratio of the geometric mean to G22's:
+    MapsHD 0.966   Odyssey 0.997   exp04 1.16   Koide (3 of 4) 1.28 (01b 1.95)
+  Against the bar written before these runs (every family within 1.05, no sequence more than 10 % worse, lower peak
+  RSS everywhere): it holds on MapsHD and Odyssey and on memory, and fails on exp04 and Koide. So the ported base
+  does not get a decision rule of its own now. What it lacks on exp04 (about 1.1 x, shared by bare 0.3.2) and on
+  Koide is not identified; finding it is open-ended work in a 2800-line diff.
+  The rebase is therefore paused, with what it found kept: four port patches (port1-4_*.patch on v0.4.1), the
+  scratch build /home/user/ws/rko041p, and the evidence that the base costs a third to two thirds of the fork's
+  memory with the close-scene registration carrying the indoor accuracy.
