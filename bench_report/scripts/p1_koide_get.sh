@@ -7,7 +7,8 @@ set +u; source /opt/ros/jazzy/setup.bash; set -u
 cd "$D"
 [[ -f ${s}.zip || -d ${s}_c ]] || curl -sS -L --fail -o "${s}.zip" "https://zenodo.org/records/10122133/files/${s}.zip?download=1" || exit 1
 [[ -d ${s}_c ]] && { echo "${s} exists"; exit 0; }
-unzip -q -o "${s}.zip" && rm -f "${s}.zip"
+unzip -q -o "${s}.zip" || { echo "UNZIP FAILED ${s}"; rm -rf "${s}.zip" "${s}"; exit 1; }  # a cut download would fail every later call
+rm -f "${s}.zip"
 printf "output_bags:\n- uri: %s\n  storage_id: mcap\n  storage_preset_profile: zstd_fast\n  topics: [/livox/points, /livox/imu]\n" "${D}/${s}_c" > "${D}/${s}.yaml"
 ros2 bag convert -i "${s}" -o "${D}/${s}.yaml" > /dev/null 2>&1 || { echo "CONVERT FAILED ${s}"; exit 1; }
 rm -rf "${s}" "${D}/${s}.yaml"

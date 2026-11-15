@@ -247,3 +247,11 @@ Where the ported base stands on the other families (written 2026-11-14 before th
     already ran with multiplier 1.5); on UndergroundCarPark2 they act (0.1167 -> 0.1160). The sorted sampler halves
     Marketplace3's error (0.8621 -> 0.4379, 12 % better than G22) and helps Tunnel2, costs 2-5 % elsewhere.
     Peak RSS 234-312 MB against G22's 381-454 MB. Wall time on one thread up to 522 s (G22 222 s on Beltway3).
+
+  2026-11-15, ported base on Koide (phase1_koide_port.csv; ATE m; G22 / P3 / P4):
+    02a 0.8388 / 1.0213 / 0.9016, 02b 0.7190 / 1.4190 / 0.7147, 01b 1.9019 / 2.8105 / 3.7017.
+    Geometric mean over the three: P3 1.53 x G22, P4 1.28 x G22 (01b +95 %). 01a did not run: its download had been
+    cut on 2026-11-14 and the truncated zip was kept, so unzip failed (p1_koide_get.sh now deletes a zip that does
+    not unzip; the file was removed and is fetched again).
+    The ported base fails the Koide family clearly; on the outdoor handheld Livox rig the fork has something more
+    that ports 1-4 do not carry.
