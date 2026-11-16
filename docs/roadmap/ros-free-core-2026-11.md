@@ -122,6 +122,23 @@ Each milestone is one reviewable change. Outputs of the ROS 2 path stay byte-ide
    reports that differ in paths, times and provenance only; `lidarslam-map start` gave a VERIFIED
    session whose 29 map and data files equal step 3's session. (Step 3's runs used the checkout's
    launcher, which sources the ROS 2 workspace for the report tools; these did not.)
+   *Step 2, measurement (2026-11-16):* with Ubuntu's PCL the built `_core` module loads 84
+   shared libraries (VTK 9.1, OpenNI, OpenGL, libusb, pcap, Boost, ...), but it imports only 37
+   PCL symbols: PCD read/write and `lzfCompress` (io), `KdTreeFLANN` and `search::KdTree` (kdtree,
+   search), `VoxelGrid` and `getMinMax3D` (filters), `IterativeClosestPoint` (registration),
+   `PCLBase` and `console::print` (common). VTK and OpenNI come only from how Ubuntu builds
+   `libpcl_io`. PCL 1.14.0 from Ubuntu's source package (`pcl_1.14.0+dfsg-1`), built with Debian's
+   flags (`-O2`, `PCL_ENABLE_SSE=OFF`, no AVX or `-march`) and only the modules the core needs
+   (common, octree, kdtree, search, sample_consensus, filters, features, 2d, io, registration; no
+   VTK, OpenNI, pcap, PNG, Qt), took about 20 minutes on 4 cores and 101 MB installed. Built against
+   it, `_core` loads 31 libraries; the remaining OpenGL ones come from Ubuntu's libg2o
+   (`g2o_opengl_helper`), which a g2o built for the wheel would drop. `lidarslam-map run` on HILTI
+   exp14 with it wrote the same 24 data files as step 3's run (map bundle, tiles, trajectories,
+   pose graph, lanelet2, backend input), and its diagnosis and verify log equal step 3's after
+   path normalization (23.3 s, 139 MB peak RSS). So a manylinux wheel can build PCL (this module
+   set), FLANN, g2o (no OpenGL) and the Boost parts PCL io needs, and keep the map bytes. Next:
+   a wheel build in CI (cibuildwheel, manylinux_2_28) with those built from source, repaired with
+   auditwheel, then the same exp14 byte check on the installed wheel.
 
 ## Notes
 
