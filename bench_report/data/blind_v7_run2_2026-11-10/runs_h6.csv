@@ -1,0 +1,15 @@
+handheld_escalator00,G,1,2026-11-15T02:08:27Z,G exit 0 wall_seconds 195.4 maxrss_kb 496576 poses 2475
+handheld_escalator00,G,2,2026-11-15T02:11:38Z,G exit 0 wall_seconds 190.2 maxrss_kb 498200 poses 2475
+handheld_escalator00,G,3,2026-11-15T02:14:46Z,G exit 0 wall_seconds 187.8 maxrss_kb 499308 poses 2475
+handheld_escalator00,rko_upstream,1,2026-11-15T02:16:21Z,rko_upstream exit 0 wall_seconds 94.1 maxrss_kb 106500 poses 2475
+handheld_escalator00,rko_upstream,2,2026-11-15T02:17:52Z,rko_upstream exit 0 wall_seconds 90.0 maxrss_kb 101812 poses 2475
+handheld_escalator00,rko_upstream,3,2026-11-15T02:19:27Z,rko_upstream exit 0 wall_seconds 95.3 maxrss_kb 104668 poses 2475
+handheld_escalator00,bievr,1,2026-11-15T02:22:33Z,bievr exit 0 wall_seconds 185.2 maxrss_kb 1699640 poses 2474
+handheld_escalator00,bievr,2,2026-11-15T02:25:39Z,bievr exit 0 wall_seconds 185.0 maxrss_kb 1701360 poses 2474
+handheld_escalator00,bievr,3,2026-11-15T02:28:40Z,bievr exit 0 wall_seconds 180.6 maxrss_kb 1697308 poses 2474
+handheld_escalator00,fastlio,1,2026-11-15T02:33:00Z,fastlio exit 0 wall_seconds 260.2 maxrss_kb 365824 poses 2472
+handheld_escalator00,fastlio,2,2026-11-15T02:37:21Z,fastlio exit 0 wall_seconds 259.6 maxrss_kb 376756 poses 2470
+handheld_escalator00,fastlio,3,2026-11-15T02:41:41Z,fastlio exit 0 wall_seconds 259.9 maxrss_kb 376228 poses 2472
+handheld_escalator00,glim,1,2026-11-15T02:43:51Z,glim exit 0 wall_seconds 129.1 maxrss_kb 2181028 poses 2449
+handheld_escalator00,glim,2,2026-11-15T02:45:48Z,glim exit 0 wall_seconds 116.6 maxrss_kb 2181168 poses 2449
+handheld_escalator00,glim,3,2026-11-15T02:47:47Z,glim exit 0 wall_seconds 119.3 maxrss_kb 2182140 poses 2449

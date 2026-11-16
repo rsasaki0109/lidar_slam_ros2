@@ -13,6 +13,7 @@ dependencies = [
   "numpy>=1.24",
   "pyyaml>=6",
   "rosbags>=0.10",
+  "scipy>=1.10",  # lanelet2_map.osm of lidarslam-map run --engine core
 ]
 
 [project.optional-dependencies]
@@ -32,6 +33,5 @@ install.components = []
 [tool.scikit-build.cmake.define]
 LIDARSLAM_CORE_BUILD_PYTHON = "ON"
 LIDARSLAM_CORE_BUILD_TESTS = "OFF"
-# The backend driver joins the module in M4 (docs/roadmap/ros-free-core-2026-11.md).
-LIDARSLAM_CORE_BUILD_BACKEND = "OFF"
+LIDARSLAM_CORE_BUILD_BACKEND = "ON"
 LIDARSLAM_CORE_BUILD_FRONTEND = "ON"

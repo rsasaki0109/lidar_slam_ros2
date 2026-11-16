@@ -45,6 +45,29 @@ SOURCE_LAYOUT = (REPO_ROOT / 'lidarslam' / 'package.xml').is_file()
 PACKAGE_SHARE = REPO_ROOT / 'lidarslam' if SOURCE_LAYOUT else REPO_ROOT.parent
 SHARE_ROOT = PACKAGE_SHARE.parent
 WORK_ROOT = REPO_ROOT if SOURCE_LAYOUT else Path.cwd()
+# How the map is computed: ros2 (the ROS 2 launch), core (the lidarslam Python package, no ROS 2),
+# or auto (ros2 when the ros2 command is on PATH, else core when the package is installed).
+ENGINES = ('ros2', 'core')
+ENGINE_CHOICES = ('auto', *ENGINES)
+
+
+def core_engine_status() -> tuple[bool, str]:
+    """Whether the lidarslam package (odometry and backend) can run the map without ROS 2."""
+    core = _load_script_module('run_rko_lio_graph_core.py', 'run_rko_lio_graph_core')
+    return core.core_engine_available()
+
+
+def resolve_engine(requested: str) -> str:
+    """The engine an --engine choice runs: auto prefers ROS 2 when it is installed."""
+    if requested in ENGINES:
+        return requested
+    if shutil.which('ros2'):
+        return 'ros2'
+    if core_engine_status()[0]:
+        return 'core'
+    return 'ros2'
+
+
 MANIFEST_NAME = 'run_manifest.json'
 VALIDATION_RECEIPT_NAMES = {
     'first_map_validation_receipt.json',
@@ -346,7 +369,10 @@ def build_execution_plan(
     lidar_frame: str | None = None,
     imu_frame: str | None = None,
     editable: bool = False,
+    engine: str = 'ros2',
 ) -> dict[str, object]:
+    if engine not in ENGINES:
+        raise ValueError(f'unknown engine: {engine} (choose from {", ".join(ENGINES)})')
     preflight = _load_script_module('preflight_autoware_map_bag.py', 'preflight_autoware_map_bag')
     payload = preflight_payload or preflight.build_preflight_payload(
         bag_path,
@@ -477,6 +503,38 @@ def build_execution_plan(
             command.extend(['--lidar-frame', lidar_frame])
         if imu_frame:
             command.extend(['--imu-frame', imu_frame])
+
+    if engine == 'core':
+        if selected_profile not in {
+            'rko_lio_graph_public_path',
+            'rko_lio_graph_mid360_preset',
+        }:
+            raise ValueError(
+                f'profile {selected_profile} needs ROS 2; the core engine (no ROS 2) runs the '
+                'rko_lio_graph profiles only'
+            )
+        # The same inputs as the ROS 2 script, mapped by the lidarslam Python package.
+        core_command = [
+            sys.executable,
+            str(SCRIPT_DIR / 'run_rko_lio_graph_core.py'),
+            '--bag', str(bag_path),
+        ]
+        for option in (
+            '--lidar-topic', '--imu-topic', '--lidarslam-param', '--rko-param',
+            '--output-dir', '--base-frame', '--lidar-frame', '--imu-frame',
+        ):
+            if option in command:
+                core_command.extend([option, command[command.index(option) + 1]])
+        if editable:
+            core_command.extend(['--backend-input', str(output_dir / 'backend_input')])
+        return {
+            'payload': payload,
+            'profile_id': selected_profile,
+            'label': recommendations[selected_profile]['label'],
+            'command': core_command,
+            'output_dir': output_dir,
+            'engine': 'core',
+        }
 
     if editable:
         if selected_profile not in {
@@ -1489,6 +1547,16 @@ def parse_args(
         action='store_true',
         help='Print the selected command without executing it.',
     )
+    map_options.add_argument(
+        '--engine',
+        choices=ENGINE_CHOICES,
+        default='auto',
+        help=(
+            'How the map is computed: ros2 (ROS 2 launch), core (the lidarslam Python '
+            'package, no ROS 2; rko_lio_graph profiles), or auto (default: ros2 when the '
+            'ros2 command is found, else core).'
+        ),
+    )
     safety_options.add_argument(
         '--editable',
         action='store_true',
@@ -1705,6 +1773,9 @@ def main() -> int:
         }
         if args.editable:
             plan_arguments['editable'] = True
+        engine = resolve_engine(args.engine)
+        if engine != 'ros2':
+            plan_arguments['engine'] = engine
         if any((
             args.lidarslam_param,
             args.rko_param,

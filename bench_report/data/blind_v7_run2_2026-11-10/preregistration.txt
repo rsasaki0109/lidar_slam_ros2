@@ -129,3 +129,11 @@ Record
     a way around the limit and is not done. The batch keeps waiting (the container restarted several times since
     11-10 and the batch was restarted each time). Nothing has been measured. Other hosts for a fresh family are being
     looked at; any addition comes as an addendum before its first byte.
+  2026-11-15 02:47 UTC: handheld_escalator00 was fetched and decoded on the 2026-11-15 restart; all 15 runs (5 methods x
+    3) exited 0 with a trajectory. handheld_grass00, the next sequence, got the quota page again on every attempt; at
+    11:35 UTC the batch was stopped and the maintainer chose one retry 24 h later.
+  2026-11-16 11:43 UTC: the retry got the quota page within 40 s (handheld_grass00, no byte decoded). Following the
+    maintainer's choice, the second blind run is closed here: H6 ends with 1 of its 10 sequences and H7 (MCD, same
+    host) is not attempted. The 15 H6 runs are sealed (sealed_manifest_h6.txt, runs_h6.csv). H6 ground truth stays
+    unopened: one sequence cannot support or refute a claim under the rule above, and it is opened only if the
+    maintainer asks. H8 and H9 (addenda) were run, sealed and scored in full.

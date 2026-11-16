@@ -97,6 +97,7 @@ if(LIDARSLAM_CORE_ENABLE_3D_BBS AND EXISTS "${BBS3D_ROOT}/bbs3d/include/cpu_bbs3
   target_include_directories(graph_based_slam_3d_bbs_vendor PUBLIC
     ${BBS3D_ROOT}/bbs3d/include ${EIGEN3_INCLUDE_DIR})
   target_link_libraries(graph_based_slam_3d_bbs_vendor PUBLIC OpenMP::OpenMP_CXX)
+  set_target_properties(graph_based_slam_3d_bbs_vendor PROPERTIES POSITION_INDEPENDENT_CODE ON)
   set(GBS_HAVE_3D_BBS TRUE)
 endif()
 
@@ -133,6 +134,71 @@ target_compile_features(graph_slam_io_adapters PRIVATE cxx_std_17)
 target_include_directories(graph_slam_io_adapters PUBLIC
   ${GBS_ROOT}/include PRIVATE ${GBS_ROOT}/src ${PCL_INCLUDE_DIRS})
 target_link_libraries(graph_slam_io_adapters ${PCL_LIBRARIES})
+
+add_library(graph_slam_map_export STATIC ${GBS_ROOT}/src/map_export.cpp)
+set_target_properties(graph_slam_map_export PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_compile_features(graph_slam_map_export PUBLIC cxx_std_17)
+target_include_directories(graph_slam_map_export PUBLIC
+  ${GBS_ROOT}/include ${EIGEN3_INCLUDE_DIR} ${PCL_INCLUDE_DIRS})
+target_link_libraries(graph_slam_map_export graph_slam_map_point ${PCL_LIBRARIES})
+
+# Submap clouds kept compressed with zstd when it is found (libzstd-dev).
+add_library(graph_slam_cloud_compression STATIC ${GBS_ROOT}/src/cloud_compression.cpp)
+set_target_properties(graph_slam_cloud_compression PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_compile_features(graph_slam_cloud_compression PRIVATE cxx_std_17)
+target_include_directories(graph_slam_cloud_compression PUBLIC
+  ${GBS_ROOT}/include ${EIGEN3_INCLUDE_DIR} ${PCL_INCLUDE_DIRS})
+if(NOT TARGET zstd::zstd AND NOT TARGET zstd::libzstd_shared)
+  find_path(ZSTD_INCLUDE_DIR zstd.h)
+  find_library(ZSTD_LIBRARY zstd)
+  if(ZSTD_INCLUDE_DIR AND ZSTD_LIBRARY)
+    add_library(zstd::zstd UNKNOWN IMPORTED)
+    set_target_properties(zstd::zstd PROPERTIES
+      IMPORTED_LOCATION "${ZSTD_LIBRARY}" INTERFACE_INCLUDE_DIRECTORIES "${ZSTD_INCLUDE_DIR}")
+  endif()
+endif()
+if(TARGET zstd::zstd)
+  set(LIDARSLAM_CORE_ZSTD_TARGET zstd::zstd)
+elseif(TARGET zstd::libzstd_shared)
+  set(LIDARSLAM_CORE_ZSTD_TARGET zstd::libzstd_shared)
+endif()
+if(LIDARSLAM_CORE_ZSTD_TARGET)
+  target_compile_definitions(graph_slam_cloud_compression PRIVATE GRAPH_BASED_SLAM_HAVE_ZSTD)
+  target_link_libraries(graph_slam_cloud_compression ${LIDARSLAM_CORE_ZSTD_TARGET})
+  message(STATUS "zstd found; submap clouds are kept compressed")
+else()
+  message(STATUS "zstd not found; submap clouds are kept uncompressed")
+endif()
+
+# The registration loader, unchanged, with a pluginlib stand-in (compat/pluginlib): without ROS
+# the resolver serves the host built-in registrations only (NDT, GICP, SMALL_GICP).
+add_library(lidarslam_registration_loader STATIC
+  ${LIDARSLAM_REPO_ROOT}/lidarslam_registration_loader/src/registration_plugin_loader.cpp
+  ${LIDARSLAM_REPO_ROOT}/lidarslam_registration_loader/src/registration_contract_manifest.cpp)
+set_target_properties(lidarslam_registration_loader PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_compile_features(lidarslam_registration_loader PUBLIC cxx_std_17)
+target_include_directories(lidarslam_registration_loader PUBLIC
+  ${LIDARSLAM_REPO_ROOT}/lidarslam_registration_loader/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/compat)
+target_link_libraries(lidarslam_registration_loader PUBLIC lidarslam_plugin_interfaces)
+
+# The offline backend (graph_slam_offline_runner's stages, graph_based_slam/offline_pipeline.hpp).
+add_library(graph_slam_offline_pipeline STATIC
+  ${GBS_ROOT}/src/offline_pipeline.cpp
+  ${GBS_ROOT}/src/three_d_bbs_loop_verifier.cpp)
+set_target_properties(graph_slam_offline_pipeline PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_compile_features(graph_slam_offline_pipeline PUBLIC cxx_std_17)
+target_include_directories(graph_slam_offline_pipeline PUBLIC
+  ${GBS_ROOT}/include ${LIDARSLAM_REPO_ROOT}/lidarslam_default_plugins/include
+  ${EIGEN3_INCLUDE_DIR} ${PCL_INCLUDE_DIRS} PRIVATE ${GBS_ROOT}/src)
+if(GBS_HAVE_3D_BBS)
+  target_compile_definitions(graph_slam_offline_pipeline PRIVATE GRAPH_BASED_SLAM_HAVE_3D_BBS)
+  target_link_libraries(graph_slam_offline_pipeline graph_based_slam_3d_bbs_vendor)
+endif()
+target_link_libraries(graph_slam_offline_pipeline
+  graph_slam_application graph_slam_io_adapters graph_slam_cloud_compression
+  graph_slam_map_export graph_slam_map_point lidarslam_registration_loader ndt_omp lidarslam_plugin_interfaces ${PCL_LIBRARIES}
+  g2o::core g2o::types_slam3d g2o::solver_eigen g2o::stuff)
 
 endif()  # LIDARSLAM_CORE_BUILD_BACKEND
 
@@ -176,7 +242,7 @@ if(LIDARSLAM_CORE_BUILD_TESTS AND LIDARSLAM_CORE_BUILD_BACKEND)
     test_degeneracy_diagnostics_csv test_degeneracy_report_summary test_map_refiner
     test_hba_pyramid test_plane_feature_association test_adaptive_voxel_plane_extractor
     test_map_quality_metrics test_registration_determinism test_dynamic_object_filter
-    test_planar_map_filter test_multisession_join)
+    test_planar_map_filter test_multisession_join test_map_export)
   # graph_slam_application calls ThreeDBBSLoopVerifier, whose source each consumer compiles. The
   # ROS tests compile it without GRAPH_BASED_SLAM_HAVE_3D_BBS (the verifier reports itself
   # unavailable); the tests here link the same build of it.
@@ -190,7 +256,8 @@ if(LIDARSLAM_CORE_BUILD_TESTS AND LIDARSLAM_CORE_BUILD_BACKEND)
     target_include_directories(${_test} PRIVATE ${GBS_ROOT}/include ${GBS_ROOT}/src ${RKO_LIO_ROOT}
       ${EIGEN3_INCLUDE_DIR} ${PCL_INCLUDE_DIRS})
     target_link_libraries(${_test} GTest::gtest_main graph_slam_application
-      graph_slam_test_loop_verifier graph_slam_io_adapters graph_slam_map_point ndt_omp
+      graph_slam_test_loop_verifier graph_slam_io_adapters graph_slam_map_point
+      graph_slam_map_export ndt_omp
       lidarslam_plugin_interfaces
       ${PCL_LIBRARIES} g2o::core g2o::solver_eigen g2o::stuff g2o::types_slam3d)
     add_test(NAME ${_test} COMMAND ${_test})
@@ -215,6 +282,11 @@ if(LIDARSLAM_CORE_BUILD_PYTHON)
     target_link_libraries(_core PRIVATE rko_lio::driver)
     target_compile_definitions(_core PRIVATE LIDARSLAM_CORE_HAVE_FRONTEND)
     target_compile_features(_core PRIVATE cxx_std_20)
+  endif()
+  if(LIDARSLAM_CORE_BUILD_BACKEND)
+    target_sources(_core PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/python_backend.cpp)
+    target_link_libraries(_core PRIVATE graph_slam_offline_pipeline)
+    target_compile_definitions(_core PRIVATE LIDARSLAM_CORE_HAVE_BACKEND)
   endif()
   install(TARGETS _core LIBRARY DESTINATION lidarslam)
 endif()

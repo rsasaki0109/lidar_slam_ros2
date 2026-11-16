@@ -8,6 +8,7 @@ from lidarslam._core import (  # noqa: F401
     Header,
     ImuSample,
     NavSatFix,
+    Odometry,
     PackedCloud,
     PointField,
     Stamp,

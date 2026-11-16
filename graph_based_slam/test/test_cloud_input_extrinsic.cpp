@@ -35,6 +35,9 @@
 #include <string>
 #include <vector>
 
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <sensor_msgs/msg/point_field.hpp>
+
 #include "graph_based_slam/cloud_input_extrinsic.hpp"
 
 using graphslam::cloud_input::LidarExtrinsic;

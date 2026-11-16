@@ -9,9 +9,9 @@
 //
 //  * Redistributions of source code must retain the above copyright
 //    notice, this list of conditions and the following disclaimer.
-//  * Redistributions in binary form must reproduce the above
-//    copyright notice, this list of conditions and the following disclaimer
-//    in the documentation and/or other materials provided with the
+//  * Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in
+//    the documentation and/or other materials provided with the
 //    distribution.
 //
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
@@ -30,37 +30,17 @@
 #ifndef GRAPH_BASED_SLAM__CLOUD_COMPRESSION_HPP_
 #define GRAPH_BASED_SLAM__CLOUD_COMPRESSION_HPP_
 
-#include <cstddef>
-#include <cstdint>
-#include <vector>
-
 #include <sensor_msgs/msg/point_cloud2.hpp>
+
+#include "graph_based_slam/cloud_compression_core.hpp"
 
 namespace graphslam
 {
 namespace cloud_compression
 {
 
-// A cloud as the backend keeps it: the message, with its data either in it or compressed.
-struct StoredCloud
-{
-  sensor_msgs::msg::PointCloud2 message;  // its data is empty while `compressed` holds it
-  std::vector<std::uint8_t> compressed;
-};
-
-// Whether graph_based_slam was built with zstd; without it, nothing is compressed.
-bool available();
-
-// Keeps the message, its data compressed when the message is packed (isPackedForPointXYZI) and has
-// points: the values of each field in a plane, the bytes of all values shuffled (the first byte of
-// every value, then the second ...), then zstd level 1. Lossless.
-StoredCloud store(sensor_msgs::msg::PointCloud2 message);
-
-// The message as it was stored, its data restored.
-sensor_msgs::msg::PointCloud2 restore(const StoredCloud & cloud);
-
-// The bytes the cloud's points take: compressed, or the message's data.
-std::size_t storedBytes(const StoredCloud & cloud);
+// The ROS 2 backend keeps sensor_msgs clouds; the templates are in cloud_compression_core.hpp.
+using StoredCloud = BasicStoredCloud<sensor_msgs::msg::PointCloud2>;
 
 }  // namespace cloud_compression
 }  // namespace graphslam

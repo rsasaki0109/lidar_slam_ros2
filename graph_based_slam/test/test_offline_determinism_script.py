@@ -249,7 +249,7 @@ def test_selected_setup_and_runner_binary_are_frozen_in_summary():
 def test_fixed_loop_edge_replay_can_be_forwarded_as_one_knob_ablation():
     source = SCRIPT.read_text()
     runner_source = (
-        ROOT / 'graph_based_slam/src/graph_slam_offline_runner.cpp').read_text()
+        ROOT / 'graph_based_slam/src/offline_pipeline.cpp').read_text()
 
     assert 'RUNNER_CMD+=(-p "${override}")' in source
     assert 'fixed_loop_edges_path' in runner_source

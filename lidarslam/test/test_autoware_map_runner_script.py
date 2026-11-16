@@ -2051,3 +2051,89 @@ def test_sensor_setup_bundle_overrides_params_and_frames(tmp_path: Path):
     assert command[command.index('--base-frame') + 1] == 'robot_base'
     assert command[command.index('--lidar-frame') + 1] == 'livox_frame'
     assert command[command.index('--imu-frame') + 1] == 'imu_link'
+
+
+def test_core_engine_plan_maps_with_the_python_package(tmp_path: Path):
+    """--engine core runs the same inputs through run_rko_lio_graph_core.py (no ROS 2)."""
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path,
+        'core_mid360_bag',
+        [
+            ('/livox/lidar', 'sensor_msgs/msg/PointCloud2', 20),
+            ('/livox/imu', 'sensor_msgs/msg/Imu', 180),
+            ('/fix', 'sensor_msgs/msg/NavSatFix', 5),
+        ],
+    )
+    output_dir = tmp_path / 'out.partial'
+    ros_plan = module.build_execution_plan(
+        bag_path=bag_dir,
+        profile_id=None,
+        output_dir=output_dir,
+        verify_map=True,
+        pointcloud_inspector=_compatible_pointcloud_inspection,
+        timestamp_inspector=_monotonic_timestamp_inspection,
+        lidar_frame='livox_frame',
+    )
+    plan = module.build_execution_plan(
+        bag_path=bag_dir,
+        profile_id=None,
+        output_dir=output_dir,
+        verify_map=True,
+        pointcloud_inspector=_compatible_pointcloud_inspection,
+        timestamp_inspector=_monotonic_timestamp_inspection,
+        lidar_frame='livox_frame',
+        editable=True,
+        engine='core',
+    )
+
+    command = plan['command']
+    assert plan['engine'] == 'core'
+    assert plan['profile_id'] == ros_plan['profile_id']
+    assert command[:2] == [
+        sys.executable,
+        str(REPO_ROOT / 'scripts' / 'run_rko_lio_graph_core.py'),
+    ]
+    assert 'record_backend_input.sh' not in ' '.join(command)
+    ros_command = ros_plan['command']
+    for option in (
+        '--lidar-topic', '--imu-topic', '--lidarslam-param', '--rko-param',
+        '--output-dir', '--base-frame', '--lidar-frame',
+    ):
+        assert command[command.index(option) + 1] == ros_command[ros_command.index(option) + 1]
+    assert command[command.index('--backend-input') + 1] == str(output_dir / 'backend_input')
+
+
+def test_core_engine_refuses_profiles_that_need_ros(tmp_path: Path):
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path,
+        'gnss_bag',
+        [
+            ('/points', 'sensor_msgs/msg/PointCloud2', 20),
+            ('/fix', 'sensor_msgs/msg/NavSatFix', 5),
+        ],
+    )
+    with pytest.raises(ValueError, match='needs ROS 2'):
+        module.build_execution_plan(
+            bag_path=bag_dir,
+            profile_id='pointcloud_gnss_smoke',
+            output_dir=tmp_path / 'out.partial',
+            verify_map=True,
+            pointcloud_inspector=_compatible_pointcloud_inspection,
+            timestamp_inspector=_monotonic_timestamp_inspection,
+            engine='core',
+        )
+
+
+def test_auto_engine_prefers_ros2_and_falls_back_to_the_core(monkeypatch):
+    module = _load_module()
+    monkeypatch.setattr(module, 'core_engine_status', lambda: (True, 'lidarslam test'))
+    monkeypatch.setattr(module.shutil, 'which', lambda name: '/opt/ros/bin/ros2')
+    assert module.resolve_engine('auto') == 'ros2'
+    assert module.resolve_engine('core') == 'core'
+    monkeypatch.setattr(module.shutil, 'which', lambda name: None)
+    assert module.resolve_engine('auto') == 'core'
+    assert module.resolve_engine('ros2') == 'ros2'
+    monkeypatch.setattr(module, 'core_engine_status', lambda: (False, 'not installed'))
+    assert module.resolve_engine('auto') == 'ros2'

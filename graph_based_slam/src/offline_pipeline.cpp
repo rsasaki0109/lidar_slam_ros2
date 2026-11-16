@@ -1,0 +1,3062 @@
+// Copyright 2026 Sasaki
+// All rights reserved.
+//
+// Software License Agreement (BSD 2-Clause Simplified License)
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions
+// are met:
+//
+//  * Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+//  * Redistributions in binary form must reproduce the above
+//    copyright notice, this list of conditions and the following
+//    disclaimer in the documentation and/or other materials provided
+//    with the distribution.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+// FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+// COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+// INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+// CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+// LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+// ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+
+// The offline backend pipeline (graph_based_slam/offline_pipeline.hpp) without ROS: the stages of
+// graph_slam_offline_runner (submap creation, event-driven BackendCore loop search, pose-graph
+// optimization, refinement and the map outputs) on plain parameters, messages and logging. The
+// ROS 2 runner (graph_slam_offline_runner.cpp) reads the bag with rosbag2_cpp and the Python
+// package (lidarslam_core) with rosbags; both feed the same messages in the same order.
+
+#include <pcl/io/pcd_io.h>  // NOLINT(build/include_order)
+
+#include <algorithm>
+#include <array>
+#include <chrono>
+#include <cmath>
+#include <cstdio>
+#include <filesystem>
+#include <fstream>
+#include <iomanip>
+#include <limits>
+#include <map>
+#include <memory>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+#include <utility>
+#include <vector>
+
+
+#include "graph_based_slam/backend_core.hpp"
+#include "graph_based_slam/backend_registration_preflight.hpp"
+#include "graph_based_slam/cloud_compression_core.hpp"
+#include "graph_based_slam/cloud_message.hpp"
+#include "graph_based_slam/cloud_input_extrinsic.hpp"
+#include "graph_based_slam/degeneracy_diagnostics_csv.hpp"
+#include "graph_based_slam/degeneracy_report_summary.hpp"
+#include "graph_based_slam/dense_pose_correction.hpp"
+#include "graph_based_slam/loop_search_schedule.hpp"
+#include "graph_based_slam/map_refiner.hpp"
+#include "graph_based_slam/map_quality_metrics.hpp"
+#include "graph_based_slam/map_thickness_attribution.hpp"
+#include "graph_based_slam/map_export.hpp"
+#include "graph_based_slam/map_thickness_attribution_csv.hpp"
+#include "graph_based_slam/offline_pipeline.hpp"
+#include "graph_based_slam/offline_runtime.hpp"
+#include "graph_based_slam/plane_feature_association.hpp"
+#include "graph_based_slam/plane_revisit_constraints.hpp"
+#include "graph_based_slam/pointcloud2_conversion.hpp"
+#include "graph_based_slam/pointcloud_conversion.hpp"
+#include "graph_based_slam/pose_graph_optimization.hpp"
+#include "graph_based_slam/probabilistic_surfel_map.hpp"
+#include "graph_based_slam/registration_factory.hpp"
+#include "graph_based_slam/registration_plugin_adapter.hpp"
+#include "graph_based_slam/scan_surface_refiner.hpp"
+#include "graph_based_slam/submap_creation.hpp"
+#include "graph_based_slam/three_d_bbs_loop_verifier.hpp"
+#include "graph_based_slam/trajectory_revisit_segmentation.hpp"
+#include "lidarslam_default_plugins/ndt_omp_registration_impl.ipp"
+#include "lidarslam_registration_loader/registration_plugin_loader.hpp"
+#include "filesystem_io_ports.hpp"
+
+namespace
+{
+
+using graphslam::backend_core::BackendCore;
+using CloudPtr = BackendCore::CloudPtr;
+using RegistrationPlugin = lidarslam::plugins::registration::RegistrationPlugin;
+using RegistrationPluginSession =
+  lidarslam::plugins::registration::shell::RegistrationPluginSession;
+using RegistrationPluginSessionAdapter =
+  lidarslam::plugins::registration::shell::RegistrationPluginSessionAdapter;
+using RegistrationResolver = lidarslam::plugins::registration::shell::RegistrationResolver;
+using RunnerParameters = graphslam::offline::Parameters;
+using RunnerLog = graphslam::offline::Log;
+
+std::shared_ptr<lidarslam::plugins::registration::RegistrationPlugin>
+makeOfflineHostBuiltinNdtRegistration()
+{
+  // Keep this factory in the runner TU, just as the live component keeps its
+  // factory in its own TU.  This is the host-resident path; linking the
+  // default plugin DSO here would reintroduce the rejected ODR boundary.
+  return std::make_shared<lidarslam_default_plugins::NdtOmpRegistration>();
+}
+
+// The backend keeps ROS-free copies of the input messages (graph_based_slam/cloud_message.hpp).
+using StoredCloud = graphslam::cloud_compression::BasicStoredCloud<graphslam::msg::PointCloud2>;
+
+struct SubmapRecord
+{
+  graphslam::backend_core::SubmapMeta meta;
+  double stamp_sec{0.0};
+  std::array<double, 36> odometry_covariance {};
+  // The submap's scan message, packed and compressed as the live node keeps it
+  // (GraphStateStore). `cloud` is its PCL cloud, kept only while the submap is
+  // one of the latest search_submap_num: the descriptors and the loop-search
+  // source of every new submap read exactly those.
+  std::shared_ptr<const StoredCloud> stored_cloud;
+  CloudPtr cloud;
+};
+
+// What keeping the submap clouds compressed costs, for the run log.
+struct SubmapCloudStats
+{
+  std::size_t stored_bytes = 0U;
+  std::size_t pcl_bytes = 0U;  // what the PCL clouds would take
+  std::size_t restored = 0U;
+  double store_sec = 0.0;
+  double restore_sec = 0.0;
+};
+
+// Keeps `message` (the scan the submap's PCL cloud was converted from) the way
+// the live node does: only what the conversion reads, compressed.
+std::shared_ptr<const StoredCloud> storeSubmapCloud(
+  graphslam::msg::PointCloud2 message, SubmapCloudStats & stats)
+{
+  const auto start = std::chrono::steady_clock::now();
+  graphslam::pointcloud_conversion::packForPointXYZI(message);
+  auto stored = std::make_shared<const StoredCloud>(
+    graphslam::cloud_compression::store(std::move(message)));
+  stats.stored_bytes += graphslam::cloud_compression::storedBytes(*stored);
+  stats.store_sec +=
+    std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+  return stored;
+}
+
+// The submap's PCL cloud: the kept one, or the stored message restored and
+// converted as the kept one was (pointcloud2_conversion::fromRosMsgPointXYZI
+// reads x, y, z and intensity, which packing keeps), so the two are the same.
+CloudPtr submapCloud(const SubmapRecord & record, SubmapCloudStats & stats)
+{
+  if (record.cloud) {
+    return record.cloud;
+  }
+  const auto start = std::chrono::steady_clock::now();
+  CloudPtr cloud(new pcl::PointCloud<pcl::PointXYZI>);
+  graphslam::pointcloud2_conversion::fromRosMsgPointXYZI(
+    graphslam::cloud_compression::restore(*record.stored_cloud), *cloud);
+  ++stats.restored;
+  stats.restore_sec +=
+    std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+  return cloud;
+}
+
+struct ScanAttributionRecord
+{
+  double stamp_sec {0.0};
+  Eigen::Isometry3d pose {Eigen::Isometry3d::Identity()};
+  std::int64_t scan_id {0};
+  std::int64_t submap_id {0};
+  std::array<double, 36> odometry_covariance {};
+  std::vector<Eigen::Vector3d> local_points;
+};
+
+double meanClampedCovarianceDiagonal(
+  const std::array<double, 36> & covariance, const std::array<std::size_t, 3> & indices,
+  const double fallback, const double maximum)
+{
+  double sum = 0.0;
+  for (const std::size_t index : indices) {
+    if (!std::isfinite(covariance[index]) || covariance[index] < 0.0) {return fallback;}
+    sum += covariance[index];
+  }
+  const double mean = sum / 3.0;
+  // A zero diagonal is the ROS "unknown" default, not perfect certainty.
+  return mean > 0.0 ? std::min(mean, maximum) : fallback;
+}
+
+void writeTum(
+  const std::string & path, const std::vector<SubmapRecord> & records,
+  const std::vector<Eigen::Isometry3d> & poses)
+{
+  std::ofstream out(path);
+  char line[256];
+  for (std::size_t i = 0; i < records.size(); ++i) {
+    const Eigen::Vector3d t = poses[i].translation();
+    const Eigen::Quaterniond q(poses[i].rotation());
+    std::snprintf(
+      line, sizeof(line), "%.9f %.9f %.9f %.9f %.9f %.9f %.9f %.9f",
+      records[i].stamp_sec, t.x(), t.y(), t.z(), q.x(), q.y(), q.z(), q.w());
+    out << line << "\n";
+  }
+}
+
+void loadFixedLoopEdges(
+  const std::string & path,
+  std::size_t submap_count,
+  graphslam::backend_core::LoopEdgeSet & edge_set)
+{
+  std::ifstream input(path);
+  if (!input.is_open()) {
+    throw std::runtime_error("failed to open fixed loop edge CSV: " + path);
+  }
+  std::string line;
+  if (!std::getline(input, line) || line != "from,to,fitness,tx,ty,tz,qx,qy,qz,qw") {
+    throw std::runtime_error("invalid fixed loop edge CSV header: " + path);
+  }
+  int line_number = 1;
+  while (std::getline(input, line)) {
+    ++line_number;
+    if (line.empty()) {
+      continue;
+    }
+    std::vector<std::string> fields;
+    std::stringstream stream(line);
+    std::string field;
+    while (std::getline(stream, field, ',')) {
+      fields.push_back(field);
+    }
+    if (fields.size() != 10) {
+      throw std::runtime_error(
+              "invalid fixed loop edge field count at line " + std::to_string(line_number));
+    }
+    graphslam::backend_core::LoopEdgeSet::Edge edge;
+    try {
+      edge.pair_id = {std::stoi(fields[0]), std::stoi(fields[1])};
+      edge.fitness_score = std::stod(fields[2]);
+      edge.relative_pose = Eigen::Isometry3d::Identity();
+      edge.relative_pose.translation() = Eigen::Vector3d(
+        std::stod(fields[3]), std::stod(fields[4]), std::stod(fields[5]));
+      Eigen::Quaterniond quaternion(
+        std::stod(fields[9]), std::stod(fields[6]), std::stod(fields[7]), std::stod(fields[8]));
+      if (quaternion.norm() <= 0.0) {
+        throw std::runtime_error("zero-norm quaternion");
+      }
+      quaternion.normalize();
+      edge.relative_pose.linear() = quaternion.toRotationMatrix();
+    } catch (const std::exception & error) {
+      throw std::runtime_error(
+              "invalid fixed loop edge at line " + std::to_string(line_number) + ": " +
+              error.what());
+    }
+    if (
+      edge.pair_id.first < 0 || edge.pair_id.second < 0 ||
+      static_cast<std::size_t>(edge.pair_id.first) >= submap_count ||
+      static_cast<std::size_t>(edge.pair_id.second) >= submap_count)
+    {
+      throw std::runtime_error(
+              "fixed loop edge index out of range at line " + std::to_string(line_number));
+    }
+    if (!edge_set.upsert(edge)) {
+      throw std::runtime_error(
+              "fixed loop edge was invalid or deduplicated at line " +
+              std::to_string(line_number));
+    }
+  }
+}
+
+// v0.8 Phase 1 (docs/roadmap/v0.8.md §5): opt-in, report-only per-scan
+// degeneracy diagnostics from the recorded odometry covariance (filled by
+// the Thirdparty/rko_lio diagnostic patch). Default off: the existing
+// deterministic artifacts (loop_edges.csv, TUM trajectories) are
+// byte-identical whether or not these outputs are requested.
+struct DegeneracyDiagnosticsSink
+{
+  std::ofstream csv;
+  bool report_enabled{false};
+  graphslam::degeneracy::DegeneracyReportAccumulator accumulator;
+
+  void configure(const RunnerParameters & node, const RunnerLog & logger)
+  {
+    std::string csv_path;
+    node.get_parameter_or(
+      "degeneracy_diagnostics_csv_path", csv_path, std::string());
+    node.get_parameter_or("save_degeneracy_report", report_enabled, false);
+    if (csv_path.empty()) {
+      return;
+    }
+    csv.open(csv_path);
+    if (csv.is_open()) {
+      csv << graphslam::degeneracy::degeneracyDiagnosticsCsvHeaderLine() << "\n";
+    } else {
+      GRAPHSLAM_LOG_WARN(
+        logger, "failed to open degeneracy_diagnostics_csv_path: %s (CSV disabled)",
+        csv_path.c_str());
+    }
+  }
+
+  // One row per paired scan, before the submap-distance decision -- the
+  // degeneracy signal is a property of the frontend solve, not of submap
+  // spacing.
+  void recordScan(const graphslam::msg::Odometry & odom)
+  {
+    if (!csv.is_open() && !report_enabled) {
+      return;
+    }
+    const graphslam::degeneracy::CovarianceLocalizabilityResult result =
+      graphslam::degeneracy::analyzeOdometryCovariance(odom.pose.covariance);
+    const double stamp_sec = graphslam::cloud_msg::stampSeconds(odom.header.stamp);
+    if (csv.is_open()) {
+      csv << graphslam::degeneracy::degeneracyDiagnosticsCsvRowLine(stamp_sec, result) << "\n";
+    }
+    if (report_enabled) {
+      accumulator.add(stamp_sec, result);
+    }
+  }
+
+  void writeReport(const std::string & output_dir, const RunnerLog & logger)
+  {
+    if (!report_enabled) {
+      return;
+    }
+    const std::string report_path = output_dir + "/degeneracy_report.yaml";
+    std::ofstream report(report_path);
+    if (!report.is_open()) {
+      GRAPHSLAM_LOG_WARN(logger, "failed to write degeneracy report: %s", report_path.c_str());
+      return;
+    }
+    const std::vector<std::string> lines =
+      graphslam::degeneracy::degeneracyReportYamlLines(accumulator.summary());
+    for (size_t i = 0; i < lines.size(); ++i) {
+      report << lines[i] << "\n";
+    }
+    GRAPHSLAM_LOG_INFO(logger, "Wrote %s", report_path.c_str());
+  }
+};
+
+// Everything the runner reads from parameters. The read*Config functions
+// below fill it in the order the parameters have always been read.
+struct RunnerConfig
+{
+  // offline_map_bundle: also write the live node's Autoware map bundle (pointcloud_map/, map.pcd,
+  // map_projector_info.yaml, map_bundle.yaml, pose_graph.g2o) from the optimized poses, with the
+  // live node's map parameters (map_leaf_size, map_grid_size_*, the planar and dynamic filters).
+  bool map_bundle = false;
+  graphslam::map_export::MapExportConfig map_export;
+  std::string bag_path;
+  std::string output_dir;
+  std::string odom_topic;
+  std::string cloud_topic;
+  std::string fixed_loop_edges_path;
+
+  std::string registration_method;
+  double ndt_resolution;
+  int ndt_num_threads;
+  double gicp_max_correspondence_distance;
+  double gicp_transformation_epsilon;
+  double voxel_leaf_size;
+  double submap_distance_threshold;
+  bool debug_flag;
+  graphslam::cloud_input::LidarExtrinsic cloud_extrinsic;
+
+  // Report-only thickness attribution from every paired frontend scan. This
+  // remains opt-in because retaining scan provenance increases replay memory.
+  bool save_map_thickness_attribution = false;
+  bool map_thickness_write_csv = false;
+  double map_thickness_scan_voxel_size = 0.15;
+  bool save_dense_pose_refined_map = false;
+  double dense_pose_refined_scan_voxel_size = 0.10;
+  double dense_pose_refined_output_voxel_size = 0.10;
+  bool save_probabilistic_surfel_map = false;
+  bool save_connected_surface_map = false;
+  bool save_surface_consolidated_map = false;
+  bool save_surfel_support_partition_maps = false;
+  bool save_scan_persistence_filtered_map = false;
+  bool save_visibility_aware_dynamic_map = false;
+  bool save_scan_surface_refined_surfel_map = false;
+  bool save_global_surface_ba_surfel_map = false;
+  double probabilistic_surfel_scan_voxel_size = 0.05;
+  graphslam::ProbabilisticSurfelMapConfig surfel_map_config;
+  graphslam::scan_surface_refinement::ScanSurfaceRefinerConfig scan_surface_config;
+  double surfel_pose_translation_fallback_variance_m2 = 1.0e-4;
+  double surfel_pose_rotation_fallback_variance_rad2 = 1.0e-6;
+  double surfel_pose_translation_max_variance_m2 = 1.0;
+  double surfel_pose_rotation_max_variance_rad2 = 0.1;
+  int probabilistic_surfel_input_scan_stride = 1;
+  int probabilistic_surfel_input_scan_offset = 0;
+  graphslam::map_thickness::RevisitSegmentationConfig revisit_config;
+  // Derived from the outputs above (readDenseScanConfig): whether the bag
+  // pass keeps every paired scan, and at which voxel size.
+  bool retain_dense_scans;
+  double retained_scan_voxel_size;
+
+  // v0.7 (docs/roadmap/v0.7.md): offline plane-BA refinement of the
+  // optimized submap poses. On by default since Phase 3 (holdout-validated
+  // evidence in docs/research/map-quality-baseline.md); when it does not
+  // improve anything the pose-graph solution is kept unchanged, and the
+  // pose-graph artifacts (loop_edges.csv, trajectory_optimized.tum) are
+  // byte-identical either way.
+  bool refine = true;
+  double refine_cloud_downsample = 0.10;
+  int refine_window_size = 16;
+  int refine_window_stride = 8;
+  double refine_prior_translation_sigma = 0.30;
+  double refine_prior_rotation_sigma_rad = 0.035;
+  double refine_max_step_translation = 0.25;
+  double refine_max_step_rotation_rad = 0.052;
+  bool refine_save_maps = false;
+
+  // Optional long-baseline plane re-observation factors. Disabled by default
+  // so historical deterministic outputs remain unchanged until explicitly
+  // enabled for an A/B run.
+  bool use_plane_revisit_constraints = false;
+  double plane_revisit_cloud_downsample = 0.20;
+  int plane_revisit_min_pose_separation = 5;
+  int plane_revisit_max_constraints_per_feature = 4;
+  double plane_revisit_normal_info_weight = 10.0;
+  double plane_revisit_offset_info_weight = 10.0;
+  double plane_revisit_root_voxel_size = 2.0;
+  int plane_revisit_max_octree_depth = 1;
+  double plane_revisit_max_plane_thickness = 0.08;
+  double plane_revisit_min_planarity_ratio = 4.0;
+  int plane_revisit_min_points_per_observation = 20;
+  double plane_revisit_max_initial_normal_error_deg = 2.0;
+  double plane_revisit_max_initial_offset_error_m = 0.03;
+
+  graphslam::backend_core::DescriptorConfig descriptor_config;
+  graphslam::backend_core::LoopSearchConfig search_config;
+  int loop_search_query_stride = 1;
+
+  int loop_edge_dedup_index_window;
+  graphslam::pose_graph::AdjacentEdgeConfig adjacent_config;
+  graphslam::pose_graph::LoopEdgeConfig loop_config;
+  graphslam::pose_graph::ImuEdgeConfig imu_config;
+
+  // Causal ("online") trajectory, trajectory_causal.tum, for benchmarks that take only what a
+  // live system could have output at each time (GrandTour COMFORT): every scan's odometry pose
+  // times the map -> odom correction of the latest pose-graph optimization finished before that
+  // scan. The graph is optimized again whenever the loop search changes the loop edges. One
+  // worker runs the loop search of every new submap and these optimizations in turn, as the live
+  // component's background thread does; a correction takes effect once the worker, started no
+  // earlier than its submap's stamp, has spent the measured wall time on them (data time).
+  bool causal_trajectory_output = false;
+};
+
+// Reads the bag and output locations and the registration and submap
+// parameters. Returns false, after logging why, when the run cannot start.
+bool readInputConfig(const RunnerParameters & node, const RunnerLog & logger, RunnerConfig & config)
+{
+  node.get_parameter_or("bag_path", config.bag_path, std::string());
+  node.get_parameter_or("output_dir", config.output_dir, std::string("."));
+  node.get_parameter_or(
+    "offline_odom_topic", config.odom_topic, std::string("/rko_lio/odometry"));
+  node.get_parameter_or("offline_cloud_topic", config.cloud_topic, std::string("/rko_lio/frame"));
+  node.get_parameter_or("fixed_loop_edges_path", config.fixed_loop_edges_path, std::string());
+  if (config.bag_path.empty()) {
+    GRAPHSLAM_LOG_ERROR(logger, "bag_path parameter is required");
+    return false;
+  }
+  std::filesystem::create_directories(config.output_dir);
+
+  // Same parameter names and defaults as the live component.
+  node.get_parameter_or("registration_method", config.registration_method, std::string("NDT"));
+  node.get_parameter_or("ndt_resolution", config.ndt_resolution, 5.0);
+  node.get_parameter_or("ndt_num_threads", config.ndt_num_threads, 0);
+  node.get_parameter_or(
+    "gicp_max_correspondence_distance", config.gicp_max_correspondence_distance, 30.0);
+  node.get_parameter_or(
+    "gicp_transformation_epsilon", config.gicp_transformation_epsilon, 1e-8);
+  node.get_parameter_or("voxel_leaf_size", config.voxel_leaf_size, 0.2);
+  node.get_parameter_or("submap_distance_threshold", config.submap_distance_threshold, 1.5);
+  node.get_parameter_or("debug_flag", config.debug_flag, false);
+  std::vector<double> extrinsic_lidar2base {0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0};
+  node.get_parameter_or(
+    "extrinsic_lidar2base_quat_xyzw_xyz", extrinsic_lidar2base, extrinsic_lidar2base);
+  std::string extrinsic_error;
+  if (!graphslam::cloud_input::parseLidarExtrinsic(
+      extrinsic_lidar2base, &config.cloud_extrinsic, &extrinsic_error))
+  {
+    GRAPHSLAM_LOG_ERROR(logger, "%s", extrinsic_error.c_str());
+    return false;
+  }
+  return true;
+}
+
+// Reads which dense outputs to write (thickness attribution, dense and surfel
+// maps) and how the surfel maps are built (fusion, connected surfaces,
+// persistence and visibility filters).
+void readSurfelMapConfig(const RunnerParameters & node, RunnerConfig & config)
+{
+  graphslam::ProbabilisticSurfelMapConfig & surfel_map_config = config.surfel_map_config;
+  node.get_parameter_or(
+    "save_map_thickness_attribution", config.save_map_thickness_attribution, false);
+  node.get_parameter_or("map_thickness_write_csv", config.map_thickness_write_csv, false);
+  node.get_parameter_or(
+    "map_thickness_scan_voxel_size", config.map_thickness_scan_voxel_size, 0.15);
+  node.get_parameter_or(
+    "save_dense_pose_refined_map", config.save_dense_pose_refined_map, false);
+  node.get_parameter_or(
+    "dense_pose_refined_scan_voxel_size", config.dense_pose_refined_scan_voxel_size, 0.10);
+  node.get_parameter_or(
+    "dense_pose_refined_output_voxel_size", config.dense_pose_refined_output_voxel_size, 0.10);
+  node.get_parameter_or(
+    "save_probabilistic_surfel_map", config.save_probabilistic_surfel_map, false);
+  node.get_parameter_or(
+    "save_connected_surface_map", config.save_connected_surface_map, false);
+  node.get_parameter_or(
+    "save_surface_consolidated_map", config.save_surface_consolidated_map, false);
+  surfel_map_config.build_surface_consolidated_map = config.save_surface_consolidated_map;
+  node.get_parameter_or(
+    "surface_consolidation_min_projection_distance_m",
+    surfel_map_config.surface_consolidation_min_projection_distance_m, 0.0);
+  node.get_parameter_or(
+    "save_surfel_support_partition_maps", config.save_surfel_support_partition_maps, false);
+  surfel_map_config.build_support_partition_maps = config.save_surfel_support_partition_maps;
+  node.get_parameter_or(
+    "save_scan_persistence_filtered_map", config.save_scan_persistence_filtered_map, false);
+  node.get_parameter_or(
+    "save_visibility_aware_dynamic_map", config.save_visibility_aware_dynamic_map, false);
+  node.get_parameter_or(
+    "save_scan_surface_refined_surfel_map", config.save_scan_surface_refined_surfel_map, false);
+  node.get_parameter_or(
+    "save_global_surface_ba_surfel_map", config.save_global_surface_ba_surfel_map, false);
+  node.get_parameter_or(
+    "probabilistic_surfel_scan_voxel_size", config.probabilistic_surfel_scan_voxel_size, 0.05);
+  node.get_parameter_or(
+    "probabilistic_surfel_output_voxel_size", surfel_map_config.voxel_size_m, 0.10);
+  node.get_parameter_or(
+    "probabilistic_surfel_support_voxel_size",
+    surfel_map_config.surfel_support_voxel_size_m, 0.30);
+  node.get_parameter_or(
+    "probabilistic_surfel_secondary_support_voxel_size",
+    surfel_map_config.secondary_support_voxel_size_m, 0.0);
+  node.get_parameter_or(
+    "probabilistic_surfel_tertiary_support_voxel_size",
+    surfel_map_config.tertiary_support_voxel_size_m, 0.0);
+  node.get_parameter_or(
+    "connected_surface_max_normal_angle_deg",
+    surfel_map_config.connected_surface_max_normal_angle_deg, 8.0);
+  node.get_parameter_or(
+    "connected_surface_max_plane_distance_m",
+    surfel_map_config.connected_surface_max_plane_distance_m, 0.04);
+  int connected_surface_min_support_cells = 3;
+  node.get_parameter_or(
+    "connected_surface_min_support_cells", connected_surface_min_support_cells, 3);
+  node.get_parameter_or(
+    "connected_surface_extend_fallback",
+    surfel_map_config.connected_surface_extend_fallback, true);
+  node.get_parameter_or(
+    "connected_surface_max_extension_distance_m",
+    surfel_map_config.connected_surface_max_extension_distance_m, 0.04);
+  int connected_surface_min_extension_support_cells = 2;
+  node.get_parameter_or(
+    "connected_surface_min_extension_support_cells",
+    connected_surface_min_extension_support_cells, 2);
+  surfel_map_config.connected_surface_min_extension_support_cells =
+    static_cast<std::size_t>(std::max(2, connected_surface_min_extension_support_cells));
+  surfel_map_config.build_connected_surface_map = config.save_connected_surface_map;
+  surfel_map_config.connected_surface_min_support_cells = static_cast<std::size_t>(
+    std::max(2, connected_surface_min_support_cells));
+  node.get_parameter_or(
+    "probabilistic_surfel_support_grid_phases",
+    surfel_map_config.support_grid_phases, 1);
+  node.get_parameter_or(
+    "probabilistic_surfel_blend_support_phases",
+    surfel_map_config.blend_support_phases, false);
+  node.get_parameter_or(
+    "probabilistic_surfel_support_phases_fallback_only",
+    surfel_map_config.support_phases_fallback_only, false);
+  int surfel_min_distinct_scans = 3;
+  node.get_parameter_or(
+    "probabilistic_surfel_min_distinct_scans", surfel_min_distinct_scans, 3);
+  surfel_map_config.fusion.min_distinct_scans = static_cast<std::size_t>(
+    std::max(2, surfel_min_distinct_scans));
+  node.get_parameter_or(
+    "probabilistic_surfel_max_small_eigenvalue_ratio",
+    surfel_map_config.fusion.max_small_eigenvalue_ratio, 0.10);
+  node.get_parameter_or(
+    "probabilistic_surfel_min_middle_eigenvalue_ratio",
+    surfel_map_config.fusion.min_middle_eigenvalue_ratio, 0.05);
+  node.get_parameter_or(
+    "probabilistic_surfel_base_range_sigma_m",
+    surfel_map_config.fusion.base_range_sigma_m, 0.008);
+  node.get_parameter_or(
+    "probabilistic_surfel_range_sigma_per_meter",
+    surfel_map_config.fusion.range_sigma_per_meter, 0.001);
+  node.get_parameter_or(
+    "probabilistic_surfel_tangential_sigma_m",
+    surfel_map_config.fusion.tangential_sigma_m, 0.015);
+  node.get_parameter_or(
+    "probabilistic_surfel_huber_sigma", surfel_map_config.fusion.huber_sigma, 2.5);
+  int persistence_min_distinct_scans = 3;
+  int persistence_min_scan_span = 3;
+  node.get_parameter_or(
+    "scan_persistence_min_distinct_scans", persistence_min_distinct_scans, 3);
+  node.get_parameter_or("scan_persistence_min_scan_span", persistence_min_scan_span, 3);
+  node.get_parameter_or(
+    "scan_persistence_max_filter_range_m",
+    surfel_map_config.persistence_max_filter_range_m, 30.0);
+  surfel_map_config.build_persistence_filtered_map = config.save_scan_persistence_filtered_map;
+  surfel_map_config.persistence_min_distinct_scans = static_cast<std::size_t>(
+    std::max(1, persistence_min_distinct_scans));
+  surfel_map_config.persistence_min_scan_span = static_cast<std::uint64_t>(
+    std::max(0, persistence_min_scan_span));
+  int visibility_max_distinct_scans = 2;
+  int visibility_max_scan_span = 2;
+  int visibility_near_scan_offset = 5;
+  int visibility_far_scan_offset = 15;
+  int visibility_min_free_space_votes = 2;
+  node.get_parameter_or(
+    "visibility_dynamic_max_distinct_scans", visibility_max_distinct_scans, 2);
+  node.get_parameter_or("visibility_dynamic_max_scan_span", visibility_max_scan_span, 2);
+  node.get_parameter_or(
+    "visibility_dynamic_near_scan_offset", visibility_near_scan_offset, 5);
+  node.get_parameter_or(
+    "visibility_dynamic_far_scan_offset", visibility_far_scan_offset, 15);
+  node.get_parameter_or(
+    "visibility_dynamic_min_free_space_votes", visibility_min_free_space_votes, 2);
+  node.get_parameter_or(
+    "visibility_dynamic_angular_resolution_rad",
+    surfel_map_config.visibility_angular_resolution_rad, 0.004363323129985824);
+  node.get_parameter_or(
+    "visibility_dynamic_free_space_margin_m",
+    surfel_map_config.visibility_free_space_margin_m, 0.50);
+  node.get_parameter_or(
+    "visibility_dynamic_max_range_m", surfel_map_config.visibility_max_range_m, 30.0);
+  node.get_parameter_or(
+    "visibility_dynamic_max_origin_displacement_m",
+    surfel_map_config.visibility_max_origin_displacement_m, 3.0);
+  surfel_map_config.build_visibility_filtered_map = config.save_visibility_aware_dynamic_map;
+  surfel_map_config.visibility_max_distinct_scans = static_cast<std::size_t>(
+    std::max(1, visibility_max_distinct_scans));
+  surfel_map_config.visibility_max_scan_span = static_cast<std::uint64_t>(
+    std::max(0, visibility_max_scan_span));
+  const int sanitized_visibility_near_scan_offset = std::max(1, visibility_near_scan_offset);
+  surfel_map_config.visibility_near_scan_offset = static_cast<std::size_t>(
+    sanitized_visibility_near_scan_offset);
+  surfel_map_config.visibility_far_scan_offset = static_cast<std::size_t>(
+    std::max(sanitized_visibility_near_scan_offset, visibility_far_scan_offset));
+  surfel_map_config.visibility_min_free_space_votes = static_cast<std::size_t>(
+    std::max(1, std::min(255, visibility_min_free_space_votes)));
+}
+
+// Reads the scan-surface refiner, the scan poses' variances and input
+// selection for the surfel maps and the revisit segmentation, then derives
+// whether and at which voxel size the bag pass retains the dense scans.
+void readDenseScanConfig(const RunnerParameters & node, RunnerConfig & config)
+{
+  graphslam::scan_surface_refinement::ScanSurfaceRefinerConfig & scan_surface_config =
+    config.scan_surface_config;
+  graphslam::map_thickness::RevisitSegmentationConfig & revisit_config = config.revisit_config;
+  int scan_surface_min_observations = 20;
+  node.get_parameter_or(
+    "scan_surface_refiner_scan_voxel_size",
+    scan_surface_config.scan_downsample_voxel_size_m, 0.20);
+  node.get_parameter_or(
+    "scan_surface_refiner_support_voxel_size",
+    scan_surface_config.support_voxel_size_m, 0.50);
+  node.get_parameter_or(
+    "scan_surface_refiner_cross_fit_scan_parity",
+    scan_surface_config.cross_fit_scan_parity, false);
+  node.get_parameter_or(
+    "scan_surface_refiner_min_observations", scan_surface_min_observations, 20);
+  node.get_parameter_or(
+    "scan_surface_refiner_huber_delta_m", scan_surface_config.residual_huber_delta_m, 0.05);
+  node.get_parameter_or(
+    "scan_surface_refiner_measurement_sigma_floor_m",
+    scan_surface_config.measurement_sigma_floor_m, 0.01);
+  node.get_parameter_or(
+    "scan_surface_refiner_absolute_prior_sigma_m",
+    scan_surface_config.absolute_translation_prior_sigma_m, 0.02);
+  node.get_parameter_or(
+    "scan_surface_refiner_temporal_smoothness_sigma_m",
+    scan_surface_config.temporal_smoothness_sigma_m, 0.01);
+  node.get_parameter_or(
+    "scan_surface_refiner_max_total_translation_correction_m",
+    scan_surface_config.max_total_translation_correction_m, 0.01);
+  scan_surface_config.min_surface_observations_per_scan = static_cast<std::size_t>(
+    std::max(1, scan_surface_min_observations));
+  scan_surface_config.fusion = config.surfel_map_config.fusion;
+  node.get_parameter_or(
+    "probabilistic_surfel_pose_translation_fallback_variance_m2",
+    config.surfel_pose_translation_fallback_variance_m2, 1.0e-4);
+  node.get_parameter_or(
+    "probabilistic_surfel_pose_rotation_fallback_variance_rad2",
+    config.surfel_pose_rotation_fallback_variance_rad2, 1.0e-6);
+  node.get_parameter_or(
+    "probabilistic_surfel_pose_translation_max_variance_m2",
+    config.surfel_pose_translation_max_variance_m2, 1.0);
+  node.get_parameter_or(
+    "probabilistic_surfel_pose_rotation_max_variance_rad2",
+    config.surfel_pose_rotation_max_variance_rad2, 0.1);
+  node.get_parameter_or(
+    "probabilistic_surfel_input_scan_stride",
+    config.probabilistic_surfel_input_scan_stride, 1);
+  node.get_parameter_or(
+    "probabilistic_surfel_input_scan_offset",
+    config.probabilistic_surfel_input_scan_offset, 0);
+  config.probabilistic_surfel_input_scan_stride = std::max(
+    1, config.probabilistic_surfel_input_scan_stride);
+  config.probabilistic_surfel_input_scan_offset = std::max(
+    0, std::min(
+      config.probabilistic_surfel_input_scan_offset,
+      config.probabilistic_surfel_input_scan_stride - 1));
+  node.get_parameter_or(
+    "map_thickness_revisit_match_radius_m", revisit_config.match_radius_m, 3.0);
+  node.get_parameter_or(
+    "map_thickness_revisit_min_prior_travel_m", revisit_config.min_prior_travel_m, 20.0);
+  node.get_parameter_or(
+    "map_thickness_revisit_exit_travel_m",
+    revisit_config.exit_hysteresis_travel_m, 5.0);
+  node.get_parameter_or(
+    "map_thickness_revisit_min_epoch_travel_m",
+    revisit_config.min_epoch_separation_m, 10.0);
+  config.map_thickness_scan_voxel_size = std::max(0.0, config.map_thickness_scan_voxel_size);
+  config.dense_pose_refined_scan_voxel_size = std::max(
+    0.0, config.dense_pose_refined_scan_voxel_size);
+  config.dense_pose_refined_output_voxel_size = std::max(
+    0.0, config.dense_pose_refined_output_voxel_size);
+  config.probabilistic_surfel_scan_voxel_size = std::max(
+    0.0, config.probabilistic_surfel_scan_voxel_size);
+  config.retain_dense_scans =
+    config.save_map_thickness_attribution || config.save_dense_pose_refined_map ||
+    config.save_probabilistic_surfel_map || config.save_connected_surface_map ||
+    config.save_surface_consolidated_map ||
+    config.save_surfel_support_partition_maps ||
+    config.save_scan_persistence_filtered_map ||
+    config.save_visibility_aware_dynamic_map ||
+    config.save_scan_surface_refined_surfel_map ||
+    config.save_global_surface_ba_surfel_map;
+  config.retained_scan_voxel_size = config.map_thickness_scan_voxel_size;
+  if (config.save_dense_pose_refined_map) {
+    config.retained_scan_voxel_size = config.dense_pose_refined_scan_voxel_size;
+  }
+  if ((config.save_probabilistic_surfel_map || config.save_connected_surface_map ||
+    config.save_surface_consolidated_map ||
+    config.save_surfel_support_partition_maps ||
+    config.save_scan_persistence_filtered_map ||
+    config.save_visibility_aware_dynamic_map ||
+    config.save_scan_surface_refined_surfel_map ||
+    config.save_global_surface_ba_surfel_map) &&
+    (!config.save_dense_pose_refined_map ||
+    config.probabilistic_surfel_scan_voxel_size < config.retained_scan_voxel_size))
+  {
+    config.retained_scan_voxel_size = config.probabilistic_surfel_scan_voxel_size;
+  }
+  revisit_config.match_radius_m = std::max(0.0, revisit_config.match_radius_m);
+  revisit_config.min_prior_travel_m = std::max(0.0, revisit_config.min_prior_travel_m);
+  revisit_config.exit_hysteresis_travel_m = std::max(
+    0.0, revisit_config.exit_hysteresis_travel_m);
+  revisit_config.min_epoch_separation_m = std::max(
+    0.0, revisit_config.min_epoch_separation_m);
+}
+
+// Reads the plane-BA refinement parameters (RunnerConfig::refine).
+void readRefineConfig(const RunnerParameters & node, RunnerConfig & config)
+{
+  node.get_parameter_or("refine", config.refine, true);
+  node.get_parameter_or("refine_cloud_downsample", config.refine_cloud_downsample, 0.10);
+  node.get_parameter_or("refine_window_size", config.refine_window_size, 16);
+  node.get_parameter_or("refine_window_stride", config.refine_window_stride, 8);
+  node.get_parameter_or(
+    "refine_prior_translation_sigma", config.refine_prior_translation_sigma, 0.30);
+  node.get_parameter_or(
+    "refine_prior_rotation_sigma_rad", config.refine_prior_rotation_sigma_rad, 0.035);
+  node.get_parameter_or(
+    "refine_max_step_translation", config.refine_max_step_translation, 0.25);
+  node.get_parameter_or(
+    "refine_max_step_rotation_rad", config.refine_max_step_rotation_rad, 0.052);
+  node.get_parameter_or("refine_save_maps", config.refine_save_maps, false);
+}
+
+// Reads the plane revisit factor parameters
+// (RunnerConfig::use_plane_revisit_constraints).
+void readPlaneRevisitConfig(const RunnerParameters & node, RunnerConfig & config)
+{
+  node.get_parameter_or(
+    "use_plane_revisit_constraints", config.use_plane_revisit_constraints, false);
+  node.get_parameter_or(
+    "plane_revisit_cloud_downsample", config.plane_revisit_cloud_downsample, 0.20);
+  node.get_parameter_or(
+    "plane_revisit_min_pose_separation", config.plane_revisit_min_pose_separation, 5);
+  node.get_parameter_or(
+    "plane_revisit_max_constraints_per_feature",
+    config.plane_revisit_max_constraints_per_feature, 4);
+  node.get_parameter_or(
+    "plane_revisit_normal_info_weight", config.plane_revisit_normal_info_weight, 10.0);
+  node.get_parameter_or(
+    "plane_revisit_offset_info_weight", config.plane_revisit_offset_info_weight, 10.0);
+  node.get_parameter_or(
+    "plane_revisit_root_voxel_size", config.plane_revisit_root_voxel_size, 2.0);
+  node.get_parameter_or(
+    "plane_revisit_max_octree_depth", config.plane_revisit_max_octree_depth, 1);
+  node.get_parameter_or(
+    "plane_revisit_max_plane_thickness", config.plane_revisit_max_plane_thickness, 0.08);
+  node.get_parameter_or(
+    "plane_revisit_min_planarity_ratio", config.plane_revisit_min_planarity_ratio, 4.0);
+  node.get_parameter_or(
+    "plane_revisit_min_points_per_observation",
+    config.plane_revisit_min_points_per_observation, 20);
+  node.get_parameter_or(
+    "plane_revisit_max_initial_normal_error_deg",
+    config.plane_revisit_max_initial_normal_error_deg, 2.0);
+  node.get_parameter_or(
+    "plane_revisit_max_initial_offset_error_m",
+    config.plane_revisit_max_initial_offset_error_m, 0.03);
+}
+
+// Reads which place-recognition descriptors the loop search computes.
+void readDescriptorConfig(
+  const RunnerParameters & node, graphslam::backend_core::DescriptorConfig & descriptor_config)
+{
+  node.get_parameter_or("use_scan_context", descriptor_config.use_scan_context, false);
+  node.get_parameter_or("use_bev_descriptor", descriptor_config.use_bev_descriptor, false);
+  node.get_parameter_or("use_solid_descriptor", descriptor_config.use_solid_descriptor, false);
+  node.get_parameter_or(
+    "use_triangle_descriptor", descriptor_config.use_triangle_descriptor, false);
+  node.get_parameter_or(
+    "bev_descriptor_grid_size_m", descriptor_config.bev_descriptor_grid_size_m, 80.0);
+  node.get_parameter_or(
+    "bev_descriptor_grid_cells", descriptor_config.bev_descriptor_grid_cells, 40);
+  node.get_parameter_or(
+    "bev_descriptor_yaw_bins", descriptor_config.bev_descriptor_yaw_bins, 24);
+  node.get_parameter_or(
+    "triangle_descriptor_keypoint_mode",
+    descriptor_config.triangle_descriptor_keypoint_mode, std::string("bev_max_height"));
+  node.get_parameter_or(
+    "triangle_descriptor_grid_size_m",
+    descriptor_config.triangle_descriptor_grid_size_m, 60.0);
+  node.get_parameter_or(
+    "triangle_descriptor_grid_cells", descriptor_config.triangle_descriptor_grid_cells, 100);
+  node.get_parameter_or(
+    "triangle_descriptor_min_salience_m",
+    descriptor_config.triangle_descriptor_min_salience_m, 0.8);
+  node.get_parameter_or(
+    "triangle_descriptor_max_keypoints",
+    descriptor_config.triangle_descriptor_max_keypoints, 40);
+  node.get_parameter_or(
+    "triangle_descriptor_edge_voxel_size_m",
+    descriptor_config.triangle_descriptor_edge_voxel_size_m, 0.4);
+  node.get_parameter_or(
+    "triangle_descriptor_edge_neighbor_radius_m",
+    descriptor_config.triangle_descriptor_edge_neighbor_radius_m, 1.0);
+  node.get_parameter_or(
+    "triangle_descriptor_edge_min_neighbors",
+    descriptor_config.triangle_descriptor_edge_min_neighbors, 6);
+  node.get_parameter_or(
+    "triangle_descriptor_edge_min_edgeness",
+    descriptor_config.triangle_descriptor_edge_min_edgeness, 0.5);
+  node.get_parameter_or(
+    "triangle_descriptor_edge_nms_radius_m",
+    descriptor_config.triangle_descriptor_edge_nms_radius_m, 2.0);
+  node.get_parameter_or(
+    "triangle_descriptor_min_edge_m", descriptor_config.triangle_descriptor_min_edge_m, 2.0);
+  node.get_parameter_or(
+    "triangle_descriptor_max_edge_m", descriptor_config.triangle_descriptor_max_edge_m, 50.0);
+  node.get_parameter_or(
+    "triangle_descriptor_max_triangles",
+    descriptor_config.triangle_descriptor_max_triangles, 3000);
+  node.get_parameter_or(
+    "triangle_descriptor_edge_bin_m", descriptor_config.triangle_descriptor_edge_bin_m, 0.5);
+  node.get_parameter_or(
+    "triangle_descriptor_quad_feature_bin_m",
+    descriptor_config.triangle_descriptor_quad_feature_bin_m, 0.0);
+}
+
+// Reads the loop search: candidate selection, 3D-BBS, candidate aggregation
+// and the verification gates.
+void readLoopSearchConfig(const RunnerParameters & node, RunnerConfig & config)
+{
+  graphslam::backend_core::LoopSearchConfig & search_config = config.search_config;
+  node.get_parameter_or("search_submap_num", search_config.search_submap_num, 3);
+  search_config.target_voxel_leaf_size = config.voxel_leaf_size;
+  node.get_parameter_or("loop_search_query_stride", config.loop_search_query_stride, 1);
+  config.loop_search_query_stride = std::max(1, config.loop_search_query_stride);
+  node.get_parameter_or(
+    "prefer_scan_context_candidates", search_config.prefer_scan_context_candidates, false);
+  node.get_parameter_or(
+    "use_3d_bbs_for_scan_context", search_config.use_3d_bbs_for_scan_context, false);
+  node.get_parameter_or(
+    "three_d_bbs_source_submap_num", search_config.three_d_bbs_source_submap_num, 2);
+  node.get_parameter_or(
+    "three_d_bbs_target_submap_radius", search_config.three_d_bbs_target_submap_radius, 1);
+  node.get_parameter_or(
+    "three_d_bbs_voxel_leaf_size", search_config.three_d_bbs_voxel_leaf_size, 1.0);
+  node.get_parameter_or(
+    "three_d_bbs_min_level_res", search_config.three_d_bbs_min_level_res, 1.0);
+  node.get_parameter_or("three_d_bbs_max_level", search_config.three_d_bbs_max_level, 3);
+  node.get_parameter_or(
+    "three_d_bbs_score_threshold_percentage",
+    search_config.three_d_bbs_score_threshold_percentage, 0.25);
+  node.get_parameter_or("three_d_bbs_timeout_msec", search_config.three_d_bbs_timeout_msec, 50);
+  node.get_parameter_or("three_d_bbs_num_threads", search_config.three_d_bbs_num_threads, 0);
+  node.get_parameter_or(
+    "three_d_bbs_translation_search_margin_m",
+    search_config.three_d_bbs_translation_search_margin_m, 15.0);
+  node.get_parameter_or(
+    "three_d_bbs_roll_pitch_search_deg",
+    search_config.three_d_bbs_roll_pitch_search_deg, 10.0);
+  node.get_parameter_or(
+    "three_d_bbs_yaw_search_deg", search_config.three_d_bbs_yaw_search_deg, 180.0);
+
+  graphslam::candidate_aggregator::Config & aggregator = search_config.aggregator;
+  aggregator.debug = config.debug_flag;
+  node.get_parameter_or("max_loop_candidate_count", aggregator.max_loop_candidate_count, 3);
+  node.get_parameter_or("distance_loop_closure", aggregator.distance_loop_closure, 20.0);
+  node.get_parameter_or(
+    "range_of_searching_loop_closure", aggregator.range_of_searching_loop_closure, 20.0);
+  node.get_parameter_or("scan_context_threshold", aggregator.scan_context_threshold, 0.3);
+  node.get_parameter_or(
+    "scan_context_query_stride", aggregator.scan_context_query_stride, 1);
+  aggregator.scan_context_query_stride = std::max(1, aggregator.scan_context_query_stride);
+  node.get_parameter_or(
+    "scan_context_exclude_recent", aggregator.scan_context_exclude_recent,
+    graphslam::ScanContext::EXCLUDE_RECENT);
+  aggregator.scan_context_exclude_recent = std::max(1, aggregator.scan_context_exclude_recent);
+  node.get_parameter_or(
+    "bev_use_mutual_visibility", aggregator.bev_use_mutual_visibility, false);
+  node.get_parameter_or(
+    "bev_mutual_visibility_min_overlap_ratio",
+    aggregator.bev_mutual_visibility_min_overlap_ratio, 0.05);
+  node.get_parameter_or(
+    "bev_mutual_visibility_occupancy_eps",
+    aggregator.bev_mutual_visibility_occupancy_eps, 0.5);
+  aggregator.bev_descriptor_yaw_bins = config.descriptor_config.bev_descriptor_yaw_bins;
+  node.get_parameter_or(
+    "bev_descriptor_max_euclidean_distance_m",
+    aggregator.bev_descriptor_max_euclidean_distance_m, -1.0);
+  node.get_parameter_or("bev_descriptor_threshold", aggregator.bev_descriptor_threshold, 0.20);
+  node.get_parameter_or(
+    "bev_descriptor_sequence_window", aggregator.bev_descriptor_sequence_window, 0);
+  node.get_parameter_or(
+    "bev_descriptor_sequence_threshold", aggregator.bev_descriptor_sequence_threshold, -1.0);
+  node.get_parameter_or(
+    "bev_descriptor_pose_consistency_threshold_m",
+    aggregator.bev_descriptor_pose_consistency_threshold_m, -1.0);
+  node.get_parameter_or(
+    "bev_descriptor_rerank_weight_m", aggregator.bev_descriptor_rerank_weight_m, 100.0);
+  node.get_parameter_or(
+    "solid_descriptor_max_euclidean_distance_m",
+    aggregator.solid_descriptor_max_euclidean_distance_m, -1.0);
+  node.get_parameter_or(
+    "solid_descriptor_min_similarity", aggregator.solid_descriptor_min_similarity, 0.70);
+  node.get_parameter_or(
+    "solid_descriptor_sequence_window", aggregator.solid_descriptor_sequence_window, 0);
+  node.get_parameter_or(
+    "solid_descriptor_sequence_min_similarity",
+    aggregator.solid_descriptor_sequence_min_similarity, -1.0);
+  node.get_parameter_or(
+    "solid_descriptor_pose_consistency_threshold_m",
+    aggregator.solid_descriptor_pose_consistency_threshold_m, -1.0);
+  node.get_parameter_or(
+    "triangle_descriptor_exclude_recent", aggregator.triangle_descriptor_exclude_recent, 4);
+  aggregator.triangle_descriptor_edge_bin_m =
+    config.descriptor_config.triangle_descriptor_edge_bin_m;
+  aggregator.triangle_descriptor_quad_feature_bin_m =
+    config.descriptor_config.triangle_descriptor_quad_feature_bin_m;
+  node.get_parameter_or(
+    "triangle_descriptor_inlier_translation_m",
+    aggregator.triangle_descriptor_inlier_translation_m, 2.0);
+  node.get_parameter_or(
+    "triangle_descriptor_inlier_rotation_deg",
+    aggregator.triangle_descriptor_inlier_rotation_deg, 5.0);
+  node.get_parameter_or(
+    "triangle_descriptor_min_inliers", aggregator.triangle_descriptor_min_inliers, 4);
+  node.get_parameter_or(
+    "triangle_descriptor_min_inlier_ratio",
+    aggregator.triangle_descriptor_min_inlier_ratio, 0.0);
+  node.get_parameter_or(
+    "triangle_descriptor_max_pairs", aggregator.triangle_descriptor_max_pairs, 64);
+  node.get_parameter_or(
+    "triangle_descriptor_min_4th_point_agreements",
+    aggregator.triangle_descriptor_min_4th_point_agreements, 0);
+  node.get_parameter_or(
+    "triangle_descriptor_fourth_point_max_distance_m",
+    aggregator.triangle_descriptor_fourth_point_max_distance_m, 2.0);
+  node.get_parameter_or(
+    "triangle_descriptor_refine_se3_with_all_inliers",
+    aggregator.triangle_descriptor_refine_se3_with_all_inliers, false);
+  node.get_parameter_or(
+    "triangle_descriptor_min_votes", aggregator.triangle_descriptor_min_votes, 6);
+  node.get_parameter_or(
+    "triangle_descriptor_skip_ransac", aggregator.triangle_descriptor_skip_ransac, false);
+  node.get_parameter_or("triangle_verify_with_bev", aggregator.triangle_verify_with_bev, false);
+  node.get_parameter_or(
+    "triangle_verify_bev_max_distance", aggregator.triangle_verify_bev_max_distance, 0.30);
+
+  graphslam::loop_verifier::GateConfig & gates = search_config.gates;
+  node.get_parameter_or("threshold_loop_closure_score", gates.generic_score_threshold, 1.0);
+  node.get_parameter_or(
+    "scan_context_loop_closure_score_threshold", gates.scan_context_score_threshold, -1.0);
+  node.get_parameter_or("loop_max_translation_delta", gates.max_translation_m, 15.0);
+  node.get_parameter_or("loop_max_rotation_delta_deg", gates.max_rotation_deg, 45.0);
+  node.get_parameter_or("loop_min_overlap_ratio", gates.min_overlap_ratio, 0.0);
+  node.get_parameter_or(
+    "loop_min_overlap_ratio_large_correction",
+    gates.min_overlap_ratio_large_correction, 0.0);
+  node.get_parameter_or(
+    "loop_overlap_large_correction_translation_m",
+    gates.overlap_large_correction_translation_m, 0.0);
+  node.get_parameter_or(
+    "loop_overlap_max_distance_m", gates.overlap_max_distance_m, 0.5);
+  node.get_parameter_or("loop_max_drift_ratio", gates.max_drift_ratio, 0.0);
+  node.get_parameter_or("loop_max_drift_offset_m", gates.max_drift_offset_m, 0.5);
+  node.get_parameter_or(
+    "loop_max_translation_delta_descriptor", gates.max_translation_descriptor_m, -1.0);
+  node.get_parameter_or(
+    "loop_max_rotation_delta_deg_descriptor", gates.max_rotation_descriptor_deg, -1.0);
+}
+
+// Reads the pose-graph edge parameters into the adjacent / loop edge
+// configurations, and the causal trajectory output switch.
+// The live node's map-saving parameters, with its defaults (map_export::MapExportConfig).
+void readMapBundleConfig(const RunnerParameters & node, RunnerConfig & config)
+{
+  node.get_parameter_or("offline_map_bundle", config.map_bundle, false);
+  graphslam::map_export::MapExportConfig & m = config.map_export;
+  const graphslam::map_export::MapExportConfig d;
+  node.get_parameter_or("map_leaf_size", m.map_leaf_size, d.map_leaf_size);
+  node.get_parameter_or("map_grid_size_x", m.map_grid_size_x, d.map_grid_size_x);
+  node.get_parameter_or("map_grid_size_y", m.map_grid_size_y, d.map_grid_size_y);
+  node.get_parameter_or(
+    "map_save_points_per_pass", m.map_save_points_per_pass, d.map_save_points_per_pass);
+  node.get_parameter_or("use_planar_map_filter", m.use_planar_map_filter, d.use_planar_map_filter);
+  node.get_parameter_or(
+    "planar_map_filter_voxel_size", m.planar_map_filter.voxel_size,
+    d.planar_map_filter.voxel_size);
+  node.get_parameter_or(
+    "planar_map_filter_min_neighbors", m.planar_map_filter.min_neighbors,
+    d.planar_map_filter.min_neighbors);
+  node.get_parameter_or(
+    "planar_map_filter_max_small_eigenvalue_ratio", m.planar_map_filter.max_small_eigenvalue_ratio,
+    d.planar_map_filter.max_small_eigenvalue_ratio);
+  node.get_parameter_or(
+    "planar_map_filter_min_middle_eigenvalue_ratio",
+    m.planar_map_filter.min_middle_eigenvalue_ratio,
+    d.planar_map_filter.min_middle_eigenvalue_ratio);
+  node.get_parameter_or(
+    "planar_map_filter_min_retained_ratio", m.planar_map_filter.min_retained_ratio,
+    d.planar_map_filter.min_retained_ratio);
+  node.get_parameter_or(
+    "use_dynamic_object_filter", m.use_dynamic_object_filter, d.use_dynamic_object_filter);
+  node.get_parameter_or(
+    "dynamic_object_filter_voxel_size", m.dynamic_object_filter.voxel_size,
+    d.dynamic_object_filter.voxel_size);
+  node.get_parameter_or(
+    "dynamic_object_filter_min_observations", m.dynamic_object_filter.min_observations,
+    d.dynamic_object_filter.min_observations);
+  node.get_parameter_or(
+    "dynamic_object_filter_temporal_window", m.dynamic_object_filter.temporal_window,
+    d.dynamic_object_filter.temporal_window);
+  node.get_parameter_or(
+    "dynamic_object_filter_max_range_from_sensor_m",
+    m.dynamic_object_filter.max_range_from_sensor_m,
+    d.dynamic_object_filter.max_range_from_sensor_m);
+}
+
+void readPoseGraphConfig(const RunnerParameters & node, RunnerConfig & config)
+{
+  int num_adjacent_pose_constraints;
+  double adjacent_edge_info_weight;
+  bool use_degeneracy_covariance_weighting;
+  double degeneracy_adjacent_edge_information_scale;
+  double non_observable_adjacent_edge_information_scale;
+  double loop_edge_info_weight;
+  double loop_edge_robust_kernel_delta;
+  std::string loop_edge_robust_kernel_type;
+  node.get_parameter_or(
+    "loop_edge_dedup_index_window", config.loop_edge_dedup_index_window, 8);
+  node.get_parameter_or("num_adjacent_pose_cnstraints", num_adjacent_pose_constraints, 5);
+  node.get_parameter_or("adjacent_edge_info_weight", adjacent_edge_info_weight, 1000.0);
+  node.get_parameter_or(
+    "use_degeneracy_covariance_weighting", use_degeneracy_covariance_weighting, false);
+  node.get_parameter_or(
+    "degeneracy_adjacent_edge_information_scale",
+    degeneracy_adjacent_edge_information_scale, 0.25);
+  node.get_parameter_or(
+    "non_observable_adjacent_edge_information_scale",
+    non_observable_adjacent_edge_information_scale, 0.05);
+  node.get_parameter_or("loop_edge_info_weight", loop_edge_info_weight, 100.0);
+  double loop_edge_info_constant_trans;
+  double loop_edge_info_constant_rot;
+  node.get_parameter_or("loop_edge_info_constant_trans", loop_edge_info_constant_trans, 0.0);
+  node.get_parameter_or("loop_edge_info_constant_rot", loop_edge_info_constant_rot, 0.0);
+  node.get_parameter_or("loop_edge_robust_kernel_delta", loop_edge_robust_kernel_delta, 1.0);
+  node.get_parameter_or(
+    "loop_edge_robust_kernel_type", loop_edge_robust_kernel_type, std::string("huber"));
+  // Separate translation / rotation information of the adjacent edges, as the live component
+  // reads them (GraphSlamConfig): a weight that is not positive falls back to
+  // adjacent_edge_info_weight.
+  bool adjacent_edge_split_trans_rot = false;
+  double adjacent_edge_info_weight_trans = 0.0;
+  double adjacent_edge_info_weight_rot = 0.0;
+  node.get_parameter_or(
+    "adjacent_edge_info_auto_scale_split_trans_rot", adjacent_edge_split_trans_rot, false);
+  node.get_parameter_or("adjacent_edge_info_weight_trans", adjacent_edge_info_weight_trans, 0.0);
+  node.get_parameter_or("adjacent_edge_info_weight_rot", adjacent_edge_info_weight_rot, 0.0);
+  if (adjacent_edge_info_weight_trans <= 0.0) {
+    adjacent_edge_info_weight_trans = adjacent_edge_info_weight;
+  }
+  if (adjacent_edge_info_weight_rot <= 0.0) {
+    adjacent_edge_info_weight_rot = adjacent_edge_info_weight;
+  }
+
+  graphslam::pose_graph::AdjacentEdgeConfig & adjacent_config = config.adjacent_config;
+  adjacent_config.num_adjacent_pose_constraints = num_adjacent_pose_constraints;
+  adjacent_config.info_weight = adjacent_edge_info_weight;
+  adjacent_config.split_trans_rot = adjacent_edge_split_trans_rot;
+  adjacent_config.info_weight_trans = adjacent_edge_info_weight_trans;
+  adjacent_config.info_weight_rot = adjacent_edge_info_weight_rot;
+  adjacent_config.covariance_weighting.enabled = use_degeneracy_covariance_weighting;
+  adjacent_config.covariance_weighting.degenerate_information_scale = std::max(
+    0.0, std::min(1.0, degeneracy_adjacent_edge_information_scale));
+  adjacent_config.covariance_weighting.non_observable_information_scale = std::max(
+    0.0, std::min(
+      adjacent_config.covariance_weighting.degenerate_information_scale,
+      non_observable_adjacent_edge_information_scale));
+  graphslam::pose_graph::LoopEdgeConfig & loop_config = config.loop_config;
+  loop_config.info_weight = loop_edge_info_weight;
+  loop_config.constant_info_trans = std::max(0.0, loop_edge_info_constant_trans);
+  loop_config.constant_info_rot = std::max(0.0, loop_edge_info_constant_rot);
+  loop_config.robust_kernel_type = loop_edge_robust_kernel_type;
+  loop_config.robust_kernel_delta = loop_edge_robust_kernel_delta;
+
+  // See RunnerConfig::causal_trajectory_output.
+  node.get_parameter_or("causal_trajectory_output", config.causal_trajectory_output, false);
+}
+
+// The resolver and session are shell-owned.  Declaration order is
+// deliberate: the plugin owner is released before the session, and the
+// session remains alive until all typed BackendCore calls have completed.
+struct BackendRegistration
+{
+  std::unique_ptr<RegistrationResolver> resolver;
+  std::shared_ptr<RegistrationPluginSession> session;
+  std::shared_ptr<RegistrationPlugin> plugin_owner;
+  pcl::Registration<pcl::PointXYZI, pcl::PointXYZI>::Ptr legacy_registration;
+  std::shared_ptr<graphslam::backend_registration::PclRegistrationAdapter>
+  legacy_registration_bridge;
+  RegistrationPlugin * plugin = nullptr;
+  graphslam::backend_registration::BackendRegistrationRequest backend_request;
+};
+
+// registration_method NDT: the host-resident built-in NDT, resolved and
+// activated like the live backend, plus the registration receipt.
+bool activateNdtRegistration(
+  const RunnerConfig & config, const RunnerLog & logger, BackendRegistration & registration)
+{
+  graphslam::backend_registration::NdtConfig ndt_config;
+  ndt_config.resolution = config.ndt_resolution;
+  ndt_config.num_threads = config.ndt_num_threads;
+  ndt_config.target_cell_cache_capacity =
+    graphslam::backend_registration::kBackendNdtTargetCellCacheCapacity;
+  std::string preflight_error;
+  if (!graphslam::backend_registration::makeNdtLoadRequest(
+      ndt_config, &registration.backend_request, &preflight_error))
+  {
+    GRAPHSLAM_LOG_ERROR(logger, "backend NDT preflight request failed: %s",
+        preflight_error.c_str());
+    return false;
+  }
+
+  auto host_ndt = graphslam::backend_registration::makeNdtHostBuiltinRegistration(
+    []() {
+      return makeOfflineHostBuiltinNdtRegistration();
+    });
+  registration.resolver.reset(new RegistrationResolver({host_ndt}));
+  const auto loaded = registration.resolver->resolve(registration.backend_request.request);
+  if (!loaded.ok()) {
+    GRAPHSLAM_LOG_ERROR(
+      logger,
+      "backend NDT startup preflight failed role=%s class=%s code=%d: %s",
+      registration.backend_request.role.c_str(),
+      registration.backend_request.request.class_id.c_str(),
+      static_cast<int>(loaded.failure.code), loaded.failure.message.c_str());
+    return false;
+  }
+  // Use the same host-owned startup transaction as the live backend.  The
+  // offline shell has no ROS publishers, but it still must not expose a
+  // partially activated session if a future adapter validation step fails.
+  using lidarslam::plugins::registration::shell::LoadFailure;
+  using lidarslam::plugins::registration::shell::RegistrationActivationSlots;
+  using lidarslam::plugins::registration::shell::RegistrationActivationTransaction;
+  RegistrationActivationSlots activation_slots;
+  activation_slots.session = &registration.session;
+  activation_slots.plugin = &registration.plugin_owner;
+  RegistrationActivationTransaction activation(activation_slots);
+  LoadFailure activation_failure;
+  if (!activation.prepare(loaded.session, &activation_failure) ||
+    !activation.validate(
+      [](const lidarslam::plugins::registration::shell::
+      RegistrationActivationSnapshot & candidate)
+      {
+        if (!candidate.session || !candidate.plugin) {
+          return LoadFailure{
+          lidarslam::plugins::registration::shell::LoadFailureCode::kInvalidRequest,
+          "offline registration activation candidate is null"};
+        }
+        return LoadFailure{};
+      }, &activation_failure) ||
+    !activation.commit(&activation_failure))
+  {
+    GRAPHSLAM_LOG_ERROR(
+      logger, "backend registration activation failed: %s", activation_failure.message.c_str());
+    return false;
+  }
+  registration.plugin = registration.plugin_owner.get();
+
+  const std::filesystem::path receipt_path =
+    std::filesystem::path(config.output_dir) / "registration_plugin_receipt.yaml";
+  std::ofstream receipt(receipt_path);
+  std::string receipt_error;
+  if (!receipt.is_open() || !graphslam::backend_registration::writeBackendRegistrationReceipt(
+      receipt, registration.backend_request, *registration.session, &receipt_error))
+  {
+    GRAPHSLAM_LOG_ERROR(
+      logger, "backend registration receipt failed before bag processing: %s",
+      receipt_error.empty() ? "cannot open receipt" : receipt_error.c_str());
+    return false;
+  }
+  const std::string capability_bits = std::to_string(
+    registration.session->capabilities().bits());
+  GRAPHSLAM_LOG_INFO(
+    logger,
+    "backend registration preflight resolved role=%s backend_kind=%s class=%s "
+    "api=%u.%u license=%s capabilities=%s library=%s manifest=%s",
+    registration.backend_request.role.c_str(),
+    lidarslam::plugins::registration::shell::backendKindName(
+      registration.session->backendKind()),
+    registration.session->classId().c_str(),
+    static_cast<unsigned int>(registration.session->metadata().api_version.major),
+    static_cast<unsigned int>(registration.session->metadata().api_version.minor),
+    registration.session->metadata().license.c_str(),
+    capability_bits.c_str(),
+    registration.session->libraryPath().empty() ? "<host>" :
+    registration.session->libraryPath().c_str(),
+    registration.session->pluginManifestPath().empty() ? "<host>" :
+    registration.session->pluginManifestPath().c_str());
+  return true;
+}
+
+// registration_method GICP / SMALL_GICP: the PCL registration behind a host
+// session.
+bool activateLegacyGicpRegistration(
+  const RunnerConfig & config, const RunnerLog & logger, BackendRegistration & registration)
+{
+  // Preserve the historical PCL construction/configuration, then adopt the
+  // bridge into the common session boundary.  The host namespace is
+  // intentional: this path must never reinterpret a built-in as a
+  // pluginlib class or silently fall back to NDT.  SMALL_GICP takes the
+  // same bridge around small_gicp's PCL registration.
+  const bool small_gicp = config.registration_method == "SMALL_GICP";
+  const std::string class_id = small_gicp ?
+    "lidarslam_builtin/BackendSmallGicp" : "lidarslam_builtin/LegacyBackendGicp";
+  registration.legacy_registration = small_gicp ?
+    graphslam::backend_core::makeLoopRegistration(
+    config.registration_method, config.ndt_resolution, config.ndt_num_threads,
+    config.gicp_max_correspondence_distance, config.gicp_transformation_epsilon) :
+    graphslam::backend_core::makeLegacyGicpRegistration(
+    config.gicp_max_correspondence_distance, config.gicp_transformation_epsilon);
+  if (!registration.legacy_registration) {
+    GRAPHSLAM_LOG_ERROR(
+      logger, "backend %s construction failed (SMALL_GICP needs a build with small_gicp); "
+      "no fallback is allowed", config.registration_method.c_str());
+    return false;
+  }
+  registration.legacy_registration_bridge =
+    std::make_shared<graphslam::backend_registration::PclRegistrationAdapter>(
+    *registration.legacy_registration, class_id);
+  const std::shared_ptr<RegistrationPlugin> candidate_owner =
+    registration.legacy_registration_bridge;
+  lidarslam::plugins::registration::shell::LoadRequest request;
+  request.class_id = class_id;
+  request.capabilities.require_initial_guess = true;
+  request.capabilities.require_aligned_source = true;
+  request.capabilities.require_target_policy = true;
+  request.capabilities.target_policy =
+    lidarslam::plugins::registration::TargetPolicy::kAcceptHostPrepared;
+  request.capabilities.require_correspondence_metric = true;
+  request.capabilities.correspondence_metric =
+    lidarslam::plugins::registration::CorrespondenceMetric::kSquareRootFitnessProxy;
+  request.enforce_permissive_license = true;
+  using lidarslam::plugins::registration::shell::LoadFailure;
+  using lidarslam::plugins::registration::shell::RegistrationActivationSlots;
+  using lidarslam::plugins::registration::shell::RegistrationActivationTransaction;
+  LoadFailure session_failure;
+  const auto candidate_session =
+    RegistrationPluginSession::createHostSession(
+    candidate_owner, request, "", false, &session_failure);
+  if (!candidate_session) {
+    GRAPHSLAM_LOG_ERROR(
+      logger, "backend GICP host session adoption failed: %s", session_failure.message.c_str());
+    return false;
+  }
+  RegistrationActivationSlots activation_slots;
+  activation_slots.session = &registration.session;
+  activation_slots.plugin = &registration.plugin_owner;
+  RegistrationActivationTransaction activation(activation_slots);
+  LoadFailure activation_failure;
+  if (!activation.prepare(candidate_session, &activation_failure) ||
+    !activation.validate(
+      [](const lidarslam::plugins::registration::shell::
+      RegistrationActivationSnapshot & candidate)
+      {
+        if (!candidate.session || !candidate.plugin) {
+          return LoadFailure{
+          lidarslam::plugins::registration::shell::LoadFailureCode::kInvalidRequest,
+          "offline backend GICP activation candidate is null"};
+        }
+        return LoadFailure{};
+      }, &activation_failure) ||
+    !activation.commit(&activation_failure))
+  {
+    GRAPHSLAM_LOG_ERROR(
+      logger, "backend GICP activation failed: %s", activation_failure.message.c_str());
+    return false;
+  }
+  registration.plugin = registration.plugin_owner.get();
+
+  // The receipt the plugin path writes, so the offline replay tools (map edits, place-recognition
+  // merges, run_offline_determinism_check.sh) accept GICP and SMALL_GICP runs as well.
+  graphslam::backend_registration::BackendRegistrationRequest receipt_request;
+  receipt_request.request = request;
+  const std::filesystem::path receipt_path =
+    std::filesystem::path(config.output_dir) / "registration_plugin_receipt.yaml";
+  std::ofstream receipt(receipt_path);
+  std::string receipt_error;
+  if (!receipt.is_open() || !graphslam::backend_registration::writeBackendRegistrationReceipt(
+      receipt, receipt_request, *registration.session, &receipt_error))
+  {
+    GRAPHSLAM_LOG_ERROR(
+      logger, "backend registration receipt failed before bag processing: %s",
+      receipt_error.empty() ? "cannot open receipt" : receipt_error.c_str());
+    return false;
+  }
+  GRAPHSLAM_LOG_INFO(
+    logger,
+    "backend registration preflight resolved role=%s backend_kind=%s "
+    "class=%s api=%u.%u license=%s "
+    "library=<host> manifest=<host>",
+    graphslam::backend_registration::kBackendRegistrationRole,
+    lidarslam::plugins::registration::shell::backendKindName(
+      registration.session->backendKind()),
+    registration.session->classId().c_str(),
+    static_cast<unsigned int>(registration.session->metadata().api_version.major),
+    static_cast<unsigned int>(registration.session->metadata().api_version.minor),
+    registration.session->metadata().license.c_str());
+  return true;
+}
+
+// Resolves and activates the backend registration of registration_method,
+// with no fallback. Returns false, after logging why, when that fails.
+bool setupBackendRegistration(
+  const RunnerConfig & config, const RunnerLog & logger, BackendRegistration & registration)
+{
+  if (config.registration_method == "NDT") {
+    if (!activateNdtRegistration(config, logger, registration)) {
+      return false;
+    }
+  } else if (config.registration_method == "GICP" || config.registration_method == "SMALL_GICP") {
+    if (!activateLegacyGicpRegistration(config, logger, registration)) {
+      return false;
+    }
+  } else {
+    GRAPHSLAM_LOG_ERROR(
+      logger, "invalid registration_method='%s'; backend supports only NDT, GICP and "
+      "SMALL_GICP with no fallback", config.registration_method.c_str());
+    return false;
+  }
+
+  if (registration.plugin == nullptr) {
+    GRAPHSLAM_LOG_ERROR(logger, "backend registration preflight produced no typed plugin");
+    return false;
+  }
+  return true;
+}
+
+// BackendCore and the compute objects its loop search borrows. Declared after
+// BackendRegistration, whose session must outlive every BackendCore call.
+struct LoopSearchBackend
+{
+  pcl::VoxelGrid<pcl::PointXYZI> voxelgrid;
+  graphslam::ThreeDBBSLoopVerifier bbs_verifier;
+  BackendCore core;
+
+  void configure(const RunnerConfig & config)
+  {
+    voxelgrid.setLeafSize(config.voxel_leaf_size, config.voxel_leaf_size, config.voxel_leaf_size);
+    core.configure(config.descriptor_config);
+  }
+};
+
+// What the bag pass leaves for the later stages: the loop edges (found by the
+// loop search, or the fixed ones), the submaps and the retained dense scans.
+struct BagPassResult
+{
+  graphslam::backend_core::LoopEdgeSet edge_set;
+  std::vector<SubmapRecord> records;
+  SubmapCloudStats cloud_stats;
+  std::size_t attribution_raw_finite_points = 0U;
+  std::size_t attribution_retained_points = 0U;
+  std::vector<ScanAttributionRecord> attribution_scans;
+};
+
+struct CausalCorrection
+{
+  double effective_stamp_sec {0.0};
+  Eigen::Isometry3d map_from_odom {Eigen::Isometry3d::Identity()};
+};
+
+// --- Bag pass: pair odometry and cloud by exact stamp (the recorded
+// backend-input topics are emitted 1:1 with shared stamps), create
+// submaps with the same distance rule as the component, and drain the
+// event-driven loop search after every new submap.
+struct BagPass
+{
+  BagPass(
+    const RunnerConfig & runner_config, const BackendRegistration & backend_registration,
+    LoopSearchBackend & loop_search_backend, DegeneracyDiagnosticsSink & diagnostics_sink,
+    const RunnerLog & runner_logger, BagPassResult & result)
+  : config(runner_config), registration(backend_registration), backend(loop_search_backend),
+    degeneracy_sink(diagnostics_sink), logger(runner_logger), bag(result)
+  {
+  }
+
+  const RunnerConfig & config;
+  const BackendRegistration & registration;
+  LoopSearchBackend & backend;
+  DegeneracyDiagnosticsSink & degeneracy_sink;
+  const RunnerLog & logger;
+  BagPassResult & bag;
+
+  bool loop_edges_changed = false;
+  bool last_position_valid = false;
+  Eigen::Vector3d last_position = Eigen::Vector3d::Zero();
+  double accumulated_distance = 0.0;
+  int next_query_idx = 1;
+  std::size_t paired_count = 0;
+
+  // Causal output state (causal_trajectory_output): the corrections in the order the worker
+  // finished them, each with the data time from which it applies.
+  std::vector<CausalCorrection> causal_corrections;
+  std::size_t causal_applied = 0U;
+  Eigen::Isometry3d causal_map_from_odom = Eigen::Isometry3d::Identity();
+  double causal_worker_free_sec = -std::numeric_limits<double>::infinity();
+  double causal_max_lag_sec = 0.0;
+  std::size_t causal_optimizations = 0U;
+  std::ofstream causal_tum;
+
+  std::map<uint64_t, graphslam::msg::Odometry> pending_odoms;
+  std::map<uint64_t, graphslam::msg::PointCloud2> pending_clouds;
+
+  // Before the first message.
+  void begin()
+  {
+    bag.edge_set.configure(
+      config.loop_edge_dedup_index_window < 0 ? 0 : config.loop_edge_dedup_index_window);
+    if (config.causal_trajectory_output) {
+      causal_tum.open(config.output_dir + "/trajectory_causal.tum");
+    }
+  }
+
+  // The messages in recorded order: each odometry / cloud pair (equal stamps) is processed when
+  // its second message arrives.
+  void addOdometry(const graphslam::msg::Odometry & odom)
+  {
+    const uint64_t key =
+      static_cast<uint64_t>(odom.header.stamp.sec) * 1000000000ull + odom.header.stamp.nanosec;
+    const auto cloud_it = pending_clouds.find(key);
+    if (cloud_it != pending_clouds.end()) {
+      processPair(odom, cloud_it->second);
+      pending_clouds.erase(cloud_it);
+    } else {
+      pending_odoms[key] = odom;
+    }
+  }
+
+  void addCloud(graphslam::msg::PointCloud2 && cloud_msg)
+  {
+    const uint64_t key =
+      static_cast<uint64_t>(cloud_msg.header.stamp.sec) * 1000000000ull +
+      cloud_msg.header.stamp.nanosec;
+    const auto odom_it = pending_odoms.find(key);
+    if (odom_it != pending_odoms.end()) {
+      processPair(odom_it->second, cloud_msg);
+      pending_odoms.erase(odom_it);
+    } else {
+      pending_clouds[key] = std::move(cloud_msg);
+    }
+  }
+
+  // After the last message: takes the fixed loop edges when they are given. Returns false,
+  // after logging why, when those cannot be loaded.
+  bool finish()
+  {
+    if (!config.fixed_loop_edges_path.empty()) {
+      try {
+        loadFixedLoopEdges(config.fixed_loop_edges_path, bag.records.size(), bag.edge_set);
+        GRAPHSLAM_LOG_INFO(
+          logger, "Loaded %zu fixed loop edges from %s; descriptor search was skipped",
+          bag.edge_set.edges().size(), config.fixed_loop_edges_path.c_str());
+      } catch (const std::exception & error) {
+        GRAPHSLAM_LOG_ERROR(logger, "%s", error.what());
+        return false;
+      }
+    }
+
+    GRAPHSLAM_LOG_INFO(
+      logger,
+      "Offline run complete: %zu pairs, %zu submaps, %.1f m travelled, %zu loop edges "
+      "(%zu odom / %zu cloud messages left unpaired)",
+      paired_count, bag.records.size(), accumulated_distance, bag.edge_set.edges().size(),
+      pending_odoms.size(), pending_clouds.size());
+    GRAPHSLAM_LOG_INFO(
+      logger,
+      "Submap clouds kept compressed: %.1f MiB (%.1f MiB as PCL clouds), stored in %.3f s; "
+      "%zu restored in %.3f s",
+      bag.cloud_stats.stored_bytes / 1048576.0, bag.cloud_stats.pcl_bytes / 1048576.0,
+      bag.cloud_stats.store_sec, bag.cloud_stats.restored, bag.cloud_stats.restore_sec);
+    if (config.causal_trajectory_output) {
+      causal_tum.close();
+      GRAPHSLAM_LOG_INFO(
+        logger,
+        "Causal trajectory: %zu graph optimizations, %zu applied before the last scan, "
+        "worker at most %.3f s behind a submap's stamp",
+        causal_optimizations, causal_applied, causal_max_lag_sec);
+    }
+    pending_odoms.clear();
+    pending_clouds.clear();
+    return true;
+  }
+
+  // One odometry / cloud pair: a new submap and its loop search when the
+  // distance rule says so, the causal output line, and the retained dense scan.
+  void processPair(
+    const graphslam::msg::Odometry & odom, const graphslam::msg::PointCloud2 & input_cloud)
+  {
+    // Same placement as the live component: a LiDAR-frame scan is moved
+    // into the base frame of the odometry pose first.
+    const bool move_to_base = !config.cloud_extrinsic.identity &&
+      !graphslam::cloud_input::scanIsInBaseFrame(
+      input_cloud.header.frame_id, odom.child_frame_id);
+    graphslam::msg::PointCloud2 base_cloud;
+    if (move_to_base) {
+      base_cloud = input_cloud;
+      std::string transform_error;
+      if (!graphslam::cloud_input::transformCloudToBase(
+          config.cloud_extrinsic, base_cloud, &transform_error))
+      {
+        GRAPHSLAM_LOG_WARN(logger, "scan skipped: %s", transform_error.c_str());
+        return;
+      }
+    }
+    const graphslam::msg::PointCloud2 & cloud_msg =
+      move_to_base ? base_cloud : input_cloud;
+    ++paired_count;
+    degeneracy_sink.recordScan(odom);
+    const Eigen::Vector3d position(
+      odom.pose.pose.position.x,
+      odom.pose.pose.position.y,
+      odom.pose.pose.position.z);
+    const graphslam::submap_creation::Decision decision = graphslam::submap_creation::evaluate(
+      position, last_position_valid, last_position, config.submap_distance_threshold);
+    CloudPtr scan_cloud;
+    Eigen::Affine3d pose_affine = Eigen::Affine3d::Identity();
+    if (decision.create || config.retain_dense_scans || config.causal_trajectory_output) {
+      graphslam::cloud_msg::poseToAffine(odom.pose.pose, pose_affine);
+    }
+    if (decision.create) {
+      scan_cloud.reset(new pcl::PointCloud<pcl::PointXYZI>);
+      graphslam::pointcloud2_conversion::fromRosMsgPointXYZI(cloud_msg, *scan_cloud);
+    }
+    if (decision.create) {
+      accumulated_distance += decision.distance;
+      last_position = position;
+      last_position_valid = true;
+
+      SubmapRecord record;
+      record.meta.pose = pose_affine;
+      record.meta.travel_distance = accumulated_distance;
+      record.meta.content_revision = graphslam::backend_core::targetCloudContentRevision(
+        *scan_cloud);
+      record.stamp_sec = graphslam::cloud_msg::stampSeconds(odom.header.stamp);
+      record.odometry_covariance = odom.pose.covariance;
+      record.cloud = scan_cloud;
+      record.stored_cloud = storeSubmapCloud(cloud_msg, bag.cloud_stats);
+      bag.cloud_stats.pcl_bytes += scan_cloud->size() * sizeof(pcl::PointXYZI);
+      bag.records.push_back(record);
+      // Only the latest search_submap_num submaps keep their PCL cloud.
+      const std::size_t kept = static_cast<std::size_t>(
+        std::max(1, config.search_config.search_submap_num));
+      if (bag.records.size() > kept) {
+        bag.records[bag.records.size() - 1U - kept].cloud.reset();
+      }
+
+      const auto work_start = std::chrono::steady_clock::now();
+      drainQueries();
+      if (config.causal_trajectory_output) {
+        bool optimized = false;
+        Eigen::Isometry3d correction = Eigen::Isometry3d::Identity();
+        if (loop_edges_changed) {
+          loop_edges_changed = false;
+          correction = causalCorrection();
+          optimized = true;
+          ++causal_optimizations;
+        }
+        const double work_sec = std::chrono::duration<double>(
+          std::chrono::steady_clock::now() - work_start).count();
+        causal_worker_free_sec = std::max(causal_worker_free_sec, record.stamp_sec) + work_sec;
+        const double lag_sec = causal_worker_free_sec - record.stamp_sec;
+        causal_max_lag_sec = std::max(causal_max_lag_sec, lag_sec);
+        if (optimized) {
+          causal_corrections.push_back({causal_worker_free_sec, correction});
+        }
+      }
+    }
+
+    if (config.causal_trajectory_output) {
+      const double stamp_sec = graphslam::cloud_msg::stampSeconds(odom.header.stamp);
+      while (causal_applied < causal_corrections.size() &&
+        causal_corrections[causal_applied].effective_stamp_sec <= stamp_sec)
+      {
+        causal_map_from_odom = causal_corrections[causal_applied].map_from_odom;
+        ++causal_applied;
+      }
+      const Eigen::Isometry3d pose =
+        causal_map_from_odom * Eigen::Isometry3d(pose_affine.matrix());
+      const Eigen::Vector3d t = pose.translation();
+      const Eigen::Quaterniond q(pose.rotation());
+      char line[256];
+      std::snprintf(
+        line, sizeof(line), "%.9f %.9f %.9f %.9f %.9f %.9f %.9f %.9f",
+        stamp_sec, t.x(), t.y(), t.z(), q.x(), q.y(), q.z(), q.w());
+      causal_tum << line << "\n";
+    }
+
+    if (config.retain_dense_scans && !bag.records.empty()) {
+      pcl::PointCloud<pcl::PointXYZ> attribution_cloud;
+      graphslam::cloud_msg::fromCloudMsg(cloud_msg, attribution_cloud);
+      std::vector<Eigen::Vector3d> finite_points;
+      finite_points.reserve(attribution_cloud.size());
+      for (const auto & point : attribution_cloud.points) {
+        if (std::isfinite(point.x) && std::isfinite(point.y) && std::isfinite(point.z)) {
+          finite_points.emplace_back(point.x, point.y, point.z);
+        }
+      }
+      bag.attribution_raw_finite_points += finite_points.size();
+      ScanAttributionRecord scan;
+      scan.stamp_sec = graphslam::cloud_msg::stampSeconds(odom.header.stamp);
+      scan.pose = Eigen::Isometry3d(pose_affine.matrix());
+      scan.scan_id = static_cast<std::int64_t>(paired_count - 1U);
+      scan.submap_id = static_cast<std::int64_t>(bag.records.size() - 1U);
+      scan.odometry_covariance = odom.pose.covariance;
+      scan.local_points = graphslam::map_quality::downsampleByVoxelCentroid(
+        finite_points, config.retained_scan_voxel_size);
+      bag.attribution_retained_points += scan.local_points.size();
+      bag.attribution_scans.push_back(std::move(scan));
+    }
+  }
+
+  // Runs the loop search of every submap that has not been a query yet; with
+  // fixed loop edges there is no search.
+  void drainQueries()
+  {
+    const std::vector<SubmapRecord> & records = bag.records;
+    // The same voxel-filtered local-aggregate semantics as the component's
+    // makeFilteredLocalSubmapProvider, over the in-memory record store.
+    const auto filtered_local_provider = [&](int ref_idx) -> CloudPtr {
+        CloudPtr aggregated_cloud(new pcl::PointCloud<pcl::PointXYZI>);
+        const Eigen::Affine3d & reference_affine = records[ref_idx].meta.pose;
+        for (int k = 0; k < config.search_config.search_submap_num && (ref_idx - k) >= 0; ++k) {
+          const int src_idx = ref_idx - k;
+          const CloudPtr cloud = submapCloud(records[src_idx], bag.cloud_stats);
+          if (!cloud || cloud->empty()) {
+            continue;
+          }
+          CloudPtr transformed_cloud(new pcl::PointCloud<pcl::PointXYZI>);
+          const Eigen::Matrix4f local_transform =
+            (reference_affine.inverse() * records[src_idx].meta.pose).matrix().cast<float>();
+          pcl::transformPointCloud(*cloud, *transformed_cloud, local_transform);
+          *aggregated_cloud += *transformed_cloud;
+        }
+        CloudPtr filtered_cloud(new pcl::PointCloud<pcl::PointXYZI>);
+        if (aggregated_cloud->empty()) {
+          return filtered_cloud;
+        }
+        backend.voxelgrid.setInputCloud(aggregated_cloud);
+        backend.voxelgrid.filter(*filtered_cloud);
+        return filtered_cloud;
+      };
+    const auto raw_cloud_provider = [&](int idx) -> CloudPtr {
+        return submapCloud(records[idx], bag.cloud_stats);
+      };
+
+    const int num_submaps = static_cast<int>(records.size());
+    if (!config.fixed_loop_edges_path.empty()) {
+      next_query_idx = num_submaps;
+      return;
+    }
+    while (next_query_idx < num_submaps) {
+      const int query_idx = next_query_idx;
+      backend.core.ingestDescriptors(query_idx + 1, filtered_local_provider);
+      if (!graphslam::loop_search_schedule::shouldSearch(
+          query_idx, config.loop_search_query_stride))
+      {
+        next_query_idx = query_idx + 1;
+        continue;
+      }
+      std::vector<graphslam::backend_core::SubmapMeta> visible;
+      visible.reserve(query_idx + 1);
+      for (int i = 0; i <= query_idx; ++i) {
+        visible.push_back(records[i].meta);
+      }
+      std::unique_ptr<RegistrationPluginSessionAdapter> registration_session_adapter;
+      RegistrationPlugin * registration_for_search = registration.plugin;
+      if (registration.session != nullptr) {
+        registration_session_adapter.reset(
+          new RegistrationPluginSessionAdapter(*registration.session));
+        registration_for_search = registration_session_adapter.get();
+      }
+      const graphslam::backend_core::LoopSearchOutput output = backend.core.searchLoopForSubmap(
+        visible, query_idx, config.search_config, raw_cloud_provider, *registration_for_search,
+        backend.voxelgrid, backend.bbs_verifier);
+      for (const auto & line : output.logs) {
+        if (line.via_logger) {
+          GRAPHSLAM_LOG_INFO(logger, "%s", line.text.c_str());
+        } else {
+          std::cout << line.text << std::endl;
+        }
+      }
+      if (output.proposal.found) {
+        graphslam::backend_core::LoopEdgeSet::Edge edge;
+        edge.pair_id = output.proposal.pair_id;
+        edge.relative_pose = output.proposal.relative_pose;
+        edge.fitness_score = output.proposal.fitness_score;
+        edge.registration_information_valid = output.proposal.registration_information_valid;
+        edge.registration_information = output.proposal.registration_information;
+        if (!bag.edge_set.upsert(edge)) {
+          std::cout << "loop edge skipped as redundant or lower quality" << std::endl;
+        } else {
+          loop_edges_changed = true;
+        }
+      }
+      next_query_idx = query_idx + 1;
+    }
+  }
+
+  // The causal output's map -> odom correction: a pose-graph optimization of
+  // the submaps and loop edges so far.
+  Eigen::Isometry3d causalCorrection() const
+  {
+    std::vector<graphslam::pose_graph::SubmapNode> nodes;
+    nodes.reserve(bag.records.size());
+    for (const auto & record : bag.records) {
+      graphslam::pose_graph::SubmapNode submap_node;
+      submap_node.pose = Eigen::Isometry3d(record.meta.pose.matrix());
+      submap_node.odometry_covariance = record.odometry_covariance;
+      nodes.push_back(submap_node);
+    }
+    std::vector<graphslam::pose_graph::LoopConstraint> constraints;
+    constraints.reserve(bag.edge_set.edges().size());
+    for (const auto & edge : bag.edge_set.edges()) {
+      graphslam::pose_graph::LoopConstraint constraint;
+      constraint.from = edge.pair_id.first;
+      constraint.to = edge.pair_id.second;
+      constraint.relative_pose = edge.relative_pose;
+      constraint.fitness_score = edge.fitness_score;
+      constraint.registration_information_valid = edge.registration_information_valid;
+      constraint.registration_information = edge.registration_information;
+      constraints.push_back(constraint);
+    }
+    const graphslam::pose_graph::OptimizationResult result =
+      graphslam::pose_graph::optimizePoseGraph(
+      nodes, constraints, {}, {}, config.adjacent_config, config.loop_config, config.imu_config,
+      graphslam::pose_graph::Chi2Collection::NONE, true, 10);
+    return Eigen::Isometry3d(result.poses.back() * nodes.back().pose.inverse());
+  }
+};
+
+// Report-only thickness attribution of the retained dense scans in the raw
+// frontend odometry frame (save_map_thickness_attribution).
+void writeMapThicknessAttribution(
+  const RunnerConfig & config, const BagPassResult & bag, const RunnerLog & logger)
+{
+  const std::vector<ScanAttributionRecord> & attribution_scans = bag.attribution_scans;
+  const graphslam::map_thickness::RevisitSegmentationConfig & revisit_config =
+    config.revisit_config;
+  std::vector<Eigen::Vector3d> scan_positions;
+  scan_positions.reserve(attribution_scans.size());
+  for (const auto & scan : attribution_scans) {
+    scan_positions.push_back(scan.pose.translation());
+  }
+  const graphslam::map_thickness::RevisitSegmentationResult revisit_result =
+    graphslam::map_thickness::segmentTrajectoryRevisits(scan_positions, revisit_config);
+
+  std::size_t retained_points = 0U;
+  for (const auto & scan : attribution_scans) {
+    retained_points += scan.local_points.size();
+  }
+  std::vector<graphslam::map_thickness::AttributedPoint> attributed_points;
+  attributed_points.reserve(retained_points);
+  for (std::size_t scan_index = 0; scan_index < attribution_scans.size(); ++scan_index) {
+    const auto & scan = attribution_scans[scan_index];
+    for (const Eigen::Vector3d & local_point : scan.local_points) {
+      graphslam::map_thickness::AttributedPoint point;
+      point.position = scan.pose * local_point;
+      point.scan_id = scan.scan_id;
+      point.submap_id = scan.submap_id;
+      point.revisit_id = revisit_result.revisit_ids[scan_index];
+      attributed_points.push_back(point);
+    }
+  }
+
+  graphslam::map_thickness::AttributionConfig attribution_config;
+  const graphslam::map_thickness::AttributionReport attribution_report =
+    graphslam::map_thickness::computeAttribution(attributed_points, attribution_config);
+  const std::string report_path = config.output_dir + "/map_thickness_attribution_raw.yaml";
+  std::ofstream report_output(report_path);
+  for (const std::string & line : graphslam::map_thickness::reportYamlLines(
+      attribution_report, attribution_config))
+  {
+    report_output << line << "\n";
+  }
+  report_output << "map_thickness_provenance:\n";
+  report_output << std::setprecision(17);
+  report_output << "  coordinate_source: dense_frontend_odometry\n";
+  report_output << "  paired_scans: " << attribution_scans.size() << "\n";
+  report_output << "  physical_submap_count: " << bag.records.size() << "\n";
+  report_output << "  raw_finite_points: " << bag.attribution_raw_finite_points << "\n";
+  report_output << "  retained_points: " << retained_points << "\n";
+  report_output << "  scan_voxel_size_m: " << config.retained_scan_voxel_size << "\n";
+  report_output << "  revisit_segmentation: spatial_trajectory_overlap_v1\n";
+  report_output << "  revisit_epoch_count: " << revisit_result.revisit_epoch_count << "\n";
+  report_output << "  revisit_matched_scans: " << revisit_result.matched_scan_count << "\n";
+  report_output << "  revisit_epoch_start_scan_ids: [";
+  for (std::size_t i = 0; i < revisit_result.epoch_start_indices.size(); ++i) {
+    if (i > 0U) {
+      report_output << ", ";
+    }
+    report_output << attribution_scans[revisit_result.epoch_start_indices[i]].scan_id;
+  }
+  report_output << "]\n";
+  report_output << "  revisit_epoch_start_travel_m: [";
+  for (std::size_t i = 0; i < revisit_result.epoch_start_indices.size(); ++i) {
+    if (i > 0U) {
+      report_output << ", ";
+    }
+    report_output << revisit_result.cumulative_travel_m[
+      revisit_result.epoch_start_indices[i]];
+  }
+  report_output << "]\n";
+  report_output << "  revisit_epoch_start_positions_m: [";
+  for (std::size_t i = 0; i < revisit_result.epoch_start_indices.size(); ++i) {
+    if (i > 0U) {
+      report_output << ", ";
+    }
+    const Eigen::Vector3d & position = scan_positions[
+      revisit_result.epoch_start_indices[i]];
+    report_output << "[" << position.x() << ", " << position.y() << ", " <<
+      position.z() << "]";
+  }
+  report_output << "]\n";
+  report_output << "  dense_trajectory_travel_m: " <<
+    (revisit_result.cumulative_travel_m.empty() ?
+  0.0 : revisit_result.cumulative_travel_m.back()) << "\n";
+  report_output << "  revisit_match_radius_m: " << revisit_config.match_radius_m << "\n";
+  report_output << "  revisit_min_prior_travel_m: " <<
+    revisit_config.min_prior_travel_m << "\n";
+  report_output << "  revisit_exit_travel_m: " <<
+    revisit_config.exit_hysteresis_travel_m << "\n";
+  report_output << "  revisit_min_epoch_travel_m: " <<
+    revisit_config.min_epoch_separation_m << "\n";
+
+  if (config.map_thickness_write_csv) {
+    std::ofstream csv(config.output_dir + "/map_thickness_attributed_points.csv");
+    csv << std::setprecision(17);
+    csv << graphslam::map_thickness::attributedPointCsvHeader() << "\n";
+    for (const auto & point : attributed_points) {
+      csv << point.position.x() << "," << point.position.y() << "," <<
+        point.position.z() << "," << point.scan_id << "," << point.submap_id << "," <<
+        point.revisit_id << "\n";
+    }
+  }
+  GRAPHSLAM_LOG_INFO(
+    logger,
+    "Wrote raw thickness attribution from %zu scans, %zu retained points, %d epochs to %s",
+    attribution_scans.size(), retained_points, revisit_result.revisit_epoch_count,
+    report_path.c_str());
+}
+
+// The final pose graph: its nodes and loop constraints, the finite submap
+// points the plane revisits and the plane-BA refinement work on, and the
+// optimized submap poses.
+struct FinalPoseGraph
+{
+  std::vector<graphslam::pose_graph::SubmapNode> submap_nodes;
+  std::vector<graphslam::pose_graph::LoopConstraint> loop_constraints;
+  std::vector<std::vector<Eigen::Vector3d>> local_clouds;
+  std::vector<Eigen::Isometry3d> optimized_poses;
+  std::string pose_graph_g2o;  // kept only for the map bundle
+};
+
+// The optional plane revisit factors (use_plane_revisit_constraints).
+struct PlaneRevisitFactors
+{
+  graphslam::pose_graph::PlaneRevisitBuilderResult result;
+  graphslam::pose_graph::PlaneRevisitGateResult gate_result;
+  graphslam::map_refinement::AssociationResult association;
+};
+
+// Associates plane features across the submaps, builds the long-baseline
+// revisit constraints from them and gates those by their initial residual.
+void associatePlaneRevisits(
+  const RunnerConfig & config, const FinalPoseGraph & graph, const RunnerLog & logger,
+  PlaneRevisitFactors & plane_revisit)
+{
+  std::vector<std::vector<Eigen::Vector3d>> downsampled_clouds;
+  downsampled_clouds.reserve(graph.local_clouds.size());
+  for (const auto & cloud : graph.local_clouds) {
+    downsampled_clouds.push_back(
+      graphslam::map_quality::downsampleByVoxelCentroid(
+        cloud, config.plane_revisit_cloud_downsample));
+  }
+  std::vector<Eigen::Matrix4d> pose_matrices;
+  pose_matrices.reserve(graph.submap_nodes.size());
+  for (const auto & node_data : graph.submap_nodes) {
+    pose_matrices.push_back(node_data.pose.matrix());
+  }
+  graphslam::map_refinement::AssociationConfig association_config;
+  association_config.min_observing_poses = 2;
+  association_config.min_points_per_observation =
+    config.plane_revisit_min_points_per_observation;
+  association_config.extraction.root_voxel_size = config.plane_revisit_root_voxel_size;
+  association_config.extraction.max_octree_depth = config.plane_revisit_max_octree_depth;
+  association_config.extraction.max_plane_thickness =
+    config.plane_revisit_max_plane_thickness;
+  association_config.extraction.min_planarity_ratio =
+    config.plane_revisit_min_planarity_ratio;
+  plane_revisit.association = graphslam::map_refinement::associatePlaneFeatures(
+    downsampled_clouds, pose_matrices, association_config);
+  graphslam::pose_graph::PlaneRevisitBuilderConfig builder_config;
+  builder_config.min_pose_separation = config.plane_revisit_min_pose_separation;
+  builder_config.max_constraints_per_feature =
+    config.plane_revisit_max_constraints_per_feature;
+  builder_config.normal_info_weight = config.plane_revisit_normal_info_weight;
+  builder_config.offset_info_weight = config.plane_revisit_offset_info_weight;
+  plane_revisit.result = graphslam::pose_graph::buildPlaneRevisitConstraints(
+    plane_revisit.association.features, builder_config);
+  std::vector<Eigen::Isometry3d> initial_poses;
+  initial_poses.reserve(graph.submap_nodes.size());
+  for (const auto & node_data : graph.submap_nodes) {
+    initial_poses.push_back(node_data.pose);
+  }
+  plane_revisit.gate_result =
+    graphslam::pose_graph::gatePlaneRevisitConstraintsByInitialResidual(
+    plane_revisit.result.constraints, initial_poses,
+    config.plane_revisit_max_initial_normal_error_deg,
+    config.plane_revisit_max_initial_offset_error_m);
+  plane_revisit.result.constraints = plane_revisit.gate_result.constraints;
+  GRAPHSLAM_LOG_INFO(
+    logger,
+    "Plane revisit association: %d/%d patches, %zu constraints (%d rejected observations)",
+    plane_revisit.association.patches_used, plane_revisit.association.patches_total,
+    plane_revisit.result.constraints.size(), plane_revisit.result.observations_rejected);
+}
+
+// plane_revisit_report.yaml: the plane revisit parameters, what the
+// association and the gate kept, and the factors' chi2 in the optimization.
+void writePlaneRevisitReport(
+  const RunnerConfig & config, const PlaneRevisitFactors & plane_revisit,
+  const graphslam::pose_graph::OptimizationResult & result)
+{
+  const graphslam::pose_graph::PlaneRevisitBuilderResult & plane_revisit_result =
+    plane_revisit.result;
+  const graphslam::pose_graph::PlaneRevisitGateResult & plane_revisit_gate_result =
+    plane_revisit.gate_result;
+  const graphslam::map_refinement::AssociationResult & plane_revisit_association =
+    plane_revisit.association;
+  std::ofstream report(config.output_dir + "/plane_revisit_report.yaml");
+  report << "plane_revisit:\n";
+  report << "  enabled: true\n";
+  report << "  root_voxel_size_m: " << config.plane_revisit_root_voxel_size << "\n";
+  report << "  max_octree_depth: " << config.plane_revisit_max_octree_depth << "\n";
+  report << "  max_plane_thickness_m: " << config.plane_revisit_max_plane_thickness << "\n";
+  report << "  min_planarity_ratio: " << config.plane_revisit_min_planarity_ratio << "\n";
+  report << "  min_points_per_observation: " <<
+    config.plane_revisit_min_points_per_observation << "\n";
+  report << "  max_initial_normal_error_deg: " <<
+    config.plane_revisit_max_initial_normal_error_deg << "\n";
+  report << "  max_initial_offset_error_m: " <<
+    config.plane_revisit_max_initial_offset_error_m << "\n";
+  report << "  patches_total: " << plane_revisit_association.patches_total << "\n";
+  report << "  patches_used: " << plane_revisit_association.patches_used << "\n";
+  report << "  points_used: " << plane_revisit_association.points_used << "\n";
+  report << "  features_seen: " << plane_revisit_result.features_seen << "\n";
+  report << "  features_with_constraints: " <<
+    plane_revisit_result.features_with_constraints << "\n";
+  report << "  observations_seen: " << plane_revisit_result.observations_seen << "\n";
+  report << "  observations_rejected: " << plane_revisit_result.observations_rejected << "\n";
+  report << "  max_pose_separation: " <<
+    plane_revisit_result.max_pose_separation << "\n";
+  report << "  candidate_constraints: " <<
+    plane_revisit_result.constraints.size() + plane_revisit_gate_result.rejected << "\n";
+  report << "  constraints_rejected_initial_residual: " <<
+    plane_revisit_gate_result.rejected << "\n";
+  report << "  accepted_max_initial_normal_error_deg: " <<
+    plane_revisit_gate_result.accepted_max_normal_error_deg << "\n";
+  report << "  accepted_max_initial_offset_error_m: " <<
+    plane_revisit_gate_result.accepted_max_offset_error_m << "\n";
+  report << "  constraints: " << result.plane_revisit_edges << "\n";
+  report << "  chi2_before: " << result.plane_revisit_chi2_before << "\n";
+  report << "  chi2_after: " << result.plane_revisit_chi2_after << "\n";
+}
+
+// --- Final pose-graph optimization from raw odometry poses plus the
+// accumulated loop edges, exactly like the live doPoseAdjustment with
+// IMU / GNSS off.
+void optimizeFinalPoseGraph(
+  const RunnerConfig & config, BagPassResult & bag, const RunnerLog & logger,
+  FinalPoseGraph & graph)
+{
+  graph.submap_nodes.reserve(bag.records.size());
+  for (const auto & record : bag.records) {
+    graphslam::pose_graph::SubmapNode submap_node;
+    submap_node.pose = Eigen::Isometry3d(record.meta.pose.matrix());
+    submap_node.odometry_covariance = record.odometry_covariance;
+    graph.submap_nodes.push_back(submap_node);
+  }
+  graph.loop_constraints.reserve(bag.edge_set.edges().size());
+  for (const auto & edge : bag.edge_set.edges()) {
+    graphslam::pose_graph::LoopConstraint loop_constraint;
+    loop_constraint.from = edge.pair_id.first;
+    loop_constraint.to = edge.pair_id.second;
+    loop_constraint.relative_pose = edge.relative_pose;
+    loop_constraint.fitness_score = edge.fitness_score;
+    loop_constraint.registration_information_valid = edge.registration_information_valid;
+    loop_constraint.registration_information = edge.registration_information;
+    graph.loop_constraints.push_back(loop_constraint);
+  }
+
+  if (config.use_plane_revisit_constraints || config.refine) {
+    // The submap clouds are not read after this copy, so each is released as
+    // it is copied: the two are not held whole at the same time.
+    graph.local_clouds.reserve(bag.records.size());
+    const std::size_t restored_before = bag.cloud_stats.restored;
+    const double restore_sec_before = bag.cloud_stats.restore_sec;
+    for (auto & record : bag.records) {
+      const CloudPtr cloud = submapCloud(record, bag.cloud_stats);
+      std::vector<Eigen::Vector3d> points;
+      points.reserve(cloud->size());
+      for (const auto & point : cloud->points) {
+        if (!std::isfinite(point.x) || !std::isfinite(point.y) || !std::isfinite(point.z)) {
+          continue;
+        }
+        points.emplace_back(point.x, point.y, point.z);
+      }
+      graph.local_clouds.push_back(std::move(points));
+      record.cloud.reset();
+      if (!config.map_bundle) {
+        // The map bundle reads the stored clouds (with intensity) after the optimization.
+        record.stored_cloud.reset();
+      }
+    }
+    GRAPHSLAM_LOG_INFO(
+      logger, "Submap clouds restored for the final copy: %zu in %.3f s",
+      bag.cloud_stats.restored - restored_before,
+      bag.cloud_stats.restore_sec - restore_sec_before);
+  }
+
+  PlaneRevisitFactors plane_revisit;
+  if (config.use_plane_revisit_constraints && !graph.local_clouds.empty()) {
+    associatePlaneRevisits(config, graph, logger, plane_revisit);
+  }
+
+  graph.optimized_poses.reserve(bag.records.size());
+  if (!bag.records.empty()) {
+    const graphslam::pose_graph::OptimizationResult result =
+      graphslam::pose_graph::optimizePoseGraph(
+      graph.submap_nodes, graph.loop_constraints, {}, {}, config.adjacent_config,
+      config.loop_config, config.imu_config, graphslam::pose_graph::Chi2Collection::NONE, true,
+      10, plane_revisit.result.constraints);
+    graph.optimized_poses = result.poses;
+    if (config.map_bundle) {
+      graph.pose_graph_g2o = result.pose_graph_g2o;
+    }
+    if (config.use_plane_revisit_constraints) {
+      writePlaneRevisitReport(config, plane_revisit, result);
+    }
+  }
+}
+
+void saveProbabilisticSurfelPoints(
+  const std::string & path, const std::vector<Eigen::Vector3d> & points)
+{
+  pcl::PointCloud<pcl::PointXYZ> cloud;
+  cloud.reserve(points.size());
+  for (const Eigen::Vector3d & point : points) {
+    cloud.push_back(pcl::PointXYZ(
+        static_cast<float>(point.x()), static_cast<float>(point.y()),
+        static_cast<float>(point.z())));
+  }
+  if (pcl::io::savePCDFileBinary(path, cloud) != 0) {
+    throw std::runtime_error("failed to save probabilistic surfel map: " + path);
+  }
+}
+
+// probabilistic_surfel_map_report.yaml: the surfel map parameters and what
+// the build produced.
+void writeProbabilisticSurfelReport(
+  const RunnerConfig & config, const graphslam::ProbabilisticSurfelMapResult & surfel_result,
+  const RunnerLog & logger)
+{
+  const graphslam::ProbabilisticSurfelMapConfig & surfel_map_config = config.surfel_map_config;
+  const auto & stats = surfel_result.stats;
+  std::ofstream report(config.output_dir + "/probabilistic_surfel_map_report.yaml");
+  report << std::setprecision(17);
+  report << "probabilistic_surfel_map:\n";
+  report << "  schema_version: 1\n";
+  report << "  enabled_by_default: false\n";
+  report << "  pose_source: dense_pose_graph_correction\n";
+  report << "  covariance_source: odometry_pose_covariance_diagonal_mean\n";
+  report << "  scan_voxel_size_m: " << config.retained_scan_voxel_size << "\n";
+  report << "  output_voxel_size_m: " << surfel_map_config.voxel_size_m << "\n";
+  report << "  support_voxel_size_m: " <<
+    surfel_map_config.surfel_support_voxel_size_m << "\n";
+  report << "  secondary_support_voxel_size_m: " <<
+    surfel_map_config.secondary_support_voxel_size_m << "\n";
+  report << "  tertiary_support_voxel_size_m: " <<
+    surfel_map_config.tertiary_support_voxel_size_m << "\n";
+  report << "  support_grid_phases: " << surfel_map_config.support_grid_phases << "\n";
+  report << "  blend_support_phases: " << std::boolalpha <<
+    surfel_map_config.blend_support_phases << "\n";
+  report << "  support_phases_fallback_only: " << std::boolalpha <<
+    surfel_map_config.support_phases_fallback_only << "\n";
+  report << "  surface_consolidation_enabled: " << std::boolalpha <<
+    config.save_surface_consolidated_map << "\n";
+  report << "  surface_consolidation_min_projection_distance_m: " <<
+    surfel_map_config.surface_consolidation_min_projection_distance_m << "\n";
+  report << "  connected_surface_enabled: " << std::boolalpha <<
+    config.save_connected_surface_map << "\n";
+  report << "  connected_surface_max_normal_angle_deg: " <<
+    surfel_map_config.connected_surface_max_normal_angle_deg << "\n";
+  report << "  connected_surface_max_plane_distance_m: " <<
+    surfel_map_config.connected_surface_max_plane_distance_m << "\n";
+  report << "  connected_surface_min_support_cells: " <<
+    surfel_map_config.connected_surface_min_support_cells << "\n";
+  report << "  connected_surface_extend_fallback: " << std::boolalpha <<
+    surfel_map_config.connected_surface_extend_fallback << "\n";
+  report << "  connected_surface_max_extension_distance_m: " <<
+    surfel_map_config.connected_surface_max_extension_distance_m << "\n";
+  report << "  connected_surface_min_extension_support_cells: " <<
+    surfel_map_config.connected_surface_min_extension_support_cells << "\n";
+  report << "  min_distinct_scans: " << surfel_map_config.fusion.min_distinct_scans << "\n";
+  report << "  input_scan_stride: " << config.probabilistic_surfel_input_scan_stride << "\n";
+  report << "  input_scan_offset: " << config.probabilistic_surfel_input_scan_offset << "\n";
+  report << "  input_scans: " << stats.input_scans << "\n";
+  report << "  input_points: " << stats.input_points << "\n";
+  report << "  finite_points: " << stats.finite_points << "\n";
+  report << "  occupied_voxels: " << stats.occupied_voxels << "\n";
+  report << "  occupied_support_voxels: " << stats.occupied_support_voxels << "\n";
+  report << "  valid_support_surfels: " << stats.valid_support_surfels << "\n";
+  report << "  baseline_points: " << surfel_result.baseline_centroids.size() << "\n";
+  report << "  fused_points: " << surfel_result.fused_points.size() << "\n";
+  report << "  fused_surfel_voxels: " << stats.fused_surfel_voxels << "\n";
+  report << "  fallback_centroid_voxels: " << stats.fallback_centroid_voxels << "\n";
+  report << "  shifted_phase_fused_voxels: " <<
+    stats.shifted_phase_fused_voxels << "\n";
+  report << "  surface_consolidation_input_points: " <<
+    stats.surface_consolidation_input_points << "\n";
+  report << "  surface_consolidation_selected_points: " <<
+    stats.surface_consolidation_selected_points << "\n";
+  report << "  surface_consolidation_output_points: " <<
+    stats.surface_consolidation_output_points << "\n";
+  report << "  surface_consolidation_merged_points: " <<
+    stats.surface_consolidation_merged_points << "\n";
+  report << "  support_partition_enabled: " << std::boolalpha <<
+    config.save_surfel_support_partition_maps << "\n";
+  report << "  supported_partition_points: " <<
+    surfel_result.supported_partition_points.size() << "\n";
+  report << "  fallback_partition_points: " <<
+    surfel_result.fallback_partition_points.size() << "\n";
+  report << "  connected_surface_support_cells: " <<
+    stats.connected_surface_support_cells << "\n";
+  report << "  connected_surface_merged_cells: " <<
+    stats.connected_surface_merged_cells << "\n";
+  report << "  connected_surface_projected_voxels: " <<
+    stats.connected_surface_projected_voxels << "\n";
+  report << "  connected_surface_extended_fallback_voxels: " <<
+    stats.connected_surface_extended_fallback_voxels << "\n";
+  report << "  connected_surface_output_points: " <<
+    surfel_result.connected_surface_points.size() << "\n";
+  report << "  mean_raw_normal_rms_m: " << stats.mean_raw_normal_rms_m << "\n";
+  report << "  mean_fused_normal_sigma_m: " << stats.mean_fused_normal_sigma_m << "\n";
+  report << "  persistence_filter_enabled: " << std::boolalpha <<
+    config.save_scan_persistence_filtered_map << "\n";
+  report << "  persistence_min_distinct_scans: " <<
+    surfel_map_config.persistence_min_distinct_scans << "\n";
+  report << "  persistence_min_scan_span: " <<
+    surfel_map_config.persistence_min_scan_span << "\n";
+  report << "  persistence_max_filter_range_m: " <<
+    surfel_map_config.persistence_max_filter_range_m << "\n";
+  report << "  persistence_candidate_voxels: " <<
+    stats.persistence_candidate_voxels << "\n";
+  report << "  persistence_kept_voxels: " << stats.persistence_kept_voxels << "\n";
+  report << "  persistence_removed_voxels: " << stats.persistence_removed_voxels << "\n";
+  report << "  persistence_far_range_keep_voxels: " <<
+    stats.persistence_far_range_keep_voxels << "\n";
+  report << "  persistence_output_points: " <<
+    surfel_result.persistence_filtered_points.size() << "\n";
+  report << "  visibility_filter_enabled: " << std::boolalpha <<
+    config.save_visibility_aware_dynamic_map << "\n";
+  report << "  visibility_max_distinct_scans: " <<
+    surfel_map_config.visibility_max_distinct_scans << "\n";
+  report << "  visibility_max_scan_span: " <<
+    surfel_map_config.visibility_max_scan_span << "\n";
+  report << "  visibility_near_scan_offset: " <<
+    surfel_map_config.visibility_near_scan_offset << "\n";
+  report << "  visibility_far_scan_offset: " <<
+    surfel_map_config.visibility_far_scan_offset << "\n";
+  report << "  visibility_min_free_space_votes: " <<
+    surfel_map_config.visibility_min_free_space_votes << "\n";
+  report << "  visibility_angular_resolution_rad: " <<
+    surfel_map_config.visibility_angular_resolution_rad << "\n";
+  report << "  visibility_free_space_margin_m: " <<
+    surfel_map_config.visibility_free_space_margin_m << "\n";
+  report << "  visibility_max_range_m: " <<
+    surfel_map_config.visibility_max_range_m << "\n";
+  report << "  visibility_max_origin_displacement_m: " <<
+    surfel_map_config.visibility_max_origin_displacement_m << "\n";
+  report << "  visibility_candidate_voxels: " <<
+    stats.visibility_candidate_voxels << "\n";
+  report << "  visibility_tested_voxels: " << stats.visibility_tested_voxels << "\n";
+  report << "  visibility_contradicted_voxels: " <<
+    stats.visibility_contradicted_voxels << "\n";
+  report << "  visibility_removed_voxels: " << stats.visibility_removed_voxels << "\n";
+  report << "  visibility_kept_voxels: " << stats.visibility_kept_voxels << "\n";
+  report << "  visibility_output_points: " <<
+    surfel_result.visibility_filtered_points.size() << "\n";
+  GRAPHSLAM_LOG_INFO(
+    logger, "Wrote surfel baseline/fused maps: %zu occupied, %zu fused, %zu fallback",
+    stats.occupied_voxels, stats.fused_surfel_voxels, stats.fallback_centroid_voxels);
+  report.close();
+}
+
+// Scan-surface refinement of the dense corrected poses
+// (save_scan_surface_refined_surfel_map): its dense trajectory, the surfel
+// maps rebuilt at the refined poses when it is accepted, and its report.
+void writeScanSurfaceRefinedMaps(
+  const RunnerConfig & config,
+  const std::vector<graphslam::scan_surface_refinement::ScanSurfaceRefinerScan> &
+  scan_surface_scans,
+  const RunnerLog & logger)
+{
+  const graphslam::scan_surface_refinement::ScanSurfaceRefinerConfig & scan_surface_config =
+    config.scan_surface_config;
+  const graphslam::scan_surface_refinement::ScanSurfaceRefinerResult surface_result =
+    graphslam::scan_surface_refinement::refineScanSurfaceTranslations(
+    scan_surface_scans, scan_surface_config);
+  {
+    std::ofstream trajectory(config.output_dir + "/trajectory_scan_surface_refined_dense.tum");
+    char line[256];
+    for (std::size_t i = 0; i < surface_result.corrected_poses.size(); ++i) {
+      const Eigen::Matrix4d & pose = surface_result.corrected_poses[i];
+      const Eigen::Vector3d translation = pose.block<3, 1>(0, 3);
+      const Eigen::Quaterniond quaternion(pose.block<3, 3>(0, 0));
+      std::snprintf(
+        line, sizeof(line), "%.9f %.9f %.9f %.9f %.9f %.9f %.9f %.9f",
+        scan_surface_scans[i].stamp_sec,
+        translation.x(), translation.y(), translation.z(),
+        quaternion.x(), quaternion.y(), quaternion.z(), quaternion.w());
+      trajectory << line << "\n";
+    }
+  }
+
+  graphslam::ProbabilisticSurfelMapResult corrected_surfel_result;
+  if (surface_result.accepted) {
+    std::vector<graphslam::ProbabilisticSurfelMapScan> corrected_scans;
+    corrected_scans.reserve(scan_surface_scans.size());
+    for (std::size_t i = 0; i < scan_surface_scans.size(); ++i) {
+      graphslam::ProbabilisticSurfelMapScan corrected_scan;
+      corrected_scan.scan_id = scan_surface_scans[i].scan_id;
+      corrected_scan.sensor_origin =
+        surface_result.corrected_poses[i].block<3, 1>(0, 3);
+      corrected_scan.pose_translation_variance_m2 =
+        scan_surface_scans[i].pose_translation_variance_m2;
+      corrected_scan.pose_rotation_variance_rad2 =
+        scan_surface_scans[i].pose_rotation_variance_rad2;
+      const Eigen::Matrix3d rotation =
+        surface_result.corrected_poses[i].block<3, 3>(0, 0);
+      const Eigen::Vector3d translation = corrected_scan.sensor_origin;
+      const std::vector<Eigen::Vector3d> & local_points =
+        scan_surface_scans[i].points();
+      corrected_scan.world_points.reserve(local_points.size());
+      for (const Eigen::Vector3d & local_point : local_points) {
+        corrected_scan.world_points.push_back(rotation * local_point + translation);
+      }
+      corrected_scans.push_back(std::move(corrected_scan));
+    }
+    graphslam::ProbabilisticSurfelMapConfig corrected_config = config.surfel_map_config;
+    corrected_config.build_persistence_filtered_map = false;
+    corrected_config.build_visibility_filtered_map = false;
+    corrected_surfel_result = graphslam::buildProbabilisticSurfelMap(
+      corrected_scans, corrected_config);
+    saveProbabilisticSurfelPoints(
+      config.output_dir + "/map_scan_surface_refined_centroid.pcd",
+      corrected_surfel_result.baseline_centroids);
+    saveProbabilisticSurfelPoints(
+      config.output_dir + "/map_scan_surface_refined_surfel.pcd",
+      corrected_surfel_result.fused_points);
+  }
+  {
+    std::ofstream surface_report(config.output_dir + "/scan_surface_refiner_report.yaml");
+    surface_report << std::setprecision(17);
+    surface_report << "scan_surface_refiner:\n";
+    surface_report << "  schema_version: 1\n";
+    surface_report << "  enabled_by_default: false\n";
+    surface_report << "  accepted: " << std::boolalpha << surface_result.accepted << "\n";
+    surface_report << "  scan_downsample_voxel_size_m: " <<
+      scan_surface_config.scan_downsample_voxel_size_m << "\n";
+    surface_report << "  support_voxel_size_m: " <<
+      scan_surface_config.support_voxel_size_m << "\n";
+    surface_report << "  cross_fit_scan_parity: " <<
+      scan_surface_config.cross_fit_scan_parity << "\n";
+    surface_report << "  absolute_translation_prior_sigma_m: " <<
+      scan_surface_config.absolute_translation_prior_sigma_m << "\n";
+    surface_report << "  temporal_smoothness_sigma_m: " <<
+      scan_surface_config.temporal_smoothness_sigma_m << "\n";
+    surface_report << "  max_total_translation_correction_m: " <<
+      scan_surface_config.max_total_translation_correction_m << "\n";
+    surface_report << "  input_scans: " << scan_surface_scans.size() << "\n";
+    surface_report << "  input_points: " << surface_result.input_points << "\n";
+    surface_report << "  downsampled_points: " << surface_result.downsampled_points << "\n";
+    surface_report << "  occupied_support_voxels: " <<
+      surface_result.occupied_support_voxels << "\n";
+    surface_report << "  valid_support_surfels: " <<
+      surface_result.valid_support_surfels << "\n";
+    surface_report << "  surface_observations: " <<
+      surface_result.surface_observations << "\n";
+    surface_report << "  constrained_scans: " <<
+      surface_result.constrained_scans << "\n";
+    surface_report << "  initial_objective: " << surface_result.initial_objective << "\n";
+    surface_report << "  final_objective: " << surface_result.final_objective << "\n";
+    surface_report << "  initial_surface_rms_m: " <<
+      surface_result.initial_surface_rms_m << "\n";
+    surface_report << "  final_surface_rms_m: " <<
+      surface_result.final_surface_rms_m << "\n";
+    surface_report << "  correction_rms_m: " << surface_result.correction_rms_m << "\n";
+    surface_report << "  correction_max_m: " << surface_result.correction_max_m << "\n";
+    surface_report << "  output_centroid_points: " <<
+      corrected_surfel_result.baseline_centroids.size() << "\n";
+    surface_report << "  output_surfel_points: " <<
+      corrected_surfel_result.fused_points.size() << "\n";
+  }
+  GRAPHSLAM_LOG_INFO(
+    logger,
+    "Scan-surface refinement %s: %.6f -> %.6f m surface RMS, %.6f m correction RMS",
+    surface_result.accepted ? "accepted" : "rejected",
+    surface_result.initial_surface_rms_m, surface_result.final_surface_rms_m,
+    surface_result.correction_rms_m);
+}
+
+// The probabilistic surfel maps (save_probabilistic_surfel_map and the other
+// surfel outputs) from the retained dense scans at their corrected poses.
+void writeProbabilisticSurfelMaps(
+  const RunnerConfig & config, const BagPassResult & bag,
+  const std::vector<graphslam::dense_pose_correction::TimedPose> & dense_corrected_poses,
+  const RunnerLog & logger)
+{
+  const std::vector<ScanAttributionRecord> & attribution_scans = bag.attribution_scans;
+  std::vector<graphslam::ProbabilisticSurfelMapScan> surfel_scans;
+  surfel_scans.reserve(attribution_scans.size());
+  std::vector<graphslam::scan_surface_refinement::ScanSurfaceRefinerScan>
+  scan_surface_scans;
+  if (config.save_scan_surface_refined_surfel_map) {
+    scan_surface_scans.reserve(attribution_scans.size());
+  }
+  for (std::size_t i = 0; i < attribution_scans.size(); ++i) {
+    if (static_cast<int>(attribution_scans[i].scan_id %
+      config.probabilistic_surfel_input_scan_stride) !=
+      config.probabilistic_surfel_input_scan_offset)
+    {
+      continue;
+    }
+    graphslam::ProbabilisticSurfelMapScan surfel_scan;
+    surfel_scan.scan_id = static_cast<std::uint64_t>(attribution_scans[i].scan_id);
+    surfel_scan.sensor_origin = dense_corrected_poses[i].pose.translation();
+    const double translation_variance = meanClampedCovarianceDiagonal(
+      attribution_scans[i].odometry_covariance, {0U, 7U, 14U},
+      config.surfel_pose_translation_fallback_variance_m2,
+      config.surfel_pose_translation_max_variance_m2);
+    const double rotation_variance = meanClampedCovarianceDiagonal(
+      attribution_scans[i].odometry_covariance, {21U, 28U, 35U},
+      config.surfel_pose_rotation_fallback_variance_rad2,
+      config.surfel_pose_rotation_max_variance_rad2);
+    surfel_scan.pose_translation_variance_m2 = translation_variance;
+    surfel_scan.pose_rotation_variance_rad2 = rotation_variance;
+    surfel_scan.world_points.reserve(attribution_scans[i].local_points.size());
+    for (const Eigen::Vector3d & local_point : attribution_scans[i].local_points) {
+      surfel_scan.world_points.push_back(dense_corrected_poses[i].pose * local_point);
+    }
+    surfel_scans.push_back(std::move(surfel_scan));
+    if (config.save_scan_surface_refined_surfel_map) {
+      graphslam::scan_surface_refinement::ScanSurfaceRefinerScan surface_scan;
+      surface_scan.scan_id = static_cast<std::uint64_t>(attribution_scans[i].scan_id);
+      surface_scan.stamp_sec = attribution_scans[i].stamp_sec;
+      surface_scan.world_pose = dense_corrected_poses[i].pose.matrix();
+      surface_scan.pose_translation_variance_m2 = translation_variance;
+      surface_scan.pose_rotation_variance_rad2 = rotation_variance;
+      surface_scan.local_points_view = &attribution_scans[i].local_points;
+      scan_surface_scans.push_back(surface_scan);
+    }
+  }
+  graphslam::ProbabilisticSurfelMapResult surfel_result =
+    graphslam::buildProbabilisticSurfelMap(surfel_scans, config.surfel_map_config);
+  saveProbabilisticSurfelPoints(
+    config.output_dir + "/map_surfel_baseline_centroid.pcd",
+    surfel_result.baseline_centroids);
+  saveProbabilisticSurfelPoints(
+    config.output_dir + "/map_surfel_fused.pcd", surfel_result.fused_points);
+  if (config.save_connected_surface_map) {
+    saveProbabilisticSurfelPoints(
+      config.output_dir + "/map_surfel_connected_surface.pcd",
+      surfel_result.connected_surface_points);
+  }
+  if (config.save_surface_consolidated_map) {
+    saveProbabilisticSurfelPoints(
+      config.output_dir + "/map_surfel_surface_consolidated.pcd",
+      surfel_result.surface_consolidated_points);
+  }
+  if (config.save_surfel_support_partition_maps) {
+    saveProbabilisticSurfelPoints(
+      config.output_dir + "/map_surfel_supported_partition.pcd",
+      surfel_result.supported_partition_points);
+    saveProbabilisticSurfelPoints(
+      config.output_dir + "/map_surfel_fallback_partition.pcd",
+      surfel_result.fallback_partition_points);
+  }
+  if (config.save_scan_persistence_filtered_map) {
+    saveProbabilisticSurfelPoints(
+      config.output_dir + "/map_surfel_persistence_filtered.pcd",
+      surfel_result.persistence_filtered_points);
+  }
+  if (config.save_visibility_aware_dynamic_map) {
+    saveProbabilisticSurfelPoints(
+      config.output_dir + "/map_surfel_visibility_filtered.pcd",
+      surfel_result.visibility_filtered_points);
+  }
+
+  writeProbabilisticSurfelReport(config, surfel_result, logger);
+
+  if (config.save_scan_surface_refined_surfel_map) {
+    surfel_scans.clear();
+    surfel_scans.shrink_to_fit();
+    surfel_result.baseline_centroids.clear();
+    surfel_result.baseline_centroids.shrink_to_fit();
+    surfel_result.fused_points.clear();
+    surfel_result.fused_points.shrink_to_fit();
+    surfel_result.connected_surface_points.clear();
+    surfel_result.connected_surface_points.shrink_to_fit();
+    surfel_result.surface_consolidated_points.clear();
+    surfel_result.surface_consolidated_points.shrink_to_fit();
+    surfel_result.supported_partition_points.clear();
+    surfel_result.supported_partition_points.shrink_to_fit();
+    surfel_result.fallback_partition_points.clear();
+    surfel_result.fallback_partition_points.shrink_to_fit();
+    surfel_result.persistence_filtered_points.clear();
+    surfel_result.persistence_filtered_points.shrink_to_fit();
+    surfel_result.visibility_filtered_points.clear();
+    surfel_result.visibility_filtered_points.shrink_to_fit();
+
+    writeScanSurfaceRefinedMaps(config, scan_surface_scans, logger);
+  }
+}
+
+// Dense pose outputs (save_dense_pose_refined_map and the surfel maps): every
+// retained frontend scan's odometry pose, corrected by the final pose graph's
+// submap corrections.
+void writeDensePoseOutputs(
+  const RunnerConfig & config, const BagPassResult & bag, const FinalPoseGraph & graph,
+  const RunnerLog & logger)
+{
+  const std::vector<SubmapRecord> & records = bag.records;
+  const std::vector<ScanAttributionRecord> & attribution_scans = bag.attribution_scans;
+  using graphslam::dense_pose_correction::TimedPose;
+  std::vector<TimedPose> raw_anchors;
+  std::vector<TimedPose> corrected_anchors;
+  raw_anchors.reserve(records.size());
+  corrected_anchors.reserve(records.size());
+  for (std::size_t i = 0; i < records.size(); ++i) {
+    TimedPose raw_anchor;
+    raw_anchor.stamp_sec = records[i].stamp_sec;
+    raw_anchor.pose = Eigen::Isometry3d(records[i].meta.pose.matrix());
+    raw_anchors.push_back(raw_anchor);
+    TimedPose corrected_anchor;
+    corrected_anchor.stamp_sec = records[i].stamp_sec;
+    corrected_anchor.pose = graph.optimized_poses[i];
+    corrected_anchors.push_back(corrected_anchor);
+  }
+  const auto correction_anchors =
+    graphslam::dense_pose_correction::buildCorrectionAnchors(
+    raw_anchors, corrected_anchors);
+
+  std::vector<TimedPose> dense_raw_poses;
+  dense_raw_poses.reserve(attribution_scans.size());
+  for (const auto & scan : attribution_scans) {
+    TimedPose sample;
+    sample.stamp_sec = scan.stamp_sec;
+    sample.pose = scan.pose;
+    dense_raw_poses.push_back(sample);
+  }
+  const std::vector<TimedPose> dense_corrected_poses =
+    graphslam::dense_pose_correction::applyDenseCorrections(
+    dense_raw_poses, correction_anchors);
+
+  const auto write_dense_tum =
+    [](const std::string & path, const std::vector<TimedPose> & poses) {
+      std::ofstream output(path);
+      char line[256];
+      for (const TimedPose & sample : poses) {
+        const Eigen::Vector3d translation = sample.pose.translation();
+        const Eigen::Quaterniond quaternion(sample.pose.rotation());
+        std::snprintf(
+          line, sizeof(line), "%.9f %.9f %.9f %.9f %.9f %.9f %.9f %.9f",
+          sample.stamp_sec, translation.x(), translation.y(), translation.z(),
+          quaternion.x(), quaternion.y(), quaternion.z(), quaternion.w());
+        output << line << "\n";
+      }
+    };
+  if (config.save_dense_pose_refined_map) {
+    write_dense_tum(config.output_dir + "/trajectory_raw_dense.tum", dense_raw_poses);
+    write_dense_tum(
+      config.output_dir + "/trajectory_optimized_dense.tum", dense_corrected_poses);
+  }
+
+  const auto save_dense_map =
+    [&](const std::vector<TimedPose> & poses, const std::string & path) {
+      std::vector<Eigen::Vector3d> world_points;
+      world_points.reserve(bag.attribution_retained_points);
+      for (std::size_t i = 0; i < attribution_scans.size(); ++i) {
+        for (const Eigen::Vector3d & local_point : attribution_scans[i].local_points) {
+          world_points.push_back(poses[i].pose * local_point);
+        }
+      }
+      const std::vector<Eigen::Vector3d> output_points =
+        graphslam::map_quality::downsampleByVoxelCentroid(
+        world_points, config.dense_pose_refined_output_voxel_size);
+      pcl::PointCloud<pcl::PointXYZ> cloud;
+      cloud.reserve(output_points.size());
+      for (const Eigen::Vector3d & point : output_points) {
+        cloud.push_back(pcl::PointXYZ(
+            static_cast<float>(point.x()), static_cast<float>(point.y()),
+            static_cast<float>(point.z())));
+      }
+      if (pcl::io::savePCDFileBinary(path, cloud) != 0) {
+        throw std::runtime_error("failed to save dense rebuilt map: " + path);
+      }
+      return output_points.size();
+    };
+  if (config.save_dense_pose_refined_map) {
+    const std::size_t raw_map_points = save_dense_map(
+      dense_raw_poses, config.output_dir + "/map_dense_raw.pcd");
+    const std::size_t optimized_map_points = save_dense_map(
+      dense_corrected_poses, config.output_dir + "/map_dense_optimized.pcd");
+
+    std::ofstream report(config.output_dir + "/dense_pose_refined_map_report.yaml");
+    report << std::setprecision(17);
+    report << "dense_pose_refined_map:\n";
+    report << "  schema_version: 1\n";
+    report << "  correction_interpolation: world_translation_linear_quaternion_slerp\n";
+    report << "  dense_scans: " << attribution_scans.size() << "\n";
+    report << "  correction_anchors: " << correction_anchors.size() << "\n";
+    report << "  raw_finite_points: " << bag.attribution_raw_finite_points << "\n";
+    report << "  retained_local_points: " << bag.attribution_retained_points << "\n";
+    report << "  scan_voxel_size_m: " << config.retained_scan_voxel_size << "\n";
+    report << "  output_voxel_size_m: " << config.dense_pose_refined_output_voxel_size << "\n";
+    report << "  raw_map_points: " << raw_map_points << "\n";
+    report << "  optimized_map_points: " << optimized_map_points << "\n";
+    GRAPHSLAM_LOG_INFO(
+      logger, "Wrote dense raw/optimized maps from %zu scans (%zu / %zu points)",
+      attribution_scans.size(), raw_map_points, optimized_map_points);
+  }
+
+  if (config.save_probabilistic_surfel_map || config.save_connected_surface_map ||
+    config.save_surface_consolidated_map ||
+    config.save_surfel_support_partition_maps ||
+    config.save_scan_persistence_filtered_map ||
+    config.save_visibility_aware_dynamic_map || config.save_scan_surface_refined_surfel_map ||
+    config.save_global_surface_ba_surfel_map)
+  {
+    writeProbabilisticSurfelMaps(config, bag, dense_corrected_poses, logger);
+  }
+}
+
+// --- Deterministic outputs. loop_edges.csv is the Phase 2 hard-gate
+// artifact: same bag + same config must reproduce it byte-identically.
+void writePoseGraphOutputs(
+  const RunnerConfig & config, const BagPassResult & bag, const FinalPoseGraph & graph)
+{
+  {
+    std::ofstream csv(config.output_dir + "/loop_edges.csv");
+    csv << "from,to,fitness,tx,ty,tz,qx,qy,qz,qw\n";
+    char line[512];
+    for (const auto & edge : bag.edge_set.edges()) {
+      const Eigen::Vector3d t = edge.relative_pose.translation();
+      const Eigen::Quaterniond q(edge.relative_pose.rotation());
+      std::snprintf(
+        line, sizeof(line), "%d,%d,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g",
+        edge.pair_id.first, edge.pair_id.second, edge.fitness_score,
+        t.x(), t.y(), t.z(), q.x(), q.y(), q.z(), q.w());
+      csv << line << "\n";
+    }
+  }
+  // Diagnostic beside it, when a loop registration reported a Hessian: each
+  // edge's information of relative_pose exp([w; v]) (row-major 6x6), from
+  // the registration.
+  if (std::any_of(
+      bag.edge_set.edges().begin(), bag.edge_set.edges().end(),
+      [](const graphslam::backend_core::LoopEdgeSet::Edge & edge) {
+        return edge.registration_information_valid;
+      }))
+  {
+    std::ofstream csv(config.output_dir + "/loop_edge_information.csv");
+    csv << "from,to,valid,information_w_v_row_major_36\n";
+    char value[32];
+    for (const auto & edge : bag.edge_set.edges()) {
+      csv << edge.pair_id.first << "," << edge.pair_id.second << "," <<
+        (edge.registration_information_valid ? 1 : 0);
+      for (int k = 0; k < 36; ++k) {
+        std::snprintf(value, sizeof(value), ",%.17g", edge.registration_information(k / 6, k % 6));
+        csv << value;
+      }
+      csv << "\n";
+    }
+  }
+  {
+    std::vector<Eigen::Isometry3d> raw_poses;
+    raw_poses.reserve(bag.records.size());
+    for (const auto & record : bag.records) {
+      raw_poses.push_back(Eigen::Isometry3d(record.meta.pose.matrix()));
+    }
+    writeTum(config.output_dir + "/trajectory_raw.tum", bag.records, raw_poses);
+    if (!graph.optimized_poses.empty()) {
+      writeTum(
+        config.output_dir + "/trajectory_optimized.tum", bag.records, graph.optimized_poses);
+    }
+  }
+}
+
+// The global-surface-BA surfel map (save_global_surface_ba_surfel_map): the
+// retained dense scans at the poses of the accepted plane-BA refinement.
+void writeGlobalSurfaceBaSurfelMap(
+  const RunnerConfig & config, const BagPassResult & bag,
+  const graphslam::map_refinement::MapRefinerResult & refined,
+  const std::vector<Eigen::Isometry3d> & refined_poses, const RunnerLog & logger)
+{
+  const std::vector<SubmapRecord> & records = bag.records;
+  const std::vector<ScanAttributionRecord> & attribution_scans = bag.attribution_scans;
+  using graphslam::dense_pose_correction::TimedPose;
+  std::vector<TimedPose> raw_anchors;
+  std::vector<TimedPose> refined_anchors;
+  raw_anchors.reserve(records.size());
+  refined_anchors.reserve(records.size());
+  for (std::size_t i = 0; i < records.size(); ++i) {
+    TimedPose raw_anchor;
+    raw_anchor.stamp_sec = records[i].stamp_sec;
+    raw_anchor.pose = Eigen::Isometry3d(records[i].meta.pose.matrix());
+    raw_anchors.push_back(raw_anchor);
+    TimedPose refined_anchor;
+    refined_anchor.stamp_sec = records[i].stamp_sec;
+    refined_anchor.pose = refined_poses[i];
+    refined_anchors.push_back(refined_anchor);
+  }
+  const std::vector<graphslam::dense_pose_correction::CorrectionAnchor> correction_anchors =
+    graphslam::dense_pose_correction::buildCorrectionAnchors(
+    raw_anchors, refined_anchors);
+  std::vector<TimedPose> dense_raw_poses;
+  dense_raw_poses.reserve(attribution_scans.size());
+  for (const ScanAttributionRecord & scan : attribution_scans) {
+    TimedPose sample;
+    sample.stamp_sec = scan.stamp_sec;
+    sample.pose = scan.pose;
+    dense_raw_poses.push_back(sample);
+  }
+  const std::vector<TimedPose> dense_refined_poses =
+    graphslam::dense_pose_correction::applyDenseCorrections(
+    dense_raw_poses, correction_anchors);
+
+  {
+    std::ofstream trajectory(config.output_dir + "/trajectory_global_surface_ba_dense.tum");
+    char line[256];
+    for (const TimedPose & sample : dense_refined_poses) {
+      const Eigen::Vector3d translation = sample.pose.translation();
+      const Eigen::Quaterniond quaternion(sample.pose.rotation());
+      std::snprintf(
+        line, sizeof(line), "%.9f %.9f %.9f %.9f %.9f %.9f %.9f %.9f",
+        sample.stamp_sec, translation.x(), translation.y(), translation.z(),
+        quaternion.x(), quaternion.y(), quaternion.z(), quaternion.w());
+      trajectory << line << "\n";
+    }
+  }
+
+  std::vector<graphslam::ProbabilisticSurfelMapScan> global_surfel_scans;
+  global_surfel_scans.reserve(attribution_scans.size());
+  for (std::size_t i = 0; i < attribution_scans.size(); ++i) {
+    if (static_cast<int>(attribution_scans[i].scan_id %
+      config.probabilistic_surfel_input_scan_stride) !=
+      config.probabilistic_surfel_input_scan_offset)
+    {
+      continue;
+    }
+    graphslam::ProbabilisticSurfelMapScan surfel_scan;
+    surfel_scan.scan_id = static_cast<std::uint64_t>(attribution_scans[i].scan_id);
+    surfel_scan.sensor_origin = dense_refined_poses[i].pose.translation();
+    surfel_scan.pose_translation_variance_m2 = meanClampedCovarianceDiagonal(
+      attribution_scans[i].odometry_covariance, {0U, 7U, 14U},
+      config.surfel_pose_translation_fallback_variance_m2,
+      config.surfel_pose_translation_max_variance_m2);
+    surfel_scan.pose_rotation_variance_rad2 = meanClampedCovarianceDiagonal(
+      attribution_scans[i].odometry_covariance, {21U, 28U, 35U},
+      config.surfel_pose_rotation_fallback_variance_rad2,
+      config.surfel_pose_rotation_max_variance_rad2);
+    surfel_scan.world_points.reserve(attribution_scans[i].local_points.size());
+    for (const Eigen::Vector3d & local_point : attribution_scans[i].local_points) {
+      surfel_scan.world_points.push_back(dense_refined_poses[i].pose * local_point);
+    }
+    global_surfel_scans.push_back(std::move(surfel_scan));
+  }
+  graphslam::ProbabilisticSurfelMapConfig global_surfel_config = config.surfel_map_config;
+  global_surfel_config.build_persistence_filtered_map = false;
+  global_surfel_config.build_visibility_filtered_map = false;
+  const graphslam::ProbabilisticSurfelMapResult global_surfel_result =
+    graphslam::buildProbabilisticSurfelMap(global_surfel_scans, global_surfel_config);
+  const auto save_global_points = [](const std::string & path,
+    const std::vector<Eigen::Vector3d> & points) {
+      pcl::PointCloud<pcl::PointXYZ> cloud;
+      cloud.reserve(points.size());
+      for (const Eigen::Vector3d & point : points) {
+        cloud.push_back(pcl::PointXYZ(
+            static_cast<float>(point.x()), static_cast<float>(point.y()),
+            static_cast<float>(point.z())));
+      }
+      if (pcl::io::savePCDFileBinary(path, cloud) != 0) {
+        throw std::runtime_error("failed to save global surface BA surfel map: " + path);
+      }
+    };
+  save_global_points(
+    config.output_dir + "/map_global_surface_ba_centroid.pcd",
+    global_surfel_result.baseline_centroids);
+  save_global_points(
+    config.output_dir + "/map_global_surface_ba_surfel.pcd",
+    global_surfel_result.fused_points);
+  {
+    const auto & stats = global_surfel_result.stats;
+    std::ofstream report(config.output_dir + "/global_surface_ba_surfel_report.yaml");
+    report << std::setprecision(17);
+    report << "global_surface_ba_surfel_map:\n";
+    report << "  schema_version: 1\n";
+    report << "  enabled_by_default: false\n";
+    report << "  map_refinement_status: " << refined.status << "\n";
+    report << "  correction_anchors: " << correction_anchors.size() << "\n";
+    report << "  dense_scans: " << attribution_scans.size() << "\n";
+    report << "  input_scan_stride: " << config.probabilistic_surfel_input_scan_stride << "\n";
+    report << "  input_scan_offset: " << config.probabilistic_surfel_input_scan_offset << "\n";
+    report << "  output_voxel_size_m: " << global_surfel_config.voxel_size_m << "\n";
+    report << "  support_voxel_size_m: " <<
+      global_surfel_config.surfel_support_voxel_size_m << "\n";
+    report << "  secondary_support_voxel_size_m: " <<
+      global_surfel_config.secondary_support_voxel_size_m << "\n";
+    report << "  support_grid_phases: " << global_surfel_config.support_grid_phases << "\n";
+    report << "  blend_support_phases: " << std::boolalpha <<
+      global_surfel_config.blend_support_phases << "\n";
+    report << "  occupied_voxels: " << stats.occupied_voxels << "\n";
+    report << "  valid_support_surfels: " << stats.valid_support_surfels << "\n";
+    report << "  fused_surfel_voxels: " << stats.fused_surfel_voxels << "\n";
+    report << "  fallback_centroid_voxels: " << stats.fallback_centroid_voxels << "\n";
+  }
+  GRAPHSLAM_LOG_INFO(
+    logger, "Wrote global-surface-BA dense surfel map: %zu points, %zu fused",
+    global_surfel_result.fused_points.size(),
+    global_surfel_result.stats.fused_surfel_voxels);
+}
+
+// The plane-BA refinement of the optimized submap poses (refine):
+// trajectory_refined.tum and its report, then the optional
+// global-surface-BA surfel map and before/after maps.
+void runMapRefinement(
+  const RunnerConfig & config, const BagPassResult & bag, FinalPoseGraph & graph,
+  const RunnerLog & logger)
+{
+  graphslam::map_refinement::MapRefinerConfig refiner_config;
+  refiner_config.cloud_downsample_voxel = config.refine_cloud_downsample;
+  refiner_config.pyramid.window_size = config.refine_window_size;
+  refiner_config.pyramid.window_stride = config.refine_window_stride;
+  refiner_config.pyramid.window_ba.prior_translation_sigma =
+    config.refine_prior_translation_sigma;
+  refiner_config.pyramid.window_ba.prior_rotation_sigma_rad =
+    config.refine_prior_rotation_sigma_rad;
+  refiner_config.pyramid.window_ba.max_step_translation =
+    config.refine_max_step_translation;
+  refiner_config.pyramid.window_ba.max_step_rotation_rad =
+    config.refine_max_step_rotation_rad;
+  refiner_config.pyramid.global_ba.prior_translation_sigma =
+    config.refine_prior_translation_sigma;
+  refiner_config.pyramid.global_ba.prior_rotation_sigma_rad =
+    config.refine_prior_rotation_sigma_rad;
+  refiner_config.pyramid.global_ba.max_step_translation =
+    config.refine_max_step_translation;
+  refiner_config.pyramid.global_ba.max_step_rotation_rad =
+    config.refine_max_step_rotation_rad;
+
+  std::vector<Eigen::Matrix4d> initial_matrices;
+  initial_matrices.reserve(graph.optimized_poses.size());
+  for (const auto & pose : graph.optimized_poses) {
+    initial_matrices.push_back(pose.matrix());
+  }
+
+  // Without the before/after maps, nothing reads the submap clouds after the
+  // refinement, so it takes them over and frees each once downsampled.
+  const graphslam::map_refinement::MapRefinerResult refined = config.refine_save_maps ?
+    graphslam::map_refinement::refineSubmapPoses(
+    graph.local_clouds, initial_matrices, refiner_config) :
+    graphslam::map_refinement::refineSubmapPoses(
+    std::move(graph.local_clouds), initial_matrices, refiner_config);
+
+  std::vector<Eigen::Isometry3d> refined_poses;
+  refined_poses.reserve(refined.poses.size());
+  for (const auto & pose : refined.poses) {
+    refined_poses.push_back(Eigen::Isometry3d(pose));
+  }
+  writeTum(config.output_dir + "/trajectory_refined.tum", bag.records, refined_poses);
+  {
+    std::ofstream report(config.output_dir + "/map_refinement_report.yaml");
+    const std::vector<std::string> lines =
+      graphslam::map_refinement::refinerReportYamlLines(refined, refiner_config);
+    for (size_t i = 0; i < lines.size(); ++i) {
+      report << lines[i] << "\n";
+    }
+  }
+  GRAPHSLAM_LOG_INFO(
+    logger, "Refinement %s: %zu windows, status=%s",
+    refined.accepted ? "accepted" : "rejected",
+    refined.pyramid_result.windows.size(), refined.status.c_str());
+
+  if (config.save_global_surface_ba_surfel_map && refined.accepted &&
+    !bag.attribution_scans.empty())
+  {
+    writeGlobalSurfaceBaSurfelMap(config, bag, refined, refined_poses, logger);
+  }
+
+  if (config.refine_save_maps) {
+    // Before/after map PCDs for the map-quality gate stage. The clouds
+    // are the runner's own deterministic submap clouds; only the poses
+    // differ between the two maps.
+    const std::vector<std::vector<Eigen::Vector3d>> & local_clouds = graph.local_clouds;
+    const auto save_map =
+      [&](const std::vector<Eigen::Matrix4d> & poses, const std::string & path) {
+        pcl::PointCloud<pcl::PointXYZ> map_cloud;
+        for (size_t i = 0; i < local_clouds.size(); ++i) {
+          const Eigen::Matrix3d rotation = poses[i].block<3, 3>(0, 0);
+          const Eigen::Vector3d translation = poses[i].block<3, 1>(0, 3);
+          for (size_t j = 0; j < local_clouds[i].size(); ++j) {
+            const Eigen::Vector3d world = rotation * local_clouds[i][j] + translation;
+            map_cloud.push_back(
+              pcl::PointXYZ(
+                static_cast<float>(world.x()), static_cast<float>(world.y()),
+                static_cast<float>(world.z())));
+          }
+        }
+        pcl::io::savePCDFileBinary(path, map_cloud);
+      };
+    save_map(initial_matrices, config.output_dir + "/map_optimized.pcd");
+    save_map(refined.poses, config.output_dir + "/map_refined.pcd");
+    GRAPHSLAM_LOG_INFO(logger, "Wrote map_optimized.pcd and map_refined.pcd");
+  }
+}
+
+// The live node's map bundle from the optimized poses: its map is the submap clouds moved by the
+// pose-graph poses, saved as map_save saves it (map_export.hpp).
+void writeMapBundle(
+  const RunnerConfig & config, BagPassResult & bag, const FinalPoseGraph & graph,
+  const RunnerLog & logger)
+{
+  const graphslam::map_export::MapExportConfig & map_config = config.map_export;
+  const graphslam::map_export::ProjectorOrigin origin;  // no GNSS in the backend input
+  graphslam::adapters::FilesystemMapOutput output;
+  graphslam::map_export::MapExportLog log;
+  log.line = [&logger](const std::string & line) {logger.info(line);};
+  log.info = log.line;
+  const std::vector<Eigen::Isometry3d> & poses = graph.optimized_poses;
+  const graphslam::map_export::SubmapCloudLoader load = [&bag](std::size_t i) {
+      return submapCloud(bag.records[i], bag.cloud_stats);
+    };
+  std::size_t map_points = 0;
+  for (const auto & record : bag.records) {
+    map_points += static_cast<std::size_t>(record.stored_cloud->message.width) *
+      record.stored_cloud->message.height;
+  }
+
+  output.prepareDirectory(config.output_dir);
+  if (!graph.pose_graph_g2o.empty()) {
+    output.writeBytes(config.output_dir + "/pose_graph.g2o", graph.pose_graph_g2o);
+  }
+  if (map_config.use_dynamic_object_filter) {
+    // As the live node: the assembled map, or the dynamic-filtered one when it is not empty.
+    std::vector<graphslam::TimedSubmapCloud> submaps;
+    graphslam::MapCloud::Ptr map = graphslam::map_export::assembleMap(load, poses, map_points);
+    for (std::size_t i = 0; i < poses.size(); ++i) {
+      pcl::PointCloud<pcl::PointXYZI>::Ptr transformed(new pcl::PointCloud<pcl::PointXYZI>);
+      graphslam::map_export::transformSubmapCloud(load, poses, i, *transformed);
+      const Eigen::Vector3d position = poses[i].translation();
+      submaps.push_back(graphslam::TimedSubmapCloud{static_cast<int>(i), position, transformed});
+    }
+    const auto filter_result =
+      graphslam::buildDynamicObjectFilteredMap(submaps, map_config.dynamic_object_filter);
+    if (!filter_result.cloud->empty()) {
+      map = graphslam::toMapCloud(*filter_result.cloud);
+    }
+    submaps.clear();
+    graphslam::map_export::saveGridDividedMap(
+      std::move(map), config.output_dir, map_config, origin, output, log);
+  } else if (map_config.map_save_points_per_pass > 0) {
+    graphslam::map_export::saveStreamedMap(
+      load, poses, map_points, config.output_dir, map_config, origin, output, log);
+  } else {
+    graphslam::map_export::saveGridDividedMap(
+      graphslam::map_export::assembleMap(load, poses, map_points), config.output_dir, map_config,
+      origin, output, log);
+  }
+  output.writeBytes(
+    config.output_dir + "/map_bundle.yaml",
+    graphslam::map_saver::bundleManifestYaml(
+      graphslam::map_export::bundleManifest(
+        map_config, "map", poses.size(), bag.edge_set.edges().size())));
+  GRAPHSLAM_LOG_INFO(
+    logger, "Wrote the map bundle (pointcloud_map/, map.pcd, map_projector_info.yaml, "
+    "map_bundle.yaml, pose_graph.g2o) to %s", config.output_dir.c_str());
+}
+
+}  // namespace
+
+namespace graphslam
+{
+namespace offline
+{
+
+// The stages of the former main(), in its order. Declaration order is deliberate: the
+// registration session is created before and released after the BackendCore that calls into it.
+struct OfflinePipeline::Impl
+{
+  Impl(const Parameters & parameters, const Log & log)
+  : node(parameters), logger(log) {}
+
+  const Parameters & node;
+  const Log & logger;
+  RunnerConfig config;
+  DegeneracyDiagnosticsSink degeneracy_sink;
+  BackendRegistration registration;
+  std::unique_ptr<LoopSearchBackend> backend;
+  BagPassResult bag;
+  std::unique_ptr<BagPass> bag_pass;
+};
+
+OfflinePipeline::OfflinePipeline(const Parameters & parameters, const Log & log)
+: impl_(std::make_unique<Impl>(parameters, log))
+{
+}
+
+OfflinePipeline::~OfflinePipeline() = default;
+
+bool OfflinePipeline::configure()
+{
+  Impl & p = *impl_;
+  // The parameters are read in their historical order, with the degeneracy
+  // diagnostics CSV opened at its historical point between them.
+  if (!readInputConfig(p.node, p.logger, p.config)) {
+    return false;
+  }
+  readSurfelMapConfig(p.node, p.config);
+  readDenseScanConfig(p.node, p.config);
+  readRefineConfig(p.node, p.config);
+  readPlaneRevisitConfig(p.node, p.config);
+  p.degeneracy_sink.configure(p.node, p.logger);
+  readDescriptorConfig(p.node, p.config.descriptor_config);
+  readLoopSearchConfig(p.node, p.config);
+  readPoseGraphConfig(p.node, p.config);
+  readMapBundleConfig(p.node, p.config);
+
+  if (!setupBackendRegistration(p.config, p.logger, p.registration)) {
+    return false;
+  }
+  p.backend = std::make_unique<LoopSearchBackend>();
+  p.backend->configure(p.config);
+  p.bag_pass = std::make_unique<BagPass>(
+    p.config, p.registration, *p.backend, p.degeneracy_sink, p.logger, p.bag);
+  return true;
+}
+
+const std::string & OfflinePipeline::inputPath() const {return impl_->config.bag_path;}
+const std::string & OfflinePipeline::odometryTopic() const {return impl_->config.odom_topic;}
+const std::string & OfflinePipeline::cloudTopic() const {return impl_->config.cloud_topic;}
+const std::string & OfflinePipeline::outputDir() const {return impl_->config.output_dir;}
+
+void OfflinePipeline::begin()
+{
+  impl_->bag_pass->begin();
+}
+
+void OfflinePipeline::addOdometry(const msg::Odometry & odometry)
+{
+  impl_->bag_pass->addOdometry(odometry);
+}
+
+void OfflinePipeline::addCloud(msg::PointCloud2 && cloud)
+{
+  impl_->bag_pass->addCloud(std::move(cloud));
+}
+
+bool OfflinePipeline::finish()
+{
+  Impl & p = *impl_;
+  const RunnerConfig & config = p.config;
+  if (!p.bag_pass->finish()) {
+    return false;
+  }
+  if (config.save_map_thickness_attribution) {
+    writeMapThicknessAttribution(config, p.bag, p.logger);
+  }
+
+  FinalPoseGraph graph;
+  optimizeFinalPoseGraph(config, p.bag, p.logger, graph);
+  if ((config.save_dense_pose_refined_map || config.save_probabilistic_surfel_map ||
+    config.save_connected_surface_map || config.save_surface_consolidated_map ||
+    config.save_surfel_support_partition_maps ||
+    config.save_scan_persistence_filtered_map || config.save_visibility_aware_dynamic_map ||
+    config.save_scan_surface_refined_surfel_map ||
+    config.save_global_surface_ba_surfel_map) &&
+    !graph.optimized_poses.empty() && !p.bag.attribution_scans.empty())
+  {
+    writeDensePoseOutputs(config, p.bag, graph, p.logger);
+  }
+  writePoseGraphOutputs(config, p.bag, graph);
+  if (config.map_bundle && !graph.optimized_poses.empty()) {
+    writeMapBundle(config, p.bag, graph, p.logger);
+  }
+  if (config.refine && !graph.optimized_poses.empty()) {
+    runMapRefinement(config, p.bag, graph, p.logger);
+  }
+
+  p.degeneracy_sink.writeReport(config.output_dir, p.logger);
+
+  GRAPHSLAM_LOG_INFO(
+    p.logger, "Wrote %s/loop_edges.csv and TUM trajectories", config.output_dir.c_str());
+  return true;
+}
+
+}  // namespace offline
+}  // namespace graphslam

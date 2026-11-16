@@ -33,6 +33,7 @@ run_docker_demo.sh
 download_mid360_robot_public_dataset.py
 mid360_robot_public_datasets.py
 run_rko_lio_graph_autoware_dogfood.sh
+run_rko_lio_graph_core.py
 record_backend_input.sh
 wait_for_offline_output_subscribers.sh
 run_open_data_gnss_smoke.sh

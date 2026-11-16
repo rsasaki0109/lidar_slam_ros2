@@ -225,6 +225,20 @@ map_saver::GridConfig makeGridConfig(const GraphSlamConfig & config)
   return result;
 }
 
+map_export::MapExportConfig makeMapExportConfig(const GraphSlamConfig & config)
+{
+  map_export::MapExportConfig result;
+  result.map_leaf_size = config.map_leaf_size_;
+  result.map_grid_size_x = config.map_grid_size_x_;
+  result.map_grid_size_y = config.map_grid_size_y_;
+  result.map_save_points_per_pass = config.map_save_points_per_pass_;
+  result.use_planar_map_filter = config.use_planar_map_filter_;
+  result.planar_map_filter = makePlanarMapFilterConfig(config);
+  result.use_dynamic_object_filter = config.use_dynamic_object_filter_;
+  result.dynamic_object_filter = makeDynamicObjectFilterConfig(config);
+  return result;
+}
+
 detail::GnssWeightingConfig makeGnssWeightingConfig(const GraphSlamConfig & config)
 {
   detail::GnssWeightingConfig result;

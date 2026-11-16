@@ -44,7 +44,8 @@ APPLICATION_HEADER = (
 APPLICATION_SOURCE = SOURCE_ROOT / 'graph_slam_application.cpp'
 COMPONENT_SOURCE = SOURCE_ROOT / 'graph_based_slam_component.cpp'
 LIVE_ADAPTER_SOURCE = SOURCE_ROOT / 'graph_slam_ros_adapter.cpp'
-OFFLINE_ADAPTER_SOURCE = SOURCE_ROOT / 'graph_slam_offline_runner.cpp'
+OFFLINE_ADAPTER_SOURCE = SOURCE_ROOT / 'offline_pipeline.cpp'
+OFFLINE_ROS_SHELL_SOURCE = SOURCE_ROOT / 'graph_slam_offline_runner.cpp'
 CMAKE = PACKAGE_ROOT / 'CMakeLists.txt'
 
 
@@ -133,6 +134,24 @@ def test_live_and_offline_adapters_use_the_same_application_artifact_path():
     for adapter in (live, offline):
         assert 'map_saver::loopEdgeCsvLine' not in adapter
         assert 'map_saver::trajectoryTumLine' not in adapter
+
+
+def test_offline_pipeline_has_no_ros_dependency():
+    # The offline backend stages build without ROS (lidarslam_core); only the runner's shell
+    # (parameters, rosbag2 input, logging) uses ROS.
+    pipeline = OFFLINE_ADAPTER_SOURCE.read_text(encoding='utf-8')
+    code = '\n'.join(line.split('//', 1)[0] for line in pipeline.splitlines())
+    for forbidden in ('rclcpp', 'rosbag2', 'sensor_msgs', 'nav_msgs', 'pcl_conversions', 'tf2',
+                      'RCLCPP_'):
+        assert forbidden not in code, forbidden
+    cmake = CMAKE.read_text(encoding='utf-8')
+    start = cmake.index('add_library(graph_slam_offline_pipeline STATIC')
+    end = cmake.index('add_executable(graph_slam_offline_runner', start)
+    for forbidden in ('rclcpp', 'rosbag2', 'sensor_msgs', 'nav_msgs', 'tf2'):
+        assert forbidden not in cmake[start:end], forbidden
+    shell = OFFLINE_ROS_SHELL_SOURCE.read_text(encoding='utf-8')
+    assert 'graphslam::offline::OfflinePipeline pipeline' in shell
+    assert 'rosbag2_cpp::Reader' in shell
 
 
 def test_parameter_reference_page_matches_the_config_sources():

@@ -18,6 +18,9 @@ namespace py = pybind11;
 #ifdef LIDARSLAM_CORE_HAVE_FRONTEND
 void bind_frontend(py::module_ & m);  // python_frontend.cpp
 #endif
+#ifdef LIDARSLAM_CORE_HAVE_BACKEND
+void bind_backend(py::module_ & m);  // python_backend.cpp
+#endif
 using lidarslam_core::ImuSample;
 using lidarslam_core::NavSatFix;
 using lidarslam_core::PackedCloud;
@@ -170,7 +173,21 @@ PYBIND11_MODULE(_core, m)
   .def_readwrite("position_covariance", &NavSatFix::position_covariance)
   .def_readwrite("position_covariance_type", &NavSatFix::position_covariance_type);
 
+  py::class_<lidarslam_core::Odometry>(m, "Odometry")
+  .def(py::init<>())
+  .def_readwrite("header", &lidarslam_core::Odometry::header)
+  .def_readwrite("child_frame_id", &lidarslam_core::Odometry::child_frame_id)
+  .def_readwrite("position", &lidarslam_core::Odometry::position)
+  .def_readwrite("orientation", &lidarslam_core::Odometry::orientation)
+  .def_readwrite("pose_covariance", &lidarslam_core::Odometry::pose_covariance)
+  .def_readwrite("linear_velocity", &lidarslam_core::Odometry::linear_velocity)
+  .def_readwrite("angular_velocity", &lidarslam_core::Odometry::angular_velocity)
+  .def_readwrite("twist_covariance", &lidarslam_core::Odometry::twist_covariance);
+
 #ifdef LIDARSLAM_CORE_HAVE_FRONTEND
   bind_frontend(m);
+#endif
+#ifdef LIDARSLAM_CORE_HAVE_BACKEND
+  bind_backend(m);
 #endif
 }

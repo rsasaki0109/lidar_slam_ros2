@@ -27,7 +27,7 @@
 // ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "graph_based_slam/cloud_compression.hpp"
+#include "graph_based_slam/cloud_compression_core.hpp"
 
 #include <cstddef>
 #include <cstring>
@@ -40,7 +40,6 @@
 #include <zstd.h>
 #endif
 
-#include "graph_based_slam/pointcloud_conversion.hpp"
 
 namespace graphslam
 {
@@ -107,55 +106,58 @@ bool available()
 #endif
 }
 
-StoredCloud store(sensor_msgs::msg::PointCloud2 message)
+namespace detail
 {
-  StoredCloud cloud;
+
+bool compressPacked(
+  const std::vector<std::uint8_t> & data, std::size_t points, std::size_t fields,
+  std::vector<std::uint8_t> & compressed)
+{
 #ifdef GRAPH_BASED_SLAM_HAVE_ZSTD
-  if (!message.data.empty() && pointcloud_conversion::isPackedForPointXYZI(message)) {
-    std::vector<std::uint8_t> shuffled;
-    shuffle(
-      message.data, static_cast<std::size_t>(message.width) * message.height,
-      message.fields.size(), shuffled);
-    std::vector<std::uint8_t> buffer(ZSTD_compressBound(shuffled.size()));
-    const std::size_t size = ZSTD_compress(
-      buffer.data(), buffer.size(), shuffled.data(), shuffled.size(), kZstdLevel);
-    if (!ZSTD_isError(size)) {
-      cloud.compressed.assign(buffer.begin(), buffer.begin() + static_cast<std::ptrdiff_t>(size));
-      std::vector<std::uint8_t>().swap(message.data);
-    }
+  std::vector<std::uint8_t> shuffled;
+  shuffle(data, points, fields, shuffled);
+  std::vector<std::uint8_t> buffer(ZSTD_compressBound(shuffled.size()));
+  const std::size_t size = ZSTD_compress(
+    buffer.data(), buffer.size(), shuffled.data(), shuffled.size(), kZstdLevel);
+  if (ZSTD_isError(size)) {
+    return false;
   }
+  compressed.assign(buffer.begin(), buffer.begin() + static_cast<std::ptrdiff_t>(size));
+  return true;
+#else
+  (void)data;
+  (void)points;
+  (void)fields;
+  (void)compressed;
+  return false;
 #endif
-  cloud.message = std::move(message);
-  return cloud;
 }
 
-sensor_msgs::msg::PointCloud2 restore(const StoredCloud & cloud)
+void decompressPacked(
+  const std::vector<std::uint8_t> & compressed, std::size_t points, std::size_t fields,
+  std::size_t point_step, std::vector<std::uint8_t> & data)
 {
-  sensor_msgs::msg::PointCloud2 message = cloud.message;
-  if (cloud.compressed.empty()) {
-    return message;
-  }
 #ifdef GRAPH_BASED_SLAM_HAVE_ZSTD
-  const std::size_t points = static_cast<std::size_t>(message.width) * message.height;
-  std::vector<std::uint8_t> shuffled(points * message.point_step);
+  std::vector<std::uint8_t> shuffled(points * point_step);
   const std::size_t size = ZSTD_decompress(
-    shuffled.data(), shuffled.size(), cloud.compressed.data(), cloud.compressed.size());
+    shuffled.data(), shuffled.size(), compressed.data(), compressed.size());
   if (ZSTD_isError(size) || size != shuffled.size()) {
     throw std::runtime_error(
       "cloud_compression: a stored cloud does not decompress to its " +
       std::to_string(shuffled.size()) + " bytes");
   }
-  unshuffle(shuffled, points, message.fields.size(), message.data);
-  return message;
+  unshuffle(shuffled, points, fields, data);
 #else
+  (void)compressed;
+  (void)points;
+  (void)fields;
+  (void)point_step;
+  (void)data;
   throw std::runtime_error("cloud_compression: built without zstd");
 #endif
 }
 
-std::size_t storedBytes(const StoredCloud & cloud)
-{
-  return cloud.compressed.empty() ? cloud.message.data.size() : cloud.compressed.size();
-}
+}  // namespace detail
 
 }  // namespace cloud_compression
 }  // namespace graphslam

@@ -38,8 +38,8 @@
 #include <vector>
 
 #include <Eigen/Geometry>  // NOLINT(build/include_order)
-#include <sensor_msgs/msg/point_cloud2.hpp>
-#include <sensor_msgs/msg/point_field.hpp>
+
+#include "graph_based_slam/cloud_message.hpp"
 
 namespace graphslam
 {
@@ -107,9 +107,10 @@ inline bool scanIsInBaseFrame(const std::string & scan_frame_id, const std::stri
 // Moves the FLOAT32 x, y and z fields of cloud from the LiDAR frame into the
 // base frame in place; every other field (intensity, time, ...) is untouched
 // and non-finite points stay as they are. An identity extrinsic leaves the
-// cloud unchanged.
+// cloud unchanged. Cloud is sensor_msgs::msg::PointCloud2 or graphslam::msg::PointCloud2.
+template<typename Cloud>
 inline bool transformCloudToBase(
-  const LidarExtrinsic & extrinsic, sensor_msgs::msg::PointCloud2 & cloud, std::string * error)
+  const LidarExtrinsic & extrinsic, Cloud & cloud, std::string * error)
 {
   if (extrinsic.identity) {
     return true;
@@ -120,7 +121,7 @@ inline bool transformCloudToBase(
     bool found = false;
     for (const auto & field : cloud.fields) {
       if (field.name == names[axis]) {
-        if (field.datatype != sensor_msgs::msg::PointField::FLOAT32 || field.count != 1) {
+        if (field.datatype != cloud_msg::kFloat32 || field.count != 1) {
           if (error != nullptr) {
             *error = std::string("cloud field ") + names[axis] + " must be a single FLOAT32";
           }
