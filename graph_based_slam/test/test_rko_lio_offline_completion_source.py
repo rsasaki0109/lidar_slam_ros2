@@ -116,7 +116,9 @@ def test_rko_lio_has_kidnap_relocalization_recovery_path():
     )
     core_header = (rko_core_dir / 'lio.hpp').read_text(encoding='utf-8')
     core_cpp = (rko_core_dir / 'lio.cpp').read_text(encoding='utf-8')
-    base_node_cpp = (RKO_ROS_DIR / 'base_node.cpp').read_text(encoding='utf-8')
+    # The node's parameters are read by rko_lio::driver::declare_driver_config.
+    driver_config_cpp = (
+        RKO_ROS_DIR.parent / 'driver' / 'driver_config.cpp').read_text(encoding='utf-8')
     config = config_path.read_text(encoding='utf-8')
 
     assert 'enable_kidnap_relocalization' in core_header
@@ -126,7 +128,7 @@ def test_rko_lio_has_kidnap_relocalization_recovery_path():
     assert 'Kidnap relocalization matched' in core_cpp
     assert 'Kidnap recovery accepted scan' in core_cpp
     assert 'relocalization_map.add_points' in core_cpp
-    assert 'declare_parameter<bool>("enable_kidnap_relocalization"' in base_node_cpp
+    assert 'declare<bool>("enable_kidnap_relocalization"' in driver_config_cpp
     assert 'enable_kidnap_relocalization: true' in config
     assert 'reset_on_registration_failure: true' in config
     assert 'relocalize_after_scan_gap: false' in config

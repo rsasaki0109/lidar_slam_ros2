@@ -1,0 +1,84 @@
+A GT-free choice between two operating points: plan (written 2026-11-14, before any run of point B outside Odyssey)
+
+Background (report chapter 66): G22 is operating point A (voxel 0.25 m, keypoint multiplier 2.25, the fork's sorted
+sampler). On Odyssey's open drives point B (voxel 1.0 m, multiplier 1.5, upstream's sampler; point_B.yaml = G22's
+file with these three keys, no code change) is better; indoors bare upstream at voxel 1.0 is far worse. The candidate
+is one configuration that picks A or B from the scans themselves.
+
+Step 1 (this plan): where is B better, and what GT-free statistic says so
+  Runs, fork's build, G22 and B side by side:
+    exp04, MapsHD's eight trials, Koide's four (p7_g16_phase1.sh, BASE=G22, CAND=B, OUT_NAME=adapt, SCAN_STATS=1);
+    Odyssey's seven drives (p9_odyssey_dev.sh; B is the variant lv1_kp15, already run on Marketplace3 and Beltway3);
+    GrandTour LS 8 after these, if the picture is not already clear.
+  Oxford is left out of step 1: its ground truth is read only for a Phase 1 gate.
+  Statistics (p10_scan_stats.py, no ground truth): per sequence, over 20 scans spread from the start, the medians of
+  the point count, the median and 90 % range, and the occupied voxels at 1.5 m and at 0.5625 m.
+  Output: a table sequence x (ATE of A, ATE of B, the statistics). No decision in this step.
+
+Step 2 (after step 1; its rule is written before its runs)
+  If one statistic with one threshold separates "B better than A by more than 5 %" from "A better than B by more
+  than 5 %" on every sequence of step 1, the selector is that test on the first scans, implemented in a scratch
+  worktree of the fork (choice made once, before the map is built), and the candidate gets a decision rule on all
+  development data with G22 as the reference. If no statistic separates them, that is reported and the selector is
+  not built on a fit.
+  Caveat fixed now: a threshold chosen on these sequences is fitted to them. Whatever comes out is a candidate; a
+  claim needs the blind families (H6, H7) or other fresh data.
+
+Record of step 1 (2026-11-14; phase1.csv, scan_stats.csv, scan_stats_odyssey.csv; ATE m)
+  sequence              A (G22)   B        B/A    points   median r  p90 r   vox 1.5  vox 0.5625
+  exp04                 0.0535    0.0624   1.17    40802    4.35     21.01     810     2544
+  MapsHD calib1         0.0263    1.0625   40.5    13926    2.56      8.04     182      848
+  MapsHD calib2         0.0207    0.0438   2.11    13722    2.55      8.27     201      902
+  MapsHD flat           0.0148    0.0356   2.41    13388    2.98      4.92      84      384
+  MapsHD corridor       0.0712    1.3025   18.3    13463    1.76      3.92     116      470
+  MapsHD urk            0.0548    0.0550   1.00    12234    3.49     17.33     516     1847
+  MapsHD garage1        0.0442    0.0516   1.17    13792    3.03      6.25     226      880
+  MapsHD garage2        0.0289    0.0439   1.52    13810    3.04      5.87     229      853
+  MapsHD garage3        0.0268    0.0398   1.49    13745    2.92      6.20     226      845
+  Koide 02a             0.8388    1.0086   1.20     9425   14.87     28.29    1422     4424
+  Koide 02b             0.7190    0.6603   0.92    14926    8.82     19.34    1540     5096
+  Koide 01b             1.9019    3.0143   1.58    15944    8.73     19.41    1580     5110
+  Odyssey Tunnel2       1.5400    2.2528   1.46   234625    7.07     28.09    3498    13998
+  Odyssey UCP1          0.1061    0.0951   0.90   249758    4.94     12.45    1474     5943
+  Odyssey UCP2          0.1314    0.1103   0.84   249434    4.98     12.97    1523     6139
+  Odyssey Beltway1      1.6652    1.3498   0.81   193602   11.40     46.60    5690    22110
+  Odyssey Beltway2      1.4886    1.2700   0.85   160121    9.89     42.41    5204    20396
+  Odyssey Beltway3      1.5606    1.2796   0.82   174109   11.01     41.39    5024    20018
+  Odyssey Marketplace3  0.4982    0.5988   1.20   219960    9.33     25.24    2874    12612
+  (Koide 01a: the download was cut twice; not in the table.)
+  B better by more than 5 %: Koide 02b, UCP1, UCP2, Beltway1-3 (6). A better by more than 5 %: 12. Tie: urk.
+  Odyssey geometric mean: B 0.609 against A 0.6344 (-4.0 %), with Tunnel2 +46 % and Marketplace3 +20 %.
+
+Verdict of step 1, by the reading fixed above: no statistic separates the two groups with one threshold.
+  points: Koide 02b (14926, B) lies among the A group, Tunnel2 and Marketplace3 (220-235 k, A) among the B group.
+  median range: B group 4.9-11.4; the A group has 7.07, 8.73, 9.33.   p90: B 12.5-46.6; A has 19.4, 25.2, 28.1.
+  voxels at 1.5 m: B 1474-5690; A has 1580, 2874, 3498.   voxels at 0.5625 m: B 5096-22110; A has 5110, 12612, 13998.
+  Koide 02b and 01b have the same statistics and opposite outcomes. So the selector is not built; step 2 does not
+  take place. Point B is not a candidate either: it loses 17 % to 40 x on 12 of 19 sequences.
+
+What the step still showed
+  B's gain on Odyssey inside the fork is 4 % in geometric mean, not the 5.9 % of bare 0.4.1 or the 17.5 % of PyPI
+  0.4.0, and it comes with two large losses. The gap to upstream on Odyssey is not closed by a choice of voxel size.
+
+Next (written 2026-11-14 before the runs): which of the fork's features carry the indoor accuracy
+  The rebase onto 0.4.x remains worth it for memory (chapter 66), and it is a port feature by feature; this says
+  which features to port first. exp04 and MapsHD's eight trials, the fork's build, G22's file without:
+    NC  the close-scene keys;   NK  the keypoint multiplier and shortfall keys (multiplier back to 1.5);
+    FB  both, and without the gyro limit of the initialization and the compact map points: only the keys upstream
+        also has. FB against D (unmodified 0.3.2, 2.14 x G22 on MapsHD) is what the fork's always-on changes are worth.
+  Reported as the ratio to G22. No adoption.
+
+Record of the ablation (2026-11-14; ablate.csv; ratio to G22)
+  variant   exp04    MapsHD (8) geometric mean   per trial
+  NC        0.99     2.10    1.83 3.01 1.88 1.00 1.09 2.91 3.16 3.63
+  NK        1.00     1.00    (byte-identical scores)
+  FB        -        2.10    1.83 3.01 1.88 1.00 1.08 2.91 3.16 3.68
+  Correction of what NK and FB are: the rig files of Phase 1 carry icp_keypoint_voxel_multiplier 2.25 and
+  initialization_max_gyro_rad_s 0.02 themselves, so dropping them from the G file changed nothing. NK is G22 without
+  the shortfall keys only (never triggered here: identical), FB is G22 without close scene, shortfall and compact
+  points. exp04 FB did not run (the exp04 download failed at its second fetch).
+  Reading: on MapsHD the close-scene settings alone are the whole difference: without them the fork is at 2.10 x,
+  where unmodified 0.3.2 is (2.14 x) and bare 0.4.1 nearly (1.80 x). On exp04 they change nothing (0.99), so exp04's
+  1.22-1.26 x against upstream has another source, not found here.
+  So the first feature to port onto 0.4.x is the close-scene registration (per-voxel normals, the normal-only
+  localizability weight, the shorter correspondence distance, the inlier-fraction fallback).

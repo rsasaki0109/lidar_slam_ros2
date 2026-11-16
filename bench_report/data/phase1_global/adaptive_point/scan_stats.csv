@@ -1,0 +1,12 @@
+exp04,exp04,20,40802,4.35,21.01,810,2544
+mapshd,calibration-room_trial-1,20,13926,2.56,8.04,182,848
+mapshd,calibration-room_trial-2,20,13722,2.55,8.27,201,902
+mapshd,flat-room_trial-1,20,13388,2.98,4.92,84,384
+mapshd,long-corridor_trial-1,20,13463,1.76,3.92,116,470
+mapshd,outdoor-urk_trial-1,20,12234,3.49,17.33,516,1847
+mapshd,underground-garage_trial-1,20,13792,3.03,6.25,226,880
+mapshd,underground-garage_trial-2,20,13810,3.04,5.87,229,853
+mapshd,underground-garage_trial-3,20,13745,2.92,6.20,226,845
+koide,outdoor_hard_02a,20,9425,14.87,28.29,1422,4424
+koide,outdoor_hard_02b,20,14926,8.82,19.34,1540,5096
+koide,outdoor_hard_01b,20,15944,8.73,19.41,1580,5110

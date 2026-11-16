@@ -1,0 +1,10 @@
+# H6 blind sequences (FusionPortable V2), in run order: name, rig, archive bytes, duration in the dataset paper (s)
+handheld_escalator00   fp_handheld   8607517370  247
+handheld_grass00       fp_handheld   4421389473  140
+handheld_room00        fp_handheld   5302738838  140
+legged_grass01         fp_legged     3615812265  -
+legged_room00          fp_legged     6343861382  173
+legged_transition00    fp_legged     8159115717  233
+legged_underground00   fp_legged     8828936015  274
+ugv_campus01           fp_ugv        5603741826  183
+ugv_parking00          fp_ugv        4063287652  178

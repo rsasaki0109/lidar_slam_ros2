@@ -1,0 +1,65 @@
+{
+ "bytes_read": 8373200464,
+ "sha256": "17994a8a0b52b4c64dabf256bfc051b3c3a6008770481931bde05bec21964ff2",
+ "complete": true,
+ "written": {
+  "/ouster/points": {
+   "messages": 1911,
+   "points_in": 500957184,
+   "points_out": 438425403,
+   "first_stamp": 1749572212800245248,
+   "last_stamp": 1749572403800216576
+  },
+  "/m300/imu": {
+   "messages": 47825,
+   "first_stamp": 1749572212700782080,
+   "last_stamp": 1749572403996850944
+  }
+ },
+ "lidar_layout": {
+  "points": 262144,
+  "columns": 2048,
+  "t_max_ns": 99778208.0
+ },
+ "members_per_folder": {
+  "(top)": 0,
+  "ouster": 1911,
+  "refsys": 3,
+  "m300": 1,
+  "metadata": 4
+ },
+ "other_members": [
+  [
+   "./Marketplace3/refsys/navsatfix.txt",
+   5700591
+  ],
+  [
+   "./Marketplace3/refsys/imu.txt",
+   16187848
+  ],
+  [
+   "./Marketplace3/refsys/lidar_poses_ref.txt",
+   583838
+  ],
+  [
+   "./Marketplace3/m300/imu.txt",
+   20230557
+  ],
+  [
+   "./Marketplace3/metadata/lidar_timestamps.txt",
+   38220
+  ],
+  [
+   "./Marketplace3/metadata/trajectory.jpg",
+   2093916
+  ],
+  [
+   "./Marketplace3/metadata/velocity.jpg",
+   164020
+  ],
+  [
+   "./Marketplace3/metadata/summary_statistics.txt",
+   161
+  ]
+ ]
+}

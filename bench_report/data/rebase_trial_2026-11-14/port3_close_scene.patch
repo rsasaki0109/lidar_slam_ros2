@@ -1,0 +1,359 @@
+From bd7fd7b6a466758fd7d9dab3c4f3e604bdef3a0c Mon Sep 17 00:00:00 2001
+From: trial <trial@localhost>
+Date: Sat, 14 Nov 2026 17:42:57 +0000
+Subject: [PATCH] port: close-scene registration (per-voxel normals,
+ localizability weight, inlier fallback)
+
+---
+ rko_lio/core/lio.cpp            | 100 ++++++++++++++++++++++++++++----
+ rko_lio/core/lio.hpp            |  16 +++++
+ rko_lio/core/voxel_hash_map.cpp |  47 ++++++++++++++-
+ rko_lio/core/voxel_hash_map.hpp |  13 ++++-
+ rko_lio/ros/base_node.cpp       |  12 ++++
+ 5 files changed, 174 insertions(+), 14 deletions(-)
+
+diff --git a/rko_lio/core/lio.cpp b/rko_lio/core/lio.cpp
+index d7c3b3a..fd227f1 100644
+--- a/rko_lio/core/lio.cpp
++++ b/rko_lio/core/lio.cpp
+@@ -114,33 +114,62 @@ AccelFilterStep step_body_accel_filter(const BodyAccelKF& prev,
+ }
+ 
+ using LinearSystem = std::tuple<Eigen::Matrix6s, Eigen::Vector6s, Scalar>;
++// Port of the fork's localizability weighting (close-scene settings): the travel direction in the world frame, the
++// boost, and whether only the residual along the map normal is boosted.
++struct CloseSceneWeighting {
++  Eigen::Vector3s axis;
++  Scalar boost;
++  bool normal_only;
++};
++
+ LinearSystem build_icp_linear_system(const Sophus::SE3s& current_pose,
+                                      const rko_lio::core::Vector3sVector& keypoints,
+                                      const rko_lio::core::VoxelHashMap& voxel_map,
+-                                     const Scalar& max_correspondence_distance) {
+-  using IcpAccum = std::tuple<Eigen::Matrix6s, Eigen::Vector6s, Scalar, int>;
++                                     const Scalar& max_correspondence_distance,
++                                     const std::optional<CloseSceneWeighting>& weighting = std::nullopt) {
++  // the last entry is the weight sum; without weighting every weight is 1 and it is the correspondence count
++  using IcpAccum = std::tuple<Eigen::Matrix6s, Eigen::Vector6s, Scalar, Scalar>;
+ 
+-  auto linear_system_for_one_point = [](const Eigen::Vector3s& source, const Eigen::Vector3s& residual) {
++  const Eigen::Matrix3s rotation_transpose = current_pose.so3().inverse().matrix();
++
++  auto linear_system_for_one_point = [&](const Eigen::Vector3s& source, const Eigen::Vector3s& residual,
++                                         const Eigen::Vector3s& target) {
+     // world frame this is R * [I | -hat(source)]; write the residual in the body frame, the R cancels, and the compute
+     // is cheaper
+     Eigen::Matrix3_6s J_r;
+     J_r.block<3, 3>(0, 0) = Eigen::Matrix3s::Identity();
+     J_r.block<3, 3>(0, 3) = -1.0 * Sophus::SO3s::hat(source);
++    if (weighting.has_value()) {
++      const std::optional<Eigen::Vector3s> normal = voxel_map.voxel_normal(target);
++      if (normal.has_value()) {
++        const Scalar cosine = normal->dot(weighting->axis);
++        const Scalar weight = 1 + weighting->boost * cosine * cosine;
++        if (weight > 1) {
++          if (weighting->normal_only) {
++            // W = I + (weight - 1) n n^T, with the normal in the body frame like the residual
++            const Eigen::Vector3s n = rotation_transpose * *normal;
++            const Eigen::Matrix3s W = Eigen::Matrix3s::Identity() + (weight - 1) * n * n.transpose();
++            return IcpAccum(J_r.transpose() * W * J_r, J_r.transpose() * W * residual, residual.dot(W * residual),
++                            1 + (weight - 1) / 3);
++          }
++          return IcpAccum(weight * J_r.transpose() * J_r, weight * J_r.transpose() * residual,
++                          weight * residual.squaredNorm(), weight);
++        }
++      }
++    }
+     return IcpAccum(J_r.transpose() * J_r,      // JTJ
+                     J_r.transpose() * residual, // JTr
+                     residual.squaredNorm(),     // chi
+                     1);                         // correspondence
+   };
+ 
+-  const Eigen::Matrix3s rotation_transpose = current_pose.so3().inverse().matrix();
+-
+   // The only parallel part
+   using points_iterator = std::vector<Eigen::Vector3s>::const_iterator;
+   const auto& [H_icp, b_icp, chi_icp, correspondences_counter] = tbb::parallel_reduce(
+       // Range
+       tbb::blocked_range<points_iterator>{keypoints.cbegin(), keypoints.cend()},
+       // Identity
+-      IcpAccum(Eigen::Matrix6s::Zero(), Eigen::Vector6s::Zero(), 0.0, 0),
++      IcpAccum(Eigen::Matrix6s::Zero(), Eigen::Vector6s::Zero(), 0.0, 0.0),
+       // 1st Lambda: Parallel computation
+       [&](const tbb::blocked_range<points_iterator>& r, IcpAccum J) -> IcpAccum {
+         auto& [H, b, chi, correspondences] = J;
+@@ -151,7 +180,8 @@ LinearSystem build_icp_linear_system(const Sophus::SE3s& current_pose,
+             continue;
+           }
+           const Eigen::Vector3s residual = rotation_transpose * (transformed_point - *closest_neighbor);
+-          const auto& [point_H, point_b, point_chi, point_n] = linear_system_for_one_point(point, residual);
++          const auto& [point_H, point_b, point_chi, point_n] =
++              linear_system_for_one_point(point, residual, *closest_neighbor);
+           H += point_H;
+           b += point_b;
+           chi += point_chi;
+@@ -194,7 +224,9 @@ Sophus::SE3s icp(const Vector3sVector& keypoints,
+                  const VoxelHashMap& voxel_map,
+                  const Sophus::SE3s& initial_guess,
+                  const LIO::Config& config,
+-                 const std::optional<AccelInfo>& optional_accel_info) {
++                 const std::optional<AccelInfo>& optional_accel_info,
++                 const Scalar max_correspondence_distance,
++                 const std::optional<CloseSceneWeighting>& weighting = std::nullopt) {
+   // in case config disables it, or we don't have valid IMU information for this icp loop, beta is -1
+   const Scalar beta = (config.min_beta > 0 && optional_accel_info.has_value())
+                           ? (config.min_beta * (1 + optional_accel_info->accel_mag_variance))
+@@ -206,7 +238,7 @@ Sophus::SE3s icp(const Vector3sVector& keypoints,
+   for (size_t i = 0; i < config.max_iterations; ++i) {
+     const auto& [H, b, chi] = std::invoke([&]() -> LinearSystem {
+       const auto& [H_icp, b_icp, chi_icp] =
+-          build_icp_linear_system(current_pose, keypoints, voxel_map, config.max_correspondence_distance);
++          build_icp_linear_system(current_pose, keypoints, voxel_map, max_correspondence_distance, weighting);
+       if (beta >= 0) {
+         const auto& [H_ori, b_ori, chi_ori] =
+             build_orientation_linear_system(current_pose, optional_accel_info->local_gravity_estimate);
+@@ -251,7 +283,9 @@ namespace rko_lio::core {
+ LIO::LIO(const Config& config_)
+     : config(config_),
+       map(config_.voxel_size, config_.max_range),
+-      arena(config_.max_num_threads > 0 ? config_.max_num_threads : tbb::task_arena::automatic) {}
++      arena(config_.max_num_threads > 0 ? config_.max_num_threads : tbb::task_arena::automatic) {
++  map.set_maintain_normals(config.close_scene_max_median_range > 0 && config.close_scene_localizability_boost > 0);
++}
+ 
+ // ==========================
+ //          private
+@@ -479,8 +513,50 @@ Vector3sVector LIO::register_scan(Vector3sVector scan, const Timestamps& timesta
+ 
+   if (!map.empty()) {
+     SCOPED_PROFILER("ICP");
+-    const Sophus::SE3s optimized_pose =
+-        arena.execute([&] { return icp(preproc_result.keypoints, map, initial_guess, config, kf_step.info); });
++    // Port of the fork's close-scene settings (see Config)
++    bool close_scene = false;
++    if (config.close_scene_max_median_range > 0) {
++      std::vector<Scalar> ranges(preproc_result.keypoints.size());
++      std::transform(preproc_result.keypoints.cbegin(), preproc_result.keypoints.cend(), ranges.begin(),
++                     [](const Eigen::Vector3s& point) { return point.norm(); });
++      const auto middle = ranges.begin() + static_cast<std::ptrdiff_t>(ranges.size() / 2);
++      std::nth_element(ranges.begin(), middle, ranges.end());
++      close_scene = *middle < config.close_scene_max_median_range;
++    }
++    const Scalar scan_distance = close_scene && config.close_scene_max_correspondence_distance > 0
++                                     ? config.close_scene_max_correspondence_distance
++                                     : config.max_correspondence_distance;
++    std::optional<CloseSceneWeighting> weighting;
++    if (close_scene && config.close_scene_localizability_boost > 0) {
++      const Eigen::Vector3s step = initial_guess.translation() - lidar_state.pose.translation();
++      if (step.norm() >= config.localizability_min_step_m) {
++        weighting = CloseSceneWeighting{.axis = step.normalized(),
++                                        .boost = config.close_scene_localizability_boost,
++                                        .normal_only = config.close_scene_localizability_normal_only};
++      }
++    }
++    const Sophus::SE3s optimized_pose = arena.execute([&] {
++      Sophus::SE3s pose = icp(preproc_result.keypoints, map, initial_guess, config, kf_step.info, scan_distance, weighting);
++      if (close_scene && config.close_scene_min_inlier_fraction > 0) {
++        const std::size_t inliers = static_cast<std::size_t>(
++            std::count_if(preproc_result.keypoints.cbegin(), preproc_result.keypoints.cend(),
++                          [&](const Eigen::Vector3s& point) {
++                            return map.get_closest_neighbor(pose * point, scan_distance).has_value();
++                          }));
++        if (static_cast<Scalar>(inliers) / static_cast<Scalar>(preproc_result.keypoints.size()) <
++            config.close_scene_min_inlier_fraction) {
++          // coarse with the base settings, then fine with the close-scene settings from there
++          ++close_scene_fallback_count;
++          const Sophus::SE3s coarse = icp(preproc_result.keypoints, map, initial_guess, config, kf_step.info,
++                                          config.max_correspondence_distance);
++          pose = icp(preproc_result.keypoints, map, coarse, config, kf_step.info, scan_distance, weighting);
++        }
++      }
++      return pose;
++    });
++    if (close_scene) {
++      ++close_scene_scan_count;
++    }
+ 
+     // estimate velocities and accelerations from the new pose
+     const auto dt = to_seconds<Scalar>(current_lidar_time - lidar_state.time);
+diff --git a/rko_lio/core/lio.hpp b/rko_lio/core/lio.hpp
+index 9397dc5..91b3610 100644
+--- a/rko_lio/core/lio.hpp
++++ b/rko_lio/core/lio.hpp
+@@ -79,6 +79,19 @@ public:
+     /** Port of the fork: voxel of the ICP keypoints as a multiple of voxel_size (double_downsample). */
+     Scalar icp_keypoint_voxel_multiplier = 1.5;
+ 
++    /** Port of the fork's close-scene settings. A scan whose keypoints' median range is below
++     *  close_scene_max_median_range (0 = off) is registered with the close_scene_* values: the correspondence
++     *  distance, and a weight 1 + boost * cos^2(map normal, travel direction) on each correspondence (along the map
++     *  normal only with close_scene_localizability_normal_only). When fewer than close_scene_min_inlier_fraction of
++     *  the keypoints end within the correspondence distance, the scan is registered again, first with the base
++     *  settings, then with the close-scene ones from there. */
++    Scalar close_scene_max_median_range = 0.0;
++    Scalar close_scene_max_correspondence_distance = 0.0;
++    Scalar close_scene_localizability_boost = 0.0;
++    bool close_scene_localizability_normal_only = false;
++    Scalar close_scene_min_inlier_fraction = 0.0;
++    Scalar localizability_min_step_m = 0.05;
++
+     /** Minimum weight for orientation regularization. */
+     Scalar min_beta = 200;
+   };
+@@ -109,6 +122,9 @@ public:
+ 
+   /** How many times `reset()` has been called. */
+   std::size_t reset_count = 0;
++  /** Port of the fork: scans registered with the close-scene settings, and of these registered again. */
++  std::size_t close_scene_scan_count = 0;
++  std::size_t close_scene_fallback_count = 0;
+ 
+   explicit LIO(const Config& config_);
+ 
+diff --git a/rko_lio/core/voxel_hash_map.cpp b/rko_lio/core/voxel_hash_map.cpp
+index 1a2791f..702136b 100644
+--- a/rko_lio/core/voxel_hash_map.cpp
++++ b/rko_lio/core/voxel_hash_map.cpp
+@@ -27,6 +27,7 @@
+ #include "voxel_hash_map.hpp"
+ 
+ #include <Eigen/Core>
++#include <Eigen/Eigenvalues>
+ #include <algorithm>
+ #include <array>
+ #include <cmath>
+@@ -193,15 +194,59 @@ void VoxelHashMap::add_points(const std::vector<Eigen::Vector3s>& points, const
+       return;
+     }
+     voxel_points.push_back(offset);
++    if (maintain_normals_) {
++      refresh_normal(voxel, voxel_points);
++    }
+   });
+ }
+ 
++void VoxelHashMap::refresh_normal(const Voxel& voxel, const VoxelBlock& block) {
++  constexpr unsigned int min_normal_points = 5;
++  constexpr double planarity_ratio = 3.0;
++  constexpr double min_mid_to_major_ratio = 0.05;
++  if (block.size < min_normal_points) {
++    return;
++  }
++  // in quanta from the voxel centre: the normal's direction does not depend on the unit
++  Eigen::Vector3d mean = Eigen::Vector3d::Zero();
++  for (const Eigen::Vector3i8& offset : block) {
++    mean += offset.cast<double>();
++  }
++  mean /= static_cast<double>(block.size);
++  Eigen::Matrix3d covariance = Eigen::Matrix3d::Zero();
++  for (const Eigen::Vector3i8& offset : block) {
++    const Eigen::Vector3d d = offset.cast<double>() - mean;
++    covariance += d * d.transpose();
++  }
++  covariance /= static_cast<double>(block.size);
++  const Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> solver(covariance);
++  const Eigen::Vector3d& eigenvalues = solver.eigenvalues(); // ascending
++  if (eigenvalues(1) < planarity_ratio * eigenvalues(0) || eigenvalues(1) < min_mid_to_major_ratio * eigenvalues(2)) {
++    normal_map_.erase(voxel); // a line or a blob: no trustworthy normal
++    return;
++  }
++  normal_map_.insert_or_assign(voxel, solver.eigenvectors().col(0).cast<Scalar>());
++}
++
++std::optional<Eigen::Vector3s> VoxelHashMap::voxel_normal(const Eigen::Vector3s& point) const {
++  const auto search = normal_map_.find(point_to_voxel(point, inv_voxel_size_));
++  if (search == normal_map_.end()) {
++    return std::nullopt;
++  }
++  return search->second;
++}
++
+ void VoxelHashMap::remove_points_far_from_location(const Eigen::Vector3s& location) {
+   // a centre is within half a diagonal of every point it holds, so widening by that keeps a superset
+   const Scalar half_diagonal = static_cast<Scalar>(0.5) * std::numbers::sqrt3_v<Scalar> * voxel_size;
+   const Scalar max_distance_sq = square(clipping_distance_ + half_diagonal);
+   for (auto it = voxels.begin(); it != voxels.end();) {
+-    it = (center_of_voxel(it->first) - location).squaredNorm() > max_distance_sq ? voxels.erase(it) : std::next(it);
++    if ((center_of_voxel(it->first) - location).squaredNorm() > max_distance_sq) {
++      normal_map_.erase(it->first);
++      it = voxels.erase(it);
++    } else {
++      ++it;
++    }
+   }
+ }
+ 
+diff --git a/rko_lio/core/voxel_hash_map.hpp b/rko_lio/core/voxel_hash_map.hpp
+index a918c8e..74e60c6 100644
+--- a/rko_lio/core/voxel_hash_map.hpp
++++ b/rko_lio/core/voxel_hash_map.hpp
+@@ -70,7 +70,10 @@ class VoxelHashMap {
+ public:
+   explicit VoxelHashMap(const Scalar voxel_size, const Scalar clipping_distance);
+ 
+-  void clear() { voxels.clear(); }
++  void clear() {
++    voxels.clear();
++    normal_map_.clear();
++  }
+   bool empty() const { return voxels.empty(); }
+   void update(const std::vector<Eigen::Vector3s>& points, const Sophus::SE3s& pose);
+   void add_points(const std::vector<Eigen::Vector3s>& points, const Sophus::SE3s& pose);
+@@ -80,6 +83,11 @@ public:
+   /// Nearest point to `query` strictly within `max_distance`, or nullopt if there is none.
+   std::optional<Eigen::Vector3s> get_closest_neighbor(const Eigen::Vector3s& query, const Scalar max_distance) const;
+ 
++  /// Port of the fork: keep a unit surface normal per voxel (voxels with at least 5 points that are surface-like).
++  void set_maintain_normals(bool maintain) { maintain_normals_ = maintain; }
++  /// Normal of the voxel that holds `point`, if it has one.
++  std::optional<Eigen::Vector3s> voxel_normal(const Eigen::Vector3s& point) const;
++
+   /// in metres
+   Eigen::Vector3s center_of_voxel(const Voxel& voxel) const {
+     return (voxel.cast<Scalar>() + Eigen::Vector3s::Constant(static_cast<Scalar>(0.5))) * voxel_size;
+@@ -90,6 +98,9 @@ public:
+   tsl::robin_map<Voxel, VoxelBlock, VoxelHash> voxels;
+ 
+ private:
++  void refresh_normal(const Voxel& voxel, const VoxelBlock& block);
++  bool maintain_normals_ = false;
++  tsl::robin_map<Voxel, Eigen::Vector3s, VoxelHash> normal_map_;
+   Scalar inv_voxel_size_;
+   Scalar inv_quantum_;
+   Scalar clipping_distance_;
+diff --git a/rko_lio/ros/base_node.cpp b/rko_lio/ros/base_node.cpp
+index b4f9839..4b6f382 100644
+--- a/rko_lio/ros/base_node.cpp
++++ b/rko_lio/ros/base_node.cpp
+@@ -161,6 +161,16 @@ BaseNode::BaseNode(const std::string& node_name, const rclcpp::NodeOptions& opti
+   lio_config.double_downsample = node->declare_parameter<bool>("double_downsample", lio_config.double_downsample);
+   lio_config.icp_keypoint_voxel_multiplier = static_cast<core::Scalar>(
+       node->declare_parameter<double>("icp_keypoint_voxel_multiplier", lio_config.icp_keypoint_voxel_multiplier));
++  lio_config.close_scene_max_median_range = static_cast<core::Scalar>(
++      node->declare_parameter<double>("close_scene_max_median_range", lio_config.close_scene_max_median_range));
++  lio_config.close_scene_max_correspondence_distance = static_cast<core::Scalar>(node->declare_parameter<double>(
++      "close_scene_max_correspondence_distance", lio_config.close_scene_max_correspondence_distance));
++  lio_config.close_scene_localizability_boost = static_cast<core::Scalar>(
++      node->declare_parameter<double>("close_scene_localizability_boost", lio_config.close_scene_localizability_boost));
++  lio_config.close_scene_localizability_normal_only = node->declare_parameter<bool>(
++      "close_scene_localizability_normal_only", lio_config.close_scene_localizability_normal_only);
++  lio_config.close_scene_min_inlier_fraction = static_cast<core::Scalar>(
++      node->declare_parameter<double>("close_scene_min_inlier_fraction", lio_config.close_scene_min_inlier_fraction));
+   lio_config.min_beta = static_cast<core::Scalar>(node->declare_parameter<double>("min_beta", lio_config.min_beta));
+   lio = std::make_unique<core::LIO>(lio_config);
+ 
+@@ -198,6 +208,8 @@ BaseNode::BaseNode(const std::string& node_name, const rclcpp::NodeOptions& opti
+     if (dump_results) {
+       // it is probably still a veery good idea to make dump_results_to_disk noexcept
+       dump_results_to_disk(results_dir, run_name);
++      spdlog::info("Close-scene settings used on {} registered scans ({} registered again with the base settings)",
++                   lio->close_scene_scan_count, lio->close_scene_fallback_count);
+     }
+   });
+ 
+-- 
+2.43.0
+

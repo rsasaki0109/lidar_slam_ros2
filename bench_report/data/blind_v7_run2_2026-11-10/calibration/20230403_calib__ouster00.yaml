@@ -1,0 +1,61 @@
+dataset_name: calib_20230403
+lidar_width_resolution: 1024
+lidar_height_resolution: 128
+lidar_name: OS1-128
+
+# Extrinsics from the sensor (reference) to osimu (target)
+quaternion_sensor_osimu00:
+  rows: 1
+  cols: 4
+  dt: f
+  data: [1.0, 0.0, 0.0, 0.0] # (qw, qx, qy, qz)
+translation_sensor_osimu00:
+  rows: 1
+  cols: 3
+  dt: f
+  data: [0.006253, -0.011775, 0.007645]  # obtain using rosrun tf tf_echo os_sensor os_imu
+timeshift_sensor_osimu00: 0.0
+
+# Extrinsics from the sensor (reference) to frame_cam00 (target)
+# calibration approach: LCE-calib
+quaternion_sensor_frame_cam00:
+  rows: 1
+  cols: 4
+  dt: f
+  data: [ 0.506681, -0.494156, 0.502996, -0.496063 ]
+translation_sensor_frame_cam00:
+  rows: 1
+  cols: 3
+  dt: f
+  data: [ 0.051378, 0.078289, -0.043458 ]
+timeshift_sensor_frame_cam00: 0.0  # unknown
+
+# Extrinsics from the sensor (reference) to body_imu (target)
+#################################################
+# option 1: T_sensor_body_imu = T_sensor_frame_cam00 * T_frame_cam00_body_imu
+# NOTE(gogojjh): unstable results
+# quaternion_sensor_body_imu:
+#   rows: 1
+#   cols: 4
+#   dt: f
+#   data: [ 0.999991, 0.002245, -0.001885, 0.002932 ]
+# translation_sensor_body_imu:
+#   rows: 1
+#   cols: 3
+#   dt: f
+#   data: [ -0.043175, 0.017288, -0.030588 ]
+#################################################
+# option 2: T_sensor_body_imu = T_sensor_osimu00 * T_osimu00_body_imu
+# calibration approach: kalibr-imu
+quaternion_sensor_body_imu:
+  rows: 1
+  cols: 4
+  dt: f
+  data: [ 0.999960, -0.000333, 0.002832, -0.008508 ]
+translation_sensor_body_imu:
+  rows: 1
+  cols: 3
+  dt: f
+  data: [ -0.010590, -0.024973, -0.043224 ]
+# t_body_imu = t_osimu + timeshift
+timeshift_sensor_body_imu: 0.06422466481697217  # from multi-imu calibration

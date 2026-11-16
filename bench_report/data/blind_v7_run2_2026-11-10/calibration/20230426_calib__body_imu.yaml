@@ -1,0 +1,69 @@
+dataset_name: calib_20230425
+rostopic: '/stim300/imu/data_raw' #Make sure this is correct
+update_rate: 200.0 #Make sure this is correct
+
+#Accelerometer
+accelerometer_noise_density: 0.0011382864409597423
+accelerometer_random_walk: 3.687544426449973e-05
+
+#Gyroscope
+gyroscope_noise_density: 6.077974441156497e-05
+gyroscope_random_walk: 3.454664222863921e-07
+
+quaternion_sensor_3dm_imu:
+  rows: 1
+  cols: 4
+  dt: f
+  data: [ 0.002302, -0.004546, -0.999977, 0.004469 ] # (qw, qx, qy, qz)
+translation_sensor_3dm_imu:
+  rows: 1
+  cols: 3
+  dt: f
+  data: [ -0.102230, 0.006379, -0.073965 ] # (tx, ty, tz)
+
+quaternion_sensor_mini_hercules_wheel:
+  rows: 1
+  cols: 4
+  dt: f
+  data: [ 1.0, 0.0, 0.0, 0.0 ] # (qw, qx, qy, qz)
+translation_sensor_mini_hercules_wheel:
+  rows: 1
+  cols: 3
+  dt: f
+  data: [ -1.138679, 0.003280, -1.469194 ]
+
+# TODO:
+quaternion_sensor_unitree_body_imu:
+  rows: 1
+  cols: 4
+  dt: f
+  data: [ ] # (qw, qx, qy, qz)
+translation_sensor_unitree_body_imu:
+  rows: 1
+  cols: 3
+  dt: f
+  data: [ ]
+
+# extrinsics from the sensor (reference) to the motion capture marker
+# calibration approach: hand-eye calibration implemented by the ETH ASL
+quaternion_sensor_optrack_marker:
+  rows: 1
+  cols: 4
+  dt: f
+  data: [0.4029, -0.0003, -0.0032, 0.9153] # (qw, qx, qy, qz)
+translation_sensor_optrack_marker:
+  rows: 1
+  cols: 3
+  dt: f
+  data: [-0.0010, -0.0000, 0.1441]
+
+quaternion_sensor_leica_marker:
+  rows: 1
+  cols: 4
+  dt: f
+  data: [1.0, 0.0, 0.0, 0.0] # (qw, qx, qy, qz)
+translation_sensor_leica_marker:
+  rows: 1
+  cols: 3
+  dt: f
+  data: [-0.0010, -0.0000, 0.1441]

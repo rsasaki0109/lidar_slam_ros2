@@ -1,0 +1,100 @@
+SOTA v7 Phase 5, second blind run: preregistration of H8 PASTEL (fixed 2026-11-12, before any sensor byte of a blind
+H8 bag is read). Addendum to preregistration.txt: everything there holds for H8 unless said otherwise here (candidate
+G22 frozen, the four rivals and their settings, run protocol, three repetitions, sealing before the one question about
+the ground truth, completion rule, win condition). Nothing there is changed. H6 and H7 stay preregistered and wait
+for Google Drive.
+
+What H8 adds, and its limits
+  A third fresh family (selection_h8.txt), fetched from Zenodo. It is a multirotor, a platform no development family
+  has. A result on H8 alone is one family and supports no claim; the tier needs two fresh families with the win
+  condition holding over them.
+
+Rig (per-rig inputs; rig_pastel.yaml and g_params_pastel.yaml from p8_make_rigs.py)
+  LiDAR /os0_128/points_filtered (Ouster OS0-128; the bags hold this topic, not /os0_128/points as the authors' file
+  names it), IMU /os1_16/imu (100 Hz, the built-in IMU of the second Ouster): the pair of the authors' FAST-LIO file.
+  Tactical-gyro input off. Base frame = that IMU.
+  The LiDAR pose in the IMU frame is T_OS1_IMU_OS0 of os0_128_lidar.yaml with one correction: as printed the matrix
+  is a reflection (determinant -1, its [2, 2] entry -0.9992). With +0.9992 it is orthonormal and equals the rotation
+  between the two sensors in the dataset's own X4_pastel.urdf; and on the pipeline bag the three IMUs read gravity on
+  the same axis with the same sign and their gyro signals are related by rotations within 9 degrees of the identity.
+  The corrected matrix is used for every method.
+  FAST-LIO2: its published ouster64.yaml with scan_line 128 and blind 0.5 as in preregistration.txt (the authors' own
+  file uses blind 4; the first run's value is kept for all families).
+  Conversion: as in preregistration.txt (points with x = y = z = 0 dropped, the nine Ouster fields packed, stamp
+  order). The md5 of the streamed bytes must equal the Zenodo record's (pastel_files.txt). The bags also hold the
+  total-station topics /leica/pose and /leica/original/pose: the converter does not deserialise them.
+
+Sequences
+  Every bag of the record of at most 9 GB except the pipeline bag 22: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 16,
+  20, 21, 23 (h8_sequences.txt; 12 and 14 are 9.5 and 11.4 GB). Seventeen sequences, in that order
+  (bench_report/scripts/p8_blind_h8.sh).
+
+Metric
+  ATE RMSE of the prism position (m): rigid SE(3) Umeyama fit without scale, the estimate interpolated at the
+  reference timestamps, no time offset estimated. The estimate's prism is T_world_imu * t, with t the prism in the
+  OS1-16 IMU frame = T_OS1_IMU_OS0 * inverse(T_Body_OS0) * T_Body_Prism (os0_128_lidar.yaml with the same sign
+  correction for T_Body_OS0, leica_prism.yaml). The reference is the total-station trajectory: the per-sequence file of
+  ground_truth.zip if it holds one, otherwise the bag's /leica/pose; which one is recorded before any score is
+  computed. Scores per sequence = median of three repetitions; H8's geometric means and G's worst ratio to the best
+  rival as in preregistration.txt.
+
+What was read before this file
+  selection_h8.txt lists what was read to choose H8. Since then, the pipeline bag 22 (md5 2ffc98b4..., equal to the
+  record's): its topic list; the LiDAR layout (unorganized, 48-byte points, about 74 000 per scan, 430 scans over
+  43 s); the three IMU topics, read to check the mounting (above). All five methods were run on it once
+  (pipeline_check/pastel22_runs.txt). Its /leica topics were not deserialised and no ground truth of H8 was read.
+
+Record
+  (filled in as the run proceeds; nothing above is changed)
+  2026-11-12, pipeline check on bag 22 before any blind byte: all five methods exited 0 with 399 to 430 poses and the
+    same end-to-start distance (23.36 to 23.44 m). GLIM's trajectory starts about 3 s after the others (its
+    initialisation); on a sequence this short that is 93 % of the span, under the 95 % completion rule, which stays
+    as written.
+  2026-11-12 07:22 UTC: the first start of the batch (05:50) ended in bag 1's download ("transfer closed with
+    1985608927 bytes remaining"); the converter saw a truncated stream and nothing was run. Not a property of any
+    method: the batch now fetches through p8_http_stream.py, which resumes a dropped transfer at the byte it stopped
+    at; the md5 check of the whole stream is unchanged. Restarted from bag 1.
+  2026-11-12 08:41 UTC: the VM restarted again before bag 1 was down (Zenodo at 1.5 to 3 MB/s; a restart empties
+    /dev/shm and kills the batch), so nothing had run. Procedure change, with no effect on any method's input: a bag
+    that fits on the disk is now downloaded to a file that a restart does not lose (curl resumes it), its md5 checked,
+    converted from the file, and deleted when the sequence's fifteen runs are done; a bag that does not fit is streamed
+    as before. The converted bag still sits in /dev/shm and is rebuilt from the file after a restart.
+  2026-11-12 11:45 UTC: the batch ran bags 1 to 4 (09:44 to 11:38) and every one of the 60 runs is void: the converted
+    bags held no cloud. Bags 1 to 4 name the OS0-128 cloud /os0_128/points (873 to 1045 messages each); only the
+    pipeline bag 22 was known, and it names it /os0_128/points_filtered. The rig line above ("the bags hold this
+    topic") was written from that one bag and is wrong for these four. With no cloud, G, BIEVR-LIO, FAST-LIO2 and GLIM
+    exited 0 with no pose and RKO-LIO upstream exited 1; no trajectory exists, so nothing of any method's behaviour
+    was seen. A conversion fault, not a property of a method: the 60 runs are set aside
+    (/home/user/bench/blind2/void_h8_no_lidar, kept, not scored) and the sequences are run again.
+    Fix, the same input rule for every method: the cloud is taken from /os0_128/points_filtered if the bag has it and
+    from /os0_128/points otherwise (the topic the authors' FAST-LIO file names), and is written under the rig's topic
+    name; the bag summary records which (lidar_source_topics). A bag with both is converted from the filtered topic
+    alone. Points with x = y = z = 0 are dropped and the nine fields packed as before. No method setting changes.
+    The summaries of bags 1 to 4 list their topics and message counts, the /leica topics among them (1206 to 1574
+    poses); no /leica message was deserialised. The batch now runs in pieces of two sequences, 5 and 1 first.
+  2026-11-12 20:24 UTC: all seventeen sequences are run (11:45 to 20:23, in pieces of one to three sequences): 255
+    runs, every one exit 0 with a trajectory (runs_h8.csv, bag_summaries_h8/). Every bag's md5 equalled the record's.
+    Fourteen bags name the cloud /os0_128/points, three /os0_128/points_filtered, none both. Bag 15 (7.8 GB) was
+    streamed, the others downloaded to disk first. No run was repeated or dropped after the void 60 above.
+    G: wall time 9 to 46 s on 53 to 186 s of data, peak RSS 127 to 216 MB. sealed_manifest_h8.txt holds the sha256 of
+    every trajectory, bag summary and of runs_h8.csv. No ground truth of H8 has been read; the maintainer is asked
+    before it is.
+  2026-11-12 20:40 UTC: the maintainer approved opening H8's ground truth. ground_truth.zip (md5 equal to the
+    record's) holds one file per sequence, trajectories/<n>.csv (time in ns, prism position; the orientation columns
+    are the identity), for all seventeen sequences. By the rule above the reference is that file for every sequence;
+    the bags' /leica topics are not used. Recorded before any score is computed.
+  2026-11-12 20:55 UTC: scored (bench_report/scripts/p8_blind_score_h8.py; score_h8.csv, score_h8.md). By the rules
+    as written:
+    - Sequence 11 is a failure of every method under the completion rule: 11.csv spans 215 s (from 10.8 s before the
+      bag's first sensor message to 75 s after its last), the bag holds 129 s of LiDAR and IMU, so no trajectory can
+      span 95 % of the reference (all span 58 to 60 %). The rule is not changed. G's completion on H8 is therefore
+      16 of 17 and the win condition is not met on H8 as written. Beside it, not as the result: over the part of the
+      reference the bag covers, sequence 11 reads G 0.1481, RKO-LIO upstream 0.1526, BIEVR-LIO 0.1540, FAST-LIO2
+      0.1609, GLIM 0.1869 m (G / best rival 0.97).
+    - GLIM fails 6, 20 and 21 as well (its trajectory starts 2.9 s late; 93 to 95 % of the span), as on the
+      pipeline bag.
+    - The other clauses: geometric mean over each method's completed sequences G 0.0745, RKO-LIO upstream 0.0850,
+      BIEVR-LIO 0.0888, FAST-LIO2 0.1136, GLIM 0.1244 m; over the 13 sequences all five completed, G 0.0827 against
+      0.0931 (RKO-LIO upstream). On the 16 scored sequences G is never more than 10 % worse than its best rival
+      (0.68 to 1.02; 1.02 on sequence 7 against BIEVR-LIO). G's RTF is at most 0.277 and its peak RSS at most 210.5 MB.
+    H8 is one family; no claim follows from it either way.

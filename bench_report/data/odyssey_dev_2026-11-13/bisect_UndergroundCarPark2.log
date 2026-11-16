@@ -1,0 +1,8 @@
+2026-11-13T21:42:02Z cce5cf47 Merge pull request #29 from rsasaki0109/feat/bump-rotation-persistence | UndergroundCarPark2 bis_cce5cf47 ATE 0.1247 m  wall 114.0 s  RSS 636 MB  poses 1431
+2026-11-13T21:44:48Z 67ef8762 fix: wait for offline output subscribers when requested | UndergroundCarPark2 bis_67ef8762 ATE 0.1254 m  wall 67.4 s  RSS 599 MB  poses 1431
+2026-11-13T21:48:00Z 1c897758 Preserve tunnel velocity prior through yaw | UndergroundCarPark2 bis_1c897758 ATE 0.1254 m  wall 88.1 s  RSS 596 MB  poses 1431
+2026-11-13T21:50:46Z 4cba0336 Merge pull request #3 from rsasaki0109/feature/upstream-master-integra | UndergroundCarPark2 bis_4cba0336 ATE 0.1254 m  wall 79.3 s  RSS 610 MB  poses 1431
+2026-11-13T21:53:21Z 45b918b1 Fix kidnap-recovery use-after-free and offline end-of-bag hang | UndergroundCarPark2 bis_45b918b1 ATE 0.1106 m  wall 68.4 s  RSS 1007 MB  poses 1431
+2026-11-13T21:55:30Z ea96cc18 Merge pull request #2 from rsasaki0109/feature/degeneracy-radar-intens | UndergroundCarPark2 bis_ea96cc18 ATE 0.1106 m  wall 67.0 s  RSS 983 MB  poses 1431
+2026-11-13T21:58:14Z 416f4e93 fixup: apply Secondsd->Nsec conversion in test_direct_visual_odometry. | UndergroundCarPark2 bis_416f4e93 ATE 0.1254 m  wall 77.9 s  RSS 653 MB  poses 1431
+a93a1b85 build failed

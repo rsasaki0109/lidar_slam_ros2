@@ -13,7 +13,7 @@ set +u; source /opt/ros/jazzy/setup.bash; set -u
 mkdir -p "$D/dl" "$D/x" "$D/bags" "$D/gt"
 f="$D/dl/${sc}.7z"
 [[ -f $f ]] || curl -sS -L --fail -m 3600 -o "$f" "https://zenodo.org/records/21318128/files/${sc}.7z?download=1" || exit 1
-[[ $(md5sum "$f" | cut -d' ' -f1) == "${MD5[$sc]}" ]] || { echo "MD5 MISMATCH ${sc}"; exit 1; }
+[[ $(md5sum "$f" | cut -d' ' -f1) == "${MD5[$sc]}" ]] || { echo "MD5 MISMATCH ${sc}"; rm -f "$f"; exit 1; }  # a kept bad file would fail every later call
 (cd "$D/x" && "${VPY}" -I -c "
 import py7zr, sys
 with py7zr.SevenZipFile(sys.argv[1]) as z:

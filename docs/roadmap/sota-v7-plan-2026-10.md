@@ -282,6 +282,40 @@ Status (2026-10-30, report chapter 39):
   G's geometric mean over 14 is 0.0876 m against BIEVR-LIO 0.0706, it is more than 10 % worse than its best rival on
   6 of 14, and its peak RSS exceeds 330 MB on 10 of 14; it completes all 14 in real time (RTF at most 0.49), and
   upstream RKO-LIO fails 2 of 14.
+- Second blind run, first family (2026-11-12, report chapter 63, `bench_report/data/blind_v7_run2_2026-11-10/`):
+  G22 frozen, the same four rivals, on H8 PASTEL (multirotor, 17 sequences, a fresh family), sealed before the ground
+  truth was opened. G has the lowest geometric mean (0.0745 m against 0.0850 for upstream RKO-LIO), is never more
+  than 10 % worse than its best rival on the 16 scored sequences, with RTF at most 0.28 and peak RSS at most 211 MB.
+  The win condition is not met as written: on sequence 11 the reference spans more time than the bag, so no method
+  reaches the 95 % completion rule and G completes 16 of 17. One family supports no tier claim; H6 FusionPortable V2
+  and H7 MCD are preregistered and wait for Google Drive's download limit on this VM.
+- Second blind run, second family (2026-11-13, report chapter 64): H9 Odyssey (car, OS1-128, 7 drives), sealed
+  before the reference was opened. G does not meet the win condition: it is more than 10 % worse than its best rival
+  on all seven drives (1.23 to 1.27 on six, 5.27 on Tunnel2), third by geometric mean (0.6345 m against 0.5041 for
+  BIEVR-LIO and 0.5231 for upstream RKO-LIO), with RTF up to 0.99 and peak RSS up to 463 MB. G loses to upstream
+  RKO-LIO on every drive here, so one of G's changes hurts on this rig; which one is the next question. Over
+  H8 + H9 G still has the lowest geometric mean (0.1430 against 0.1477). No SOTA claim follows from the second run.
+- Odyssey diagnosis (2026-11-13, report chapter 65; H9 is development data from here): no group of G22's keys
+  explains the loss to upstream. The fork's default voxel downsampling is the hash-sorted one upstream reverted
+  before 0.3.0 (upstream 0.3.2's is behind `legacy_voxel_downsample`, off in G22); with the key the fork at
+  upstream's defaults returns to 0.3.2 on the two drives that are not degenerate, and G22 moves -14 %, -47 % and
+  +24 % on the three drives tested. Voxel 0.25 is what exceeds the RTF and memory limits on the 128-beam rig. Open:
+  a candidate on upstream's sampler (and a rebase onto upstream 0.4.x) needs its own preregistered rule on all
+  development data, with Odyssey as a development family, and fresh blind data for a claim.
+- G23 screen (2026-11-14, `bench_report/data/phase1_global/screen_g23/plan.txt`): G22 with upstream's sampler
+  holds on MapsHD (0.980) but fails exp04 (1.0511, limit 1.05) and Odyssey (geometric mean 1.122 x G22's: better on
+  the three enclosed drives, worse on the four open ones). Dropped; G stays G22. The sampler is taken up together
+  with a rebase onto upstream 0.4.x.
+- Rebase trial (2026-11-14, report chapter 66, `bench_report/data/rebase_trial_2026-11-14/plan.txt`): a merge of
+  upstream 0.4.2 conflicts in 20 files; unmodified 0.4.1 at upstream's defaults beats G22 on Odyssey by 5.9 % with a
+  third of the memory, but with the keys it shares with G22 it is 1.25 x (exp04) and 1.8 x (MapsHD) behind indoors,
+  as 0.3.2 is: the indoor accuracy is the fork's features at voxel 0.25, the outdoor gain is voxel 1.0 with
+  upstream's sampler and keypoint multiplier 1.5. Open: a GT-free choice between the two operating points by scene
+  scale, as a candidate with its own rule; the rebase itself is worth it for memory and is a feature-by-feature port.
+- Ported base (2026-11-15, report 66 addendum): no GT-free statistic separates where voxel 1.0 beats 0.25, so no
+  selector. Upstream 0.4.1 with four ports (IMU unit, keypoint multiplier, close-scene registration, sorted sampler)
+  is at 0.966 x G22 on MapsHD and 0.997 x on Odyssey with a third less memory, but 1.16 x on exp04 and 1.28 x on
+  Koide; the missing pieces are not identified. Rebase paused with the patches kept.
 - Publish only through the generated claim block in the README, one row per tier, with
   failed tiers shown.
 - C4: KITTI Odometry (LiDAR-only track) is the canonical hidden-ground-truth LiDAR

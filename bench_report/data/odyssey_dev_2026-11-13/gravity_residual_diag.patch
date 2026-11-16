@@ -1,0 +1,20 @@
+diff --git a/rko_lio/core/lio.cpp b/rko_lio/core/lio.cpp
+index 47c3b8e..24cceca 100644
+--- a/rko_lio/core/lio.cpp
++++ b/rko_lio/core/lio.cpp
+@@ -346,6 +346,15 @@ LinearSystem build_orientation_linear_system(const Sophus::SE3d& current_pose,
+   Eigen::Matrix3_6d J_ori = Eigen::Matrix3_6d::Zero();
+   J_ori.block<3, 3>(0, 3) = current_rotation.inverse().matrix() * Sophus::SO3d::hat(-1 * gravity_world).matrix();
+ 
++  // diagnostic only (Odyssey diagnosis, addendum 4): upstream 0.3.2's gravity term, the raw vector difference
++  static const bool upstream_term = [] {
++    const char* v = std::getenv("RKO_LIO_GRAVITY_RESIDUAL");
++    return v != nullptr && std::string(v) == "upstream";
++  }();
++  if (upstream_term) {
++    const Eigen::Vector3d raw = predicted_gravity - local_gravity_estimate;
++    return LinearSystem{J_ori.transpose() * J_ori, J_ori.transpose() * raw, 0.5 * raw.squaredNorm()};
++  }
+   const auto& loss = constraint.loss;
+   return LinearSystem{loss.weight * (J_ori.transpose() * J_ori),
+                       loss.weight * (J_ori.transpose() * residual), loss.cost};

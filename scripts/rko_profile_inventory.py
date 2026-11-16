@@ -107,8 +107,10 @@ FAMILY_PROFILES = {
 
 _CPP_LITERAL = re.compile(
     r'^\s*(?:bool|int|size_t|double|float|std::string)\s+(\w+)\s*=\s*([^;]+);')
+# node->declare_parameter<T>(...) in the ROS 2 node, params.declare<T>(...) in the ROS-free
+# rko_lio::driver::declare_driver_config that the node now calls.
 _ROS_DECLARE = re.compile(
-    r'declare_parameter<(?:bool|int|double|std::string)>\(\s*"([\w.]+)"\s*,\s*([^)]*)\)')
+    r'declare(?:_parameter)?<(?:bool|int|double|std::string)>\(\s*"([\w.]+)"\s*,\s*([^)]*)\)')
 
 
 def _parse_literal(text):
@@ -151,7 +153,10 @@ def load_defaults():
     defaults = _struct_literals('lio.hpp', 'Config')
     for header, struct, prefix in PREFIXED_STRUCTS:
         defaults.update(_struct_literals(header, struct, prefix))
-    node_src = (RKO / 'rko_lio' / 'ros' / 'base_node.cpp').read_text()
+    node_src = '\n'.join(
+        path.read_text() for path in (RKO / 'rko_lio' / 'ros' / 'base_node.cpp',
+                                      RKO / 'rko_lio' / 'driver' / 'driver_config.cpp')
+        if path.is_file())
     for match in _ROS_DECLARE.finditer(node_src):
         key, raw = match.group(1), match.group(2)
         if key in defaults:
@@ -161,7 +166,9 @@ def load_defaults():
             defaults[key] = value
     # Node members initialised in the header supply the defaults that the
     # declare_parameter calls pass by name.
-    node_hpp = (RKO / 'rko_lio' / 'ros' / 'base_node.hpp').read_text().splitlines()
+    node_hpp = [line for path in (RKO / 'rko_lio' / 'ros' / 'base_node.hpp',
+                                  RKO / 'rko_lio' / 'driver' / 'driver_config.hpp')
+                if path.is_file() for line in path.read_text().splitlines()]
     for line in node_hpp:
         match = _CPP_LITERAL.match(line)
         if match and match.group(1) not in defaults:

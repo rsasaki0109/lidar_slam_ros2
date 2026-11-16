@@ -1,0 +1,62 @@
+From 58ff85ba9f5912922888d50003071a4548c2dead Mon Sep 17 00:00:00 2001
+From: trial <trial@localhost>
+Date: Sat, 14 Nov 2026 06:05:03 +0000
+Subject: [PATCH] port: icp_keypoint_voxel_multiplier
+
+---
+ rko_lio/core/lio.hpp             | 3 +++
+ rko_lio/core/preprocess_scan.cpp | 3 ++-
+ rko_lio/ros/base_node.cpp        | 2 ++
+ 3 files changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/rko_lio/core/lio.hpp b/rko_lio/core/lio.hpp
+index 804abf1..9397dc5 100644
+--- a/rko_lio/core/lio.hpp
++++ b/rko_lio/core/lio.hpp
+@@ -76,6 +76,9 @@ public:
+     /** Enable double downsampling. */
+     bool double_downsample = true;
+ 
++    /** Port of the fork: voxel of the ICP keypoints as a multiple of voxel_size (double_downsample). */
++    Scalar icp_keypoint_voxel_multiplier = 1.5;
++
+     /** Minimum weight for orientation regularization. */
+     Scalar min_beta = 200;
+   };
+diff --git a/rko_lio/core/preprocess_scan.cpp b/rko_lio/core/preprocess_scan.cpp
+index 82a5904..373bcc9 100644
+--- a/rko_lio/core/preprocess_scan.cpp
++++ b/rko_lio/core/preprocess_scan.cpp
+@@ -1,6 +1,7 @@
+ #include "preprocess_scan.hpp"
+ #include "voxel_down_sample.hpp"
+ 
++#include <algorithm>
+ #include <cmath>
+ 
+ namespace rko_lio::core {
+@@ -13,7 +14,7 @@ PreprocessingResult preprocess_scan(Vector3sVector scan, const LIO::Config& conf
+ 
+   if (config.double_downsample) {
+     Vector3sVector downsampled = voxel_down_sample(scan, config.voxel_size * static_cast<Scalar>(0.5));
+-    Vector3sVector keypoints = voxel_down_sample(downsampled, config.voxel_size * static_cast<Scalar>(1.5));
++    Vector3sVector keypoints = voxel_down_sample(downsampled, config.voxel_size * std::max(static_cast<Scalar>(0.5), config.icp_keypoint_voxel_multiplier));
+     return {.filtered_scan = std::move(scan), .keypoints = std::move(keypoints), .map_points = std::move(downsampled)};
+   }
+   Vector3sVector keypoints = voxel_down_sample(scan, config.voxel_size);
+diff --git a/rko_lio/ros/base_node.cpp b/rko_lio/ros/base_node.cpp
+index 0e4993f..b4f9839 100644
+--- a/rko_lio/ros/base_node.cpp
++++ b/rko_lio/ros/base_node.cpp
+@@ -159,6 +159,8 @@ BaseNode::BaseNode(const std::string& node_name, const rclcpp::NodeOptions& opti
+   lio_config.max_expected_jerk =
+       static_cast<core::Scalar>(node->declare_parameter<double>("max_expected_jerk", lio_config.max_expected_jerk));
+   lio_config.double_downsample = node->declare_parameter<bool>("double_downsample", lio_config.double_downsample);
++  lio_config.icp_keypoint_voxel_multiplier = static_cast<core::Scalar>(
++      node->declare_parameter<double>("icp_keypoint_voxel_multiplier", lio_config.icp_keypoint_voxel_multiplier));
+   lio_config.min_beta = static_cast<core::Scalar>(node->declare_parameter<double>("min_beta", lio_config.min_beta));
+   lio = std::make_unique<core::LIO>(lio_config);
+ 
+-- 
+2.43.0
+

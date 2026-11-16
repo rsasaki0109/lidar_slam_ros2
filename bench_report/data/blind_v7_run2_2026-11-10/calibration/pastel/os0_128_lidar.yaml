@@ -1,0 +1,32 @@
+# Transformation from mavros imu to Ouster OS0-128 LiDAR
+T_Body_OS0: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: d
+   data: [ 0.9985, -0.0269, -0.0475,  0.000,
+          -0.0251,  0.9990, -0.0366,  0.000,
+           0.0485,  0.0354, -0.9972, -0.390,
+           0.0000,  0.0000,  0.0000,  1.0 ]
+
+           
+# Transformation from Ouster OS1-16 IMU to Ouster OS0-128 LiDAR
+T_OS1_IMU_OS0: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: d
+   data: [ 0.9992,  0.0178, -0.0361,  0.005,
+          -0.0182,  0.9997, -0.0117, -0.015,
+           0.0359,  0.0123, -0.9992, -0.115,
+           0.0000,  0.0000,  0.0000,  1.0 ]
+
+
+
+# Transformation from Ouster OS0-128 IMU to Ouster OS0-128 LiDAR
+T_OS0_IMU_OS0: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: d
+   data: [ 1.0,  0.0,  0.0,  0.006,
+           0.0,  1.0,  0.0, -0.012,
+           0.0,  0.0,  1.0,  0.012,
+           0.0,  0.0,  0.0,  1.0 ]

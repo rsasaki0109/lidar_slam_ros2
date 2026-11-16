@@ -1,0 +1,31 @@
+# Transformation from mavros imu to Velodyne VLP 16 LiDAR
+T_Body_VLP: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: d
+   data: [ 0.9995, 0.0299, -0.0140,  0.000,
+          -0.0300, 0.9996,  0.0002, -0.007,
+           0.0140, 0.0002,  0.9999, -0.505,
+           0.0000, 0.0000,  0.0000,  1.0 ]
+
+           
+# Transformation from Ouster OS1-16 IMU to Velodyne VLP 16 LiDAR
+T_OS1_IMU_VLP: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: d
+   data: [ 0.9971,  0.0760, -0.0140,  0.003,
+          -0.0759,  0.9968,  0.0002, -0.017,
+           0.0029, -0.0239,  0.9999, -0.203,
+           0.0000,  0.0000,  0.0000,  1.0 ]
+
+
+# Transformation from Ouster OS0-128 IMU to Velodyne VLP 16 LiDAR
+T_OS0_IMU_VLP: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: d
+   data: [ 0.9979,  0.0557,  0.0329,  0.001,
+          -0.0566,  0.9978,  0.0351, -0.016,
+           0.0310, -0.0369,  0.9988, -0.103,
+           0.0000,  0.0000,  0.0000,  1.0 ]
