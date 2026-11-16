@@ -27,6 +27,11 @@ jobs:
     name: ROS-free core build and unit tests
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    env:
+      # The packages compile with -g; -g1 comes after it and wins. It keeps line tables, leaves
+      # the generated code byte-identical and keeps offline_pipeline.cpp (6.5 GB with -g) well
+      # inside the runner's 16 GB while other units compile beside it.
+      CXXFLAGS: -g1
 
     steps:
       - name: Check out repository

@@ -9,7 +9,7 @@ the same bytes with or without ROS 2.
 | Part | ROS-free already | Still needs ROS 2 |
 | --- | --- | --- |
 | Backend engine (`GraphSlamApplication`, pose graph, loop search, map refinement) | yes, by contract (`docs/graph-slam-architecture.md`) | build (ament), `cloud_compression` / `graph_state_store` keep `sensor_msgs/PointCloud2` |
-| Offline backend runner (`graph_slam_offline_runner`) | no | `rosbag2_cpp` input, `rclcpp` parameters, `sensor_msgs` clouds inside |
+| Offline backend runner (`graph_slam_offline_runner`) | yes since M4: its stages are `graphslam::offline::OfflinePipeline` | the ROS 2 shell only (`rosbag2_cpp` input, node parameters, `rclcpp` logging) |
 | Frontend core (`rko_lio::core`) | yes (`RKO_LIO_BUILD_ROS=OFF`) | none |
 | Frontend driver (`rko_lio` `offline_node`, `base_node`) | no | `rosbag2_cpp`, `rclcpp` parameters, message conversion |
 | Product CLI (`lidarslam-map`) | Python | `ros2 launch`, `ros2 bag record`, `rosbag2_py` |
@@ -47,6 +47,26 @@ Each milestone is one reviewable change. Outputs of the ROS 2 path stay byte-ide
    with a plain packed-cloud type (same bytes), read parameters from YAML, and feed the runner from
    the M2 input or directly from the M3 frontend. Check: trajectories, loop edges, g2o, map PCD
    byte-identical to `graph_slam_offline_runner`.
+   *Status (2026-11-16):* the backend helpers (cloud conversion, extrinsic, compression) are
+   templates over the message type, with ROS-free `graphslam::msg` cloud and odometry types
+   (`cloud_message.hpp`; `fromCloudMsg` is `pcl::fromROSMsg`, `poseToAffine` is `tf2::fromMsg`).
+   The runner's stages moved into `offline_pipeline.cpp` (`graphslam::offline::OfflinePipeline`,
+   no ROS include): parameters are `graphslam::offline::Parameters` (typed values read with
+   rclcpp's type rules), messages go to a `Log`, and the input is pushed in recorded order.
+   `graph_slam_offline_runner` is now its ROS 2 shell. `lidarslam_core` builds the same pipeline
+   and the unchanged registration loader against a pluginlib stand-in (`compat/pluginlib`: the
+   host built-in registrations NDT, GICP and SMALL_GICP; no plugin DSOs without ROS), and
+   `python -m lidarslam backend <backend_input> --params <graph_based_slam file> --out DIR` runs it
+   from the pip package. `lidarslam.params` types parameter files like rcl; on the 51 file/node
+   pairs of `lidarslam/param` that rcl parses, names, types and values equal rclpy's.
+   Check: every output file is byte-identical between the unmodified develop runner (48e3e055),
+   the refactored ROS 2 runner and the pip package (no ROS environment, Ubuntu's libg2o 20230806
+   against ROS's 2020.5.29) on MapsHD calibration-room 2 (walking preset: 90 deg extrinsic, 6
+   files; with loops, map PCDs, dense, degeneracy and causal outputs, 16 files; NDT 2 m, 8 files)
+   and underground-garage 1 (116 submaps, 2 loops, 9 files). The pip run took 9.0 s and 974 MB
+   peak RSS (ROS 2 runner: 9.0 s, 959 MB). `trajectory_causal.tum` models the loop worker's delay
+   with the measured compute time, so it can differ between any two runs; the other files are
+   deterministic with one registration thread.
 5. **M5, product path.** `pip install lidarslam` gives `lidarslam-map start <bag>` without ROS 2;
    the ROS 2 packages call the same core; docs say "ROS 2 optional".
 6. **M6, binary wheels.** First releases are source installs that build against Ubuntu's PCL and
@@ -58,6 +78,5 @@ Each milestone is one reviewable change. Outputs of the ROS 2 path stay byte-ide
 
 - Sophus has no Ubuntu package; the plain build fetches it with RKO-LIO's own recipe.
 - g2o: the plain build uses `libg2o-dev` (Ubuntu 24.04: 20230806); the ROS build uses
-  `ros-<distro>-libg2o` (2020-05-29). M4's byte-identity check must use one g2o for both sides, or
-  report the difference.
+  `ros-<distro>-libg2o` (2020-05-29). M4's checks above gave the same bytes with the two.
 - The installed ROS 2 workspace used for the running blind evaluation is not rebuilt by this work.

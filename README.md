@@ -78,6 +78,8 @@ python -m lidarslam backend /path/to/backend_input \
 
 `--params` takes the same parameter file as the ROS 2 RKO-LIO node (`ros__parameters` layout), with `imu_topic`, `lidar_topic`, `base_frame` and both `extrinsic_*2base_quat_xyzw_xyz` set. On HILTI exp14 the trajectory is byte-identical to the ROS 2 offline node. Visual and radar fusion still need ROS 2.
 
+`backend` runs `graph_slam_offline_runner` without ROS 2 on a backend input (the frontend's odometry and deskewed clouds, `/rko_lio/odometry` and `/rko_lio/frame`): it reads the `graph_based_slam` section of the parameter files, takes `-p name:=value` overrides like ROS 2, and writes the same files as the ROS 2 runner, byte for byte on the MapsHD checks. Registration plugins loaded through pluginlib still need ROS 2; the built-in NDT, GICP and SMALL_GICP do not.
+
 ## Use your own bag
 
 For an Ouster, Velodyne, RoboSense or other PointCloud2 bag, do not edit this package's launch files or YAML first: run `lidarslam-map doctor`, then `lidarslam-map start`. It checks topics, frames, fields, timestamps, a maintained profile and calibration, and stops unsafe inputs with a stable reason code and one next action. Maintained inputs: PointCloud2+Imu, PointCloud2+NavSatFix, VelodyneScan+Applanix GSOF49.

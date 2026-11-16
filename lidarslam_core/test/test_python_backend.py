@@ -110,6 +110,7 @@ def test_walk_around_a_room(tmp_path: Path) -> None:
         '  ros__parameters:\n'
         '    registration_method: "SMALL_GICP"\n'
         '    gicp_max_correspondence_distance: 0.5\n'
+        '    ndt_num_threads: 1\n'  # one registration thread: deterministic, as the presets
         '    voxel_leaf_size: 0.2\n'
         '    submap_distance_threshold: 1.5\n'
         '    refine: true\n'
@@ -138,7 +139,11 @@ def test_walk_around_a_room(tmp_path: Path) -> None:
         out / 'registration_plugin_receipt.yaml').read_text()
 
     run(log, params, tmp_path / 'out2', log=lambda level, msg: None)
-    assert _digests(tmp_path / 'out1') == _digests(tmp_path / 'out2')
+    # trajectory_causal.tum models the loop worker's delay with the measured compute time, so it
+    # varies between runs by design; every other file is deterministic.
+    first, second = _digests(tmp_path / 'out1'), _digests(tmp_path / 'out2')
+    del first['trajectory_causal.tum'], second['trajectory_causal.tum']
+    assert first == second
 
 
 def test_parameter_types_follow_rclcpp(tmp_path: Path) -> None:

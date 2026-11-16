@@ -140,8 +140,10 @@ def test_offline_pipeline_has_no_ros_dependency():
     # The offline backend stages build without ROS (lidarslam_core); only the runner's shell
     # (parameters, rosbag2 input, logging) uses ROS.
     pipeline = OFFLINE_ADAPTER_SOURCE.read_text(encoding='utf-8')
-    for forbidden in ('rclcpp', 'rosbag2', 'sensor_msgs', 'nav_msgs', 'pcl_conversions', 'tf2'):
-        assert forbidden not in pipeline, forbidden
+    code = '\n'.join(line.split('//', 1)[0] for line in pipeline.splitlines())
+    for forbidden in ('rclcpp', 'rosbag2', 'sensor_msgs', 'nav_msgs', 'pcl_conversions', 'tf2',
+                      'RCLCPP_'):
+        assert forbidden not in code, forbidden
     cmake = CMAKE.read_text(encoding='utf-8')
     start = cmake.index('add_library(graph_slam_offline_pipeline STATIC')
     end = cmake.index('add_executable(graph_slam_offline_runner', start)
