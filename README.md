@@ -71,6 +71,8 @@ python3 -m venv .venv && . .venv/bin/activate
 pip install ./lidarslam_core                     # Python >= 3.10; downloads Sophus while building
 python -m lidarslam inspect /path/to/rosbag2     # topics and message types
 python -m lidarslam odometry /path/to/rosbag2 --params my_rko_lio.yaml --out odom/
+python -m lidarslam map /path/to/rosbag2 --odometry-params my_rko_lio.yaml \
+  --backend-params lidarslam/param/lidarslam.yaml --out map/      # both, in one pass
 python -m lidarslam backend /path/to/backend_input \
   --params lidarslam/param/lidarslam_mid360_rko_graph_walking.yaml --out map/ \
   -p "extrinsic_lidar2base_quat_xyzw_xyz:=[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]"

@@ -11,7 +11,7 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 import sys
-from typing import Any
+from typing import Any, Callable
 
 from lidarslam import _core
 from lidarslam.io import IMU, POINT_CLOUD2, SensorLog
@@ -29,14 +29,20 @@ def load_parameters(path: str | Path) -> dict[str, Any]:
     return _load_parameters(path)
 
 
-def run(log_path: str | Path, params: dict[str, Any], out_dir: str | Path,
-        run_name: str = 'odometry') -> dict[str, Any]:
+def drive(log_path: str | Path, params: dict[str, Any],
+          on_output: Callable[[dict[str, Any], dict[str, Any]], None]) -> dict[str, Any]:
+    """Runs the odometry over a log and hands each output to ``on_output(output, state)`` in order.
+
+    ``state`` (also returned) holds the driver and counters: ``{'driver', 'imu_messages',
+    'lidar_messages', 'lidar_frame_id'}`` (``lidar_frame_id``: the header frame of the first LiDAR
+    message).
+    """
     params = dict(params)
     skip_to_time = float(params.pop('skip_to_time', 0.0) or 0.0)
     buffer_size = int(params.get('async.max_lidar_buffer_size', 10))
     for name in OFFLINE_NODE_ONLY:
         params.pop(name, None)
-    # The ROS 2 node's dump/output switches are not used here; this function writes its own files.
+    # The ROS 2 node's dump/output switches are not used here; callers write their own files.
     for name in ('dump_results', 'results_dir', 'run_name'):
         params.pop(name, None)
 
@@ -44,10 +50,8 @@ def run(log_path: str | Path, params: dict[str, Any], out_dir: str | Path,
     for name in driver.unused_parameters:
         print(f'[lidarslam] parameter not used by the odometry: {name}', file=sys.stderr)
 
-    out = Path(out_dir)
-    out.mkdir(parents=True, exist_ok=True)
-    rows: list[list[Any]] = []
-    counts = {'imu': 0, 'lidar': 0}
+    result: dict[str, Any] = {'driver': driver, 'imu_messages': 0, 'lidar_messages': 0,
+                              'lidar_frame_id': None}
     with SensorLog(log_path) as log:
         types = {t.name: t.msgtype for t in log.topics()}
         for topic, expected in ((driver.lidar_topic, POINT_CLOUD2), (driver.imu_topic, IMU)):
@@ -61,13 +65,25 @@ def run(log_path: str | Path, params: dict[str, Any], out_dir: str | Path,
                 continue
             if record.topic == driver.imu_topic:
                 driver.add_imu(record.message)
-                counts['imu'] += 1
+                result['imu_messages'] += 1
             else:
+                if result['lidar_frame_id'] is None:
+                    result['lidar_frame_id'] = record.message.header.frame_id
                 driver.add_lidar(record.message)
-                counts['lidar'] += 1
+                result['lidar_messages'] += 1
             for output in driver.take_outputs():
-                rows.append([output['time_ns'], *output['pose']])
+                on_output(output, result)
+    return result
 
+
+def run(log_path: str | Path, params: dict[str, Any], out_dir: str | Path,
+        run_name: str = 'odometry') -> dict[str, Any]:
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    rows: list[list[Any]] = []
+    result = drive(log_path, params,
+                   lambda output, _: rows.append([output['time_ns'], *output['pose']]))
+    driver = result['driver']
     tum = out / f'{run_name}_tum.txt'
     driver.write_tum(str(tum))
     with (out / f'{run_name}.csv').open('w', newline='', encoding='utf-8') as handle:
@@ -78,7 +94,7 @@ def run(log_path: str | Path, params: dict[str, Any], out_dir: str | Path,
     return {
         'tum': str(tum),
         'poses': len(rows),
-        'imu_messages': counts['imu'],
-        'lidar_messages': counts['lidar'],
+        'imu_messages': result['imu_messages'],
+        'lidar_messages': result['lidar_messages'],
         'dropped_trailing_frames': driver.pending_lidar_frames,
     }

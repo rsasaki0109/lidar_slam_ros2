@@ -3,6 +3,8 @@
   inspect <log>                         list topics, message types and counts
   odometry <log> --params P --out DIR   RKO-LIO odometry with a ROS 2 parameter file
   backend <log> --params P --out DIR    graph_based_slam offline backend on a backend input
+  map <log> --odometry-params P --backend-params P --out DIR
+                                        odometry and backend in one pass over a sensor log
 """
 
 from __future__ import annotations
@@ -35,6 +37,18 @@ def main(argv: list[str] | None = None) -> int:
     backend.add_argument('--out', required=True, help='output directory (output_dir)')
     backend.add_argument('-p', '--param', action='append', default=[], metavar='NAME:=VALUE',
                          help='parameter override, as ROS 2 -p (YAML value)')
+    mapping = sub.add_parser(
+        'map', help='odometry, then the backend on its deskewed scans, in one pass (no ROS 2)')
+    mapping.add_argument('log', help='rosbag2 directory or ROS 1 .bag file (LiDAR + IMU)')
+    mapping.add_argument('--odometry-params', required=True,
+                         help='RKO-LIO parameter file (ROS 2 ros__parameters layout or flat YAML)')
+    mapping.add_argument('--backend-params', required=True, action='append',
+                         help='graph_based_slam parameter file; repeat to layer files')
+    mapping.add_argument('--out', required=True, help='output directory')
+    mapping.add_argument('--lidar-topic', help='overrides lidar_topic')
+    mapping.add_argument('--imu-topic', help='overrides imu_topic')
+    mapping.add_argument('-p', '--param', action='append', default=[], metavar='NAME:=VALUE',
+                         help='backend parameter override, as ROS 2 -p (YAML value)')
     args = parser.parse_args(argv)
 
     if args.command == 'inspect':
@@ -57,6 +71,19 @@ def main(argv: list[str] | None = None) -> int:
         from lidarslam.params import apply_overrides
         params = apply_overrides(backend_module.load_parameters(*args.params), args.param)
         summary = backend_module.run(args.log, params, args.out)
+        print(json.dumps(summary, indent=2))
+    elif args.command == 'map':
+        from lidarslam import backend as backend_module, mapping as mapping_module
+        from lidarslam.odometry import load_parameters as load_odometry_parameters
+        from lidarslam.params import apply_overrides
+        odometry_params = load_odometry_parameters(args.odometry_params)
+        if args.lidar_topic:
+            odometry_params['lidar_topic'] = args.lidar_topic
+        if args.imu_topic:
+            odometry_params['imu_topic'] = args.imu_topic
+        backend_params = apply_overrides(
+            backend_module.load_parameters(*args.backend_params), args.param)
+        summary = mapping_module.run(args.log, odometry_params, backend_params, args.out)
         print(json.dumps(summary, indent=2))
     return 0
 

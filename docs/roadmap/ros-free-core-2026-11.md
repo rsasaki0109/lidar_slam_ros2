@@ -69,6 +69,18 @@ Each milestone is one reviewable change. Outputs of the ROS 2 path stay byte-ide
    deterministic with one registration thread.
 5. **M5, product path.** `pip install lidarslam` gives `lidarslam-map start <bag>` without ROS 2;
    the ROS 2 packages call the same core; docs say "ROS 2 optional".
+   *Step 1 (2026-11-16):* `python -m lidarslam map <log> --odometry-params P --backend-params P
+   --out DIR` runs RKO-LIO and the backend in one pass: each registered scan's deskewed cloud and
+   odometry go in memory to `OfflinePipeline` as the offline node's `/rko_lio/frame` (x, y, z
+   float32, 16-byte points, LiDAR frame) and `/rko_lio/odometry` (odom -> base, covariance,
+   twist), and the backend takes the LiDAR extrinsic from the odometry file as the launch file
+   does. On HILTI exp14 (G22 odometry, `lidarslam.yaml` backend, refine maps on) the 8 backend
+   files and the odometry trajectory are byte-identical to the ROS 2 path (offline node -> `ros2
+   bag record` of 739 + 739 messages -> `graph_slam_offline_runner`); the pip run took 12.8 s and
+   160 MB peak RSS (ROS 2: 40 s frontend with recording + 7 s backend). Next: the Autoware map
+   bundle (`pointcloud_map/`, metadata, projector info, `map_bundle.yaml`) from the offline
+   pipeline, sharing the live node's map saver, then `lidarslam-map start` on this path. The
+   live `start` runs the online graph node, so its maps are not expected to equal these bytes.
 6. **M6, binary wheels.** First releases are source installs that build against Ubuntu's PCL and
    g2o (`apt install libpcl-dev libg2o-dev`, then `pip install`). Prebuilt manylinux wheels need the
    core to stop depending on system PCL (Boost, FLANN); g2o can be built inside the wheel. Scope this
