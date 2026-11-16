@@ -166,19 +166,26 @@ if(LIDARSLAM_CORE_BUILD_TESTS)
     test_hba_pyramid test_plane_feature_association test_adaptive_voxel_plane_extractor
     test_map_quality_metrics test_registration_determinism test_dynamic_object_filter
     test_planar_map_filter test_multisession_join)
+  # graph_slam_application calls ThreeDBBSLoopVerifier, whose source each consumer compiles. The
+  # ROS tests compile it without GRAPH_BASED_SLAM_HAVE_3D_BBS (the verifier reports itself
+  # unavailable); the tests here link the same build of it.
+  add_library(graph_slam_test_loop_verifier STATIC ${GBS_ROOT}/src/three_d_bbs_loop_verifier.cpp)
+  target_include_directories(graph_slam_test_loop_verifier PUBLIC
+    ${GBS_ROOT}/include ${EIGEN3_INCLUDE_DIR} ${PCL_INCLUDE_DIRS})
+  target_link_libraries(graph_slam_test_loop_verifier ${PCL_LIBRARIES})
   foreach(_test IN LISTS LIDARSLAM_CORE_GTESTS)
     add_executable(${_test} ${GBS_ROOT}/test/${_test}.cpp)
     target_compile_features(${_test} PRIVATE cxx_std_17)
     target_include_directories(${_test} PRIVATE ${GBS_ROOT}/include ${GBS_ROOT}/src
       ${EIGEN3_INCLUDE_DIR} ${PCL_INCLUDE_DIRS})
     target_link_libraries(${_test} GTest::gtest_main graph_slam_application
-      graph_slam_io_adapters graph_slam_map_point ndt_omp lidarslam_plugin_interfaces
+      graph_slam_test_loop_verifier graph_slam_io_adapters graph_slam_map_point ndt_omp
+      lidarslam_plugin_interfaces
       ${PCL_LIBRARIES} g2o::core g2o::solver_eigen g2o::stuff g2o::types_slam3d)
     add_test(NAME ${_test} COMMAND ${_test})
     set_tests_properties(${_test} PROPERTIES TIMEOUT 300)
   endforeach()
   if(GBS_HAVE_3D_BBS)
-    target_sources(test_graph_slam_application PRIVATE ${GBS_ROOT}/src/three_d_bbs_loop_verifier.cpp)
     target_link_libraries(test_graph_slam_application graph_based_slam_3d_bbs_vendor)
   endif()
 endif()
