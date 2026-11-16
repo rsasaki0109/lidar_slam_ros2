@@ -103,10 +103,25 @@ Each milestone is one reviewable change. Outputs of the ROS 2 path stay byte-ide
    recorded ROS 2 input. Not covered by the core engine: the GNSS and packet profiles, the bag's
    GNSS in the backend input, and `--join-map` (the multi-session join needs ROS 2). The live
    `start` runs the online graph node, so its maps are not expected to equal these bytes.
-6. **M6, binary wheels.** First releases are source installs that build against Ubuntu's PCL and
-   g2o (`apt install libpcl-dev libg2o-dev`, then `pip install`). Prebuilt manylinux wheels need the
-   core to stop depending on system PCL (Boost, FLANN); g2o can be built inside the wheel. Scope this
-   after M4 by measuring which PCL parts the default pipeline really uses.
+6. **M6, `lidarslam-map` from pip, then binary wheels.** First releases are source installs that
+   build against Ubuntu's PCL and g2o (`apt install libpcl-dev libg2o-dev`, then `pip install`).
+   Prebuilt manylinux wheels need the core to stop depending on system PCL (Boost, FLANN); g2o can
+   be built inside the wheel. Scope this by measuring which PCL parts the default pipeline really
+   uses.
+   *Step 1 (2026-11-16):* `pip install ./lidarslam_core` installs the `lidarslam-map` command. The
+   package holds the tree the ROS 2 package installs under `share/lidarslam` (the 57 product
+   scripts, the 19 product schemas, `VERSION`, build provenance, bash completion and `param/`),
+   from the same file lists, so the product scripts run unchanged; `lidarslam_benchmark_tools`
+   carries the product scripts for the browser preview. `lidarslam-map doctor` reports ready with
+   the core engine when the `ros2` command is missing (new optional `engine` object in the doctor
+   report), and the diagnosis's map tilt check reads the IMU through `lidarslam.io` when
+   `rosbag2_py` is missing (same 25,306 samples and 3.76 deg as `rosbag2_py` on HILTI exp14). On
+   HILTI exp14, in a Python environment with no ROS 2 installed or sourced, run from outside the
+   checkout: `lidarslam-map run` (31.7 s, 158 MB peak RSS) wrote 30 files, 24 of them (map bundle,
+   tiles, trajectories, lanelet2, backend input) byte-identical to step 3's run, the other 6 being
+   reports that differ in paths, times and provenance only; `lidarslam-map start` gave a VERIFIED
+   session whose 29 map and data files equal step 3's session. (Step 3's runs used the checkout's
+   launcher, which sources the ROS 2 workspace for the report tools; these did not.)
 
 ## Notes
 

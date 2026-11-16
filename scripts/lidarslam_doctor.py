@@ -129,6 +129,19 @@ def _module_available(name: str) -> bool:
         return False
 
 
+def _core_engine_available() -> bool:
+    """Whether the lidarslam package can map without ROS 2 (lidarslam-map --engine core)."""
+    path = SCRIPT_DIR / 'run_rko_lio_graph_core.py'
+    if not path.is_file():
+        return False
+    spec = importlib.util.spec_from_file_location('lidarslam_doctor_core_engine', path)
+    if spec is None or spec.loader is None:
+        return False
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return bool(module.core_engine_available()[0])
+
+
 def _existing_storage_root(path: Path) -> Path:
     candidate = path.expanduser().resolve(strict=False)
     while not candidate.exists():
@@ -212,6 +225,7 @@ def build_system_report(
     command_lookup: Callable[[str], str | None] = shutil.which,
     module_available: Callable[[str], bool] = _module_available,
     disk_usage: Callable[[Path], Any] = shutil.disk_usage,
+    core_engine_available: Callable[[], bool] = _core_engine_available,
 ) -> dict[str, Any]:
     """Return one privacy-bounded, read-only installation diagnosis."""
     if not min_free_space_gib > 0:
@@ -235,6 +249,10 @@ def build_system_report(
     ros_supported = ros_distro in SUPPORTED_ROS_DISTROS
     ros2_cli = command_lookup('ros2') is not None
     rosbag2_python = module_available('rosbag2_py')
+    # As lidarslam-map run --engine auto: ROS 2 when the ros2 command is found, else the core
+    # engine of the lidarslam Python package, which needs no ROS 2 environment.
+    core_engine = core_engine_available()
+    engine = 'ros2' if ros2_cli else ('core' if core_engine else None)
     storage_root = _existing_storage_root(demo_dir)
     available_bytes = int(disk_usage(storage_root).free)
     minimum_bytes = int(min_free_space_gib * GIB)
@@ -256,7 +274,9 @@ def build_system_report(
             'Run bash scripts/source_quickstart.sh --build-only, then use the '
             'absolute lidarslam-map path it prints.',
         ))
-    if ros_distro is None:
+    if engine == 'core':
+        pass
+    elif ros_distro is None:
         findings.append(_finding(
             'ros-environment-missing',
             'No supported ROS 2 environment is active for this command.',
@@ -269,14 +289,14 @@ def build_system_report(
             f'ROS_DISTRO={ros_distro} is outside the Humble/Jazzy contract.',
             'Open a fresh terminal and use a Humble or Jazzy installation.',
         ))
-    if not ros2_cli:
+    if not ros2_cli and engine != 'core':
         findings.append(_finding(
             'ros2-cli-missing',
             'The ros2 command is unavailable.',
             'Install the selected ROS 2 desktop/base tools and run this doctor '
             'again from the supported environment.',
         ))
-    if not rosbag2_python:
+    if not rosbag2_python and engine != 'core':
         findings.append(_finding(
             'rosbag2-python-missing',
             'The rosbag2_py runtime needed for safe bag inspection is unavailable.',
@@ -311,6 +331,10 @@ def build_system_report(
             'ros2_cli_available': ros2_cli,
             'rosbag2_python_available': rosbag2_python,
         },
+        'engine': {
+            'selected': engine,
+            'core_available': core_engine,
+        },
         'storage': {
             'available_bytes': available_bytes,
             'minimum_free_bytes': minimum_bytes,
@@ -336,16 +360,25 @@ def render_system_report(report: Mapping[str, Any]) -> str:
     ros = report['ros']
     storage = report['storage']
     distro = ros['distro'] or 'not active'
+    engine = report.get('engine', {}).get('selected')
+    engine_text = {
+        'ros2': 'ROS 2',
+        'core': 'core (lidarslam Python package, no ROS 2 needed)',
+    }.get(engine, 'none')
     lines = [
         'lidarslam-map doctor — installation and demo readiness',
         f'Status:       {status}',
         f"Version:      {report['version']}",
         f"Product:      {product['layout']} "
         f"({product['runtime_file_count']} runtime helpers)",
+        f'Map engine:   {engine_text}',
         f'ROS 2:        {distro}',
         f"ros2 CLI:     {'ready' if ros['ros2_cli_available'] else 'missing'}",
         'Bag reader:   '
-        f"{'ready' if ros['rosbag2_python_available'] else 'missing'}",
+        + (
+            'rosbags (core engine)' if engine == 'core' else
+            'ready' if ros['rosbag2_python_available'] else 'missing'
+        ),
         'Demo storage: '
         f"{storage['available_bytes'] / GIB:.1f} GiB free; "
         f"{storage['minimum_free_bytes'] / GIB:.1f} GiB required"

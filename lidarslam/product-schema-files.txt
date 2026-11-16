@@ -1,0 +1,21 @@
+# Schemas installed with the product CLI (share/lidarslam/product/schemas).
+# Read by lidarslam/CMakeLists.txt and lidarslam_core/CMakeLists.txt (the pip package).
+run-manifest-v1.schema.json
+run-manifest-v2.schema.json
+release-image-v1.schema.json
+rollback-plan-v1.schema.json
+first-map-validation-receipt-v1.schema.json
+first-map-handoff-v1.schema.json
+first-map-demo-plan-v1.schema.json
+sensor-setup-v1.schema.json
+sensor-setup-rejection-v1.schema.json
+map-session-recovery-v1.schema.json
+map-session-index-v1.schema.json
+map-session-catalog-v1.schema.json
+map-session-comparison-v1.schema.json
+support-bundle-v1.schema.json
+map-edit-plan-v1.schema.json
+map-edit-receipt-v1.schema.json
+map-project-v1.schema.json
+map-merge-receipt-v1.schema.json
+system-doctor-v1.schema.json

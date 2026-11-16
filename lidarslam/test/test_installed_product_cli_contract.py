@@ -309,20 +309,32 @@ def test_cmake_preserves_historical_node_and_installs_distinct_cli_names():
     assert 'RENAME lidarslam-cli' in cmake
     assert 'scripts/completions/lidarslam-map.bash' in cmake
     assert 'DESTINATION share/${PROJECT_NAME}/product/completions' in cmake
-    assert 'release-image-v1.schema.json' in cmake
-    assert 'rollback-plan-v1.schema.json' in cmake
-    assert 'sensor-setup-v1.schema.json' in cmake
-    assert 'sensor-setup-rejection-v1.schema.json' in cmake
-    assert 'map-session-recovery-v1.schema.json' in cmake
-    assert 'map-session-index-v1.schema.json' in cmake
-    assert 'map-session-catalog-v1.schema.json' in cmake
-    assert 'map-session-comparison-v1.schema.json' in cmake
-    assert 'support-bundle-v1.schema.json' in cmake
-    assert 'map-edit-plan-v1.schema.json' in cmake
-    assert 'map-edit-receipt-v1.schema.json' in cmake
-    assert 'first-map-validation-receipt-v1.schema.json' in cmake
-    assert 'first-map-handoff-v1.schema.json' in cmake
-    assert 'first-map-demo-plan-v1.schema.json' in cmake
+    assert 'product-schema-files.txt' in cmake
+    schemas = [
+        line.strip()
+        for line in (PACKAGE_ROOT / 'product-schema-files.txt').read_text(
+            encoding='utf-8').splitlines()
+        if line.strip() and not line.startswith('#')
+    ]
+    for name in schemas:
+        assert (REPO_ROOT / 'docs' / 'schemas' / name).is_file(), name
+    for name in (
+        'release-image-v1.schema.json',
+        'rollback-plan-v1.schema.json',
+        'sensor-setup-v1.schema.json',
+        'sensor-setup-rejection-v1.schema.json',
+        'map-session-recovery-v1.schema.json',
+        'map-session-index-v1.schema.json',
+        'map-session-catalog-v1.schema.json',
+        'map-session-comparison-v1.schema.json',
+        'support-bundle-v1.schema.json',
+        'map-edit-plan-v1.schema.json',
+        'map-edit-receipt-v1.schema.json',
+        'first-map-validation-receipt-v1.schema.json',
+        'first-map-handoff-v1.schema.json',
+        'first-map-demo-plan-v1.schema.json',
+    ):
+        assert name in schemas, name
     assert 'DESTINATION share/${PROJECT_NAME}/product/schemas' in cmake
     assert 'generate_product_build_info.py' in cmake
     assert 'product-build-info.json' in cmake

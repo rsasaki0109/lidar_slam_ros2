@@ -16,6 +16,9 @@ dependencies = [
   "scipy>=1.10",  # lanelet2_map.osm of lidarslam-map run --engine core
 ]
 
+[project.scripts]
+lidarslam-map = "lidarslam.product:main"
+
 [project.optional-dependencies]
 test = ["pytest"]
 
@@ -27,7 +30,7 @@ minimum-version = "build-system.requires"
 cmake.version = ">=3.22"
 cmake.build-type = "Release"
 wheel.packages = ["python/lidarslam"]
-build.targets = ["_core"]
+build.targets = ["_core", "lidarslam_product_build_info"]
 install.components = []
 
 [tool.scikit-build.cmake.define]
@@ -35,3 +38,4 @@ LIDARSLAM_CORE_BUILD_PYTHON = "ON"
 LIDARSLAM_CORE_BUILD_TESTS = "OFF"
 LIDARSLAM_CORE_BUILD_BACKEND = "ON"
 LIDARSLAM_CORE_BUILD_FRONTEND = "ON"
+LIDARSLAM_CORE_INSTALL_PRODUCT = "ON"
