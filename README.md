@@ -26,6 +26,7 @@
 | See a verified map, no build | **Default if unsure:** [Docker demo](#try-it-with-docker-one-command-no-build) | Stable `v0.11.0-humble`; needs Docker; host writes stay in `./lidarslam_output`. |
 | Map my own rosbag | [Own-bag route](#map-your-own-bag-one-command-after-install): `lidarslam-map doctor /path/to/rosbag2` | Read-only diagnosis first; then `lidarslam-map start /path/to/rosbag2` writes a new output. |
 | Build from source or contribute | [Source quickstart](#build--verified-demo-from-source-one-helper): `bash scripts/source_quickstart.sh --dry-run` | Release `v0.11.0`; needs ROS 2, 8 GiB, and roughly 30 minutes. |
+| Odometry without ROS 2 (preview) | [pip install](#without-ros-2-pip-preview): `pip install ./lidarslam_core` | Odometry only for now (no loop closure or map yet); Ubuntu build tools, no ROS 2. |
 
 ### Try it with Docker (one command, no build)
 
@@ -56,6 +57,22 @@ bash scripts/source_quickstart.sh
 ```
 
 The helper detects Humble/Jazzy, installs the dependencies, builds the six maintained packages and runs the verified demo (`--dry-run`, `--build-only`). It prints a `lidarslam-map` path that auto-activates this build. Needs ROS 2, 8 GiB and about 30 minutes. Before handoff: `python3 scripts/check_first_map_verification_package.py --json`, continue only on `READY`.
+
+### Without ROS 2 (pip, preview)
+
+ROS 2 is becoming one option rather than a requirement. Today the pip package reads rosbag2 (MCAP, SQLite3) and ROS 1 bags and runs the RKO-LIO odometry; loop closure and the map follow ([roadmap](docs/roadmap/ros-free-core-2026-11.md)).
+
+```bash
+sudo apt install build-essential cmake libeigen3-dev libtbb-dev robin-map-dev python3-venv   # tested on Ubuntu 24.04
+git clone --recursive https://github.com/rsasaki0109/lidar_slam_ros2.git
+cd lidar_slam_ros2
+python3 -m venv .venv && . .venv/bin/activate
+pip install ./lidarslam_core                     # Python >= 3.10; downloads Sophus while building
+python -m lidarslam inspect /path/to/rosbag2     # topics and message types
+python -m lidarslam odometry /path/to/rosbag2 --params my_rko_lio.yaml --out odom/
+```
+
+`--params` takes the same parameter file as the ROS 2 RKO-LIO node (`ros__parameters` layout), with `imu_topic`, `lidar_topic`, `base_frame` and both `extrinsic_*2base_quat_xyzw_xyz` set. On HILTI exp14 the trajectory is byte-identical to the ROS 2 offline node. Visual and radar fusion still need ROS 2.
 
 ## Use your own bag
 
