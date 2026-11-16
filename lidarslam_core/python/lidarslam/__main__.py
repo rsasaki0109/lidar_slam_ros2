@@ -1,8 +1,13 @@
-"""python -m lidarslam inspect <log>: list a sensor log's topics without ROS 2."""
+"""python -m lidarslam: sensor logs and odometry without ROS 2.
+
+  inspect <log>                         list topics, message types and counts
+  odometry <log> --params P --out DIR   RKO-LIO odometry with a ROS 2 parameter file
+"""
 
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 
 from lidarslam.io import SUPPORTED_TYPES, SensorLog
@@ -13,6 +18,14 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest='command', required=True)
     inspect = sub.add_parser('inspect', help='list topics, message types and counts of a log')
     inspect.add_argument('log', help='rosbag2 directory or ROS 1 .bag file')
+    odometry = sub.add_parser('odometry', help='RKO-LIO odometry on a log (no ROS 2)')
+    odometry.add_argument('log', help='rosbag2 directory or ROS 1 .bag file')
+    odometry.add_argument('--params', required=True,
+                          help='RKO-LIO parameter file (ROS 2 ros__parameters layout or flat YAML)')
+    odometry.add_argument('--out', required=True, help='output directory')
+    odometry.add_argument('--lidar-topic', help='overrides lidar_topic')
+    odometry.add_argument('--imu-topic', help='overrides imu_topic')
+    odometry.add_argument('--run-name', default='odometry', help='output file stem')
     args = parser.parse_args(argv)
 
     if args.command == 'inspect':
@@ -21,6 +34,15 @@ def main(argv: list[str] | None = None) -> int:
                 mark = '*' if topic.msgtype in SUPPORTED_TYPES else ' '
                 print(f'{mark} {topic.name}  {topic.msgtype}  {topic.count}')
         print('* = read by the mapping pipeline')
+    elif args.command == 'odometry':
+        from lidarslam.odometry import load_parameters, run
+        params = load_parameters(args.params)
+        if args.lidar_topic:
+            params['lidar_topic'] = args.lidar_topic
+        if args.imu_topic:
+            params['imu_topic'] = args.imu_topic
+        summary = run(args.log, params, args.out, run_name=args.run_name)
+        print(json.dumps(summary, indent=2))
     return 0
 
 

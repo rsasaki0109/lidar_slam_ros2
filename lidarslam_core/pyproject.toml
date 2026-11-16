@@ -11,6 +11,7 @@ requires-python = ">=3.10"
 license = { text = "BSD-2-Clause" }
 dependencies = [
   "numpy>=1.24",
+  "pyyaml>=6",
   "rosbags>=0.10",
 ]
 
@@ -31,7 +32,6 @@ install.components = []
 [tool.scikit-build.cmake.define]
 LIDARSLAM_CORE_BUILD_PYTHON = "ON"
 LIDARSLAM_CORE_BUILD_TESTS = "OFF"
-# M2 ships the sensor-log reader and message types only; the frontend and backend drivers join
-# the module in M3/M4 (see docs/roadmap/ros-free-core-2026-11.md).
+# The backend driver joins the module in M4 (docs/roadmap/ros-free-core-2026-11.md).
 LIDARSLAM_CORE_BUILD_BACKEND = "OFF"
-LIDARSLAM_CORE_BUILD_FRONTEND = "OFF"
+LIDARSLAM_CORE_BUILD_FRONTEND = "ON"

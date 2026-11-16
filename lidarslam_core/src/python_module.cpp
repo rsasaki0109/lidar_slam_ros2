@@ -1,7 +1,7 @@
 // Copyright 2026 lidarslam_ros2 contributors. BSD-2-Clause.
 //
 // lidarslam._core: Python bindings of the ROS-free core. M2 binds the plain sensor-message types
-// and the point-field reader; the frontend and backend drivers follow in later milestones.
+// and the point-field reader; M3 adds the RKO-LIO odometry driver (python_frontend.cpp).
 
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
@@ -15,6 +15,9 @@
 #include "lidarslam_core/sensor_messages.hpp"
 
 namespace py = pybind11;
+#ifdef LIDARSLAM_CORE_HAVE_FRONTEND
+void bind_frontend(py::module_ & m);  // python_frontend.cpp
+#endif
 using lidarslam_core::ImuSample;
 using lidarslam_core::NavSatFix;
 using lidarslam_core::PackedCloud;
@@ -166,4 +169,8 @@ PYBIND11_MODULE(_core, m)
   .def_readwrite("altitude", &NavSatFix::altitude)
   .def_readwrite("position_covariance", &NavSatFix::position_covariance)
   .def_readwrite("position_covariance_type", &NavSatFix::position_covariance_type);
+
+#ifdef LIDARSLAM_CORE_HAVE_FRONTEND
+  bind_frontend(m);
+#endif
 }

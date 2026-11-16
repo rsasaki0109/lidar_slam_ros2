@@ -153,7 +153,7 @@ if(LIDARSLAM_CORE_BUILD_FRONTEND)
   set(BUILD_TESTING OFF)
   add_subdirectory(${RKO_LIO_ROOT} rko_lio EXCLUDE_FROM_ALL)
   set(BUILD_TESTING "${_lidarslam_core_build_testing}")
-  add_custom_target(lidarslam_core_frontend ALL DEPENDS rko_lio.core)
+  add_custom_target(lidarslam_core_frontend ALL DEPENDS rko_lio.core rko_lio.driver)
 endif()
 
 # --- Unit tests: every gtest of graph_based_slam that needs no ROS message or client library.
@@ -210,5 +210,11 @@ if(LIDARSLAM_CORE_BUILD_PYTHON)
   # A Python extension leaves the interpreter's symbols undefined; drop the directory's
   # -Wl,--no-undefined for this one target.
   set_property(TARGET _core PROPERTY LINK_OPTIONS "")
+  if(LIDARSLAM_CORE_BUILD_FRONTEND)
+    target_sources(_core PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/python_frontend.cpp)
+    target_link_libraries(_core PRIVATE rko_lio::driver)
+    target_compile_definitions(_core PRIVATE LIDARSLAM_CORE_HAVE_FRONTEND)
+    target_compile_features(_core PRIVATE cxx_std_20)
+  endif()
   install(TARGETS _core LIBRARY DESTINATION lidarslam)
 endif()
