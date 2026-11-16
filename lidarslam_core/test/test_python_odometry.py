@@ -9,10 +9,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import numpy as np
 import pytest
 
 lidarslam = pytest.importorskip('lidarslam')
+import numpy as np  # noqa: E402
 core = pytest.importorskip('lidarslam._core')
 if not hasattr(core, 'OdometryDriver'):
     pytest.skip('lidarslam built without the frontend', allow_module_level=True)

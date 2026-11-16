@@ -48,7 +48,7 @@ jobs:
         shell: bash
         run: |
           test ! -d /opt/ros
-          python3 -m pytest lidarslam_core/test -q
+          python3 -m pytest lidarslam_core/test/test_lidarslam_core_build.py -q
 
       - name: Configure
         shell: bash

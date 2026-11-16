@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import numpy as np
 import pytest
 
 lidarslam = pytest.importorskip('lidarslam')
+import numpy as np  # noqa: E402
 from lidarslam.io import SensorLog  # noqa: E402
 from rosbags.rosbag1 import Writer as Writer1  # noqa: E402
 from rosbags.rosbag2 import StoragePlugin, Writer as Writer2  # noqa: E402
