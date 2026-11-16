@@ -80,6 +80,8 @@ python -m lidarslam backend /path/to/backend_input \
 
 `--params` takes the same parameter file as the ROS 2 RKO-LIO node (`ros__parameters` layout), with `imu_topic`, `lidar_topic`, `base_frame` and both `extrinsic_*2base_quat_xyzw_xyz` set. On HILTI exp14 the trajectory is byte-identical to the ROS 2 offline node. Visual and radar fusion still need ROS 2.
 
+The product commands run on the same package without ROS 2: `./scripts/lidarslam start /path/to/rosbag2 --engine core` (from this checkout) writes the verified Autoware map bundle, lanelet2 and browser preview of an RKO-LIO profile. `--engine auto`, the default, uses ROS 2 when the `ros2` command is found; GNSS and packet profiles and `--join-map` still need ROS 2.
+
 `backend` runs `graph_slam_offline_runner` without ROS 2 on a backend input (the frontend's odometry and deskewed clouds, `/rko_lio/odometry` and `/rko_lio/frame`): it reads the `graph_based_slam` section of the parameter files, takes `-p name:=value` overrides like ROS 2, and writes the same files as the ROS 2 runner, byte for byte on the MapsHD checks. Registration plugins loaded through pluginlib still need ROS 2; the built-in NDT, GICP and SMALL_GICP do not.
 
 ## Use your own bag

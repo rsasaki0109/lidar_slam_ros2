@@ -49,6 +49,8 @@ def main(argv: list[str] | None = None) -> int:
     mapping.add_argument('--imu-topic', help='overrides imu_topic')
     mapping.add_argument('-p', '--param', action='append', default=[], metavar='NAME:=VALUE',
                          help='backend parameter override, as ROS 2 -p (YAML value)')
+    mapping.add_argument('--backend-input', metavar='DIR',
+                         help='also record the backend input (rosbag2, MCAP) for later replays')
     args = parser.parse_args(argv)
 
     if args.command == 'inspect':
@@ -83,7 +85,8 @@ def main(argv: list[str] | None = None) -> int:
             odometry_params['imu_topic'] = args.imu_topic
         backend_params = apply_overrides(
             backend_module.load_parameters(*args.backend_params), args.param)
-        summary = mapping_module.run(args.log, odometry_params, backend_params, args.out)
+        summary = mapping_module.run(args.log, odometry_params, backend_params, args.out,
+                                     backend_input=args.backend_input)
         print(json.dumps(summary, indent=2))
     return 0
 

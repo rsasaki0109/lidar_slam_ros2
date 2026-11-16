@@ -428,6 +428,16 @@
         "kind": "frame",
         "value_name": "<frame>"
       },
+      "--engine": {
+        "choices": [
+          "auto",
+          "ros2",
+          "core"
+        ],
+        "default": "auto",
+        "kind": "enum",
+        "value_name": "{auto,ros2,core}"
+      },
       "--viewer": {
         "choices": [
           "none",
@@ -636,6 +646,16 @@
         "kind": "number",
         "unit": "GiB",
         "value_name": "<GiB>"
+      },
+      "--engine": {
+        "choices": [
+          "auto",
+          "ros2",
+          "core"
+        ],
+        "default": "auto",
+        "kind": "enum",
+        "value_name": "{auto,ros2,core}"
       },
       "--viewer": {
         "choices": [
@@ -1041,6 +1061,11 @@
           "tier": "map-lifecycle"
         },
         {
+          "names": ["--engine"],
+          "stability": "stable",
+          "tier": "map-lifecycle"
+        },
+        {
           "names": ["--join-map"],
           "stability": "stable",
           "tier": "map-lifecycle"
@@ -1426,6 +1451,13 @@
           ],
           "stability": "stable",
           "tier": "lifecycle"
+        },
+        {
+          "names": [
+            "--engine"
+          ],
+          "stability": "stable",
+          "tier": "core"
         },
         {
           "names": [

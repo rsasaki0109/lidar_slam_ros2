@@ -493,6 +493,15 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             help='Retain RKO backend input for later loop editing (RKO only).',
         )
         parser.add_argument(
+            '--engine',
+            choices=('auto', 'ros2', 'core'),
+            default='auto',
+            help=(
+                'How the map is computed: ros2, core (the lidarslam Python package, '
+                'no ROS 2), or auto (ros2 when the ros2 command is found, else core).'
+            ),
+        )
+        parser.add_argument(
             '--join-map',
             type=Path,
             metavar='<output>',
@@ -1217,6 +1226,8 @@ def generate(
         if args.run_now:
             if args.editable:
                 command.append('--editable')
+            if getattr(args, 'engine', 'auto') != 'auto':
+                command.extend(['--engine', args.engine])
             command.extend([
                 '--min-free-space-gib',
                 str(args.min_free_space_gib),
@@ -3675,7 +3686,44 @@ def _print_runtime_failure(issues: list[str], next_steps: list[str]) -> None:
         print(f'  {step}', file=sys.stderr)
 
 
-def _check_runtime(profile_id: str) -> int:
+def _core_engine_status() -> tuple[bool, str]:
+    core = _load_script_module(
+        'run_rko_lio_graph_core.py',
+        'sensor_setup_core_engine',
+    )
+    return core.core_engine_available()
+
+
+def _resolve_engine(requested: str) -> str:
+    """As lidarslam-map run --engine: auto prefers ROS 2 when the ros2 command is found."""
+    if requested in ('ros2', 'core'):
+        return requested
+    if shutil.which('ros2'):
+        return 'ros2'
+    return 'core' if _core_engine_status()[0] else 'ros2'
+
+
+def _check_runtime(profile_id: str, engine: str = 'auto', join_map: Path | None = None) -> int:
+    if _resolve_engine(engine) == 'core':
+        available, detail = _core_engine_status()
+        issues = []
+        if join_map is not None:
+            issues.append('--join-map needs ROS 2 (the multi-session join); the core engine maps '
+                          'single sessions only')
+        if not available:
+            issues.append(f'core engine: {detail}')
+        if not profile_id.startswith('rko_lio_graph'):
+            issues.append(
+                f'profile {profile_id} needs ROS 2; the core engine runs the rko_lio_graph '
+                'profiles only'
+            )
+        if issues:
+            _print_runtime_failure(issues, [
+                'pip install ./lidarslam_core   # from the lidar_slam_ros2 checkout',
+                'or install the ROS 2 packages and pass --engine ros2',
+            ])
+            return 2
+        return 0
     try:
         issues, next_steps = _runtime_readiness(profile_id)
     except (ImportError, OSError, RuntimeError, ValueError) as exc:
@@ -3775,7 +3823,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 'started.'
             )
             return 0
-        runtime_result = _check_runtime(result['profile']['id'])
+        runtime_result = _check_runtime(
+            result['profile']['id'], getattr(args, 'engine', 'auto'),
+            getattr(args, 'join_map', None))
         if runtime_result != 0:
             return runtime_result
         if storage_blocked:
@@ -3801,7 +3851,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             return 2
     if args.run_now and not args.dry_run and not runtime_checked:
-        runtime_result = _check_runtime(result['profile']['id'])
+        runtime_result = _check_runtime(
+            result['profile']['id'], getattr(args, 'engine', 'auto'),
+            getattr(args, 'join_map', None))
         if runtime_result != 0:
             return runtime_result
     if storage_blocked:

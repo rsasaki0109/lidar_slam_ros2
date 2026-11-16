@@ -7,6 +7,14 @@ latest published release.
 
 ### Added
 
+- Mapping without ROS 2 (preview): `pip install ./lidarslam_core` builds the
+  `lidarslam` Python package with the RKO-LIO odometry and the graph_based_slam
+  offline backend, and `lidarslam-map run|start --engine core` maps a bag with
+  it (rko_lio_graph profiles; `--engine auto`, the default, still uses ROS 2 when
+  the `ros2` command is found). The odometry and the offline backend give the
+  same bytes as the ROS 2 offline node and `graph_slam_offline_runner`; the map
+  bundle is written by the live node's map saving, moved into the ROS-free
+  `map_export` library. See docs/roadmap/ros-free-core-2026-11.md.
 - `graph_slam_multisession_join`: a GNSS gate, a candidate off by default
   (`multisession_gnss_gate`). When both sessions carry RTK GNSS, a set of
   place matches is accepted if, at its places, its transform agrees with

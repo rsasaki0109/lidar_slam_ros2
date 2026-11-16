@@ -88,8 +88,21 @@ Each milestone is one reviewable change. Outputs of the ROS 2 path stay byte-ide
    runner and the pip package, and `verify_autoware_map.py` passes. The live node's own map could
    not be byte-compared: two runs of the unmodified node fed by `ros2 bag play` already differ;
    `test_map_export` pins the moved code (streamed and assembled saves, projector info,
-   manifest). Next: `lidarslam-map start` on this path. The live `start` runs the online graph
-   node, so its maps are not expected to equal these bytes.
+   manifest).
+   *Step 3 (2026-11-16):* `lidarslam-map run|start --engine {auto,ros2,core}`. `core` runs
+   `scripts/run_rko_lio_graph_core.py` instead of the ROS 2 launch script: the same inputs, the
+   odometry parameters assembled as `rko_lio_slam.launch.py` assembles them (launch defaults and
+   frames, then the RKO-LIO file), `lidarslam.mapping` with the map bundle, `traj_raw.tum` /
+   `traj_corrected.tum`, `lanelet2_map.osm`, and with `--editable` the backend input written as
+   rosbag2 (MCAP). `auto` (default) keeps ROS 2 when `ros2` is on PATH. The rest of the product
+   (verification, diagnosis, receipt, session, browser preview) is plain Python and unchanged. On
+   HILTI exp14: `run --engine core` finished with diagnosis `success`, verify PASS and a PASS
+   receipt; `start --engine core` gave a VERIFIED session. Its odometry trajectory is
+   byte-identical to the ROS 2 node's, its backend files to the ROS 2 offline runner's, and the
+   backend input it records replays in the ROS 2 offline runner to the same 19 files as the
+   recorded ROS 2 input. Not covered by the core engine: the GNSS and packet profiles, the bag's
+   GNSS in the backend input, and `--join-map` (the multi-session join needs ROS 2). The live
+   `start` runs the online graph node, so its maps are not expected to equal these bytes.
 6. **M6, binary wheels.** First releases are source installs that build against Ubuntu's PCL and
    g2o (`apt install libpcl-dev libg2o-dev`, then `pip install`). Prebuilt manylinux wheels need the
    core to stop depending on system PCL (Boost, FLANN); g2o can be built inside the wheel. Scope this

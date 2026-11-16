@@ -59,8 +59,71 @@ def odometry_message(output: dict[str, Any], odom_frame: str, base_frame: str) -
     return odom
 
 
+class BackendInputWriter:
+    """Records the messages the backend reads as a rosbag2 (MCAP) backend input.
+
+    The same topics, types and stamps as ``record_backend_input.sh`` records from the ROS 2
+    offline node (log time = message stamp), so the replay and merge tools read it.
+    """
+
+    def __init__(self, path: str | Path):
+        from rosbags.rosbag2 import StoragePlugin, Writer
+        from rosbags.typesys import Stores, get_typestore
+
+        self._ts = get_typestore(Stores.ROS2_JAZZY)
+        self._writer = Writer(Path(path), version=8, storage_plugin=StoragePlugin.MCAP)
+        self._writer.open()
+        self._odom = self._writer.add_connection(
+            '/rko_lio/odometry', 'nav_msgs/msg/Odometry', typestore=self._ts)
+        self._frame = self._writer.add_connection(
+            '/rko_lio/frame', 'sensor_msgs/msg/PointCloud2', typestore=self._ts)
+
+    def _header(self, header: _core.Header) -> Any:
+        m = self._ts.types
+        return m['std_msgs/msg/Header'](
+            stamp=m['builtin_interfaces/msg/Time'](
+                sec=header.stamp.sec, nanosec=header.stamp.nanosec),
+            frame_id=header.frame_id)
+
+    def write(self, cloud: _core.PackedCloud, odom: _core.Odometry, time_ns: int) -> None:
+        m = self._ts.types
+        fields = [m['sensor_msgs/msg/PointField'](
+            name=f.name, offset=f.offset, datatype=f.datatype, count=f.count)
+            for f in cloud.fields]
+        frame = m['sensor_msgs/msg/PointCloud2'](
+            header=self._header(cloud.header), height=cloud.height, width=cloud.width,
+            fields=fields, is_bigendian=cloud.is_bigendian, point_step=cloud.point_step,
+            row_step=cloud.row_step, data=np.frombuffer(cloud.data, dtype=np.uint8),
+            is_dense=cloud.is_dense)
+        vec, point = m['geometry_msgs/msg/Vector3'], m['geometry_msgs/msg/Point']
+        odometry = m['nav_msgs/msg/Odometry'](
+            header=self._header(odom.header), child_frame_id=odom.child_frame_id,
+            pose=m['geometry_msgs/msg/PoseWithCovariance'](
+                pose=m['geometry_msgs/msg/Pose'](
+                    position=point(x=odom.position[0], y=odom.position[1], z=odom.position[2]),
+                    orientation=m['geometry_msgs/msg/Quaternion'](
+                        x=odom.orientation[0], y=odom.orientation[1], z=odom.orientation[2],
+                        w=odom.orientation[3])),
+                covariance=np.asarray(odom.pose_covariance, dtype=np.float64)),
+            twist=m['geometry_msgs/msg/TwistWithCovariance'](
+                twist=m['geometry_msgs/msg/Twist'](
+                    linear=vec(x=odom.linear_velocity[0], y=odom.linear_velocity[1],
+                               z=odom.linear_velocity[2]),
+                    angular=vec(x=odom.angular_velocity[0], y=odom.angular_velocity[1],
+                                z=odom.angular_velocity[2])),
+                covariance=np.asarray(odom.twist_covariance, dtype=np.float64)))
+        self._writer.write(
+            self._frame, time_ns, self._ts.serialize_cdr(frame, 'sensor_msgs/msg/PointCloud2'))
+        self._writer.write(
+            self._odom, time_ns, self._ts.serialize_cdr(odometry, 'nav_msgs/msg/Odometry'))
+
+    def close(self) -> None:
+        self._writer.close()
+
+
 def run(log_path: str | Path, odometry_params: dict[str, Any], backend_params: dict[str, Any],
-        out_dir: str | Path, log: Callable[[str, str], None] | None = None) -> dict[str, Any]:
+        out_dir: str | Path, log: Callable[[str, str], None] | None = None,
+        backend_input: str | Path | None = None) -> dict[str, Any]:
     """Maps a sensor log: odometry, then the backend on its deskewed scans; returns a summary.
 
     ``odometry_params`` are the RKO-LIO node's, ``backend_params`` the ``graph_based_slam`` ones.
@@ -91,17 +154,26 @@ def run(log_path: str | Path, odometry_params: dict[str, Any], backend_params: d
     base_frame = str(odometry_params.get('base_frame', ''))
     odom_frame = str(odometry_params.get('odom_frame') or 'odom')
     frames = {'count': 0}
+    recorder = BackendInputWriter(backend_input) if backend_input is not None else None
 
     def on_output(output: dict[str, Any], state: dict[str, Any]) -> None:
         lidar_frame = str(odometry_params.get('lidar_frame') or state['lidar_frame_id'] or '')
         if lidar_frame.startswith('/'):
             lidar_frame = lidar_frame[1:]
         # The node publishes the frame first, then the odometry.
-        pipeline.add_cloud(deskewed_cloud(output, lidar_frame))
-        pipeline.add_odometry(odometry_message(output, odom_frame, base_frame))
+        cloud = deskewed_cloud(output, lidar_frame)
+        odom = odometry_message(output, odom_frame, base_frame)
+        if recorder is not None:
+            recorder.write(cloud, odom, output['time_ns'])
+        pipeline.add_cloud(cloud)
+        pipeline.add_odometry(odom)
         frames['count'] += 1
 
-    state = drive(log_path, odometry_params, on_output)
+    try:
+        state = drive(log_path, odometry_params, on_output)
+    finally:
+        if recorder is not None:
+            recorder.close()
     state['driver'].write_tum(str(out / 'odometry_tum.txt'))
     if not pipeline.finish():
         raise RuntimeError('the backend failed (see its log)')
