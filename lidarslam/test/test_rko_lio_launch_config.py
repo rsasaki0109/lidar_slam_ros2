@@ -426,9 +426,10 @@ def test_offline_wait_parameter_exists_in_vendored_rko_lio():
     assert 'declare_parameter<double>("output_subscriber_timeout_sec"' in (
         offline_node.read_text(encoding='utf-8')
     )
-    base_node = offline_node.with_name('base_node.cpp')
-    assert 'declare_parameter<std::string>("deskewed_scan_topic"' in (
-        base_node.read_text(encoding='utf-8')
+    # The node's parameters are read by rko_lio::driver::declare_driver_config.
+    driver_config = offline_node.parents[1] / 'driver' / 'driver_config.cpp'
+    assert 'declare<std::string>("deskewed_scan_topic"' in (
+        driver_config.read_text(encoding='utf-8')
     )
 
 

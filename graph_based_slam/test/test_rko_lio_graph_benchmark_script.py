@@ -290,11 +290,12 @@ def test_ntu_release_profile_keeps_the_mean_rate_deskew():
         )
     )
     assert params['samplewise_gyro_deskew'] is False
-    rko_node = (
-        REPO_ROOT / 'Thirdparty' / 'rko_lio' / 'rko_lio' / 'ros' / 'base_node.cpp'
+    # The RKO-LIO node reads its parameters through rko_lio::driver::declare_driver_config.
+    rko_params = (
+        REPO_ROOT / 'Thirdparty' / 'rko_lio' / 'rko_lio' / 'driver' / 'driver_config.cpp'
     )
-    if rko_node.is_file():
+    if rko_params.is_file():
         assert (
-            'declare_parameter<bool>("samplewise_gyro_deskew"'
-            in rko_node.read_text(encoding='utf-8')
+            'declare<bool>("samplewise_gyro_deskew"'
+            in rko_params.read_text(encoding='utf-8')
         )
