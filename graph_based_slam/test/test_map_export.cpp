@@ -95,10 +95,23 @@ MapExportLog quietLog(std::vector<std::string> * lines = nullptr)
   return log;
 }
 
+// Bitwise equal x, y, z and intensity. pcl::PointXYZI has padding that some PCL versions leave
+// uninitialized and that no PCD file holds, so the points are not compared as whole structs.
 bool sameCloud(const Cloud & a, const Cloud & b)
 {
-  return a.size() == b.size() &&
-         std::memcmp(a.points.data(), b.points.data(), a.size() * sizeof(pcl::PointXYZI)) == 0;
+  if (a.size() != b.size()) {
+    return false;
+  }
+  for (std::size_t i = 0; i < a.size(); ++i) {
+    const pcl::PointXYZI & p = a.points[i];
+    const pcl::PointXYZI & q = b.points[i];
+    if (std::memcmp(p.data, q.data, 3 * sizeof(float)) != 0 ||
+      std::memcmp(&p.intensity, &q.intensity, sizeof(float)) != 0)
+    {
+      return false;
+    }
+  }
+  return true;
 }
 
 }  // namespace

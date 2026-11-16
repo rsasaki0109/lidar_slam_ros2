@@ -302,10 +302,13 @@ TEST(PointcloudConversion, PlainMessageConvertsLikeTheRosMessage)
       graphslam::pointcloud_conversion::fromRosMsgWithOptionalIntensity(message, from_ros),
       graphslam::pointcloud_conversion::fromRosMsgWithOptionalIntensity(plain, from_plain));
     ASSERT_EQ(from_ros.size(), from_plain.size());
-    EXPECT_EQ(
-      std::memcmp(
-        from_ros.points.data(), from_plain.points.data(),
-        from_ros.size() * sizeof(pcl::PointXYZI)), 0);
+    // Field by field: pcl::PointXYZI's padding is left uninitialized by some PCL versions.
+    for (std::size_t i = 0; i < from_ros.size(); ++i) {
+      const pcl::PointXYZI & a = from_ros.points[i];
+      const pcl::PointXYZI & b = from_plain.points[i];
+      EXPECT_EQ(std::memcmp(a.data, b.data, 3 * sizeof(float)), 0) << i;
+      EXPECT_EQ(std::memcmp(&a.intensity, &b.intensity, sizeof(float)), 0) << i;
+    }
     EXPECT_EQ(from_ros.header.stamp, from_plain.header.stamp);
     EXPECT_EQ(from_ros.header.frame_id, from_plain.header.frame_id);
     EXPECT_EQ(from_ros.width, from_plain.width);
