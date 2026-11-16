@@ -1,0 +1,63 @@
+name: ros-free core
+
+# Builds the mapping core (backend + RKO-LIO frontend core) with plain CMake on a runner that has
+# no ROS 2 install, and runs its unit tests. ROS 2 stays one option; this job keeps the core usable
+# without it. See lidarslam_core/CMakeLists.txt.
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+  pull_request:
+    branches:
+      - develop
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ros-free-core-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: ROS-free core build and unit tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          submodules: recursive
+
+      - name: Install build dependencies (Ubuntu packages only, no ROS)
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake libeigen3-dev libpcl-dev libg2o-dev libzstd-dev \
+            libtbb-dev robin-map-dev libgtest-dev python3-pytest
+
+      - name: No ROS 2 on the runner
+        shell: bash
+        run: |
+          test ! -d /opt/ros
+          python3 -m pytest lidarslam_core/test -q
+
+      - name: Configure
+        shell: bash
+        run: cmake -S lidarslam_core -B build-core -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        shell: bash
+        run: cmake --build build-core -j "$(nproc)"
+
+      - name: Unit tests
+        shell: bash
+        run: ctest --test-dir build-core -j "$(nproc)" --output-on-failure
