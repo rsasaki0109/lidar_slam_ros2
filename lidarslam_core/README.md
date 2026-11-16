@@ -3,16 +3,24 @@
 The mapping core of [lidar_slam_ros2](https://github.com/rsasaki0109/lidar_slam_ros2) without a
 ROS 2 install. ROS 2 stays one way to run it; this directory is the other.
 
-Status: in development (`docs/roadmap/ros-free-core-2026-11.md`). Today the Python package reads
-sensor logs (rosbag2 MCAP/SQLite3, ROS 1 bags) into the core's message types; the frontend and
-backend drivers follow.
+Status: preview (`docs/roadmap/ros-free-core-2026-11.md`). The Python package reads sensor logs
+(rosbag2 MCAP/SQLite3, ROS 1 bags), runs the RKO-LIO odometry and the graph_based_slam offline
+backend, and installs the `lidarslam-map` product command. Maps of an RKO-LIO profile are
+byte-identical to the ROS 2 offline path. Source install only for now (no prebuilt wheels).
 
 ## Python package
 
 ```bash
-pip install ./lidarslam_core          # from a clone of the repository
+pip install ./lidarslam_core          # from a clone of the repository (apt packages below)
+lidarslam-map doctor                  # map engine: core, no ROS 2 needed
+lidarslam-map start /path/to/rosbag2  # verified Autoware map bundle
 python -m lidarslam inspect /path/to/rosbag2
 ```
+
+`lidarslam-map` is the product command of the ROS 2 install: the package carries its scripts,
+schemas and parameter files under `lidarslam/share/lidarslam`, in the tree the ROS 2 package
+installs, from the same file lists (`lidarslam/product-runtime-files.txt`,
+`lidarslam/product-schema-files.txt`).
 
 ```python
 from lidarslam.io import SensorLog

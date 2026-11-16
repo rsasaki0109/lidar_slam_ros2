@@ -26,7 +26,7 @@
 | See a verified map, no build | **Default if unsure:** [Docker demo](#try-it-with-docker-one-command-no-build) | Stable `v0.11.0-humble`; needs Docker; host writes stay in `./lidarslam_output`. |
 | Map my own rosbag | [Own-bag route](#map-your-own-bag-one-command-after-install): `lidarslam-map doctor /path/to/rosbag2` | Read-only diagnosis first; then `lidarslam-map start /path/to/rosbag2` writes a new output. |
 | Build from source or contribute | [Source quickstart](#build--verified-demo-from-source-one-helper): `bash scripts/source_quickstart.sh --dry-run` | Release `v0.11.0`; needs ROS 2, 8 GiB, and roughly 30 minutes. |
-| Odometry without ROS 2 (preview) | [pip install](#without-ros-2-pip-preview): `pip install ./lidarslam_core` | Odometry only for now (no loop closure or map yet); Ubuntu build tools, no ROS 2. |
+| Map a bag without ROS 2 (preview) | [pip install](#without-ros-2-pip-preview): `pip install ./lidarslam_core`, then `lidarslam-map start /path/to/rosbag2` | Builds from source with Ubuntu packages, no ROS 2; RKO-LIO profiles only (GNSS, packet input and `--join-map` need ROS 2). |
 
 ### Try it with Docker (one command, no build)
 
@@ -60,7 +60,7 @@ The helper detects Humble/Jazzy, installs the dependencies, builds the six maint
 
 ### Without ROS 2 (pip, preview)
 
-ROS 2 is becoming one option rather than a requirement. Today the pip package reads rosbag2 (MCAP, SQLite3) and ROS 1 bags, runs the RKO-LIO odometry and runs the graph_based_slam backend (loop closure, pose graph, refinement) on a recorded backend input; the one-command map follows ([roadmap](docs/roadmap/ros-free-core-2026-11.md)).
+ROS 2 is becoming one option rather than a requirement. The pip package installs the `lidarslam-map` command with the RKO-LIO odometry and the graph_based_slam backend (loop closure, pose graph, refinement, Autoware map bundle) inside, and reads rosbag2 (MCAP, SQLite3) and ROS 1 bags without ROS 2 ([roadmap](docs/roadmap/ros-free-core-2026-11.md)).
 
 ```bash
 sudo apt install build-essential cmake libeigen3-dev libtbb-dev robin-map-dev \
@@ -69,6 +69,8 @@ git clone --recursive https://github.com/rsasaki0109/lidar_slam_ros2.git
 cd lidar_slam_ros2
 python3 -m venv .venv && . .venv/bin/activate
 pip install ./lidarslam_core                     # Python >= 3.10; downloads Sophus while building
+lidarslam-map doctor                             # ready: map engine core, no ROS 2 needed
+lidarslam-map start /path/to/rosbag2             # verified Autoware map bundle, lanelet2, 3D preview
 python -m lidarslam inspect /path/to/rosbag2     # topics and message types
 python -m lidarslam odometry /path/to/rosbag2 --params my_rko_lio.yaml --out odom/
 python -m lidarslam map /path/to/rosbag2 --odometry-params my_rko_lio.yaml \
@@ -80,7 +82,7 @@ python -m lidarslam backend /path/to/backend_input \
 
 `--params` takes the same parameter file as the ROS 2 RKO-LIO node (`ros__parameters` layout), with `imu_topic`, `lidar_topic`, `base_frame` and both `extrinsic_*2base_quat_xyzw_xyz` set. On HILTI exp14 the trajectory is byte-identical to the ROS 2 offline node. Visual and radar fusion still need ROS 2.
 
-The product commands run on the same package without ROS 2: `./scripts/lidarslam start /path/to/rosbag2 --engine core` (from this checkout) writes the verified Autoware map bundle, lanelet2 and browser preview of an RKO-LIO profile. `--engine auto`, the default, uses ROS 2 when the `ros2` command is found; GNSS and packet profiles and `--join-map` still need ROS 2.
+`lidarslam-map` is the same product command as the ROS 2 install (`run`, `start`, `view`, `sessions`, `report`, ...). Its map engine is chosen by `--engine auto`, the default: ROS 2 when the `ros2` command is found, else the pip package (`--engine core`). With the core engine the maps of an RKO-LIO profile are byte-identical to the ROS 2 offline path; GNSS and packet profiles and `--join-map` still need ROS 2.
 
 `backend` runs `graph_slam_offline_runner` without ROS 2 on a backend input (the frontend's odometry and deskewed clouds, `/rko_lio/odometry` and `/rko_lio/frame`): it reads the `graph_based_slam` section of the parameter files, takes `-p name:=value` overrides like ROS 2, and writes the same files as the ROS 2 runner, byte for byte on the MapsHD checks. Registration plugins loaded through pluginlib still need ROS 2; the built-in NDT, GICP and SMALL_GICP do not.
 

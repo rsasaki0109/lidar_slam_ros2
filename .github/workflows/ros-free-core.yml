@@ -75,3 +75,5 @@ jobs:
           cd "${RUNNER_TEMP}"
           "${RUNNER_TEMP}/venv/bin/python" -m pytest -q -p no:cacheprovider "${GITHUB_WORKSPACE}/lidarslam_core/test"
           "${RUNNER_TEMP}/venv/bin/python" -m lidarslam --help
+          "${RUNNER_TEMP}/venv/bin/lidarslam-map" --version
+          "${RUNNER_TEMP}/venv/bin/lidarslam-map" doctor --json

@@ -155,10 +155,33 @@ def _bag_path_from_manifest(run_dir: Path) -> Path | None:
     return Path(bag_path) if bag_path else None
 
 
+def _read_imu_without_ros(
+    bag_path: Path, topic: str | None,
+) -> tuple[np.ndarray, np.ndarray, str]:
+    """Read the IMU samples through the lidarslam package (rosbags), for installs without ROS 2."""
+    from lidarslam.io import IMU, SensorLog
+
+    with SensorLog(bag_path) as log:
+        imu_topics = [item.name for item in log.topics() if item.msgtype == IMU]
+        if topic is None:
+            if len(imu_topics) != 1:
+                raise ValueError(f'choose one IMU topic with --imu-topic: {imu_topics}')
+            topic = imu_topics[0]
+        times, accelerations = [], []
+        for record in log.records([topic]):
+            stamp = record.message.header.stamp
+            times.append(stamp.sec + stamp.nanosec * 1e-9)
+            accelerations.append(tuple(record.message.linear_acceleration))
+    return np.asarray(times), np.asarray(accelerations, dtype=float).reshape(-1, 3), topic
+
+
 def _read_imu(bag_path: Path, topic: str | None) -> tuple[np.ndarray, np.ndarray, str]:
-    import rosbag2_py
-    from rclpy.serialization import deserialize_message
-    from sensor_msgs.msg import Imu
+    try:
+        import rosbag2_py
+        from rclpy.serialization import deserialize_message
+        from sensor_msgs.msg import Imu
+    except ImportError:
+        return _read_imu_without_ros(bag_path, topic)
 
     reader = rosbag2_py.SequentialReader()
     reader.open(

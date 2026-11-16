@@ -375,7 +375,10 @@ def render_system_report(report: Mapping[str, Any]) -> str:
         f'ROS 2:        {distro}',
         f"ros2 CLI:     {'ready' if ros['ros2_cli_available'] else 'missing'}",
         'Bag reader:   '
-        f"{'ready' if ros['rosbag2_python_available'] else 'missing'}",
+        + (
+            'rosbags (core engine)' if engine == 'core' else
+            'ready' if ros['rosbag2_python_available'] else 'missing'
+        ),
         'Demo storage: '
         f"{storage['available_bytes'] / GIB:.1f} GiB free; "
         f"{storage['minimum_free_bytes'] / GIB:.1f} GiB required"

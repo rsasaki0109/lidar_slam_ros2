@@ -61,11 +61,33 @@ def test_lidarslam_map_runs_the_product_cli() -> None:
     assert '--engine' in result.stdout
 
 
-def test_browser_preview_imports_from_the_package() -> None:
-    # The preview scripts import the product scripts as lidarslam_benchmark_tools.
+def test_browser_preview_runs_from_the_package() -> None:
+    # As in the ROS 2 install, the preview imports the product scripts as
+    # lidarslam_benchmark_tools, and they import each other from the scripts directory.
+    script = SHARE / 'product' / 'scripts' / 'export_mid360_robot_3d_map_preview.py'
     result = subprocess.run(
-        [sys.executable, '-c',
-         'import lidarslam_benchmark_tools.mid360_robot_3d_map_preview, '
-         'lidarslam_benchmark_tools.verify_autoware_map'],
-        check=False, capture_output=True, text=True, cwd=SHARE, timeout=120)
+        [sys.executable, str(script), '--help'], check=False, capture_output=True, text=True,
+        cwd=SHARE, timeout=120)
     assert result.returncode == 0, result.stderr
+
+
+def test_gravity_check_reads_the_imu_without_ros(tmp_path: Path) -> None:
+    # The diagnosis's map tilt check reads the bag's IMU through lidarslam.io when rosbag2_py
+    # is missing (a pip install without ROS 2).
+    import importlib.util
+
+    from test_python_odometry import _write_log
+
+    log = tmp_path / 'log'
+    _write_log(log)
+    spec = importlib.util.spec_from_file_location(
+        'check_map_gravity_alignment',
+        SHARE / 'product' / 'scripts' / 'check_map_gravity_alignment.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    times, accelerations, topic = module._read_imu_without_ros(log, None)
+    assert topic == '/imu'
+    assert len(times) == 600
+    assert times[1] - times[0] == pytest.approx(0.005, abs=1e-6)
+    assert accelerations.shape == (600, 3)
+    assert accelerations[:, 2] == pytest.approx(9.81)

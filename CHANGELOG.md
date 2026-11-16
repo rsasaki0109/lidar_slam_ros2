@@ -15,6 +15,11 @@ latest published release.
   same bytes as the ROS 2 offline node and `graph_slam_offline_runner`; the map
   bundle is written by the live node's map saving, moved into the ROS-free
   `map_export` library. See docs/roadmap/ros-free-core-2026-11.md.
+  The package also installs the `lidarslam-map` command (the product scripts,
+  schemas and parameter files of the ROS 2 install), so `lidarslam-map start`
+  runs in a plain Python environment; `lidarslam-map doctor` reports ready with
+  the core engine there, and the diagnosis's map tilt check reads the IMU
+  without ROS 2.
 - `graph_slam_multisession_join`: a GNSS gate, a candidate off by default
   (`multisession_gnss_gate`). When both sessions carry RTK GNSS, a set of
   place matches is accepted if, at its places, its transform agrees with
