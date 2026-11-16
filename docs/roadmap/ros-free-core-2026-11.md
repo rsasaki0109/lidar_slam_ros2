@@ -34,6 +34,15 @@ Each milestone is one reviewable change. Outputs of the ROS 2 path stay byte-ide
 3. **M3, frontend driver without ROS.** Move the offline driver logic of `base_node` (parameters,
    message buffering, extrinsics, outputs) behind plain types so the ROS node and a ROS-free
    executable share it. Check: frontend trajectory byte-identical to the ROS `offline_node`.
+   *Status (2026-11-16):* the fork has a ROS-free layer `rko_lio::driver` (rko_lio ec2cee5):
+   `declare_driver_config` reads all parameters the node read (moved verbatim, now behind a
+   `Parameters` interface), `point_cloud.hpp` holds the PointCloud2 readers, and `OfflineDriver`
+   registers frames in ThreadedNode's order. The ROS 2 node calls the same functions.
+   `python -m lidarslam odometry <log> --params <ROS 2 parameter file>` runs it from the pip
+   package. On HILTI exp14 with the G22 parameters, the dump_results trajectory is byte-identical
+   (md5 `dba74867…`) for the unmodified node (a6559cd), the refactored node and the pip package,
+   and `config.json` is identical for the two nodes. The pip run took 8.3 s and 102 MB peak RSS
+   (node: 9.3 s, 144 MB). Visual and radar fusion stay ROS-only (the driver refuses them).
 4. **M4, backend runner without ROS.** Replace `sensor_msgs::msg::PointCloud2` inside the backend
    with a plain packed-cloud type (same bytes), read parameters from YAML, and feed the runner from
    the M2 input or directly from the M3 frontend. Check: trajectories, loop edges, g2o, map PCD
