@@ -176,7 +176,7 @@ if(LIDARSLAM_CORE_BUILD_TESTS)
   foreach(_test IN LISTS LIDARSLAM_CORE_GTESTS)
     add_executable(${_test} ${GBS_ROOT}/test/${_test}.cpp)
     target_compile_features(${_test} PRIVATE cxx_std_17)
-    target_include_directories(${_test} PRIVATE ${GBS_ROOT}/include ${GBS_ROOT}/src
+    target_include_directories(${_test} PRIVATE ${GBS_ROOT}/include ${GBS_ROOT}/src ${RKO_LIO_ROOT}
       ${EIGEN3_INCLUDE_DIR} ${PCL_INCLUDE_DIRS})
     target_link_libraries(${_test} GTest::gtest_main graph_slam_application
       graph_slam_test_loop_verifier graph_slam_io_adapters graph_slam_map_point ndt_omp
