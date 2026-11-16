@@ -93,3 +93,37 @@ TEST(GraphSlamComposition, BuildsIoAndSensorPolicies)
   EXPECT_DOUBLE_EQ(graphslam::makeGridConfig(config).grid_size_x, 31.0);
   EXPECT_DOUBLE_EQ(graphslam::makeGnssWeightingConfig(config).rtk_fix_weight_scale, 4.5);
 }
+
+// The offline pipeline reads the map-saving parameters with map_export::MapExportConfig's
+// defaults; they must be the live node's (GraphSlamConfig's).
+TEST(GraphSlamComposition, MapExportDefaultsAreTheLiveNodeDefaults)
+{
+  const graphslam::map_export::MapExportConfig live =
+    graphslam::makeMapExportConfig(graphslam::GraphSlamConfig{});
+  const graphslam::map_export::MapExportConfig offline;
+  EXPECT_DOUBLE_EQ(live.map_leaf_size, offline.map_leaf_size);
+  EXPECT_DOUBLE_EQ(live.map_grid_size_x, offline.map_grid_size_x);
+  EXPECT_DOUBLE_EQ(live.map_grid_size_y, offline.map_grid_size_y);
+  EXPECT_EQ(live.map_save_points_per_pass, offline.map_save_points_per_pass);
+  EXPECT_EQ(live.use_planar_map_filter, offline.use_planar_map_filter);
+  EXPECT_DOUBLE_EQ(live.planar_map_filter.voxel_size, offline.planar_map_filter.voxel_size);
+  EXPECT_EQ(live.planar_map_filter.min_neighbors, offline.planar_map_filter.min_neighbors);
+  EXPECT_DOUBLE_EQ(
+    live.planar_map_filter.max_small_eigenvalue_ratio,
+    offline.planar_map_filter.max_small_eigenvalue_ratio);
+  EXPECT_DOUBLE_EQ(
+    live.planar_map_filter.min_middle_eigenvalue_ratio,
+    offline.planar_map_filter.min_middle_eigenvalue_ratio);
+  EXPECT_DOUBLE_EQ(
+    live.planar_map_filter.min_retained_ratio, offline.planar_map_filter.min_retained_ratio);
+  EXPECT_EQ(live.use_dynamic_object_filter, offline.use_dynamic_object_filter);
+  EXPECT_DOUBLE_EQ(
+    live.dynamic_object_filter.voxel_size, offline.dynamic_object_filter.voxel_size);
+  EXPECT_EQ(
+    live.dynamic_object_filter.min_observations, offline.dynamic_object_filter.min_observations);
+  EXPECT_EQ(
+    live.dynamic_object_filter.temporal_window, offline.dynamic_object_filter.temporal_window);
+  EXPECT_DOUBLE_EQ(
+    live.dynamic_object_filter.max_range_from_sensor_m,
+    offline.dynamic_object_filter.max_range_from_sensor_m);
+}

@@ -34,6 +34,7 @@ CORE_LIBRARIES = (
     'graph_slam_map_point',
     'graph_slam_io_adapters',
     'graph_slam_cloud_compression',
+    'graph_slam_map_export',
     'graph_slam_offline_pipeline',
 )
 LOADER_CMAKE = REPO_ROOT / 'lidarslam_registration_loader' / 'CMakeLists.txt'

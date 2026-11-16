@@ -37,6 +37,7 @@
 #include "graph_based_slam/dynamic_object_filter.hpp"
 #include "graph_based_slam/gnss_weighting.hpp"
 #include "graph_based_slam/graph_slam_application.hpp"
+#include "graph_based_slam/map_export.hpp"
 #include "graph_based_slam/map_saver.hpp"
 #include "graph_based_slam/planar_map_filter.hpp"
 #include "graph_based_slam/pose_graph_optimization.hpp"
@@ -65,6 +66,7 @@ PoseGraphConfigBundle makePoseGraphConfig(
 DynamicObjectFilterConfig makeDynamicObjectFilterConfig(const GraphSlamConfig & config);
 PlanarMapFilterConfig makePlanarMapFilterConfig(const GraphSlamConfig & config);
 map_saver::GridConfig makeGridConfig(const GraphSlamConfig & config);
+map_export::MapExportConfig makeMapExportConfig(const GraphSlamConfig & config);
 detail::GnssWeightingConfig makeGnssWeightingConfig(const GraphSlamConfig & config);
 
 }  // namespace graphslam

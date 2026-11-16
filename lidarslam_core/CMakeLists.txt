@@ -135,6 +135,13 @@ target_include_directories(graph_slam_io_adapters PUBLIC
   ${GBS_ROOT}/include PRIVATE ${GBS_ROOT}/src ${PCL_INCLUDE_DIRS})
 target_link_libraries(graph_slam_io_adapters ${PCL_LIBRARIES})
 
+add_library(graph_slam_map_export STATIC ${GBS_ROOT}/src/map_export.cpp)
+set_target_properties(graph_slam_map_export PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_compile_features(graph_slam_map_export PUBLIC cxx_std_17)
+target_include_directories(graph_slam_map_export PUBLIC
+  ${GBS_ROOT}/include ${EIGEN3_INCLUDE_DIR} ${PCL_INCLUDE_DIRS})
+target_link_libraries(graph_slam_map_export graph_slam_map_point ${PCL_LIBRARIES})
+
 # Submap clouds kept compressed with zstd when it is found (libzstd-dev).
 add_library(graph_slam_cloud_compression STATIC ${GBS_ROOT}/src/cloud_compression.cpp)
 set_target_properties(graph_slam_cloud_compression PROPERTIES POSITION_INDEPENDENT_CODE ON)
@@ -183,14 +190,14 @@ set_target_properties(graph_slam_offline_pipeline PROPERTIES POSITION_INDEPENDEN
 target_compile_features(graph_slam_offline_pipeline PUBLIC cxx_std_17)
 target_include_directories(graph_slam_offline_pipeline PUBLIC
   ${GBS_ROOT}/include ${LIDARSLAM_REPO_ROOT}/lidarslam_default_plugins/include
-  ${EIGEN3_INCLUDE_DIR} ${PCL_INCLUDE_DIRS})
+  ${EIGEN3_INCLUDE_DIR} ${PCL_INCLUDE_DIRS} PRIVATE ${GBS_ROOT}/src)
 if(GBS_HAVE_3D_BBS)
   target_compile_definitions(graph_slam_offline_pipeline PRIVATE GRAPH_BASED_SLAM_HAVE_3D_BBS)
   target_link_libraries(graph_slam_offline_pipeline graph_based_slam_3d_bbs_vendor)
 endif()
 target_link_libraries(graph_slam_offline_pipeline
   graph_slam_application graph_slam_io_adapters graph_slam_cloud_compression
-  lidarslam_registration_loader ndt_omp lidarslam_plugin_interfaces ${PCL_LIBRARIES}
+  graph_slam_map_export graph_slam_map_point lidarslam_registration_loader ndt_omp lidarslam_plugin_interfaces ${PCL_LIBRARIES}
   g2o::core g2o::types_slam3d g2o::solver_eigen g2o::stuff)
 
 endif()  # LIDARSLAM_CORE_BUILD_BACKEND
@@ -235,7 +242,7 @@ if(LIDARSLAM_CORE_BUILD_TESTS AND LIDARSLAM_CORE_BUILD_BACKEND)
     test_degeneracy_diagnostics_csv test_degeneracy_report_summary test_map_refiner
     test_hba_pyramid test_plane_feature_association test_adaptive_voxel_plane_extractor
     test_map_quality_metrics test_registration_determinism test_dynamic_object_filter
-    test_planar_map_filter test_multisession_join)
+    test_planar_map_filter test_multisession_join test_map_export)
   # graph_slam_application calls ThreeDBBSLoopVerifier, whose source each consumer compiles. The
   # ROS tests compile it without GRAPH_BASED_SLAM_HAVE_3D_BBS (the verifier reports itself
   # unavailable); the tests here link the same build of it.
@@ -249,7 +256,8 @@ if(LIDARSLAM_CORE_BUILD_TESTS AND LIDARSLAM_CORE_BUILD_BACKEND)
     target_include_directories(${_test} PRIVATE ${GBS_ROOT}/include ${GBS_ROOT}/src ${RKO_LIO_ROOT}
       ${EIGEN3_INCLUDE_DIR} ${PCL_INCLUDE_DIRS})
     target_link_libraries(${_test} GTest::gtest_main graph_slam_application
-      graph_slam_test_loop_verifier graph_slam_io_adapters graph_slam_map_point ndt_omp
+      graph_slam_test_loop_verifier graph_slam_io_adapters graph_slam_map_point
+      graph_slam_map_export ndt_omp
       lidarslam_plugin_interfaces
       ${PCL_LIBRARIES} g2o::core g2o::solver_eigen g2o::stuff g2o::types_slam3d)
     add_test(NAME ${_test} COMMAND ${_test})

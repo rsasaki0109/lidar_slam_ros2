@@ -65,8 +65,9 @@ def run(log_path: str | Path, odometry_params: dict[str, Any], backend_params: d
 
     ``odometry_params`` are the RKO-LIO node's, ``backend_params`` the ``graph_based_slam`` ones.
     As the ROS 2 launch file does, the backend takes ``extrinsic_lidar2base_quat_xyzw_xyz`` from
-    the odometry parameters. Writes the backend's files to ``out_dir`` and the odometry
-    trajectory (TUM) to ``out_dir/odometry_tum.txt``.
+    the odometry parameters. Writes the backend's files and, unless ``offline_map_bundle`` is
+    false, the Autoware map bundle to ``out_dir``, and the odometry trajectory (TUM) to
+    ``out_dir/odometry_tum.txt``.
     """
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -76,6 +77,9 @@ def run(log_path: str | Path, odometry_params: dict[str, Any], backend_params: d
     extrinsic = odometry_params.get('extrinsic_lidar2base_quat_xyzw_xyz')
     if extrinsic is not None:
         backend_params['extrinsic_lidar2base_quat_xyzw_xyz'] = [float(v) for v in extrinsic]
+    # The Autoware map bundle (pointcloud_map/, map.pcd, map_projector_info.yaml, ...) unless the
+    # caller turns it off.
+    backend_params.setdefault('offline_map_bundle', True)
     backend_params['bag_path'] = str(log_path)
     backend_params['output_dir'] = str(out)
 

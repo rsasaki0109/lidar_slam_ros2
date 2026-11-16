@@ -77,10 +77,19 @@ Each milestone is one reviewable change. Outputs of the ROS 2 path stay byte-ide
    does. On HILTI exp14 (G22 odometry, `lidarslam.yaml` backend, refine maps on) the 8 backend
    files and the odometry trajectory are byte-identical to the ROS 2 path (offline node -> `ros2
    bag record` of 739 + 739 messages -> `graph_slam_offline_runner`); the pip run took 12.8 s and
-   160 MB peak RSS (ROS 2: 40 s frontend with recording + 7 s backend). Next: the Autoware map
-   bundle (`pointcloud_map/`, metadata, projector info, `map_bundle.yaml`) from the offline
-   pipeline, sharing the live node's map saver, then `lidarslam-map start` on this path. The
-   live `start` runs the online graph node, so its maps are not expected to equal these bytes.
+   160 MB peak RSS (ROS 2: 40 s frontend with recording + 7 s backend).
+   *Step 2 (2026-11-16):* the live node's map saving (voxel downsampling, planar and dynamic
+   filters, grid cells, metadata, `map.pcd`, `map_projector_info.yaml`, `map_bundle.yaml`) moved
+   out of the ROS adapter into `map_export.{hpp,cpp}` (no ROS); `map_save` calls it. The offline
+   pipeline writes the same bundle and `pose_graph.g2o` from its optimized poses with
+   `offline_map_bundle:=true` (default false: its other outputs are unchanged, checked on
+   calibration-room 2), and `lidarslam map` turns it on. On HILTI exp14 the 19 files of the
+   bundle run (bundle, tiles, trajectories, refinement maps) are byte-identical between the ROS 2
+   runner and the pip package, and `verify_autoware_map.py` passes. The live node's own map could
+   not be byte-compared: two runs of the unmodified node fed by `ros2 bag play` already differ;
+   `test_map_export` pins the moved code (streamed and assembled saves, projector info,
+   manifest). Next: `lidarslam-map start` on this path. The live `start` runs the online graph
+   node, so its maps are not expected to equal these bytes.
 6. **M6, binary wheels.** First releases are source installs that build against Ubuntu's PCL and
    g2o (`apt install libpcl-dev libg2o-dev`, then `pip install`). Prebuilt manylinux wheels need the
    core to stop depending on system PCL (Boost, FLANN); g2o can be built inside the wheel. Scope this

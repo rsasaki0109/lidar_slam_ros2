@@ -65,6 +65,7 @@
 #include "graph_based_slam/map_refiner.hpp"
 #include "graph_based_slam/map_quality_metrics.hpp"
 #include "graph_based_slam/map_thickness_attribution.hpp"
+#include "graph_based_slam/map_export.hpp"
 #include "graph_based_slam/map_thickness_attribution_csv.hpp"
 #include "graph_based_slam/offline_pipeline.hpp"
 #include "graph_based_slam/offline_runtime.hpp"
@@ -82,6 +83,7 @@
 #include "graph_based_slam/trajectory_revisit_segmentation.hpp"
 #include "lidarslam_default_plugins/ndt_omp_registration_impl.ipp"
 #include "lidarslam_registration_loader/registration_plugin_loader.hpp"
+#include "filesystem_io_ports.hpp"
 
 namespace
 {
@@ -342,6 +344,11 @@ struct DegeneracyDiagnosticsSink
 // below fill it in the order the parameters have always been read.
 struct RunnerConfig
 {
+  // offline_map_bundle: also write the live node's Autoware map bundle (pointcloud_map/, map.pcd,
+  // map_projector_info.yaml, map_bundle.yaml, pose_graph.g2o) from the optimized poses, with the
+  // live node's map parameters (map_leaf_size, map_grid_size_*, the planar and dynamic filters).
+  bool map_bundle = false;
+  graphslam::map_export::MapExportConfig map_export;
   std::string bag_path;
   std::string output_dir;
   std::string odom_topic;
@@ -1008,6 +1015,51 @@ void readLoopSearchConfig(const RunnerParameters & node, RunnerConfig & config)
 
 // Reads the pose-graph edge parameters into the adjacent / loop edge
 // configurations, and the causal trajectory output switch.
+// The live node's map-saving parameters, with its defaults (map_export::MapExportConfig).
+void readMapBundleConfig(const RunnerParameters & node, RunnerConfig & config)
+{
+  node.get_parameter_or("offline_map_bundle", config.map_bundle, false);
+  graphslam::map_export::MapExportConfig & m = config.map_export;
+  const graphslam::map_export::MapExportConfig d;
+  node.get_parameter_or("map_leaf_size", m.map_leaf_size, d.map_leaf_size);
+  node.get_parameter_or("map_grid_size_x", m.map_grid_size_x, d.map_grid_size_x);
+  node.get_parameter_or("map_grid_size_y", m.map_grid_size_y, d.map_grid_size_y);
+  node.get_parameter_or(
+    "map_save_points_per_pass", m.map_save_points_per_pass, d.map_save_points_per_pass);
+  node.get_parameter_or("use_planar_map_filter", m.use_planar_map_filter, d.use_planar_map_filter);
+  node.get_parameter_or(
+    "planar_map_filter_voxel_size", m.planar_map_filter.voxel_size,
+    d.planar_map_filter.voxel_size);
+  node.get_parameter_or(
+    "planar_map_filter_min_neighbors", m.planar_map_filter.min_neighbors,
+    d.planar_map_filter.min_neighbors);
+  node.get_parameter_or(
+    "planar_map_filter_max_small_eigenvalue_ratio", m.planar_map_filter.max_small_eigenvalue_ratio,
+    d.planar_map_filter.max_small_eigenvalue_ratio);
+  node.get_parameter_or(
+    "planar_map_filter_min_middle_eigenvalue_ratio",
+    m.planar_map_filter.min_middle_eigenvalue_ratio,
+    d.planar_map_filter.min_middle_eigenvalue_ratio);
+  node.get_parameter_or(
+    "planar_map_filter_min_retained_ratio", m.planar_map_filter.min_retained_ratio,
+    d.planar_map_filter.min_retained_ratio);
+  node.get_parameter_or(
+    "use_dynamic_object_filter", m.use_dynamic_object_filter, d.use_dynamic_object_filter);
+  node.get_parameter_or(
+    "dynamic_object_filter_voxel_size", m.dynamic_object_filter.voxel_size,
+    d.dynamic_object_filter.voxel_size);
+  node.get_parameter_or(
+    "dynamic_object_filter_min_observations", m.dynamic_object_filter.min_observations,
+    d.dynamic_object_filter.min_observations);
+  node.get_parameter_or(
+    "dynamic_object_filter_temporal_window", m.dynamic_object_filter.temporal_window,
+    d.dynamic_object_filter.temporal_window);
+  node.get_parameter_or(
+    "dynamic_object_filter_max_range_from_sensor_m",
+    m.dynamic_object_filter.max_range_from_sensor_m,
+    d.dynamic_object_filter.max_range_from_sensor_m);
+}
+
 void readPoseGraphConfig(const RunnerParameters & node, RunnerConfig & config)
 {
   int num_adjacent_pose_constraints;
@@ -1850,6 +1902,7 @@ struct FinalPoseGraph
   std::vector<graphslam::pose_graph::LoopConstraint> loop_constraints;
   std::vector<std::vector<Eigen::Vector3d>> local_clouds;
   std::vector<Eigen::Isometry3d> optimized_poses;
+  std::string pose_graph_g2o;  // kept only for the map bundle
 };
 
 // The optional plane revisit factors (use_plane_revisit_constraints).
@@ -2008,7 +2061,10 @@ void optimizeFinalPoseGraph(
       }
       graph.local_clouds.push_back(std::move(points));
       record.cloud.reset();
-      record.stored_cloud.reset();
+      if (!config.map_bundle) {
+        // The map bundle reads the stored clouds (with intensity) after the optimization.
+        record.stored_cloud.reset();
+      }
     }
     GRAPHSLAM_LOG_INFO(
       logger, "Submap clouds restored for the final copy: %zu in %.3f s",
@@ -2029,6 +2085,9 @@ void optimizeFinalPoseGraph(
       config.loop_config, config.imu_config, graphslam::pose_graph::Chi2Collection::NONE, true,
       10, plane_revisit.result.constraints);
     graph.optimized_poses = result.poses;
+    if (config.map_bundle) {
+      graph.pose_graph_g2o = result.pose_graph_g2o;
+    }
     if (config.use_plane_revisit_constraints) {
       writePlaneRevisitReport(config, plane_revisit, result);
     }
@@ -2820,6 +2879,68 @@ void runMapRefinement(
   }
 }
 
+// The live node's map bundle from the optimized poses: its map is the submap clouds moved by the
+// pose-graph poses, saved as map_save saves it (map_export.hpp).
+void writeMapBundle(
+  const RunnerConfig & config, BagPassResult & bag, const FinalPoseGraph & graph,
+  const RunnerLog & logger)
+{
+  const graphslam::map_export::MapExportConfig & map_config = config.map_export;
+  const graphslam::map_export::ProjectorOrigin origin;  // no GNSS in the backend input
+  graphslam::adapters::FilesystemMapOutput output;
+  graphslam::map_export::MapExportLog log;
+  log.line = [&logger](const std::string & line) {logger.info(line);};
+  log.info = log.line;
+  const std::vector<Eigen::Isometry3d> & poses = graph.optimized_poses;
+  const graphslam::map_export::SubmapCloudLoader load = [&bag](std::size_t i) {
+      return submapCloud(bag.records[i], bag.cloud_stats);
+    };
+  std::size_t map_points = 0;
+  for (const auto & record : bag.records) {
+    map_points += static_cast<std::size_t>(record.stored_cloud->message.width) *
+      record.stored_cloud->message.height;
+  }
+
+  output.prepareDirectory(config.output_dir);
+  if (!graph.pose_graph_g2o.empty()) {
+    output.writeBytes(config.output_dir + "/pose_graph.g2o", graph.pose_graph_g2o);
+  }
+  if (map_config.use_dynamic_object_filter) {
+    // As the live node: the assembled map, or the dynamic-filtered one when it is not empty.
+    std::vector<graphslam::TimedSubmapCloud> submaps;
+    graphslam::MapCloud::Ptr map = graphslam::map_export::assembleMap(load, poses, map_points);
+    for (std::size_t i = 0; i < poses.size(); ++i) {
+      pcl::PointCloud<pcl::PointXYZI>::Ptr transformed(new pcl::PointCloud<pcl::PointXYZI>);
+      graphslam::map_export::transformSubmapCloud(load, poses, i, *transformed);
+      const Eigen::Vector3d position = poses[i].translation();
+      submaps.push_back(graphslam::TimedSubmapCloud{static_cast<int>(i), position, transformed});
+    }
+    const auto filter_result =
+      graphslam::buildDynamicObjectFilteredMap(submaps, map_config.dynamic_object_filter);
+    if (!filter_result.cloud->empty()) {
+      map = graphslam::toMapCloud(*filter_result.cloud);
+    }
+    submaps.clear();
+    graphslam::map_export::saveGridDividedMap(
+      std::move(map), config.output_dir, map_config, origin, output, log);
+  } else if (map_config.map_save_points_per_pass > 0) {
+    graphslam::map_export::saveStreamedMap(
+      load, poses, map_points, config.output_dir, map_config, origin, output, log);
+  } else {
+    graphslam::map_export::saveGridDividedMap(
+      graphslam::map_export::assembleMap(load, poses, map_points), config.output_dir, map_config,
+      origin, output, log);
+  }
+  output.writeBytes(
+    config.output_dir + "/map_bundle.yaml",
+    graphslam::map_saver::bundleManifestYaml(
+      graphslam::map_export::bundleManifest(
+        map_config, "map", poses.size(), bag.edge_set.edges().size())));
+  GRAPHSLAM_LOG_INFO(
+    logger, "Wrote the map bundle (pointcloud_map/, map.pcd, map_projector_info.yaml, "
+    "map_bundle.yaml, pose_graph.g2o) to %s", config.output_dir.c_str());
+}
+
 }  // namespace
 
 namespace graphslam
@@ -2867,6 +2988,7 @@ bool OfflinePipeline::configure()
   readDescriptorConfig(p.node, p.config.descriptor_config);
   readLoopSearchConfig(p.node, p.config);
   readPoseGraphConfig(p.node, p.config);
+  readMapBundleConfig(p.node, p.config);
 
   if (!setupBackendRegistration(p.config, p.logger, p.registration)) {
     return false;
@@ -2922,6 +3044,9 @@ bool OfflinePipeline::finish()
     writeDensePoseOutputs(config, p.bag, graph, p.logger);
   }
   writePoseGraphOutputs(config, p.bag, graph);
+  if (config.map_bundle && !graph.optimized_poses.empty()) {
+    writeMapBundle(config, p.bag, graph, p.logger);
+  }
   if (config.refine && !graph.optimized_poses.empty()) {
     runMapRefinement(config, p.bag, graph, p.logger);
   }

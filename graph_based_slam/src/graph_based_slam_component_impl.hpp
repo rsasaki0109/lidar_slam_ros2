@@ -73,6 +73,7 @@
 #include "graph_based_slam/external_io_ports.hpp"
 #include "graph_based_slam/gnss_origin_accumulator.hpp"
 #include "graph_based_slam/graph_state_store.hpp"
+#include "graph_based_slam/map_export.hpp"
 #include "graph_based_slam/map_point.hpp"
 #include "graph_based_slam/loop_edge_set.hpp"
 
@@ -172,19 +173,9 @@ private:
   void saveStreamedMap(
     const std::vector<GraphStateStore::CloudPtr> & clouds,
     const std::vector<Eigen::Isometry3d> & poses);
-  // Submap cloud i moved by its pose, as into the map.
-  void moveSubmapCloud(
-    const std::vector<GraphStateStore::CloudPtr> & clouds,
-    const std::vector<Eigen::Isometry3d> & poses, std::size_t i,
-    pcl::PointCloud<pcl::PointXYZI> & transformed);
-  // The map only saved, assembled as doPoseAdjustment assembles it.
-  MapCloud::Ptr assembleSavedMap(
-    const std::vector<GraphStateStore::CloudPtr> & clouds,
-    const std::vector<Eigen::Isometry3d> & poses, std::size_t map_points);
-  // Writes the downsampled map into save_dir: the grid-divided tiles, their metadata, map.pcd
-  // and map_projector_info.yaml. map_points: the points it was downsampled from (for the log).
-  void saveDownsampledMap(
-    MapCloud::Ptr downsampled, std::size_t map_points, const std::string & save_dir);
+  // The GNSS origin for map_projector_info.yaml, and where the map export's lines go.
+  map_export::ProjectorOrigin projectorOrigin();
+  map_export::MapExportLog mapExportLog();
   void writeMapBundleArtifacts(
     const lidarslam_msgs::msg::MapArray & map_array_msg,
     const DeterministicArtifacts & artifacts,

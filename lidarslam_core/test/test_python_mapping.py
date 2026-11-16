@@ -43,5 +43,8 @@ def test_one_pass_map(tmp_path: Path) -> None:
     assert summary['frames'] == alone['poses'] > 0
     assert (out / 'odometry_tum.txt').read_bytes() == Path(alone['tum']).read_bytes()
     assert any(f'Offline run complete: {summary["frames"]} pairs' in msg for _, msg in messages)
-    for name in ('trajectory_raw.tum', 'trajectory_optimized.tum', 'loop_edges.csv'):
+    for name in ('trajectory_raw.tum', 'trajectory_optimized.tum', 'loop_edges.csv', 'map.pcd',
+                 'map_projector_info.yaml', 'map_bundle.yaml', 'pose_graph.g2o',
+                 'pointcloud_map/pointcloud_map_metadata.yaml'):
         assert (out / name).is_file(), name
+    assert (out / 'map_projector_info.yaml').read_text() == 'projector_type: Local\n'
