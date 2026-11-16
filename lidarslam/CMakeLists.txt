@@ -460,27 +460,15 @@ install(
     ${CMAKE_CURRENT_BINARY_DIR}/product-build-info.json
   DESTINATION share/${PROJECT_NAME}/product
 )
+file(
+  STRINGS
+  ${CMAKE_CURRENT_SOURCE_DIR}/product-schema-files.txt
+  PRODUCT_SCHEMA_NAMES
+)
+list(FILTER PRODUCT_SCHEMA_NAMES EXCLUDE REGEX "^[ \t]*(#|$)")
+list(TRANSFORM PRODUCT_SCHEMA_NAMES PREPEND ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/)
 install(
-  FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/run-manifest-v1.schema.json
-    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/run-manifest-v2.schema.json
-    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/release-image-v1.schema.json
-    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/rollback-plan-v1.schema.json
-    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/first-map-validation-receipt-v1.schema.json
-    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/first-map-handoff-v1.schema.json
-    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/first-map-demo-plan-v1.schema.json
-    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/sensor-setup-v1.schema.json
-    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/sensor-setup-rejection-v1.schema.json
-    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/map-session-recovery-v1.schema.json
-    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/map-session-index-v1.schema.json
-    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/map-session-catalog-v1.schema.json
-    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/map-session-comparison-v1.schema.json
-    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/support-bundle-v1.schema.json
-    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/map-edit-plan-v1.schema.json
-    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/map-edit-receipt-v1.schema.json
-    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/map-project-v1.schema.json
-    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/map-merge-receipt-v1.schema.json
-    ${CMAKE_CURRENT_SOURCE_DIR}/../docs/schemas/system-doctor-v1.schema.json
+  FILES ${PRODUCT_SCHEMA_NAMES}
   DESTINATION share/${PROJECT_NAME}/product/schemas
 )
 install(

@@ -290,3 +290,59 @@ if(LIDARSLAM_CORE_BUILD_PYTHON)
   endif()
   install(TARGETS _core LIBRARY DESTINATION lidarslam)
 endif()
+
+# --- The lidarslam-map product CLI inside the Python package.
+# The product scripts find their files relative to themselves (product/scripts -> product ->
+# share/lidarslam/param), so the package holds the tree the ROS 2 package installs under
+# share/lidarslam, from the same file lists (lidarslam/product-*-files.txt).
+option(LIDARSLAM_CORE_INSTALL_PRODUCT "Install the lidarslam-map product files into the package" OFF)
+if(LIDARSLAM_CORE_INSTALL_PRODUCT)
+  find_package(Python 3.10 REQUIRED COMPONENTS Interpreter)
+  set(_PRODUCT_SOURCE ${LIDARSLAM_REPO_ROOT}/lidarslam)
+  set(_PRODUCT_SHARE lidarslam/share/lidarslam)
+
+  file(STRINGS ${_PRODUCT_SOURCE}/product-runtime-files.txt _PRODUCT_SCRIPT_NAMES)
+  list(FILTER _PRODUCT_SCRIPT_NAMES EXCLUDE REGEX "^[ \t]*(#|$)")
+  set(_PRODUCT_SCRIPTS ${_PRODUCT_SCRIPT_NAMES})
+  list(TRANSFORM _PRODUCT_SCRIPTS PREPEND ${LIDARSLAM_REPO_ROOT}/scripts/)
+  install(PROGRAMS ${_PRODUCT_SCRIPTS} DESTINATION ${_PRODUCT_SHARE}/product/scripts)
+
+  file(STRINGS ${_PRODUCT_SOURCE}/product-schema-files.txt _PRODUCT_SCHEMAS)
+  list(FILTER _PRODUCT_SCHEMAS EXCLUDE REGEX "^[ \t]*(#|$)")
+  list(TRANSFORM _PRODUCT_SCHEMAS PREPEND ${LIDARSLAM_REPO_ROOT}/docs/schemas/)
+  install(FILES ${_PRODUCT_SCHEMAS} DESTINATION ${_PRODUCT_SHARE}/product/schemas)
+
+  set(_PRODUCT_BUILD_INFO ${CMAKE_CURRENT_BINARY_DIR}/product-build-info.json)
+  add_custom_target(
+    lidarslam_product_build_info ALL
+    COMMAND
+      ${Python_EXECUTABLE} ${LIDARSLAM_REPO_ROOT}/scripts/generate_product_build_info.py
+      --source-dir ${LIDARSLAM_REPO_ROOT} --output ${_PRODUCT_BUILD_INFO}
+    BYPRODUCTS ${_PRODUCT_BUILD_INFO}
+    COMMENT "Generating the product's source provenance"
+    VERBATIM
+  )
+  install(
+    FILES
+      ${LIDARSLAM_REPO_ROOT}/VERSION
+      ${_PRODUCT_SOURCE}/product-runtime-files.txt
+      ${_PRODUCT_BUILD_INFO}
+    DESTINATION ${_PRODUCT_SHARE}/product
+  )
+  install(
+    FILES ${LIDARSLAM_REPO_ROOT}/scripts/completions/lidarslam-map.bash
+    DESTINATION ${_PRODUCT_SHARE}/product/completions
+  )
+  install(
+    DIRECTORY ${_PRODUCT_SOURCE}/param/
+    DESTINATION ${_PRODUCT_SHARE}/param
+  )
+
+  # The browser preview imports the product scripts as lidarslam_benchmark_tools, as the ROS 2
+  # package installs it; the package carries the product scripts only.
+  list(FILTER _PRODUCT_SCRIPTS INCLUDE REGEX "\\.py$")
+  install(
+    FILES ${LIDARSLAM_REPO_ROOT}/lidarslam_benchmark_tools/__init__.py ${_PRODUCT_SCRIPTS}
+    DESTINATION lidarslam_benchmark_tools
+  )
+endif()

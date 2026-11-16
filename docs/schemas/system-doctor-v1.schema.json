@@ -61,6 +61,16 @@
         "rosbag2_python_available": {"type": "boolean"}
       }
     },
+    "engine": {
+      "description": "The map engine lidarslam-map run --engine auto selects: ros2 when the ros2 command is found, else core when the lidarslam Python package can map without ROS 2.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["selected", "core_available"],
+      "properties": {
+        "selected": {"enum": ["ros2", "core", null]},
+        "core_available": {"type": "boolean"}
+      }
+    },
     "storage": {
       "type": "object",
       "additionalProperties": false,

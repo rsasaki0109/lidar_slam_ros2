@@ -166,6 +166,7 @@ def test_missing_environment_runtime_and_storage_have_stable_codes(tmp_path):
         command_lookup=lambda _name: None,
         module_available=lambda _name: False,
         disk_usage=_disk(3),
+        core_engine_available=lambda: False,
     )
 
     assert [item['code'] for item in report['findings']] == [
@@ -215,6 +216,30 @@ def test_storage_shortfall_display_rounds_up_and_human_output_is_actionable(
     assert rendered.count('Do this now:') == 1
     assert 'Do this now:\n  lidarslam-map doctor' in rendered
     assert 'Why: [demo-storage-low] fixture' in rendered
+
+
+def test_pip_install_without_ros_is_ready_with_the_core_engine(tmp_path):
+    report = DOCTOR.build_system_report(
+        script_dir=_layout(tmp_path, source=False),
+        demo_dir=tmp_path,
+        min_free_space_gib=8,
+        environment={},
+        command_lookup=lambda _name: None,
+        module_available=lambda _name: False,
+        disk_usage=_disk(12),
+        core_engine_available=lambda: True,
+    )
+
+    jsonschema.validate(report, json.loads(SCHEMA_PATH.read_text(encoding='utf-8')))
+    assert report['status'] == 'ready'
+    assert report['findings'] == []
+    assert report['engine'] == {'selected': 'core', 'core_available': True}
+    assert 'Map engine:   core' in DOCTOR.render_system_report(report)
+
+
+def test_ros2_command_selects_the_ros2_engine_as_run_does(tmp_path):
+    report = _ready_report(tmp_path, source=False)
+    assert report['engine']['selected'] == 'ros2'
 
 
 def test_human_action_required_report_prioritizes_one_recovery(tmp_path):
