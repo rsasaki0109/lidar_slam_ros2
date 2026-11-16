@@ -2,6 +2,7 @@
 
   inspect <log>                         list topics, message types and counts
   odometry <log> --params P --out DIR   RKO-LIO odometry with a ROS 2 parameter file
+  backend <log> --params P --out DIR    graph_based_slam offline backend on a backend input
 """
 
 from __future__ import annotations
@@ -26,6 +27,14 @@ def main(argv: list[str] | None = None) -> int:
     odometry.add_argument('--lidar-topic', help='overrides lidar_topic')
     odometry.add_argument('--imu-topic', help='overrides imu_topic')
     odometry.add_argument('--run-name', default='odometry', help='output file stem')
+    backend = sub.add_parser(
+        'backend', help='graph_based_slam offline backend on a recorded backend input (no ROS 2)')
+    backend.add_argument('log', help='backend-input log (odometry + deskewed clouds)')
+    backend.add_argument('--params', required=True, action='append',
+                         help='graph_based_slam parameter file; repeat to layer files')
+    backend.add_argument('--out', required=True, help='output directory (output_dir)')
+    backend.add_argument('-p', '--param', action='append', default=[], metavar='NAME:=VALUE',
+                         help='parameter override, as ROS 2 -p (YAML value)')
     args = parser.parse_args(argv)
 
     if args.command == 'inspect':
@@ -42,6 +51,12 @@ def main(argv: list[str] | None = None) -> int:
         if args.imu_topic:
             params['imu_topic'] = args.imu_topic
         summary = run(args.log, params, args.out, run_name=args.run_name)
+        print(json.dumps(summary, indent=2))
+    elif args.command == 'backend':
+        from lidarslam import backend as backend_module
+        from lidarslam.params import apply_overrides
+        params = apply_overrides(backend_module.load_parameters(*args.params), args.param)
+        summary = backend_module.run(args.log, params, args.out)
         print(json.dumps(summary, indent=2))
     return 0
 

@@ -32,6 +32,5 @@ install.components = []
 [tool.scikit-build.cmake.define]
 LIDARSLAM_CORE_BUILD_PYTHON = "ON"
 LIDARSLAM_CORE_BUILD_TESTS = "OFF"
-# The backend driver joins the module in M4 (docs/roadmap/ros-free-core-2026-11.md).
-LIDARSLAM_CORE_BUILD_BACKEND = "OFF"
+LIDARSLAM_CORE_BUILD_BACKEND = "ON"
 LIDARSLAM_CORE_BUILD_FRONTEND = "ON"

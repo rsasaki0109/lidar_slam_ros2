@@ -1061,31 +1061,29 @@ target_link_libraries(graph_based_slam_node
 ament_target_dependencies(graph_based_slam_node
   rclcpp)
 
-add_executable(graph_slam_offline_runner
-  src/graph_slam_offline_runner.cpp
+# The offline backend without ROS (offline_pipeline.hpp); graph_slam_offline_runner is its ROS 2
+# shell (parameters, rosbag2 input, logging) and lidarslam_core builds the same sources.
+add_library(graph_slam_offline_pipeline STATIC
+  src/offline_pipeline.cpp
   src/three_d_bbs_loop_verifier.cpp
 )
-target_compile_features(graph_slam_offline_runner PRIVATE cxx_std_17)
+target_compile_features(graph_slam_offline_pipeline PUBLIC cxx_std_17)
+target_include_directories(graph_slam_offline_pipeline PUBLIC
+  include ${EIGEN3_INCLUDE_DIR} ${PCL_INCLUDE_DIRS})
 
 if(GRAPH_BASED_SLAM_HAVE_3D_BBS)
-  target_compile_definitions(graph_slam_offline_runner PRIVATE GRAPH_BASED_SLAM_HAVE_3D_BBS)
-  target_link_libraries(graph_slam_offline_runner graph_based_slam_3d_bbs_vendor)
+  target_compile_definitions(graph_slam_offline_pipeline PRIVATE GRAPH_BASED_SLAM_HAVE_3D_BBS)
+  target_link_libraries(graph_slam_offline_pipeline graph_based_slam_3d_bbs_vendor)
 endif()
 
-ament_target_dependencies(graph_slam_offline_runner
-  rclcpp
-  rosbag2_cpp
-  tf2_eigen
-  pcl_conversions
-  nav_msgs
-  sensor_msgs
+ament_target_dependencies(graph_slam_offline_pipeline
   ndt_omp_ros2
   lidarslam_plugin_interfaces
   lidarslam_default_plugins
   lidarslam_registration_loader
 )
 
-target_link_libraries(graph_slam_offline_runner
+target_link_libraries(graph_slam_offline_pipeline
   graph_slam_application
   graph_slam_io_adapters
   graph_slam_cloud_compression
@@ -1095,6 +1093,16 @@ target_link_libraries(graph_slam_offline_runner
   g2o::solver_eigen
   g2o::stuff
 )
+
+add_executable(graph_slam_offline_runner src/graph_slam_offline_runner.cpp)
+target_compile_features(graph_slam_offline_runner PRIVATE cxx_std_17)
+ament_target_dependencies(graph_slam_offline_runner
+  rclcpp
+  rosbag2_cpp
+  nav_msgs
+  sensor_msgs
+)
+target_link_libraries(graph_slam_offline_runner graph_slam_offline_pipeline)
 
 # Multi-session join (several sessions of one site in one pose graph).
 add_executable(graph_slam_multisession_join src/graph_slam_multisession_join.cpp)

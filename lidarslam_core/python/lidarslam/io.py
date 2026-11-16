@@ -7,6 +7,7 @@ core's plain types, which mirror the ROS 2 messages field for field:
 * ``sensor_msgs/msg/PointCloud2`` -> :class:`lidarslam._core.PackedCloud`
 * ``sensor_msgs/msg/Imu`` -> :class:`lidarslam._core.ImuSample`
 * ``sensor_msgs/msg/NavSatFix`` -> :class:`lidarslam._core.NavSatFix`
+* ``nav_msgs/msg/Odometry`` -> :class:`lidarslam._core.Odometry`
 """
 
 from __future__ import annotations
@@ -23,7 +24,8 @@ from lidarslam import _core
 POINT_CLOUD2 = 'sensor_msgs/msg/PointCloud2'
 IMU = 'sensor_msgs/msg/Imu'
 NAV_SAT_FIX = 'sensor_msgs/msg/NavSatFix'
-SUPPORTED_TYPES = (POINT_CLOUD2, IMU, NAV_SAT_FIX)
+ODOMETRY = 'nav_msgs/msg/Odometry'
+SUPPORTED_TYPES = (POINT_CLOUD2, IMU, NAV_SAT_FIX, ODOMETRY)
 
 
 @dataclass(frozen=True)
@@ -37,7 +39,7 @@ class TopicInfo:
 class Record:
     topic: str
     log_time_ns: int
-    message: Any  # PackedCloud, ImuSample or NavSatFix
+    message: Any  # PackedCloud, ImuSample, NavSatFix or Odometry
 
 
 def _header(src: Any) -> _core.Header:
@@ -93,10 +95,26 @@ def to_nav_sat_fix(msg: Any) -> _core.NavSatFix:
     return fix
 
 
+def to_odometry(msg: Any) -> _core.Odometry:
+    odom = _core.Odometry()
+    odom.header = _header(msg.header)
+    odom.child_frame_id = str(msg.child_frame_id)
+    p, q = msg.pose.pose.position, msg.pose.pose.orientation
+    odom.position = [float(p.x), float(p.y), float(p.z)]
+    odom.orientation = [float(q.x), float(q.y), float(q.z), float(q.w)]
+    odom.pose_covariance = [float(v) for v in msg.pose.covariance]
+    v, w = msg.twist.twist.linear, msg.twist.twist.angular
+    odom.linear_velocity = [float(v.x), float(v.y), float(v.z)]
+    odom.angular_velocity = [float(w.x), float(w.y), float(w.z)]
+    odom.twist_covariance = [float(c) for c in msg.twist.covariance]
+    return odom
+
+
 _CONVERTERS = {
     POINT_CLOUD2: to_packed_cloud,
     IMU: to_imu_sample,
     NAV_SAT_FIX: to_nav_sat_fix,
+    ODOMETRY: to_odometry,
 }
 
 

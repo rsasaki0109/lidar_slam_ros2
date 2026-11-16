@@ -79,6 +79,19 @@ struct NavSatFix
   uint8_t position_covariance_type = 0;
 };
 
+// nav_msgs/Odometry (pose and twist flattened).
+struct Odometry
+{
+  Header header;
+  std::string child_frame_id;
+  std::array<double, 3> position{};
+  std::array<double, 4> orientation{0.0, 0.0, 0.0, 1.0};  // x, y, z, w
+  std::array<double, 36> pose_covariance{};
+  std::array<double, 3> linear_velocity{};
+  std::array<double, 3> angular_velocity{};
+  std::array<double, 36> twist_covariance{};
+};
+
 }  // namespace lidarslam_core
 
 #endif  // LIDARSLAM_CORE__SENSOR_MESSAGES_HPP_

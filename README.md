@@ -60,16 +60,20 @@ The helper detects Humble/Jazzy, installs the dependencies, builds the six maint
 
 ### Without ROS 2 (pip, preview)
 
-ROS 2 is becoming one option rather than a requirement. Today the pip package reads rosbag2 (MCAP, SQLite3) and ROS 1 bags and runs the RKO-LIO odometry; loop closure and the map follow ([roadmap](docs/roadmap/ros-free-core-2026-11.md)).
+ROS 2 is becoming one option rather than a requirement. Today the pip package reads rosbag2 (MCAP, SQLite3) and ROS 1 bags, runs the RKO-LIO odometry and runs the graph_based_slam backend (loop closure, pose graph, refinement) on a recorded backend input; the one-command map follows ([roadmap](docs/roadmap/ros-free-core-2026-11.md)).
 
 ```bash
-sudo apt install build-essential cmake libeigen3-dev libtbb-dev robin-map-dev python3-venv   # tested on Ubuntu 24.04
+sudo apt install build-essential cmake libeigen3-dev libtbb-dev robin-map-dev \
+  libpcl-dev libg2o-dev libzstd-dev python3-venv   # tested on Ubuntu 24.04
 git clone --recursive https://github.com/rsasaki0109/lidar_slam_ros2.git
 cd lidar_slam_ros2
 python3 -m venv .venv && . .venv/bin/activate
 pip install ./lidarslam_core                     # Python >= 3.10; downloads Sophus while building
 python -m lidarslam inspect /path/to/rosbag2     # topics and message types
 python -m lidarslam odometry /path/to/rosbag2 --params my_rko_lio.yaml --out odom/
+python -m lidarslam backend /path/to/backend_input \
+  --params lidarslam/param/lidarslam_mid360_rko_graph_walking.yaml --out map/ \
+  -p "extrinsic_lidar2base_quat_xyzw_xyz:=[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]"
 ```
 
 `--params` takes the same parameter file as the ROS 2 RKO-LIO node (`ros__parameters` layout), with `imu_topic`, `lidar_topic`, `base_frame` and both `extrinsic_*2base_quat_xyzw_xyz` set. On HILTI exp14 the trajectory is byte-identical to the ROS 2 offline node. Visual and radar fusion still need ROS 2.

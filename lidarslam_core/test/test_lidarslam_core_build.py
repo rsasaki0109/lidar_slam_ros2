@@ -33,7 +33,14 @@ CORE_LIBRARIES = (
     'graph_slam_application',
     'graph_slam_map_point',
     'graph_slam_io_adapters',
+    'graph_slam_cloud_compression',
+    'graph_slam_offline_pipeline',
 )
+LOADER_CMAKE = REPO_ROOT / 'lidarslam_registration_loader' / 'CMakeLists.txt'
+OFFLINE_PIPELINE = REPO_ROOT / 'graph_based_slam' / 'src' / 'offline_pipeline.cpp'
+ROS_HEADER = re.compile(
+    r'#include\s*[<"](rclcpp|rcl|sensor_msgs|geometry_msgs|nav_msgs|std_msgs|lidarslam_msgs'
+    r'|tf2|tf2_ros|tf2_eigen|rosbag2|rosbag2_cpp|pcl_conversions|message_filters|pluginlib)/')
 
 
 def _strip_comments(text: str) -> str:
@@ -67,12 +74,9 @@ def test_every_ros_free_gtest_is_built_without_ros():
 
 
 def test_core_gtests_include_no_ros_headers():
-    ros_header = re.compile(
-        r'#include\s*[<"](rclcpp|rcl|sensor_msgs|geometry_msgs|nav_msgs|std_msgs|lidarslam_msgs'
-        r'|tf2|tf2_ros|rosbag2|rosbag2_cpp|pcl_conversions|message_filters|pluginlib)/')
     offenders = [
         name for name in _core_gtests()
-        if ros_header.search(
+        if ROS_HEADER.search(
             (REPO_ROOT / 'graph_based_slam' / 'test' / f'{name}.cpp').read_text(encoding='utf-8'))
     ]
     assert offenders == []
@@ -102,3 +106,20 @@ def test_plain_build_needs_no_ros():
                       'pcl_conversions', '/opt/ros'):
         assert forbidden not in core, forbidden
     assert (REPO_ROOT / 'lidarslam_core' / 'COLCON_IGNORE').is_file()
+
+
+def test_registration_loader_sources_match_the_ros_package():
+    ros = _strip_comments(LOADER_CMAKE.read_text(encoding='utf-8'))
+    core = _strip_comments(CORE_CMAKE.read_text(encoding='utf-8'))
+    ros_match = re.search(r'add_library\(\s*\$\{PROJECT_NAME\}\s+SHARED\s+([^)]*)\)', ros)
+    core_match = re.search(
+        r'add_library\(\s*lidarslam_registration_loader\s+STATIC\s+([^)]*)\)', core)
+    assert ros_match and core_match
+    prefix = '${LIDARSLAM_REPO_ROOT}/lidarslam_registration_loader/'
+    assert [t.replace(prefix, '') for t in core_match.group(1).split()] == \
+        ros_match.group(1).split()
+
+
+def test_offline_pipeline_includes_no_ros_headers():
+    # graph_slam_offline_runner's stages; the ROS 2 shell is graph_slam_offline_runner.cpp.
+    assert not ROS_HEADER.search(OFFLINE_PIPELINE.read_text(encoding='utf-8'))

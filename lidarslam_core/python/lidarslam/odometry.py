@@ -13,10 +13,9 @@ from pathlib import Path
 import sys
 from typing import Any
 
-import yaml
-
 from lidarslam import _core
 from lidarslam.io import IMU, POINT_CLOUD2, SensorLog
+from lidarslam.params import load_parameters as _load_parameters
 
 # Parameters of the ROS 2 offline node itself (bag reading, ROS plumbing); not driver parameters.
 OFFLINE_NODE_ONLY = {
@@ -25,25 +24,9 @@ OFFLINE_NODE_ONLY = {
 }
 
 
-def _flatten(prefix: str, value: Any, out: dict[str, Any]) -> None:
-    if isinstance(value, dict):
-        for key, item in value.items():
-            _flatten(f'{prefix}.{key}' if prefix else str(key), item, out)
-    else:
-        out[prefix] = value
-
-
 def load_parameters(path: str | Path) -> dict[str, Any]:
     """Parameters from a ROS 2 parameter file (any node name) or a flat YAML mapping."""
-    data = yaml.safe_load(Path(path).read_text(encoding='utf-8')) or {}
-    if not isinstance(data, dict):
-        raise ValueError(f'{path}: expected a mapping')
-    nodes = [v['ros__parameters'] for v in data.values()
-             if isinstance(v, dict) and isinstance(v.get('ros__parameters'), dict)]
-    params: dict[str, Any] = {}
-    for section in nodes or [data]:
-        _flatten('', section, params)
-    return params
+    return _load_parameters(path)
 
 
 def run(log_path: str | Path, params: dict[str, Any], out_dir: str | Path,
