@@ -1,0 +1,37 @@
+[build-system]
+requires = ["scikit-build-core>=0.10", "pybind11>=2.12"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "lidarslam"
+version = "0.12.0.dev0"
+description = "LiDAR-inertial SLAM that writes Autoware-compatible maps, without a ROS 2 install"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "BSD-2-Clause" }
+dependencies = [
+  "numpy>=1.24",
+  "rosbags>=0.10",
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.urls]
+Homepage = "https://github.com/rsasaki0109/lidar_slam_ros2"
+
+[tool.scikit-build]
+minimum-version = "build-system.requires"
+cmake.version = ">=3.22"
+cmake.build-type = "Release"
+wheel.packages = ["python/lidarslam"]
+build.targets = ["_core"]
+install.components = []
+
+[tool.scikit-build.cmake.define]
+LIDARSLAM_CORE_BUILD_PYTHON = "ON"
+LIDARSLAM_CORE_BUILD_TESTS = "OFF"
+# M2 ships the sensor-log reader and message types only; the frontend and backend drivers join
+# the module in M3/M4 (see docs/roadmap/ros-free-core-2026-11.md).
+LIDARSLAM_CORE_BUILD_BACKEND = "OFF"
+LIDARSLAM_CORE_BUILD_FRONTEND = "OFF"

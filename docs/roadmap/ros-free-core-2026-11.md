@@ -26,6 +26,11 @@ Each milestone is one reviewable change. Outputs of the ROS 2 path stay byte-ide
    (scikit-build-core + pybind11 over `lidarslam_core`). Bags are read with `rosbags` (PyPI, pure
    Python: rosbag2 MCAP/SQLite3 and ROS 1 bags) and plain files (point clouds + IMU CSV). Check:
    decoded clouds and IMU samples equal what the ROS path reads from the MID-360 demo bag.
+   *Status (2026-11-16):* `pip install ./lidarslam_core` builds `lidarslam._core` (message types)
+   and `lidarslam.io.SensorLog` with no ROS environment; `python -m lidarslam inspect <log>` lists
+   topics. `lidarslam_core/test/compare_with_rosbag2.py` found 0 differences against `rosbag2_py`
+   on HILTI exp14 (MCAP, 740 PointCloud2 + 29,539 Imu) and a GNSS log (16,028 NavSatFix, MCAP and
+   SQLite3). The demo bag was not on this machine; HILTI exp14 stood in for it.
 3. **M3, frontend driver without ROS.** Move the offline driver logic of `base_node` (parameters,
    message buffering, extrinsics, outputs) behind plain types so the ROS node and a ROS-free
    executable share it. Check: frontend trajectory byte-identical to the ROS `offline_node`.

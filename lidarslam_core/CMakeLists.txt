@@ -11,8 +11,10 @@
 cmake_minimum_required(VERSION 3.22)
 project(lidarslam_core LANGUAGES C CXX)
 
-option(LIDARSLAM_CORE_BUILD_TESTS "Build the ROS-free unit tests" ON)
+option(LIDARSLAM_CORE_BUILD_BACKEND "Build the backend core (needs PCL and g2o)" ON)
+option(LIDARSLAM_CORE_BUILD_TESTS "Build the ROS-free unit tests (needs the backend)" ON)
 option(LIDARSLAM_CORE_BUILD_FRONTEND "Build the RKO-LIO frontend core" ON)
+option(LIDARSLAM_CORE_BUILD_PYTHON "Build the lidarslam._core Python module" OFF)
 option(LIDARSLAM_CORE_ENABLE_3D_BBS "Build the optional 3D-BBS loop verifier" ON)
 
 get_filename_component(LIDARSLAM_REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
@@ -33,6 +35,13 @@ add_compile_definitions(G2O_USE_VENDORED_CERES)
 add_link_options(-Wl,--no-undefined)
 
 find_package(Eigen3 REQUIRED)
+
+# Plain sensor-message types shared by the drivers and the Python module (no dependencies).
+add_library(lidarslam_core_messages INTERFACE)
+target_include_directories(lidarslam_core_messages INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_compile_features(lidarslam_core_messages INTERFACE cxx_std_17)
+
+if(LIDARSLAM_CORE_BUILD_BACKEND)
 find_package(PCL REQUIRED)
 find_package(OpenMP REQUIRED COMPONENTS C CXX)
 find_package(zstd QUIET)
@@ -125,6 +134,8 @@ target_include_directories(graph_slam_io_adapters PUBLIC
   ${GBS_ROOT}/include PRIVATE ${GBS_ROOT}/src ${PCL_INCLUDE_DIRS})
 target_link_libraries(graph_slam_io_adapters ${PCL_LIBRARIES})
 
+endif()  # LIDARSLAM_CORE_BUILD_BACKEND
+
 # --- RKO-LIO frontend core (Thirdparty/rko_lio with its ROS wrapper switched off).
 if(LIDARSLAM_CORE_BUILD_FRONTEND)
   set(RKO_LIO_BUILD_ROS OFF CACHE BOOL "" FORCE)
@@ -146,7 +157,7 @@ if(LIDARSLAM_CORE_BUILD_FRONTEND)
 endif()
 
 # --- Unit tests: every gtest of graph_based_slam that needs no ROS message or client library.
-if(LIDARSLAM_CORE_BUILD_TESTS)
+if(LIDARSLAM_CORE_BUILD_TESTS AND LIDARSLAM_CORE_BUILD_BACKEND)
   enable_testing()
   find_package(GTest REQUIRED)
   set(LIDARSLAM_CORE_GTESTS
@@ -188,4 +199,16 @@ if(LIDARSLAM_CORE_BUILD_TESTS)
   if(GBS_HAVE_3D_BBS)
     target_link_libraries(test_graph_slam_application graph_based_slam_3d_bbs_vendor)
   endif()
+endif()
+
+# --- Python module lidarslam._core (built by pip through scikit-build-core, see pyproject.toml).
+if(LIDARSLAM_CORE_BUILD_PYTHON)
+  find_package(Python 3.10 REQUIRED COMPONENTS Interpreter Development.Module)
+  find_package(pybind11 CONFIG REQUIRED)
+  pybind11_add_module(_core ${CMAKE_CURRENT_SOURCE_DIR}/src/python_module.cpp)
+  target_link_libraries(_core PRIVATE lidarslam_core_messages)
+  # A Python extension leaves the interpreter's symbols undefined; drop the directory's
+  # -Wl,--no-undefined for this one target.
+  set_property(TARGET _core PROPERTY LINK_OPTIONS "")
+  install(TARGETS _core LIBRARY DESTINATION lidarslam)
 endif()
