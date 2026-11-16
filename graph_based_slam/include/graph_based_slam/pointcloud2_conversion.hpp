@@ -32,20 +32,21 @@
 
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
-#include <pcl_conversions/pcl_conversions.h>
 
 #include <cstddef>
 #include <cstdint>
 
-#include <sensor_msgs/msg/point_cloud2.hpp>
+#include "graph_based_slam/cloud_message.hpp"
 
 namespace graphslam
 {
 namespace pointcloud2_conversion
 {
 
+// Each function takes sensor_msgs::msg::PointCloud2 or graphslam::msg::PointCloud2.
+template<typename Cloud>
 inline bool hasField(
-  const sensor_msgs::msg::PointCloud2 & message,
+  const Cloud & message,
   const char * const name)
 {
   for (const auto & field : message.fields) {
@@ -61,8 +62,9 @@ inline bool hasField(
 // because a producer can replace a cloud without changing its dimensions.
 // Empty payloads return zero so a PCD/message provider with unknown content
 // remains on the historical uncached path.
+template<typename Cloud>
 inline std::uint64_t contentRevision(
-  const sensor_msgs::msg::PointCloud2 & message)
+  const Cloud & message)
 {
   if (message.data.empty() || message.width == 0U || message.height == 0U) {
     return 0U;
@@ -100,12 +102,13 @@ inline std::uint64_t contentRevision(
 // the normal PointXYZI conversion when intensity exists preserves the legacy
 // byte-level path, while the XYZ-only path makes the documented zero-fill
 // policy explicit and warning-free.
+template<typename Cloud>
 inline void fromRosMsgPointXYZI(
-  const sensor_msgs::msg::PointCloud2 & message,
+  const Cloud & message,
   pcl::PointCloud<pcl::PointXYZI> & output)
 {
   if (hasField(message, "intensity")) {
-    pcl::fromROSMsg(message, output);
+    cloud_msg::fromCloudMsg(message, output);
     return;
   }
 
@@ -116,7 +119,7 @@ inline void fromRosMsgPointXYZI(
   // overload can be used on every supported PCL version (Humble ships 1.12,
   // which lacks the later data-pointer overload).
   pcl::PCLPointCloud2 pcl_cloud;
-  pcl_conversions::copyPointCloud2MetaData(message, pcl_cloud);
+  cloud_msg::copyMetaData(message, pcl_cloud);
   pcl::MsgFieldMap field_map;
   pcl::createMapping<pcl::PointXYZ>(pcl_cloud.fields, field_map);
   pcl_cloud.data = message.data;

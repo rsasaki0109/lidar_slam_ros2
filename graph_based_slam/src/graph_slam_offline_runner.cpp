@@ -70,11 +70,11 @@
 #include <rclcpp/serialization.hpp>
 #include <rosbag2_cpp/reader.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
-#include <tf2_eigen/tf2_eigen.hpp>
 
 #include "graph_based_slam/backend_core.hpp"
 #include "graph_based_slam/backend_registration_preflight.hpp"
-#include "graph_based_slam/cloud_compression.hpp"
+#include "graph_based_slam/cloud_compression_core.hpp"
+#include "graph_based_slam/cloud_message.hpp"
 #include "graph_based_slam/cloud_input_extrinsic.hpp"
 #include "graph_based_slam/degeneracy_diagnostics_csv.hpp"
 #include "graph_based_slam/degeneracy_report_summary.hpp"
@@ -120,6 +120,57 @@ makeOfflineHostBuiltinNdtRegistration()
   return std::make_shared<lidarslam_default_plugins::NdtOmpRegistration>();
 }
 
+// The backend keeps ROS-free copies of the input messages (graph_based_slam/cloud_message.hpp).
+using StoredCloud = graphslam::cloud_compression::BasicStoredCloud<graphslam::msg::PointCloud2>;
+
+graphslam::msg::Odometry toPlain(const nav_msgs::msg::Odometry & in)
+{
+  graphslam::msg::Odometry out;
+  out.header.stamp.sec = in.header.stamp.sec;
+  out.header.stamp.nanosec = in.header.stamp.nanosec;
+  out.header.frame_id = in.header.frame_id;
+  out.child_frame_id = in.child_frame_id;
+  out.pose.pose.position.x = in.pose.pose.position.x;
+  out.pose.pose.position.y = in.pose.pose.position.y;
+  out.pose.pose.position.z = in.pose.pose.position.z;
+  out.pose.pose.orientation.x = in.pose.pose.orientation.x;
+  out.pose.pose.orientation.y = in.pose.pose.orientation.y;
+  out.pose.pose.orientation.z = in.pose.pose.orientation.z;
+  out.pose.pose.orientation.w = in.pose.pose.orientation.w;
+  out.pose.covariance = in.pose.covariance;
+  out.twist.twist.linear.x = in.twist.twist.linear.x;
+  out.twist.twist.linear.y = in.twist.twist.linear.y;
+  out.twist.twist.linear.z = in.twist.twist.linear.z;
+  out.twist.twist.angular.x = in.twist.twist.angular.x;
+  out.twist.twist.angular.y = in.twist.twist.angular.y;
+  out.twist.twist.angular.z = in.twist.twist.angular.z;
+  out.twist.covariance = in.twist.covariance;
+  return out;
+}
+
+graphslam::msg::PointCloud2 toPlain(sensor_msgs::msg::PointCloud2 && in)
+{
+  graphslam::msg::PointCloud2 out;
+  out.header.stamp.sec = in.header.stamp.sec;
+  out.header.stamp.nanosec = in.header.stamp.nanosec;
+  out.header.frame_id = in.header.frame_id;
+  out.height = in.height;
+  out.width = in.width;
+  out.fields.resize(in.fields.size());
+  for (std::size_t i = 0; i < in.fields.size(); ++i) {
+    out.fields[i].name = in.fields[i].name;
+    out.fields[i].offset = in.fields[i].offset;
+    out.fields[i].datatype = in.fields[i].datatype;
+    out.fields[i].count = in.fields[i].count;
+  }
+  out.is_bigendian = in.is_bigendian;
+  out.point_step = in.point_step;
+  out.row_step = in.row_step;
+  out.data = std::move(in.data);
+  out.is_dense = in.is_dense;
+  return out;
+}
+
 struct SubmapRecord
 {
   graphslam::backend_core::SubmapMeta meta;
@@ -129,7 +180,7 @@ struct SubmapRecord
   // (GraphStateStore). `cloud` is its PCL cloud, kept only while the submap is
   // one of the latest search_submap_num: the descriptors and the loop-search
   // source of every new submap read exactly those.
-  std::shared_ptr<const graphslam::cloud_compression::StoredCloud> stored_cloud;
+  std::shared_ptr<const StoredCloud> stored_cloud;
   CloudPtr cloud;
 };
 
@@ -145,12 +196,12 @@ struct SubmapCloudStats
 
 // Keeps `message` (the scan the submap's PCL cloud was converted from) the way
 // the live node does: only what the conversion reads, compressed.
-std::shared_ptr<const graphslam::cloud_compression::StoredCloud> storeSubmapCloud(
-  sensor_msgs::msg::PointCloud2 message, SubmapCloudStats & stats)
+std::shared_ptr<const StoredCloud> storeSubmapCloud(
+  graphslam::msg::PointCloud2 message, SubmapCloudStats & stats)
 {
   const auto start = std::chrono::steady_clock::now();
   graphslam::pointcloud_conversion::packForPointXYZI(message);
-  auto stored = std::make_shared<const graphslam::cloud_compression::StoredCloud>(
+  auto stored = std::make_shared<const StoredCloud>(
     graphslam::cloud_compression::store(std::move(message)));
   stats.stored_bytes += graphslam::cloud_compression::storedBytes(*stored);
   stats.store_sec +=
@@ -313,14 +364,14 @@ struct DegeneracyDiagnosticsSink
   // One row per paired scan, before the submap-distance decision -- the
   // degeneracy signal is a property of the frontend solve, not of submap
   // spacing.
-  void recordScan(const nav_msgs::msg::Odometry & odom)
+  void recordScan(const graphslam::msg::Odometry & odom)
   {
     if (!csv.is_open() && !report_enabled) {
       return;
     }
     const graphslam::degeneracy::CovarianceLocalizabilityResult result =
       graphslam::degeneracy::analyzeOdometryCovariance(odom.pose.covariance);
-    const double stamp_sec = rclcpp::Time(odom.header.stamp).seconds();
+    const double stamp_sec = graphslam::cloud_msg::stampSeconds(odom.header.stamp);
     if (csv.is_open()) {
       csv << graphslam::degeneracy::degeneracyDiagnosticsCsvRowLine(stamp_sec, result) << "\n";
     }
@@ -1420,8 +1471,8 @@ struct BagPass
     reader.open(config.bag_path);
     rclcpp::Serialization<nav_msgs::msg::Odometry> odom_serialization;
     rclcpp::Serialization<sensor_msgs::msg::PointCloud2> cloud_serialization;
-    std::map<uint64_t, nav_msgs::msg::Odometry> pending_odoms;
-    std::map<uint64_t, sensor_msgs::msg::PointCloud2> pending_clouds;
+    std::map<uint64_t, graphslam::msg::Odometry> pending_odoms;
+    std::map<uint64_t, graphslam::msg::PointCloud2> pending_clouds;
     if (config.causal_trajectory_output) {
       causal_tum.open(config.output_dir + "/trajectory_causal.tum");
     }
@@ -1430,8 +1481,9 @@ struct BagPass
       auto bag_message = reader.read_next();
       rclcpp::SerializedMessage serialized(*bag_message->serialized_data);
       if (bag_message->topic_name == config.odom_topic) {
-        nav_msgs::msg::Odometry odom;
-        odom_serialization.deserialize_message(&serialized, &odom);
+        nav_msgs::msg::Odometry ros_odom;
+        odom_serialization.deserialize_message(&serialized, &ros_odom);
+        const graphslam::msg::Odometry odom = toPlain(ros_odom);
         const uint64_t key =
           static_cast<uint64_t>(odom.header.stamp.sec) * 1000000000ull + odom.header.stamp.nanosec;
         const auto cloud_it = pending_clouds.find(key);
@@ -1442,8 +1494,9 @@ struct BagPass
           pending_odoms[key] = odom;
         }
       } else if (bag_message->topic_name == config.cloud_topic) {
-        sensor_msgs::msg::PointCloud2 cloud_msg;
-        cloud_serialization.deserialize_message(&serialized, &cloud_msg);
+        sensor_msgs::msg::PointCloud2 ros_cloud;
+        cloud_serialization.deserialize_message(&serialized, &ros_cloud);
+        graphslam::msg::PointCloud2 cloud_msg = toPlain(std::move(ros_cloud));
         const uint64_t key =
           static_cast<uint64_t>(cloud_msg.header.stamp.sec) * 1000000000ull +
           cloud_msg.header.stamp.nanosec;
@@ -1452,7 +1505,7 @@ struct BagPass
           processPair(odom_it->second, cloud_msg);
           pending_odoms.erase(odom_it);
         } else {
-          pending_clouds[key] = cloud_msg;
+          pending_clouds[key] = std::move(cloud_msg);
         }
       }
     }
@@ -1495,14 +1548,14 @@ struct BagPass
   // One odometry / cloud pair: a new submap and its loop search when the
   // distance rule says so, the causal output line, and the retained dense scan.
   void processPair(
-    const nav_msgs::msg::Odometry & odom, const sensor_msgs::msg::PointCloud2 & input_cloud)
+    const graphslam::msg::Odometry & odom, const graphslam::msg::PointCloud2 & input_cloud)
   {
     // Same placement as the live component: a LiDAR-frame scan is moved
     // into the base frame of the odometry pose first.
     const bool move_to_base = !config.cloud_extrinsic.identity &&
       !graphslam::cloud_input::scanIsInBaseFrame(
       input_cloud.header.frame_id, odom.child_frame_id);
-    sensor_msgs::msg::PointCloud2 base_cloud;
+    graphslam::msg::PointCloud2 base_cloud;
     if (move_to_base) {
       base_cloud = input_cloud;
       std::string transform_error;
@@ -1513,7 +1566,7 @@ struct BagPass
         return;
       }
     }
-    const sensor_msgs::msg::PointCloud2 & cloud_msg =
+    const graphslam::msg::PointCloud2 & cloud_msg =
       move_to_base ? base_cloud : input_cloud;
     ++paired_count;
     degeneracy_sink.recordScan(odom);
@@ -1526,7 +1579,7 @@ struct BagPass
     CloudPtr scan_cloud;
     Eigen::Affine3d pose_affine = Eigen::Affine3d::Identity();
     if (decision.create || config.retain_dense_scans || config.causal_trajectory_output) {
-      tf2::fromMsg(odom.pose.pose, pose_affine);
+      graphslam::cloud_msg::poseToAffine(odom.pose.pose, pose_affine);
     }
     if (decision.create) {
       scan_cloud.reset(new pcl::PointCloud<pcl::PointXYZI>);
@@ -1542,7 +1595,7 @@ struct BagPass
       record.meta.travel_distance = accumulated_distance;
       record.meta.content_revision = graphslam::backend_core::targetCloudContentRevision(
         *scan_cloud);
-      record.stamp_sec = rclcpp::Time(odom.header.stamp).seconds();
+      record.stamp_sec = graphslam::cloud_msg::stampSeconds(odom.header.stamp);
       record.odometry_covariance = odom.pose.covariance;
       record.cloud = scan_cloud;
       record.stored_cloud = storeSubmapCloud(cloud_msg, bag.cloud_stats);
@@ -1578,7 +1631,7 @@ struct BagPass
     }
 
     if (config.causal_trajectory_output) {
-      const double stamp_sec = rclcpp::Time(odom.header.stamp).seconds();
+      const double stamp_sec = graphslam::cloud_msg::stampSeconds(odom.header.stamp);
       while (causal_applied < causal_corrections.size() &&
         causal_corrections[causal_applied].effective_stamp_sec <= stamp_sec)
       {
@@ -1598,7 +1651,7 @@ struct BagPass
 
     if (config.retain_dense_scans && !bag.records.empty()) {
       pcl::PointCloud<pcl::PointXYZ> attribution_cloud;
-      pcl::fromROSMsg(cloud_msg, attribution_cloud);
+      graphslam::cloud_msg::fromCloudMsg(cloud_msg, attribution_cloud);
       std::vector<Eigen::Vector3d> finite_points;
       finite_points.reserve(attribution_cloud.size());
       for (const auto & point : attribution_cloud.points) {
@@ -1608,7 +1661,7 @@ struct BagPass
       }
       bag.attribution_raw_finite_points += finite_points.size();
       ScanAttributionRecord scan;
-      scan.stamp_sec = rclcpp::Time(odom.header.stamp).seconds();
+      scan.stamp_sec = graphslam::cloud_msg::stampSeconds(odom.header.stamp);
       scan.pose = Eigen::Isometry3d(pose_affine.matrix());
       scan.scan_id = static_cast<std::int64_t>(paired_count - 1U);
       scan.submap_id = static_cast<std::int64_t>(bag.records.size() - 1U);

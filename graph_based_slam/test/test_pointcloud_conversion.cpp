@@ -256,3 +256,68 @@ TEST(PointcloudConversion, LeavesAMessageItCannotPackAsItIs)
     EXPECT_EQ(copy, message);
   }
 }
+
+namespace
+{
+
+graphslam::msg::PointCloud2 plainCopy(const sensor_msgs::msg::PointCloud2 & message)
+{
+  graphslam::msg::PointCloud2 plain;
+  plain.header.stamp.sec = message.header.stamp.sec;
+  plain.header.stamp.nanosec = message.header.stamp.nanosec;
+  plain.header.frame_id = message.header.frame_id;
+  plain.height = message.height;
+  plain.width = message.width;
+  for (const auto & field : message.fields) {
+    plain.fields.push_back({field.name, field.offset, field.datatype, field.count});
+  }
+  plain.is_bigendian = message.is_bigendian;
+  plain.point_step = message.point_step;
+  plain.row_step = message.row_step;
+  plain.data = message.data;
+  plain.is_dense = message.is_dense;
+  return plain;
+}
+
+}  // namespace
+
+// The ROS-free message gives the same PCL cloud, header and packing as sensor_msgs/PointCloud2.
+TEST(PointcloudConversion, PlainMessageConvertsLikeTheRosMessage)
+{
+  for (const bool with_intensity : {true, false}) {
+    std::vector<sensor_msgs::msg::PointField> fields = {
+      floatField("x", 0), floatField("y", 4), floatField("z", 8), floatField("t", 12)};
+    if (with_intensity) {
+      fields.push_back(floatField("intensity", 16));
+    }
+    sensor_msgs::msg::PointCloud2 message = makeMessage(fields, 24, 4, 3, 4 * 24);
+    message.header.stamp.sec = 1700000123;
+    message.header.stamp.nanosec = 987654321;
+    message.header.frame_id = "lidar";
+    const graphslam::msg::PointCloud2 plain = plainCopy(message);
+
+    pcl::PointCloud<pcl::PointXYZI> from_ros;
+    pcl::PointCloud<pcl::PointXYZI> from_plain;
+    EXPECT_EQ(
+      graphslam::pointcloud_conversion::fromRosMsgWithOptionalIntensity(message, from_ros),
+      graphslam::pointcloud_conversion::fromRosMsgWithOptionalIntensity(plain, from_plain));
+    ASSERT_EQ(from_ros.size(), from_plain.size());
+    EXPECT_EQ(
+      std::memcmp(
+        from_ros.points.data(), from_plain.points.data(),
+        from_ros.size() * sizeof(pcl::PointXYZI)), 0);
+    EXPECT_EQ(from_ros.header.stamp, from_plain.header.stamp);
+    EXPECT_EQ(from_ros.header.frame_id, from_plain.header.frame_id);
+    EXPECT_EQ(from_ros.width, from_plain.width);
+    EXPECT_EQ(from_ros.height, from_plain.height);
+
+    sensor_msgs::msg::PointCloud2 packed_ros = message;
+    graphslam::msg::PointCloud2 packed_plain = plain;
+    EXPECT_EQ(
+      graphslam::pointcloud_conversion::packForPointXYZI(packed_ros),
+      graphslam::pointcloud_conversion::packForPointXYZI(packed_plain));
+    EXPECT_EQ(packed_ros.data, packed_plain.data);
+    EXPECT_EQ(packed_ros.point_step, packed_plain.point_step);
+    EXPECT_EQ(packed_ros.fields.size(), packed_plain.fields.size());
+  }
+}

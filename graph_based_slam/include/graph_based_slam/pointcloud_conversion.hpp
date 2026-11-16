@@ -31,7 +31,6 @@
 
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
-#include <pcl_conversions/pcl_conversions.h>
 
 #include <algorithm>
 #include <cstddef>
@@ -41,20 +40,22 @@
 #include <utility>
 #include <vector>
 
-#include <sensor_msgs/msg/point_cloud2.hpp>
+#include "graph_based_slam/cloud_message.hpp"
 
 namespace graphslam
 {
 namespace pointcloud_conversion
 {
 
+// Each function takes sensor_msgs::msg::PointCloud2 or graphslam::msg::PointCloud2.
+template<typename Cloud>
 inline bool hasField(
-  const sensor_msgs::msg::PointCloud2 & message,
+  const Cloud & message,
   const std::string & name)
 {
   return std::any_of(
     message.fields.cbegin(), message.fields.cend(),
-    [&name](const sensor_msgs::msg::PointField & field) {
+    [&name](const auto & field) {
       return field.name == name;
     });
 }
@@ -63,17 +64,18 @@ inline bool hasField(
 // PointCloud2 is converted directly to PointXYZI. RKO-LIO's deskewed geometry
 // stream intentionally contains XYZ only, so use a quiet, explicit zero default.
 // The return value tells callers whether real intensity values were preserved.
+template<typename Cloud>
 inline bool fromRosMsgWithOptionalIntensity(
-  const sensor_msgs::msg::PointCloud2 & message,
+  const Cloud & message,
   pcl::PointCloud<pcl::PointXYZI> & output)
 {
   if (hasField(message, "intensity")) {
-    pcl::fromROSMsg(message, output);
+    cloud_msg::fromCloudMsg(message, output);
     return true;
   }
 
   pcl::PointCloud<pcl::PointXYZ> xyz;
-  pcl::fromROSMsg(message, xyz);
+  cloud_msg::fromCloudMsg(message, xyz);
 
   output.header = xyz.header;
   output.width = xyz.width;
@@ -93,7 +95,8 @@ inline bool fromRosMsgWithOptionalIntensity(
 
 // Whether the message has the layout packForPointXYZI leaves: x, y, z and, if there is one,
 // intensity, FLOAT32 at offsets 0, 4, 8 and 12, in that order, without padding.
-inline bool isPackedForPointXYZI(const sensor_msgs::msg::PointCloud2 & message)
+template<typename Cloud>
+inline bool isPackedForPointXYZI(const Cloud & message)
 {
   const char * const names[4] = {"x", "y", "z", "intensity"};
   const std::size_t count = message.fields.size();
@@ -103,7 +106,7 @@ inline bool isPackedForPointXYZI(const sensor_msgs::msg::PointCloud2 & message)
   for (std::size_t k = 0; k < count; ++k) {
     const auto & field = message.fields[k];
     if (field.name != names[k] || field.offset != sizeof(float) * k ||
-      field.datatype != sensor_msgs::msg::PointField::FLOAT32 || field.count != 1)
+      field.datatype != cloud_msg::kFloat32 || field.count != 1)
     {
       return false;
     }
@@ -118,9 +121,9 @@ inline bool isPackedForPointXYZI(const sensor_msgs::msg::PointCloud2 & message)
 // with x, y, z). Converting the packed message gives the same cloud. Returns false and leaves the
 // message as it is when a field the conversion reads is missing, of another type or named twice,
 // or the data is shorter than its layout says.
-inline bool packForPointXYZI(sensor_msgs::msg::PointCloud2 & message)
+template<typename Cloud>
+inline bool packForPointXYZI(Cloud & message)
 {
-  using sensor_msgs::msg::PointField;
   const char * const names[4] = {"x", "y", "z", "intensity"};
   const std::size_t count = hasField(message, "intensity") ? 4 : 3;
   std::uint32_t offsets[4] = {0, 0, 0, 0};
@@ -131,7 +134,7 @@ inline bool packForPointXYZI(sensor_msgs::msg::PointCloud2 & message)
         continue;
       }
       ++found;
-      if (field.datatype != PointField::FLOAT32 || field.count != 1 ||
+      if (field.datatype != cloud_msg::kFloat32 || field.count != 1 ||
         static_cast<std::size_t>(field.offset) + sizeof(float) > message.point_step)
       {
         return false;
@@ -169,7 +172,7 @@ inline bool packForPointXYZI(sensor_msgs::msg::PointCloud2 & message)
   for (std::size_t k = 0; k < count; ++k) {
     message.fields[k].name = names[k];
     message.fields[k].offset = static_cast<std::uint32_t>(sizeof(float) * k);
-    message.fields[k].datatype = PointField::FLOAT32;
+    message.fields[k].datatype = cloud_msg::kFloat32;
     message.fields[k].count = 1;
   }
   message.point_step = static_cast<std::uint32_t>(point_step);
