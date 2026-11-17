@@ -1,3 +1,8 @@
+---
+title: LiDAR SLAM workflow and benchmark comparison
+description: Compare lidar_slam_ros2 map-authoring workflows, default-path licenses, and scoped benchmark evidence. Review datasets, metrics, reference types, and reproduction steps.
+---
+
 # Comparison
 
 This page is the public comparison snapshot for the

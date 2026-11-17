@@ -1,3 +1,9 @@
+---
+title: 日本語クイックスタート
+description: ROS 2 LiDAR SLAMでAutoware互換の点群地図を作る日本語ガイド。Dockerの固定デモ、Humble/Jazzyのsource構築、自分のrosbag2の確認と地図作成へ案内します。
+lang: ja
+---
+
 # 日本語クイックスタート
 
 `lidarslam_ros2`は、rosbag2からAutowareで読み込める地図一式を作成します。

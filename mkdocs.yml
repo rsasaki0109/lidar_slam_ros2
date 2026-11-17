@@ -5,6 +5,8 @@ repo_url: https://github.com/rsasaki0109/lidar_slam_ros2
 repo_name: rsasaki0109/lidar_slam_ros2
 edit_uri: edit/develop/docs/
 docs_dir: docs
+exclude_docs: |
+  overrides/
 use_directory_urls: false
 extra_css:
   - assets/stylesheets/extra.css
@@ -27,6 +29,7 @@ markdown_extensions:
 
 theme:
   name: material
+  custom_dir: docs/overrides
   language: en
   font:
     text: IBM Plex Sans
