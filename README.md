@@ -1,13 +1,13 @@
-# lidar_slam_ros2
+# lidar_slam
 
-[![CI](https://github.com/rsasaki0109/lidar_slam_ros2/actions/workflows/main.yml/badge.svg?branch=develop)](https://github.com/rsasaki0109/lidar_slam_ros2/actions/workflows/main.yml)
+[![CI](https://github.com/rsasaki0109/lidar_slam/actions/workflows/main.yml/badge.svg?branch=develop)](https://github.com/rsasaki0109/lidar_slam/actions/workflows/main.yml)
 [![License: BSD-2-Clause](https://img.shields.io/badge/License-BSD--2--Clause-blue.svg)](https://opensource.org/licenses/BSD-2-Clause)
 [![ROS 2: Humble | Jazzy](https://img.shields.io/badge/ROS%202-Humble%20%7C%20Jazzy-22314E?logo=ros&logoColor=white)](#support-and-license)
-[![GitHub stars](https://img.shields.io/github/stars/rsasaki0109/lidar_slam_ros2?style=flat&logo=github)](https://github.com/rsasaki0109/lidar_slam_ros2/stargazers)
+[![GitHub stars](https://img.shields.io/github/stars/rsasaki0109/lidar_slam?style=flat&logo=github)](https://github.com/rsasaki0109/lidar_slam/stargazers)
 
-**Turn a rosbag into a map you can actually drive on.** ROS 2 LiDAR SLAM that writes an Autoware-compatible map bundle: `pointcloud_map/`, `map_projector_info.yaml` and lanelet2. `RKO-LIO` (MIT) + `graph_based_slam` (BSD-2), no GPL on the default workflow. [日本語クイックスタート](docs/getting-started-ja.md) · release notes [v0.12.0](docs/releases/v0.12.0.md) · next [v0.13.0](docs/releases/v0.13.0.md)
+**Turn a rosbag into a map you can actually drive on.** LiDAR SLAM that writes an Autoware-compatible map bundle: `pointcloud_map/`, `map_projector_info.yaml` and lanelet2. It runs as ROS 2 packages (Humble, Jazzy) or without ROS 2 from `pip install lidarslam`. `RKO-LIO` (MIT) + `graph_based_slam` (BSD-2), no GPL on the default workflow. [日本語クイックスタート](docs/getting-started-ja.md) · release notes [v0.12.0](docs/releases/v0.12.0.md) · next [v0.13.0](docs/releases/v0.13.0.md)
 
-[Documentation](https://rsasaki0109.github.io/lidar_slam_ros2/) · [Supported inputs and outputs](docs/product-contract.md) · [Workflow and benchmark comparison](docs/comparison.md)
+[Documentation](https://rsasaki0109.github.io/lidar_slam/) · [Supported inputs and outputs](docs/product-contract.md) · [Workflow and benchmark comparison](docs/comparison.md)
 
 <p align="center">
   <img src="lidarslam/images/slam_koide_outdoor_hard_02a.gif" alt="Live map building on a handheld outdoor walk, coloured by when each part was mapped" width="56%">
@@ -38,6 +38,8 @@ docker run --rm -e LIDARSLAM_HOST_UID="$(id -u)" -e LIDARSLAM_HOST_GID="$(id -g)
   ghcr.io/rsasaki0109/lidar_slam_ros2:v0.12.0-humble
 ```
 
+The repository was renamed from `lidar_slam_ros2` to `lidar_slam`; the `v0.12.0` images keep their published name `ghcr.io/rsasaki0109/lidar_slam_ros2`, and old GitHub links redirect.
+
 The 517 MB MID-360 demo writes `lidarslam_output/mid360_demo/` as your user. Other platforms: [Getting Started](docs/getting-started.md).
 
 ### Map your own bag (one command after install)
@@ -53,8 +55,8 @@ Run `lidarslam-map` with no arguments for a guided start, or `lidarslam-map doct
 ```bash
 mkdir -p ~/ros2_ws/src
 cd ~/ros2_ws/src
-git clone --recursive https://github.com/rsasaki0109/lidar_slam_ros2.git
-cd lidar_slam_ros2
+git clone --recursive https://github.com/rsasaki0109/lidar_slam.git
+cd lidar_slam
 bash scripts/source_quickstart.sh
 ```
 
@@ -64,7 +66,7 @@ The helper detects Humble/Jazzy, installs the dependencies, builds the six maint
 
 ROS 2 is becoming one option rather than a requirement. The pip package installs the `lidarslam-map` command with the RKO-LIO odometry and the graph_based_slam backend (loop closure, pose graph, refinement, Autoware map bundle) inside, and reads rosbag2 (MCAP, SQLite3) and ROS 1 bags without ROS 2 ([roadmap](docs/roadmap/ros-free-core-2026-11.md)).
 
-**Prebuilt wheel (no apt packages, no compiler).** The [wheels workflow](https://github.com/rsasaki0109/lidar_slam_ros2/actions/workflows/wheels.yml) builds manylinux wheels (glibc 2.28+, x86_64 and aarch64, Python 3.10-3.13) that bundle PCL, g2o and the other C++ libraries. From the first release published to PyPI on, `pip install lidarslam` installs them. Until then, open the latest successful run on `develop`, download `lidarslam-wheels-x86_64` (or `-aarch64`; GitHub sign-in needed), unzip it and install the wheel for your Python:
+**Prebuilt wheel (no apt packages, no compiler).** The [wheels workflow](https://github.com/rsasaki0109/lidar_slam/actions/workflows/wheels.yml) builds manylinux wheels (glibc 2.28+, x86_64 and aarch64, Python 3.10-3.13) that bundle PCL, g2o and the other C++ libraries. From the first release published to PyPI on, `pip install lidarslam` installs them. Until then, open the latest successful run on `develop`, download `lidarslam-wheels-x86_64` (or `-aarch64`; GitHub sign-in needed), unzip it and install the wheel for your Python:
 
 ```bash
 python3 -m venv .venv && . .venv/bin/activate
@@ -80,8 +82,8 @@ On HILTI exp14 the x86_64 wheel writes the same map bytes as the source install 
 ```bash
 sudo apt install build-essential cmake libeigen3-dev libtbb-dev robin-map-dev \
   libpcl-dev libg2o-dev libzstd-dev python3-venv   # tested on Ubuntu 24.04
-git clone --recursive https://github.com/rsasaki0109/lidar_slam_ros2.git
-cd lidar_slam_ros2
+git clone --recursive https://github.com/rsasaki0109/lidar_slam.git
+cd lidar_slam
 python3 -m venv .venv && . .venv/bin/activate
 pip install ./lidarslam_core                     # Python >= 3.10; downloads Sophus while building
 lidarslam-map doctor                             # ready: map engine core, no ROS 2 needed
@@ -110,7 +112,7 @@ For an Ouster, Velodyne, RoboSense or other PointCloud2 bag, do not edit this pa
 - **Report on a fixed output:** `lidarslam-map report /path/to/output/mid360_demo --json` ([first-map validation guide](docs/external-first-map-validation.md)).
 - **Automation:** `lidarslam-map run` ([Operator workflows](docs/workflows.md)). Localization: [Localize On The Map](docs/getting-started.md#5-localize-on-the-map).
 
-## Why lidarslam_ros2
+## Why lidar_slam
 
 - **Autoware-compatible output:** `verify_autoware_map.py` prints `map_verify: PASS` on every saved bundle.
 - **lanelet2 auto-generation** from the SLAM trajectory, validated for Autoware routing.
@@ -147,10 +149,10 @@ profile recorded **44.1% lower median APE RMSE than GLIM** over three runs:
 
 | System | Median APE RMSE | Median processing RTF | Maximum peak RSS |
 | --- | ---: | ---: | ---: |
-| **lidarslam_ros2** | **0.0482 m** | **0.194** | **369.4 MB** |
+| **lidar_slam** | **0.0482 m** | **0.194** | **369.4 MB** |
 | GLIM CPU | 0.0863 m | 0.218 | 696.0 MB |
 
-This is a scoped HILTI `exp04` result from one 4-vCPU cloud VM (2026-10-19, three alternated runs per system, GLIM v1.2.2 built natively because the VM has no Docker daemon). There, lidarslam_ros2 has the lower median APE, processing RTF and peak RSS; the RTF ranges barely separate. It is not an overall best-system claim. Commands, scoring rules, the earlier Docker-based record and map-quality limits: [Comparison](docs/comparison.md#same-input-hilti-2022-exp04-vs-glim-cpu). The two-system comparison runners were retired after `v0.11.0`; rerun them from that tag.
+This is a scoped HILTI `exp04` result from one 4-vCPU cloud VM (2026-10-19, three alternated runs per system, GLIM v1.2.2 built natively because the VM has no Docker daemon). There, lidar_slam has the lower median APE, processing RTF and peak RSS; the RTF ranges barely separate. It is not an overall best-system claim. Commands, scoring rules, the earlier Docker-based record and map-quality limits: [Comparison](docs/comparison.md#same-input-hilti-2022-exp04-vs-glim-cpu). The two-system comparison runners were retired after `v0.11.0`; rerun them from that tag.
 
 The separate Voxel-SLAM `v17` research candidate also achieved the lowest
 geometric-mean APE across NavINST, Oxford, and UrbanNav: **2.2836 m**, versus

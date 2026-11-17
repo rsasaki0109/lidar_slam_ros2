@@ -1,8 +1,8 @@
-site_name: lidarslam_ros2 Docs
-site_description: ROS 2 LiDAR SLAM docs for pointcloud-map authoring, benchmarking, and Autoware-compatible workflows.
-site_url: https://rsasaki0109.github.io/lidar_slam_ros2/
-repo_url: https://github.com/rsasaki0109/lidar_slam_ros2
-repo_name: rsasaki0109/lidar_slam_ros2
+site_name: lidar_slam Docs
+site_description: LiDAR SLAM (ROS 2 or pip) docs for pointcloud-map authoring, benchmarking, and Autoware-compatible workflows.
+site_url: https://rsasaki0109.github.io/lidar_slam/
+repo_url: https://github.com/rsasaki0109/lidar_slam
+repo_name: rsasaki0109/lidar_slam
 edit_uri: edit/develop/docs/
 docs_dir: docs
 exclude_docs: |
@@ -74,7 +74,7 @@ theme:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/rsasaki0109/lidar_slam_ros2
+      link: https://github.com/rsasaki0109/lidar_slam
 
 nav:
   - Home: index.md

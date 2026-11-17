@@ -76,13 +76,13 @@ def check(site):
         meta.feed((site / filename).read_text(encoding='utf-8'))
         if not meta.title or not meta.description or meta.description in descriptions:
             raise ValueError(f'{filename}: missing title or unique description')
-        if meta.title.count('lidarslam_ros2 Docs') > 1:
+        if meta.title.count('lidar_slam Docs') > 1:
             raise ValueError(f'{filename}: repeated site name in title')
         descriptions.add(meta.description)
         if len(meta.schemas) != 1:
             raise ValueError(f'{filename}: expected one page schema')
         schema = meta.schemas[0]
-        expected = 'https://rsasaki0109.github.io/lidar_slam_ros2/' + filename
+        expected = 'https://rsasaki0109.github.io/lidar_slam/' + filename
         if meta.canonical != expected or schema.get('url') != meta.canonical:
             raise ValueError(f'{filename}: schema and canonical URL disagree')
         if schema.get('@type') != 'WebPage' or schema.get('@context') != 'https://schema.org':
