@@ -20,14 +20,16 @@ JOBS=${LIDARSLAM_WHEEL_JOBS:-$(nproc)}
 STAMP="${PREFIX}/.complete-$(sha256sum "${BASH_SOURCE[0]}" | cut -c1-16)"
 UBUNTU_POOL=${LIDARSLAM_UBUNTU_POOL:-http://archive.ubuntu.com/ubuntu/pool}
 
-if [[ -f "${STAMP}" ]]; then
-  echo "lidarslam wheel dependencies: using ${PREFIX}"
-  exit 0
-fi
-
+# System packages of the container, needed also when the prefix comes from the cache: the
+# FLANN and PCL CMake packages in it link the container's lz4, zstd, bzip2 and xz.
 if command -v dnf >/dev/null 2>&1; then
   dnf install -y zlib-devel bzip2-devel xz-devel libzstd-devel lz4-devel pkgconf-pkg-config \
     patch xz bzip2 curl
+fi
+
+if [[ -f "${STAMP}" ]]; then
+  echo "lidarslam wheel dependencies: using ${PREFIX}"
+  exit 0
 fi
 
 WORK=$(mktemp -d)
