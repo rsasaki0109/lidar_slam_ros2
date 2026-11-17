@@ -44,8 +44,10 @@ LIDARSLAM_CORE_INSTALL_PRODUCT = "ON"
 # Ubuntu 24.04's sources into /wheel-deps (lidarslam_core/wheel/build_deps.sh, a cached volume)
 # and bundled by auditwheel, so `pip install` needs no apt packages.
 [tool.cibuildwheel]
-build = ["cp310-manylinux_x86_64", "cp312-manylinux_x86_64"]
+# The runner's own architecture (x86_64 or aarch64; wheels.yml runs one job per architecture).
+build = ["cp310-manylinux_*", "cp311-manylinux_*", "cp312-manylinux_*", "cp313-manylinux_*"]
 manylinux-x86_64-image = "manylinux_2_28"
+manylinux-aarch64-image = "manylinux_2_28"
 build-verbosity = 1
 test-requires = ["pytest"]
 test-command = [
