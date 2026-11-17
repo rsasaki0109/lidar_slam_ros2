@@ -462,7 +462,12 @@ With outputs recorded with `--editable`, `--place-recognition` finds the startin
 transforms by place recognition (`graph_slam_multisession_join`, after replaying
 each run's backend) instead of the yaw sweep. A session the join refuses stops
 the merge with the join's reason. `--params` overrides the anchor output's
-`graph_params.ros.yaml`; `--setup` picks the ROS environment. The receipt
+`graph_params.ros.yaml` (a core-engine output records `core_params.json`
+instead, which is used the same way); `--setup` picks the ROS environment.
+`--engine core` runs the replay and the join on the `lidarslam` Python package
+(`python -m lidarslam backend` / `join`, the same files as the ROS 2
+executables); `auto`, the default, uses ROS 2 when the `ros2` command is found
+or `--setup` is given. The receipt
 records the join (`place_recognition`) and each alignment's
 `initial_transform_source`.
 

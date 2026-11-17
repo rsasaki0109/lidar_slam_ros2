@@ -853,6 +853,16 @@
         "kind": "file",
         "value_name": "<setup.bash>"
       },
+      "--engine": {
+        "choices": [
+          "auto",
+          "ros2",
+          "core"
+        ],
+        "default": "auto",
+        "kind": "enum",
+        "value_name": "{auto,ros2,core}"
+      },
       "--join-cache-dir": {
         "default": null,
         "kind": "directory",
@@ -1829,6 +1839,11 @@
         },
         {
           "names": ["--setup"],
+          "stability": "stable",
+          "tier": "map-merge"
+        },
+        {
+          "names": ["--engine"],
           "stability": "stable",
           "tier": "map-merge"
         },

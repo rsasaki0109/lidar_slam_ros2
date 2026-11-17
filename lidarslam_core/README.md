@@ -18,8 +18,14 @@ multiply-adds there) and are checked by the test suite.
 pip install ./lidarslam_core          # from a clone of the repository (apt packages below)
 lidarslam-map doctor                  # map engine: core, no ROS 2 needed
 lidarslam-map start /path/to/rosbag2  # verified Autoware map bundle
+lidarslam-map start /path/to/day2 --join-map ./output/day1   # join a repeat visit to a stored map
 python -m lidarslam inspect /path/to/rosbag2
 ```
+
+The multi-session join (`lidarslam-map merge --place-recognition`, `start --join-map`) runs on
+the package too: `python -m lidarslam backend` replays each run's recorded backend input and
+`python -m lidarslam join` takes the parameters of the ROS 2 `graph_slam_multisession_join`
+(`--params FILE -p name:=value`) and writes the same files.
 
 `lidarslam-map` is the product command of the ROS 2 install: the package carries its scripts,
 schemas and parameter files under `lidarslam/share/lidarslam`, in the tree the ROS 2 package

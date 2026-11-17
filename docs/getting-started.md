@@ -825,8 +825,11 @@ sweep. It replays each run's backend and runs
 no prior and refuses when its evidence does not hold over the whole map
 (ambiguous or self-similar places, or the whole-map check). A refusal stops the
 merge with the reason; a join's transform then goes through the same alignment
-and overlap gates. The anchor output's `graph_params.ros.yaml` is used unless
-`--params` is given.
+and overlap gates. The anchor output's `graph_params.ros.yaml` (or, for a run of
+the core engine, its `core_params.json`) is used unless `--params` is given.
+Without ROS 2 the replay and the join run on the `lidarslam` Python package
+(`--engine core`; `auto`, the default, uses ROS 2 when the `ros2` command is
+found).
 
 Autoware expects the map's z axis to point up. To check how far a run's map frame is
 tilted from gravity, measured from the bag's IMU (the run's diagnosis also reports a
