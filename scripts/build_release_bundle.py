@@ -92,6 +92,7 @@ RELEASE_IMPLEMENTATION_FILES = (
     'scripts/check_published_onboarding_identity.py',
     'scripts/check_installed_product_cli.py',
     'scripts/check_public_docs_deployment.py',
+    'scripts/check_docs_metadata.py',
     'scripts/check_first_map_verification_package.py',
     'scripts/check_candidate_environment.py',
     'scripts/check_product_draft_review_routing.py',
@@ -190,6 +191,7 @@ def release_bundle_paths(root: Path, tag: str) -> list[str]:
     paths = set(required)
     for relative_dir in (
         'docs/assets',
+        'docs/overrides',
         'docs/contracts',
         'docs/evidence',
         'docs/schemas',
