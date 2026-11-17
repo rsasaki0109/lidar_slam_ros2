@@ -106,6 +106,8 @@ jobs:
         with:
           repository: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          # test_lidarslam_core_build.py checks the plain build against the submodules' sources.
+          submodules: recursive
 
       - name: Download wheels
         uses: actions/download-artifact@v7
