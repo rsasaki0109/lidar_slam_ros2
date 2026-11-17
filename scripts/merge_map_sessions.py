@@ -166,6 +166,15 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help='Workspace setup for place recognition; an active ROS environment is accepted.',
     )
     parser.add_argument(
+        '--engine',
+        choices=('auto', 'ros2', 'core'),
+        default='auto',
+        help=(
+            'What runs place recognition: the ROS 2 executables (ros2) or the lidarslam Python '
+            'package (core). auto: ROS 2 when the ros2 command is found or --setup is given.'
+        ),
+    )
+    parser.add_argument(
         '--join-cache-dir',
         type=Path,
         metavar='<dir>',
@@ -214,7 +223,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     [Path(value) for value in args.map_outputs],
                     Path(work),
                     JoinSettings(params_path=args.params, setup_path=args.setup,
-                                 cache_dir=args.join_cache_dir),
+                                 cache_dir=args.join_cache_dir, engine=args.engine),
                 )
         except MapJoinError as exc:
             print(f'error: {exc}', file=sys.stderr)

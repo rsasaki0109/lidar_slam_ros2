@@ -159,6 +159,27 @@ Each milestone is one reviewable change. Outputs of the ROS 2 path stay byte-ide
    24.04-arm). Pushes to develop/main build them too, so the latest run there has current wheels.
    aarch64 maps are not byte-compared with x86_64: GCC contracts multiply-adds into FMA on aarch64
    by default.
+7. **M7, the remaining ROS 2-only features.** In this order: the multi-session join
+   (`--join-map`, `merge --place-recognition`), GNSS profiles, packet input.
+   *Step a, multi-session join (2026-11-17):* `graph_slam_multisession_join`'s work moves into
+   `multisession_join_tool.cpp` (`graphslam::multisession::runJoinTool`), which reads each
+   session's backend input through a `SessionLogReader`: the ROS 2 executable keeps rosbag2, the
+   package (`lidarslam._core.run_join_tool`, `lidarslam.multisession`, `python -m lidarslam
+   join`) reads with rosbags. `merge --place-recognition` gains `--engine`: without ROS 2 it
+   replays each run with `python -m lidarslam backend` and joins with `python -m lidarslam join`;
+   a core-engine run's `core_params.json` (its backend parameters with the odometry's LiDAR
+   extrinsic) becomes the join's parameter file. `start --join-map` runs on the core engine and
+   passes its engine to the merge. On RTK-SLAM Construction 1+2 (the backend inputs of
+   bench/ms_cons, walking preset, 4 threads) seven runs cover the tool: the two-session join
+   with a fresh and with a stored self-similarity, the GNSS gate, a split session, the stress
+   split (refused), three parts joined to the map with re-optimization, and the debug checks.
+   The split ROS 2 executable and the package (no ROS environment) wrote the same 21 files as
+   the executable before the split (join reports, inter-session edges, trajectories, stored
+   self-similarity), with the same peak memory (3.4 GB for the join with a fresh check, about
+   600 s on 4 cores either way). The offline runner, whose ROS 2 helpers moved into a shared
+   header, wrote the same 7 files on MapsHD calibration-room 2. With no ROS 2 installed or
+   sourced, `lidarslam-map merge --place-recognition` of two core-engine runs of HILTI exp14
+   placed the second by the join (identity) and verified the project (14.8 s, 351 MB).
 
 ## Notes
 

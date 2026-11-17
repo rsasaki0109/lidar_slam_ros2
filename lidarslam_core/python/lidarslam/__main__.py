@@ -5,6 +5,8 @@
   backend <log> --params P --out DIR    graph_based_slam offline backend on a backend input
   map <log> --odometry-params P --backend-params P --out DIR
                                         odometry and backend in one pass over a sensor log
+  join --params P -p session_bag_paths:=[...] -p session_backend_dirs:=[...] -p output_dir:=DIR
+                                        multi-session join (graph_slam_multisession_join)
 """
 
 from __future__ import annotations
@@ -51,6 +53,13 @@ def main(argv: list[str] | None = None) -> int:
                          help='backend parameter override, as ROS 2 -p (YAML value)')
     mapping.add_argument('--backend-input', metavar='DIR',
                          help='also record the backend input (rosbag2, MCAP) for later replays')
+    join = sub.add_parser(
+        'join', help='multi-session join of backend inputs and their offline runs (no ROS 2)')
+    join.add_argument('--params', action='append', default=[],
+                      help='graph_based_slam parameter file; repeat to layer files')
+    join.add_argument('-p', '--param', action='append', default=[], metavar='NAME:=VALUE',
+                      help='parameter, as ROS 2 -p (YAML value): session_bag_paths, '
+                           'session_backend_dirs, output_dir, ...')
     args = parser.parse_args(argv)
 
     if args.command == 'inspect':
@@ -88,6 +97,11 @@ def main(argv: list[str] | None = None) -> int:
         summary = mapping_module.run(args.log, odometry_params, backend_params, args.out,
                                      backend_input=args.backend_input)
         print(json.dumps(summary, indent=2))
+    elif args.command == 'join':
+        from lidarslam import multisession
+        from lidarslam.params import apply_overrides
+        params = apply_overrides(multisession.load_parameters(*args.params), args.param)
+        return multisession.run(params)
     return 0
 
 

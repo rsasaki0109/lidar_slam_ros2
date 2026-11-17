@@ -3409,8 +3409,11 @@ def _join_output_dir(map_output: Path) -> Path:
     return map_output.parent / f'{map_output.name}_joined'
 
 
-def _join_to_stored_map(stored_map: Path, map_output: Path) -> int:
-    """Join the finished run to a stored map; a refusal leaves the run's own map as it is."""
+def _join_to_stored_map(stored_map: Path, map_output: Path, engine: str = 'auto') -> int:
+    """Join the finished run to a stored map; a refusal leaves the run's own map as it is.
+
+    The join runs on the engine that made the map (ROS 2 or the lidarslam package).
+    """
     joined = _join_output_dir(map_output)
     print('')
     print(f'Joining this run to the stored map {stored_map} by place recognition:')
@@ -3420,6 +3423,8 @@ def _join_to_stored_map(stored_map: Path, map_output: Path) -> int:
         str(Path(stored_map).expanduser()),
         str(map_output),
         '--place-recognition',
+        '--engine',
+        engine,
         '--output-dir',
         str(joined),
     ]
@@ -3551,7 +3556,8 @@ def _run_session(args: argparse.Namespace, manifest: dict[str, Any]) -> int:
         return completed.returncode
 
     if getattr(args, 'join_map', None) is not None:
-        _join_to_stored_map(args.join_map, map_output)
+        _join_to_stored_map(args.join_map, map_output,
+                            _resolve_engine(getattr(args, 'engine', 'auto')))
 
     viewer_returncode = 0
     preview_path = None
@@ -3703,13 +3709,10 @@ def _resolve_engine(requested: str) -> str:
     return 'core' if _core_engine_status()[0] else 'ros2'
 
 
-def _check_runtime(profile_id: str, engine: str = 'auto', join_map: Path | None = None) -> int:
+def _check_runtime(profile_id: str, engine: str = 'auto') -> int:
     if _resolve_engine(engine) == 'core':
         available, detail = _core_engine_status()
         issues = []
-        if join_map is not None:
-            issues.append('--join-map needs ROS 2 (the multi-session join); the core engine maps '
-                          'single sessions only')
         if not available:
             issues.append(f'core engine: {detail}')
         if not profile_id.startswith('rko_lio_graph'):
@@ -3824,8 +3827,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             return 0
         runtime_result = _check_runtime(
-            result['profile']['id'], getattr(args, 'engine', 'auto'),
-            getattr(args, 'join_map', None))
+            result['profile']['id'], getattr(args, 'engine', 'auto'))
         if runtime_result != 0:
             return runtime_result
         if storage_blocked:
@@ -3852,8 +3854,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 2
     if args.run_now and not args.dry_run and not runtime_checked:
         runtime_result = _check_runtime(
-            result['profile']['id'], getattr(args, 'engine', 'auto'),
-            getattr(args, 'join_map', None))
+            result['profile']['id'], getattr(args, 'engine', 'auto'))
         if runtime_result != 0:
             return runtime_result
     if storage_blocked:

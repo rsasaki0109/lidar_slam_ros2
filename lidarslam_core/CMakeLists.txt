@@ -200,6 +200,17 @@ target_link_libraries(graph_slam_offline_pipeline
   graph_slam_map_export graph_slam_map_point lidarslam_registration_loader ndt_omp lidarslam_plugin_interfaces ${PCL_LIBRARIES}
   g2o::core g2o::types_slam3d g2o::solver_eigen g2o::stuff)
 
+# The multi-session join (graph_slam_multisession_join's work, graph_based_slam/
+# multisession_join_tool.hpp).
+add_library(graph_slam_multisession_join_tool STATIC ${GBS_ROOT}/src/multisession_join_tool.cpp)
+set_target_properties(graph_slam_multisession_join_tool PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_compile_features(graph_slam_multisession_join_tool PUBLIC cxx_std_17)
+target_include_directories(graph_slam_multisession_join_tool PUBLIC
+  ${GBS_ROOT}/include ${EIGEN3_INCLUDE_DIR} ${PCL_INCLUDE_DIRS})
+target_link_libraries(graph_slam_multisession_join_tool
+  graph_slam_application small_gicp::small_gicp ${PCL_LIBRARIES}
+  g2o::core g2o::types_slam3d g2o::solver_eigen g2o::stuff)
+
 endif()  # LIDARSLAM_CORE_BUILD_BACKEND
 
 # --- RKO-LIO frontend core (Thirdparty/rko_lio with its ROS wrapper switched off).
@@ -285,7 +296,8 @@ if(LIDARSLAM_CORE_BUILD_PYTHON)
   endif()
   if(LIDARSLAM_CORE_BUILD_BACKEND)
     target_sources(_core PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/python_backend.cpp)
-    target_link_libraries(_core PRIVATE graph_slam_offline_pipeline)
+    target_link_libraries(_core PRIVATE graph_slam_offline_pipeline
+      graph_slam_multisession_join_tool)
     target_compile_definitions(_core PRIVATE LIDARSLAM_CORE_HAVE_BACKEND)
   endif()
   install(TARGETS _core LIBRARY DESTINATION lidarslam)

@@ -19,13 +19,22 @@ session and the join settings. The join stores its result under the session's fi
 user cache (multisession_cache_dir; default ~/.cache/lidarslam/multisession_join), so a later merge
 with the same run skips it: joining a new run to a stored map checks only the new run. The cache
 lives outside the source outputs, which a merge never changes.
+
+Both steps run on the ROS 2 executables (run_offline_determinism_check.sh and
+graph_slam_multisession_join) or, without ROS 2, on the lidarslam Python package
+(`python -m lidarslam backend` and `python -m lidarslam join`), which give the same files. A run
+of the core engine records its backend parameters in core_params.json instead of
+graph_params.ros.yaml; they become the graph parameter file of the join.
 """
 from __future__ import annotations
 
+import json
 import math
 import os
 import shlex
+import shutil
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Sequence
@@ -49,6 +58,35 @@ class JoinSettings:
     num_threads: int = 4
     replay_script: Path | None = None
     join_command: Sequence[str] | None = None
+    # 'ros2' (the ROS 2 executables), 'core' (the lidarslam Python package) or 'auto': ROS 2 when
+    # the ros2 command is found or a setup file is given, else core.
+    engine: str = 'auto'
+
+
+ENGINES = ('auto', 'ros2', 'core')
+
+
+def resolve_engine(settings: JoinSettings) -> str:
+    """Return the engine the join runs on: 'ros2' or 'core'."""
+    if settings.engine not in ENGINES:
+        raise MapJoinError(f'unknown engine: {settings.engine} (choose from {", ".join(ENGINES)})')
+    if settings.engine != 'auto':
+        return settings.engine
+    if settings.setup_path is not None or shutil.which('ros2'):
+        return 'ros2'
+    return 'core'
+
+
+def _check_core_engine() -> None:
+    try:
+        from lidarslam import _core
+    except ImportError as exc:
+        raise MapJoinError(
+            f'place recognition without ROS 2 needs the lidarslam Python package ({exc})'
+        ) from exc
+    if not hasattr(_core, 'run_join_tool') or not hasattr(_core, 'BackendPipeline'):
+        raise MapJoinError('the installed lidarslam package was built without the multi-session '
+                           'join; install a newer lidarslam')
 
 
 def default_cache_dir() -> Path:
@@ -65,16 +103,48 @@ def bundle_dir_of(source: Path) -> Path:
         raise MapJoinError(str(exc)) from exc
 
 
-def graph_params(anchor_bundle: Path, settings: JoinSettings) -> Path:
-    """Return --params, else the graph parameters an editable anchor run recorded."""
+def core_graph_params(core_params: Path, destination: Path) -> Path:
+    """Write the backend parameters a core-engine run used as a graph parameter file.
+
+    core_params.json holds the graph_based_slam parameters and the odometry's; as the core engine
+    does (lidarslam.mapping), the backend takes the odometry's LiDAR extrinsic.
+    """
+    try:
+        recorded = json.loads(core_params.read_text(encoding='utf-8'))
+        backend = dict(recorded['backend'])
+        odometry = recorded.get('odometry') or {}
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        raise MapJoinError(f'cannot read the backend parameters of {core_params}: {exc}') from exc
+    extrinsic = odometry.get('extrinsic_lidar2base_quat_xyzw_xyz')
+    if extrinsic is not None:
+        backend['extrinsic_lidar2base_quat_xyzw_xyz'] = [float(value) for value in extrinsic]
+    for key in ('bag_path', 'output_dir'):
+        backend.pop(key, None)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text(
+        yaml.safe_dump({'graph_based_slam': {'ros__parameters': backend}}, sort_keys=True),
+        encoding='utf-8')
+    return destination
+
+
+def graph_params(anchor_bundle: Path, settings: JoinSettings,
+                 work_dir: Path | None = None) -> Path:
+    """Return --params, else the graph parameters an editable anchor run recorded.
+
+    An editable ROS 2 run records graph_params.ros.yaml; a core-engine run records
+    core_params.json, written into work_dir as a parameter file.
+    """
     if settings.params_path is not None:
         path = settings.params_path.expanduser().resolve()
     else:
         path = anchor_bundle / 'graph_params.ros.yaml'
+        core_params = anchor_bundle / 'core_params.json'
+        if not path.is_file() and core_params.is_file() and work_dir is not None:
+            return core_graph_params(core_params, work_dir / 'graph_params.ros.yaml')
     if not path.is_file():
         raise MapJoinError(
             f'graph parameter file not found: {path}; pass --params or use an editable output '
-            'that recorded graph_params.ros.yaml')
+            'that recorded graph_params.ros.yaml (or core_params.json)')
     return path
 
 
@@ -99,6 +169,13 @@ def _run(command: list[str], what: str) -> None:
 def replay_backend(bundle_dir: Path, work_dir: Path, params: Path,
                    settings: JoinSettings) -> Path:
     """Replay one bundle's backend offline; returns the run directory with the runner outputs."""
+    if settings.replay_script is None and resolve_engine(settings) == 'core':
+        _check_core_engine()
+        run_dir = work_dir / 'run1'
+        _run([sys.executable, '-m', 'lidarslam', 'backend',
+              str(backend_input_dir(bundle_dir).resolve()), '--params', str(params),
+              '--out', str(run_dir)], f'offline replay of {bundle_dir}')
+        return _runner_outputs(bundle_dir, run_dir)
     script = (
         settings.replay_script.expanduser().resolve() if settings.replay_script
         else Path(__file__).resolve().parent / 'run_offline_determinism_check.sh'
@@ -115,7 +192,10 @@ def replay_backend(bundle_dir: Path, work_dir: Path, params: Path,
     if settings.setup_path is not None:
         command[2:2] = ['--setup', str(settings.setup_path.expanduser().resolve())]
     _run(command, f'offline replay of {bundle_dir}')
-    run_dir = work_dir / 'run1'
+    return _runner_outputs(bundle_dir, work_dir / 'run1')
+
+
+def _runner_outputs(bundle_dir: Path, run_dir: Path) -> Path:
     missing = [name for name in ('trajectory_raw.tum', 'loop_edges.csv')
                if not (run_dir / name).is_file()]
     if missing:
@@ -124,7 +204,11 @@ def replay_backend(bundle_dir: Path, work_dir: Path, params: Path,
     return run_dir
 
 
-def _default_join_command(setup_path: Path | None) -> list[str]:
+def _default_join_command(settings: JoinSettings) -> list[str]:
+    if resolve_engine(settings) == 'core':
+        _check_core_engine()
+        return [sys.executable, '-m', 'lidarslam', 'join']
+    setup_path = settings.setup_path
     source = ''
     if setup_path:
         source = f'source {shlex.quote(str(setup_path.expanduser().resolve()))} && '
@@ -140,11 +224,14 @@ def run_join(bags: list[Path], run_dirs: list[Path], output_dir: Path, params: P
              settings: JoinSettings) -> dict[str, Any]:
     """Run graph_slam_multisession_join and return its parsed join_report.yaml."""
     command = (list(settings.join_command) if settings.join_command
-               else _default_join_command(settings.setup_path))
+               else _default_join_command(settings))
     quoted = ','.join(f"'{path.resolve()}'" for path in bags)
     runs = ','.join(f"'{path.resolve()}'" for path in run_dirs)
+    if not settings.join_command and resolve_engine(settings) == 'core':
+        command += ['--params', str(params)]  # python -m lidarslam join: the same -p arguments
+    else:
+        command += ['--ros-args', '--params-file', str(params)]
     command += [
-        '--ros-args', '--params-file', str(params),
         '-p', f'session_bag_paths:=[{quoted}]',
         '-p', f'session_backend_dirs:=[{runs}]',
         '-p', f'multisession_num_threads:={settings.num_threads}',
@@ -204,7 +291,7 @@ def place_recognition_alignments(
     """Return the initial transforms of sessions 1.. in session 0's frame and a summary."""
     bundles = [bundle_dir_of(path) for path in source_dirs]
     bags = [backend_input_dir(path) for path in bundles]
-    params = graph_params(bundles[0], settings)
+    params = graph_params(bundles[0], settings, work_dir)
     run_dirs = [replay_backend(path, work_dir / f'session{index}', params, settings)
                 for index, path in enumerate(bundles)]
     report = run_join(bags, run_dirs, work_dir / 'join', params, settings)
@@ -225,6 +312,7 @@ def place_recognition_alignments(
         raise MapJoinError(f'join report has no result for sessions {missing}')
     summary = {
         'method': 'graph_slam_multisession_join',
+        'engine': resolve_engine(settings),
         'params': str(params),
         'sessions': [
             {key: session.get(key) for key in (
