@@ -149,6 +149,11 @@ class Extractor:
                 self._message(rowid, payload_size, payload, header, types, first_overflow)
             elif (len(types) in (5, 6) and types[0] == 0
                   and all(t >= 13 and t % 2 == 1 for t in types[1:])):
+                # Rows of the message_definitions table (rosbag2 Jazzy: id, topic_type,
+                # encoding, encoded_message_definition, type_description_hash) have the same
+                # shape; topic names, unlike message types, start with '/'.
+                if not payload[header:header + 1] == b'/':
+                    continue
                 if payload_size > local:
                     raise RuntimeError('topics row spills into overflow pages; not supported')
                 values, j = [], header
