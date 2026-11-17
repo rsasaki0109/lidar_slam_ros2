@@ -202,6 +202,24 @@ Each milestone is one reviewable change. Outputs of the ROS 2 path stay byte-ide
    live ROS 2 path, absolute 3D with no alignment): Stadtgarten 2 0.1000 m (live 0.100 m, 19/19
    checkpoints), Stadtgarten 1 0.0670 m (live 0.068 m, 36/36, the same 448 anchors and 6 loops):
    ACCEPT (bench_report/data/ros_free_gnss_2026-11-17/results.md).
+   *Step c, Velodyne packets (2026-11-17, preregistered in
+   bench_report/data/ros_free_packets_2026-11-17/plan.txt; scope chosen by the maintainer: the
+   decoding only):* velodyne_pointcloud's RawData and Calibration (ros-drivers/velodyne 56fc178d,
+   BSD-3-Clause) are vendored in `lidarslam_core/third_party/velodyne_pointcloud` with their
+   arithmetic unchanged; a small header stands in for rclcpp::Time, the packet message and
+   yaml-cpp's scalar conversions. `lidarslam._core.VelodyneDecoder` and `lidarslam.velodyne`
+   decode a `velodyne_msgs/VelodyneScan` into the cloud velodyne_transform_node publishes with
+   `organize_cloud: false` and no frames; `SensorLog` decodes VelodyneScan topics when given a
+   decoder, and the odometry (so `python -m lidarslam odometry|map`) does it for a VelodyneScan
+   `lidar_topic`, with the `velodyne.*` parameters (model, calibration, range and view limits;
+   the model calibrations ship with the package). On Leo Drive all-sensors-bag1 the three
+   streams decode to the node's clouds, 1,093 of 1,093 scans byte-identical; RKO-LIO on the
+   packets gives the same trajectory bytes as on the node's clouds; PointCloud2 input gives the
+   earlier bytes: ACCEPT (bench_report/data/ros_free_packets_2026-11-17/results.md). Report only:
+   `lidarslam map` on bag1's front packets, no ROS 2, 4.8 s, 0.285 m against Applanix (untuned
+   KITTI odometry parameters; the classic NDT packet profile: 0.142 m). Not done:
+   `lidarslam-map run|start` on a packet bag. The product's preflight and wizard take
+   VelodyneScan only for the ROS 2 `packet_applanix_smoke` profile.
 
 ## Notes
 

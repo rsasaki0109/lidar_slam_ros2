@@ -1,0 +1,13 @@
+# Leo Drive all-sensors-bag1, front VLP-16 packets + /sensing/imu/imu_data (frame base_link).
+# Base: lidarslam/param/rko_lio_kitti_odometry.yaml; extrinsics from the bag's /tf_static.
+lidar_topic: /sensing/lidar/front/velodyne_packets
+imu_topic: /sensing/imu/imu_data
+base_frame: base_link
+extrinsic_lidar2base_quat_xyzw_xyz: [-0.018406, 0.100165, 0.001853, 0.994799, 6.20751059, -0.12360541, 0.20691797]
+extrinsic_imu2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+deskew: true
+initialization_phase: false
+lidar_timestamps.force_relative: true
+velodyne.model: VLP16
+velodyne.min_range: 0.9
+velodyne.max_range: 200.0
