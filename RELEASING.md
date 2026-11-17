@@ -287,3 +287,13 @@ above for a later release.
   commit `520c5972`; `run_release_readiness_checks.sh --fail-on-profiles`
   exited 2 with `NO_DATA` for this profile only. The
   [v0.11.0 release notes](docs/releases/v0.11.0.md) record the gap.
+- **v0.12.0: `newer_college_math_hard` was not measured.** The official
+  Maths-Hard recording, ground-truth CSV and calibration are offered only
+  through the dataset's request form; on 2026-11-17 (05:55 and 06:33 UTC) the
+  download page carried that Google Form and no direct link, and the release
+  run did not submit it. The maintainer chose to release with the other four
+  blocking profiles measured at the carrier commit `b499ce88`;
+  `run_release_readiness_checks.sh --fail-on-profiles` exited 2 with
+  `NO_DATA` for this profile only. The
+  [v0.12.0 release notes](docs/releases/v0.12.0.md) record the gap. This is
+  the second release in a row without this profile.
