@@ -28,3 +28,15 @@ Decision: the parameter ships, documented, default 0.0, with the largest bound o
 that passes T2 on all six named as the tested setting; if neither passes, it does not ship and
 the result is recorded. T1 must hold either way. The default is never changed in this step.
 Report only: peak RSS (/usr/bin/time) and wall time of each run, map point count.
+
+Addendum (2026-11-17, after D1-D4's lossless and quantized runs had finished and before any
+run below): D1-D4 accept no loop edge with their parameters (lossless and quantized alike),
+so for them the optimized trajectory cannot differ and T2a/T2b test nothing about loops. Two
+runs with accepted loops are added under the same T2 thresholds and the same decision rule
+(a bound ships only if it passes on every dataset, D1-D8):
+  D7 MapsHD calibration-room trial 1 (dev_loops/rb backend input), walking preset
+     (loops_robust_dev_2026-10-29: 15-18 loop edges with this input);
+  D8 D1's input (calibration-room trial 2) with the walking preset.
+If D7 or D8 still accepts no loop edge lossless, that is reported and it does not count as a
+loop test. trajectory_refined.tum differences are reported for every run (the refinement reads
+the restored clouds of all submaps).
