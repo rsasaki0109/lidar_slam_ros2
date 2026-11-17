@@ -42,3 +42,15 @@ unchanged in this step.
   control points, so all its ATEs are about 1.42 m (the earlier exp04 scores used the dense
   frontend trajectory in the LiDAR frame).
 - Wall time is not changed materially (RB/RA 1-18 s faster than R0, from fewer accepted steps).
+
+## Default switched (maintainer's approval, 2026-11-17)
+
+The maintainer chose the recommendation: the offline runner now defaults to
+`refine_window_max_adjacent_change_m: 0.10` and `refine_window_max_adjacent_change_deg: 1.0`.
+Checked with the build that carries the new default (`tools/run.sh`, variants DEF and OFF):
+
+- no parameter given: `trajectory_refined.tum` identical to the RB run on all five runs;
+- the gate set to 0: every output file identical to the R0 run on all five runs.
+
+The map refinement report gains a `gated_windows` line while the gate is on. The live ROS 2
+node does not run this refinement and is unchanged.

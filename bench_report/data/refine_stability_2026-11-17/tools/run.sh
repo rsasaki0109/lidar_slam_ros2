@@ -23,6 +23,7 @@ for run in "$@"; do
   case $var in
     RB) extra+=(-p refine_window_max_adjacent_change_m:=0.10 -p refine_window_max_adjacent_change_deg:=1.0) ;;
     RA) extra+=(-p refine_relative_translation_sigma:=0.05 -p refine_relative_rotation_sigma_rad:=0.0087) ;;
+    OFF) extra+=(-p refine_window_max_adjacent_change_m:=0.0 -p refine_window_max_adjacent_change_deg:=0.0) ;;
   esac
   [[ $pert == 1um ]] && extra+=(-p submap_cloud_max_error_m:=0.000001)
   /usr/bin/time -v env PYTHONPATH=$B/pkg $PY -m lidarslam backend "$(input_of $ds)" \

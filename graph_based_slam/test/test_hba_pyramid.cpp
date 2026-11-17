@@ -376,5 +376,51 @@ TEST(HbaPyramidTest, OverlappingWindowsKeepPriorsAnchoredToOriginalPoses)
   EXPECT_LT(max_translation_correction, 0.002);
 }
 
+TEST(HbaPyramidTest, AdjacencyGateDiscardsWindowsThatBendNeighbours)
+{
+  const CorridorFixture fixture = makeCorridorFixture();
+  HbaPyramidConfig config = makeConfig(false);
+  // Every window moves some neighbour pair by more than a micrometre, so all are discarded and
+  // the input comes back bit for bit.
+  config.window_max_adjacent_change_m = 1e-6;
+  config.window_max_adjacent_change_rad = 1e-6;
+  const HbaPyramidResult gated = refinePosesHierarchically(
+    fixture.local_clouds, fixture.initial, config);
+  ASSERT_FALSE(gated.windows.empty());
+  for (const WindowReport & window : gated.windows) {
+    EXPECT_TRUE(window.gated);
+    EXPECT_EQ("adjacency_gate", window.termination);
+  }
+  EXPECT_FALSE(gated.any_window_improved);
+  for (std::size_t i = 0; i < gated.poses.size(); ++i) {
+    EXPECT_TRUE(matricesBitwiseEqual(gated.poses[i], fixture.initial[i])) << "pose " << i;
+  }
+  // A loose gate changes nothing against the ungated run.
+  config.window_max_adjacent_change_m = 10.0;
+  config.window_max_adjacent_change_rad = 1.0;
+  const HbaPyramidResult loose = refinePosesHierarchically(
+    fixture.local_clouds, fixture.initial, config);
+  const HbaPyramidResult plain = refinePosesHierarchically(
+    fixture.local_clouds, fixture.initial, makeConfig(false));
+  for (std::size_t i = 0; i < plain.poses.size(); ++i) {
+    EXPECT_TRUE(matricesBitwiseEqual(loose.poses[i], plain.poses[i])) << "pose " << i;
+  }
+}
+
+TEST(HbaPyramidTest, StiffRelativeFactorsKeepNeighbourTransforms)
+{
+  const CorridorFixture fixture = makeCorridorFixture();
+  HbaPyramidConfig config = makeConfig(false);
+  config.window_ba.relative_translation_sigma = 1e-4;
+  config.window_ba.relative_rotation_sigma_rad = 1e-5;
+  const HbaPyramidResult result = refinePosesHierarchically(
+    fixture.local_clouds, fixture.initial, config);
+  for (std::size_t i = 0; i + 1 < result.poses.size(); ++i) {
+    const Vector6d change = detail::relativeResidual(
+      result.poses[i], result.poses[i + 1], fixture.initial[i], fixture.initial[i + 1]);
+    EXPECT_LT(change.head<3>().norm(), 0.002) << "pair " << i;
+  }
+}
+
 }  // namespace map_refinement
 }  // namespace graphslam
