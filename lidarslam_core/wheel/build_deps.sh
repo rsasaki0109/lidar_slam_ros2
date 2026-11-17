@@ -32,8 +32,9 @@ fi
 
 WORK=$(mktemp -d)
 trap 'rm -rf "${WORK}"' EXIT
-rm -rf "${PREFIX}"
+# Start from an empty prefix; it can be a mount point (the cached volume), so clear its contents.
 mkdir -p "${PREFIX}"
+find "${PREFIX}" -mindepth 1 -delete
 export CMAKE_PREFIX_PATH="${PREFIX}"
 export PKG_CONFIG_PATH="${PREFIX}/lib/pkgconfig:${PREFIX}/share/pkgconfig:${PKG_CONFIG_PATH:-}"
 export LD_LIBRARY_PATH="${PREFIX}/lib:${LD_LIBRARY_PATH:-}"
