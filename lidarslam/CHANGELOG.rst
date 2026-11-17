@@ -2,6 +2,11 @@
 Changelog for package lidarslam
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.13.0 (2026-11-17)
+-------------------
+* No source changes yet; version aligned with the 0.13.0 candidate.
+* Contributors: Ryohei Sasaki
+
 0.12.0 (2026-11-03)
 -------------------
 * The RKO-LIO launch reads ``LIDARSLAM_BENCHMARK_NO_MAP_ARTIFACTS`` for the

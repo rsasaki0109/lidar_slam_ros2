@@ -15,7 +15,7 @@
 
 *Outdoor walk, APE 0.55 m ([Koide](https://zenodo.org/records/10122133), CC BY 4.0) · camera-coloured park ([RTK-SLAM](https://rtk-slam-dataset.github.io/), CC BY 4.0) · stairs, ATE 0.24 m on development data · held-out metro tunnel, 0.38 m like BIEVR-LIO and FAST-LIO2 ([GEODE](https://github.com/PengYu-Team/GEODE_dataset)) · three separate walks joined into one map with no position hint ([Oxford Spires](https://huggingface.co/datasets/ori-drs/oxford_spires_dataset), CC BY-NC-SA 4.0). [How these were made](docs/readme-media.md).*
 
-**Turn a rosbag into a map you can actually drive on.** ROS 2 LiDAR SLAM that writes an Autoware-compatible map bundle: `pointcloud_map/`, `map_projector_info.yaml` and lanelet2. `RKO-LIO` (MIT) + `graph_based_slam` (BSD-2), no GPL on the default workflow. [日本語クイックスタート](docs/getting-started-ja.md) · release notes [v0.12.0](docs/releases/v0.12.0.md) · [v0.11.0](docs/releases/v0.11.0.md)
+**Turn a rosbag into a map you can actually drive on.** ROS 2 LiDAR SLAM that writes an Autoware-compatible map bundle: `pointcloud_map/`, `map_projector_info.yaml` and lanelet2. `RKO-LIO` (MIT) + `graph_based_slam` (BSD-2), no GPL on the default workflow. [日本語クイックスタート](docs/getting-started-ja.md) · release notes [v0.12.0](docs/releases/v0.12.0.md) · next [v0.13.0](docs/releases/v0.13.0.md)
 
 ## Quickstart
 
@@ -26,7 +26,7 @@
 | See a verified map, no build | **Default if unsure:** [Docker demo](#try-it-with-docker-one-command-no-build) | Stable `v0.12.0-humble`; needs Docker; host writes stay in `./lidarslam_output`. |
 | Map my own rosbag | [Own-bag route](#map-your-own-bag-one-command-after-install): `lidarslam-map doctor /path/to/rosbag2` | Read-only diagnosis first; then `lidarslam-map start /path/to/rosbag2` writes a new output. |
 | Build from source or contribute | [Source quickstart](#build--verified-demo-from-source-one-helper): `bash scripts/source_quickstart.sh --dry-run` | Release `v0.12.0`; needs ROS 2, 8 GiB, and roughly 30 minutes. |
-| Map a bag without ROS 2 (preview) | [pip install](#without-ros-2-pip-preview): `pip install lidarslam-*.whl` (prebuilt) or `pip install ./lidarslam_core`, then `lidarslam-map start /path/to/rosbag2` | No ROS 2; the prebuilt wheel needs no apt packages (Linux x86_64/aarch64, Python 3.10-3.13). RKO-LIO profiles only (GNSS and packet input need ROS 2). |
+| Map a bag without ROS 2 (preview) | [pip install](#without-ros-2-pip-preview): `pip install lidarslam-*.whl` (prebuilt) or `pip install ./lidarslam_core`, then `lidarslam-map start /path/to/rosbag2` | No ROS 2; the prebuilt wheel needs no apt packages (Linux x86_64/aarch64, Python 3.10-3.13). RKO-LIO profiles; with `--lidarslam-param lidarslam_rtk_gnss.yaml` the map is anchored to the bag's RTK GNSS (`/gnss/fix`). The classic GNSS and packet profiles need ROS 2. |
 
 ### Try it with Docker (one command, no build)
 
@@ -95,7 +95,7 @@ python -m lidarslam backend /path/to/backend_input \
 
 `--params` takes the same parameter file as the ROS 2 RKO-LIO node (`ros__parameters` layout), with `imu_topic`, `lidar_topic`, `base_frame` and both `extrinsic_*2base_quat_xyzw_xyz` set. On HILTI exp14 the trajectory is byte-identical to the ROS 2 offline node. Visual and radar fusion still need ROS 2.
 
-`lidarslam-map` is the same product command as the ROS 2 install (`run`, `start`, `view`, `sessions`, `report`, ...). Its map engine is chosen by `--engine auto`, the default: ROS 2 when the `ros2` command is found, else the pip package (`--engine core`). With the core engine the maps of an RKO-LIO profile are byte-identical to the ROS 2 offline path, and `--join-map` / `merge --place-recognition` run the multi-session join from the package; GNSS and packet profiles still need ROS 2.
+`lidarslam-map` is the same product command as the ROS 2 install (`run`, `start`, `view`, `sessions`, `report`, ...). Its map engine is chosen by `--engine auto`, the default: ROS 2 when the `ros2` command is found, else the pip package (`--engine core`). With the core engine the maps of an RKO-LIO profile are byte-identical to the ROS 2 offline path, and `--join-map` / `merge --place-recognition` run the multi-session join from the package. With a graph parameter file that sets `use_gnss` (e.g. `--lidarslam-param lidarslam_rtk_gnss.yaml`) the core engine anchors the map to the bag's RTK GNSS (RTK-SLAM Stadtgarten: 0.100 / 0.067 m absolute, the same as the ROS 2 `--bag-gnss` benchmark path). The classic GNSS and packet profiles still need ROS 2.
 
 `backend` runs `graph_slam_offline_runner` without ROS 2 on a backend input (the frontend's odometry and deskewed clouds, `/rko_lio/odometry` and `/rko_lio/frame`): it reads the `graph_based_slam` section of the parameter files, takes `-p name:=value` overrides like ROS 2, and writes the same files as the ROS 2 runner, byte for byte on the MapsHD checks. Registration plugins loaded through pluginlib still need ROS 2; the built-in NDT, GICP and SMALL_GICP do not.
 
@@ -172,7 +172,7 @@ Release-gate thresholds ([Benchmarking](docs/benchmarking.md#release-gate-accura
 - **Getting started**: [Getting Started](docs/getting-started.md) · [Distribution](docs/distribution.md) · [Autoware quickstart](docs/autoware-quickstart.md) · [Operator workflows](docs/workflows.md) · [Autoware Foxglove](docs/autoware-foxglove.md)
 - **Pipelines**: [Autoware-compatible map authoring](docs/autoware-map-authoring.md)
 - **Benchmarking**: [Benchmarking and release gate](docs/benchmarking.md) · [Comparison](docs/comparison.md)
-- **Project**: [Product contract](docs/product-contract.md) · [v1.0 readiness](docs/v1-readiness.md) · [Independent first-map validation](docs/external-first-map-validation.md) · [v0.11.0 notes](docs/releases/v0.11.0.md) · [v0.12.0 notes](docs/releases/v0.12.0.md) · [v0.9 roadmap](docs/roadmap/v0.9.md) · [Contributing](CONTRIBUTING.md) · [Support](SUPPORT.md) · [Security](SECURITY.md) · [Governance](GOVERNANCE.md) · [Changelog](CHANGELOG.md) · [Releasing](RELEASING.md)
+- **Project**: [Product contract](docs/product-contract.md) · [v1.0 readiness](docs/v1-readiness.md) · [Independent first-map validation](docs/external-first-map-validation.md) · [v0.11.0 notes](docs/releases/v0.11.0.md) · [v0.12.0 notes](docs/releases/v0.12.0.md) · [v0.13.0 candidate](docs/releases/v0.13.0.md) · [v0.9 roadmap](docs/roadmap/v0.9.md) · [Contributing](CONTRIBUTING.md) · [Support](SUPPORT.md) · [Security](SECURITY.md) · [Governance](GOVERNANCE.md) · [Changelog](CHANGELOG.md) · [Releasing](RELEASING.md)
 
 Preview the doc site locally: `python3 -m mkdocs serve`.
 

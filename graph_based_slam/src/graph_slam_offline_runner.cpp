@@ -59,6 +59,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/serialization.hpp>
 #include <rosbag2_cpp/reader.hpp>
+#include <sensor_msgs/msg/nav_sat_fix.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 
 #include "graph_based_slam/cloud_message.hpp"
@@ -85,6 +86,7 @@ int main(int argc, char ** argv)
   reader.open(pipeline.inputPath());
   rclcpp::Serialization<nav_msgs::msg::Odometry> odom_serialization;
   rclcpp::Serialization<sensor_msgs::msg::PointCloud2> cloud_serialization;
+  rclcpp::Serialization<sensor_msgs::msg::NavSatFix> fix_serialization;
   pipeline.begin();
   while (reader.has_next()) {
     auto bag_message = reader.read_next();
@@ -97,6 +99,10 @@ int main(int argc, char ** argv)
       sensor_msgs::msg::PointCloud2 ros_cloud;
       cloud_serialization.deserialize_message(&serialized, &ros_cloud);
       pipeline.addCloud(graphslam::offline::toPlain(std::move(ros_cloud)));
+    } else if (pipeline.usesGnss() && bag_message->topic_name == pipeline.gnssTopic()) {
+      sensor_msgs::msg::NavSatFix ros_fix;
+      fix_serialization.deserialize_message(&serialized, &ros_fix);
+      pipeline.addGnssFix(graphslam::offline::toPlain(ros_fix));
     }
   }
 

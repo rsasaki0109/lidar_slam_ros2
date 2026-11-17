@@ -1,0 +1,44 @@
+ROS-free core, M7 step b: GNSS anchoring in the offline pipeline (the core engine)
+Preregistered 2026-11-17, before the code exists and before any run below.
+
+What changes
+- The live adapter's GNSS path (NavSatFix receive, origin accumulator, covariance weights, stamp
+  check against the odometry, pre-odometry buffer, anchor matching, yaw alignment) moves into a
+  ROS-free module that the live adapter and the offline pipeline both use.
+- The offline pipeline (graph_slam_offline_runner, lidarslam.backend, the core engine) gains
+  use_gnss with the live parameter names and defaults: the fixes of gnss_topic in the backend
+  input (or, for the core engine, in the sensor log) become GNSS anchors of the final pose-graph
+  optimization, with gravity_prior_info, the yaw alignment and the GNSS projector origin, as the
+  live node's doPoseAdjustment does. With use_gnss false (every default preset) nothing changes.
+- The core engine records gnss_topic in the backend input it writes.
+
+Checks without ground truth (must hold; a failure is a bug to fix, not a result)
+P1. use_gnss false: graph_slam_offline_runner and the package give the M4/M5 bytes (HILTI exp14
+    core run, MapsHD calibration-room 2 replay).
+P2. use_gnss true on a backend input with /gnss/fix (RTK-SLAM Construction seq1 and seq2,
+    bench/ms_cons, lidarslam_rtk_gnss.yaml): the ROS 2 offline runner and the package write the
+    same files.
+P3. The live adapter after the move: unit tests feed the same fix and odometry sequences
+    (pre-odometry fixes, stamp-skew fallback, origin reset after a jump, interpolation) to the
+    old inline logic (kept verbatim in the test) and to the module; same buffers, anchors and
+    alignment.
+
+Accuracy acceptance (RTK-SLAM "offline" protocol of
+docs/research/gnss-rtk-slam-absolute-accuracy.md: ENU -> WGS84 -> UTM 32N, geoid 48.22 m, lever
+arm [-0.062, 0.0, -0.216], nearest pose within 2 s of each checkpoint, no alignment)
+- Runs: the core engine (lidarslam-map run --engine core, or lidarslam map) on the 3-topic
+  extracts (/livox/points, /livox/imu, /gnss/fix) with lidarslam_rtk_gnss.yaml unchanged:
+    A. stadtgarten_seq2 with configs/mid360_robot/rko_lio_rtk_slam_mid360_stadtgarten_seq2.yaml
+       (reference, live ROS 2 path: 0.100 m absolute 3D, 19 checkpoints)
+    B. stadtgarten_seq1 with configs/mid360_robot/rko_lio_rtk_slam_mid360.yaml
+       (reference, live ROS 2 path: 0.068 m absolute 3D, 36 of 36 checkpoints)
+- ACCEPT if both: absolute 3D <= reference + 0.030 m (A <= 0.130 m, B <= 0.098 m) and every
+  checkpoint is matched (A 19, B 36).
+- Otherwise REJECT for this step: report the numbers and where the error is (horizontal /
+  vertical, per checkpoint), and do not change lidarslam_rtk_gnss.yaml, the thresholds or the
+  runs to pass. The live path keeps working with ROS 2 either way.
+- Expected difference, stated before measuring: the live node anchors every intermediate pose
+  adjustment to GNSS and searches loops from those poses; the offline pipeline searches loops on
+  the odometry poses and anchors once, at the final optimization. This can change accepted loops.
+- Report only: Construction seq1/seq2 (no live GNSS reference exists) with the walking preset and
+  lidarslam_rtk_gnss.yaml, absolute 3D against their checkpoints; time and peak memory of A/B.

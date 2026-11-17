@@ -35,6 +35,7 @@
 #include "graph_based_slam/backend_core.hpp"
 #include "graph_based_slam/adjacent_edge_auto_scale.hpp"
 #include "graph_based_slam/dynamic_object_filter.hpp"
+#include "graph_based_slam/gnss_anchor_store.hpp"
 #include "graph_based_slam/gnss_weighting.hpp"
 #include "graph_based_slam/graph_slam_application.hpp"
 #include "graph_based_slam/map_export.hpp"
@@ -68,6 +69,7 @@ PlanarMapFilterConfig makePlanarMapFilterConfig(const GraphSlamConfig & config);
 map_saver::GridConfig makeGridConfig(const GraphSlamConfig & config);
 map_export::MapExportConfig makeMapExportConfig(const GraphSlamConfig & config);
 detail::GnssWeightingConfig makeGnssWeightingConfig(const GraphSlamConfig & config);
+gnss::AnchorStoreConfig makeGnssAnchorStoreConfig(const GraphSlamConfig & config);
 
 }  // namespace graphslam
 

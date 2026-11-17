@@ -29,6 +29,8 @@
 
 #include <gtest/gtest.h>
 
+#include <sensor_msgs/msg/nav_sat_fix.hpp>
+
 #include "graph_based_slam/gnss_weighting.hpp"
 
 namespace graphslam

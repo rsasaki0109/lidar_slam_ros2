@@ -207,6 +207,18 @@ public:
     pipeline_->addOdometry(toOdometry(odometry));
   }
   void addCloud(const lidarslam_core::PackedCloud & cloud) {pipeline_->addCloud(toCloud(cloud));}
+  void addGnssFix(const lidarslam_core::NavSatFix & in)
+  {
+    graphslam::gnss::Fix fix;
+    fix.header_stamp_sec = graphslam::cloud_msg::stampSeconds(in.header.stamp);
+    fix.status = in.status;
+    fix.latitude = in.latitude;
+    fix.longitude = in.longitude;
+    fix.altitude = in.altitude;
+    fix.position_covariance = in.position_covariance;
+    fix.position_covariance_type = in.position_covariance_type;
+    pipeline_->addGnssFix(fix);
+  }
   bool finish() {return pipeline_->finish();}
 
   const graphslam::offline::OfflinePipeline & pipeline() const {return *pipeline_;}
@@ -300,9 +312,17 @@ void bind_backend(py::module_ & m)
   .def_property_readonly("output_dir", [](const BackendPipeline & b) {
       return b.pipeline().outputDir();
     })
+  .def_property_readonly("uses_gnss", [](const BackendPipeline & b) {
+      return b.pipeline().usesGnss();
+    })
+  .def_property_readonly("gnss_topic", [](const BackendPipeline & b) {
+      return b.pipeline().gnssTopic();
+    })
   .def("begin", &BackendPipeline::begin)
   .def("add_odometry", &BackendPipeline::addOdometry, py::arg("odometry"))
   .def("add_cloud", &BackendPipeline::addCloud, py::arg("cloud"))
+  .def("add_gnss_fix", &BackendPipeline::addGnssFix, py::arg("fix"),
+    "With use_gnss: a NavSatFix of gnss_topic, in recorded order with the odometry and clouds.")
   .def("finish", &BackendPipeline::finish,
     "The pose graph, refinement and all outputs; False (after logging why) when the fixed loop "
     "edges cannot be loaded.");

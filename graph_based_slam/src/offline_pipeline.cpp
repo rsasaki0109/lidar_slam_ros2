@@ -61,6 +61,7 @@
 #include "graph_based_slam/degeneracy_diagnostics_csv.hpp"
 #include "graph_based_slam/degeneracy_report_summary.hpp"
 #include "graph_based_slam/dense_pose_correction.hpp"
+#include "graph_based_slam/gnss_anchor_store.hpp"
 #include "graph_based_slam/loop_search_schedule.hpp"
 #include "graph_based_slam/map_refiner.hpp"
 #include "graph_based_slam/map_quality_metrics.hpp"
@@ -348,6 +349,14 @@ struct RunnerConfig
   // map_projector_info.yaml, map_bundle.yaml, pose_graph.g2o) from the optimized poses, with the
   // live node's map parameters (map_leaf_size, map_grid_size_*, the planar and dynamic filters).
   bool map_bundle = false;
+  // use_gnss: the fixes of gnss_topic (NavSatFix) become anchors of the final pose-graph
+  // optimization, with the yaw alignment and the GNSS projector origin, as in the live node's
+  // doPoseAdjustment (gnss_anchor_store.hpp); the live node's gnss_* parameters.
+  bool use_gnss = false;
+  std::string gnss_topic = "/gnss/fix";
+  graphslam::gnss::AnchorStoreConfig gnss;
+  // gravity_prior_info > 0: each submap's up axis is held to its odometry's (the live node's).
+  double gravity_prior_info = 0.0;
   graphslam::map_export::MapExportConfig map_export;
   std::string bag_path;
   std::string output_dir;
@@ -1060,6 +1069,95 @@ void readMapBundleConfig(const RunnerParameters & node, RunnerConfig & config)
     d.dynamic_object_filter.max_range_from_sensor_m);
 }
 
+// The live node's GNSS and gravity-prior parameters (graph_slam_config.cpp: same names, defaults,
+// normalization and validation). Returns false, after logging why, for an invalid value.
+bool readGnssConfig(const RunnerParameters & node, const RunnerLog & logger, RunnerConfig & config)
+{
+  graphslam::gnss::AnchorStoreConfig & gnss = config.gnss;
+  graphslam::detail::GnssWeightingConfig & weighting = gnss.weighting;
+  node.get_parameter_or("use_gnss", config.use_gnss, false);
+  node.get_parameter_or("gnss_topic", config.gnss_topic, std::string("/gnss/fix"));
+  node.get_parameter_or("gnss_info_weight", weighting.base_info_weight, 1.0);
+  node.get_parameter_or(
+    "gnss_use_covariance_weighting", weighting.use_covariance_weighting, true);
+  node.get_parameter_or(
+    "gnss_covariance_min_variance_m2", weighting.covariance_min_variance_m2, 0.01);
+  node.get_parameter_or(
+    "gnss_covariance_max_variance_m2", weighting.covariance_max_variance_m2, 25.0);
+  node.get_parameter_or(
+    "gnss_rtk_fix_max_horizontal_stddev_m", weighting.rtk_fix_max_horizontal_stddev_m, 0.3);
+  node.get_parameter_or("gnss_rtk_fix_weight_scale", weighting.rtk_fix_weight_scale, 3.0);
+  node.get_parameter_or("gnss_non_rtk_weight_scale", weighting.non_rtk_weight_scale, 1.0);
+  node.get_parameter_or("gnss_vertical_weight_scale", weighting.vertical_weight_scale, 0.1);
+  node.get_parameter_or(
+    "gnss_header_stamp_max_skew_sec", gnss.header_stamp_max_skew_sec, 30.0);
+  node.get_parameter_or("gnss_align_yaw", gnss.align_yaw, true);
+  node.get_parameter_or("gnss_yaw_alignment_min_anchors", gnss.yaw_alignment_min_anchors, 10);
+  node.get_parameter_or(
+    "gnss_yaw_alignment_min_baseline_m", gnss.yaw_alignment_min_baseline_m, 5.0);
+  node.get_parameter_or("gnss_origin_min_samples", gnss.origin_min_samples, 3);
+  node.get_parameter_or(
+    "gnss_origin_consistency_threshold_m", gnss.origin_consistency_threshold_m, 20.0);
+  std::vector<double> antenna {0.0, 0.0, 0.0};
+  node.get_parameter_or("gnss_antenna_offset_xyz", antenna, antenna);
+  node.get_parameter_or(
+    "gnss_interpolation_max_gap_sec", gnss.interpolation_max_gap_sec, 0.0);
+  node.get_parameter_or("gnss_robust_kernel_delta", gnss.robust_kernel_delta, 0.0);
+  node.get_parameter_or("gravity_prior_info", config.gravity_prior_info, 0.0);
+
+  const auto warn = [&logger](const char * name, const char * action) {
+      GRAPHSLAM_LOG_WARN(logger, "%s %s", name, action);
+    };
+  const auto positiveOr = [&warn](double & value, double fallback, const char * name) {
+      if (value <= 0.0) {
+        warn(name, "must be positive; reset to its safe default");
+        value = fallback;
+      }
+    };
+  if (gnss.origin_min_samples < 1) {
+    warn("gnss_origin_min_samples", "must be >= 1; clamped to 1");
+    gnss.origin_min_samples = 1;
+  }
+  positiveOr(gnss.origin_consistency_threshold_m, 20.0, "gnss_origin_consistency_threshold_m");
+  positiveOr(weighting.covariance_min_variance_m2, 0.01, "gnss_covariance_min_variance_m2");
+  if (weighting.covariance_max_variance_m2 < weighting.covariance_min_variance_m2) {
+    warn("gnss_covariance_max_variance_m2", "must be >= minimum; raised to minimum");
+    weighting.covariance_max_variance_m2 = weighting.covariance_min_variance_m2;
+  }
+  positiveOr(
+    weighting.rtk_fix_max_horizontal_stddev_m, 0.3, "gnss_rtk_fix_max_horizontal_stddev_m");
+  positiveOr(weighting.rtk_fix_weight_scale, 3.0, "gnss_rtk_fix_weight_scale");
+  positiveOr(weighting.non_rtk_weight_scale, 1.0, "gnss_non_rtk_weight_scale");
+  positiveOr(weighting.vertical_weight_scale, 0.1, "gnss_vertical_weight_scale");
+  positiveOr(gnss.header_stamp_max_skew_sec, 30.0, "gnss_header_stamp_max_skew_sec");
+
+  if (antenna.size() != 3 ||
+    !std::all_of(antenna.begin(), antenna.end(), [](double v) {return std::isfinite(v);}))
+  {
+    GRAPHSLAM_LOG_ERROR(logger, "gnss_antenna_offset_xyz must be 3 finite values [x, y, z]");
+    return false;
+  }
+  gnss.antenna_offset = Eigen::Vector3d(antenna[0], antenna[1], antenna[2]);
+  if (!std::isfinite(gnss.interpolation_max_gap_sec) || gnss.interpolation_max_gap_sec < 0.0) {
+    GRAPHSLAM_LOG_ERROR(logger, "gnss_interpolation_max_gap_sec must be finite and >= 0");
+    return false;
+  }
+  if (!std::isfinite(gnss.robust_kernel_delta) || gnss.robust_kernel_delta < 0.0) {
+    GRAPHSLAM_LOG_ERROR(logger, "gnss_robust_kernel_delta must be finite and >= 0");
+    return false;
+  }
+  if (!std::isfinite(config.gravity_prior_info) || config.gravity_prior_info < 0.0) {
+    GRAPHSLAM_LOG_ERROR(logger, "gravity_prior_info must be finite and >= 0");
+    return false;
+  }
+  if (config.use_gnss) {
+    GRAPHSLAM_LOG_INFO(
+      logger, "GNSS anchors enabled: %s from the input, final optimization only",
+      config.gnss_topic.c_str());
+  }
+  return true;
+}
+
 void readPoseGraphConfig(const RunnerParameters & node, RunnerConfig & config)
 {
   int num_adjacent_pose_constraints;
@@ -1400,6 +1498,8 @@ struct LoopSearchBackend
 struct BagPassResult
 {
   graphslam::backend_core::LoopEdgeSet edge_set;
+  // use_gnss: the fixes, origin and anchors.
+  graphslam::gnss::AnchorStore gnss;
   std::vector<SubmapRecord> records;
   SubmapCloudStats cloud_stats;
   std::size_t attribution_raw_finite_points = 0U;
@@ -1436,6 +1536,10 @@ struct BagPass
   BagPassResult & bag;
 
   bool loop_edges_changed = false;
+  // Sensor time for the GNSS stamp check, as the live node keeps it: the odometry stamps of the
+  // pairs (with a finite position), the first and the latest.
+  double first_pair_stamp_sec = 0.0;
+  double latest_pair_stamp_sec = 0.0;
   bool last_position_valid = false;
   Eigen::Vector3d last_position = Eigen::Vector3d::Zero();
   double accumulated_distance = 0.0;
@@ -1458,6 +1562,7 @@ struct BagPass
   // Before the first message.
   void begin()
   {
+    bag.gnss = graphslam::gnss::AnchorStore(config.gnss);
     bag.edge_set.configure(
       config.loop_edge_dedup_index_window < 0 ? 0 : config.loop_edge_dedup_index_window);
     if (config.causal_trajectory_output) {
@@ -1494,6 +1599,35 @@ struct BagPass
     }
   }
 
+  // A NavSatFix of gnss_topic, in recorded order with the odometry and the clouds.
+  void addGnssFix(const graphslam::gnss::Fix & fix)
+  {
+    const graphslam::gnss::FixResult result =
+      bag.gnss.add(fix, latest_pair_stamp_sec, first_pair_stamp_sec, true, 0.0);
+    if (!result.origin_update_valid) {
+      return;
+    }
+    const graphslam::detail::GnssOriginUpdate & update = result.origin_update;
+    if (update.reset_after_jump) {
+      GRAPHSLAM_LOG_WARN(
+        logger, "Resetting GNSS origin initialization after %.1f m jump in candidate fixes",
+        update.deviation_m);
+    }
+    if (update.restarted_after_inconsistency) {
+      GRAPHSLAM_LOG_WARN(
+        logger,
+        "GNSS origin candidates were inconsistent (max deviation %.1f m), restarting accumulation",
+        update.deviation_m);
+    }
+    if (result.origin_set_now) {
+      const graphslam::detail::GeodeticOrigin & origin = bag.gnss.origin();
+      GRAPHSLAM_LOG_INFO(
+        logger, "GNSS origin set from %d consistent fixes: lat=%.8f, lon=%.8f, alt=%.2f",
+        config.gnss.origin_min_samples, origin.latitude_deg, origin.longitude_deg,
+        origin.altitude_m);
+    }
+  }
+
   // After the last message: takes the fixed loop edges when they are given. Returns false,
   // after logging why, when those cannot be loaded.
   bool finish()
@@ -1510,6 +1644,16 @@ struct BagPass
       }
     }
 
+    if (config.use_gnss) {
+      const graphslam::gnss::FlushResult flush = bag.gnss.flushPreOdometry(first_pair_stamp_sec);
+      if (flush.flushed > 0) {
+        GRAPHSLAM_LOG_INFO(
+          logger,
+          "GNSS: %zu fixes from before the first odometry checked against its stamp %.3f s "
+          "(%d replaced by it)",
+          flush.flushed, first_pair_stamp_sec, flush.used_fallback);
+      }
+    }
     GRAPHSLAM_LOG_INFO(
       logger,
       "Offline run complete: %zu pairs, %zu submaps, %.1f m travelled, %zu loop edges "
@@ -1540,6 +1684,14 @@ struct BagPass
   void processPair(
     const graphslam::msg::Odometry & odom, const graphslam::msg::PointCloud2 & input_cloud)
   {
+    if (config.use_gnss && std::isfinite(odom.pose.pose.position.x) &&
+      std::isfinite(odom.pose.pose.position.y) && std::isfinite(odom.pose.pose.position.z))
+    {
+      latest_pair_stamp_sec = graphslam::cloud_msg::stampSeconds(odom.header.stamp);
+      if (first_pair_stamp_sec <= 0.0) {
+        first_pair_stamp_sec = latest_pair_stamp_sec;
+      }
+    }
     // Same placement as the live component: a LiDAR-frame scan is moved
     // into the base frame of the odometry pose first.
     const bool move_to_base = !config.cloud_extrinsic.identity &&
@@ -1903,7 +2055,57 @@ struct FinalPoseGraph
   std::vector<std::vector<Eigen::Vector3d>> local_clouds;
   std::vector<Eigen::Isometry3d> optimized_poses;
   std::string pose_graph_g2o;  // kept only for the map bundle
+  // use_gnss: the anchors; the vertex-0 gauge is released when the yaw alignment moved the graph
+  // into the ENU frame.
+  std::vector<graphslam::pose_graph::GnssConstraint> gnss_constraints;
+  bool fix_first_vertex = true;
 };
+
+// use_gnss: the GNSS anchor of each submap stamp and the yaw alignment, as the live node's
+// doPoseAdjustment adds them.
+void anchorToGnss(
+  const RunnerConfig & config, const BagPassResult & bag, const RunnerLog & logger,
+  FinalPoseGraph & graph)
+{
+  if (!bag.gnss.originSet()) {
+    GRAPHSLAM_LOG_WARN(
+      logger, "use_gnss: no GNSS origin was set from %s; the pose graph has no GNSS anchors",
+      config.gnss_topic.c_str());
+    return;
+  }
+  std::vector<double> stamps;
+  stamps.reserve(bag.records.size());
+  for (const auto & record : bag.records) {
+    stamps.push_back(record.stamp_sec);
+  }
+  graphslam::gnss::Anchors anchors = bag.gnss.anchors(stamps);
+  graph.gnss_constraints = std::move(anchors.constraints);
+  GRAPHSLAM_LOG_INFO(
+    logger,
+    "Added %zu GNSS position constraint edges of %zu submaps (%d RTK-like by covariance, "
+    "%d interpolated between fixes) from %zu fixes",
+    graph.gnss_constraints.size(), stamps.size(), anchors.rtk_like, anchors.interpolated,
+    bag.gnss.samples().size());
+  if (!config.gnss.align_yaw || graph.gnss_constraints.empty()) {
+    return;
+  }
+  const graphslam::gnss::YawAlignment yaw =
+    bag.gnss.alignYaw(graph.submap_nodes, graph.gnss_constraints);
+  if (yaw.applied) {
+    graph.fix_first_vertex = false;
+    GRAPHSLAM_LOG_INFO(
+      logger,
+      "GNSS yaw alignment applied: yaw=%.2f deg, baseline=%.1f m, rms=%.2f m; "
+      "vertex-0 gauge released, graph moves to the ENU frame",
+      yaw.alignment.yaw_rad * 180.0 / M_PI, yaw.alignment.baseline_m,
+      yaw.alignment.rms_residual_m);
+  } else {
+    GRAPHSLAM_LOG_INFO(
+      logger,
+      "GNSS yaw alignment not applied (pairs=%zu, baseline=%.1f m); keeping the vertex-0 gauge",
+      yaw.pairs, yaw.alignment.baseline_m);
+  }
+}
 
 // The optional plane revisit factors (use_plane_revisit_constraints).
 struct PlaneRevisitFactors
@@ -2018,8 +2220,8 @@ void writePlaneRevisitReport(
 }
 
 // --- Final pose-graph optimization from raw odometry poses plus the
-// accumulated loop edges, exactly like the live doPoseAdjustment with
-// IMU / GNSS off.
+// accumulated loop edges, like the live doPoseAdjustment with IMU off: with use_gnss the GNSS
+// anchors of the submap stamps and the yaw alignment, and the gravity prior.
 void optimizeFinalPoseGraph(
   const RunnerConfig & config, BagPassResult & bag, const RunnerLog & logger,
   FinalPoseGraph & graph)
@@ -2029,7 +2231,15 @@ void optimizeFinalPoseGraph(
     graphslam::pose_graph::SubmapNode submap_node;
     submap_node.pose = Eigen::Isometry3d(record.meta.pose.matrix());
     submap_node.odometry_covariance = record.odometry_covariance;
+    if (config.gravity_prior_info > 0.0) {
+      submap_node.gravity_prior_info = config.gravity_prior_info;
+      submap_node.gravity_up_body = submap_node.pose.linear().transpose() *
+        Eigen::Vector3d::UnitZ();
+    }
     graph.submap_nodes.push_back(submap_node);
+  }
+  if (config.use_gnss) {
+    anchorToGnss(config, bag, logger, graph);
   }
   graph.loop_constraints.reserve(bag.edge_set.edges().size());
   for (const auto & edge : bag.edge_set.edges()) {
@@ -2081,9 +2291,10 @@ void optimizeFinalPoseGraph(
   if (!bag.records.empty()) {
     const graphslam::pose_graph::OptimizationResult result =
       graphslam::pose_graph::optimizePoseGraph(
-      graph.submap_nodes, graph.loop_constraints, {}, {}, config.adjacent_config,
-      config.loop_config, config.imu_config, graphslam::pose_graph::Chi2Collection::NONE, true,
-      10, plane_revisit.result.constraints);
+      graph.submap_nodes, graph.loop_constraints, {}, graph.gnss_constraints,
+      config.adjacent_config, config.loop_config, config.imu_config,
+      graphslam::pose_graph::Chi2Collection::NONE, graph.fix_first_vertex, 10,
+      plane_revisit.result.constraints);
     graph.optimized_poses = result.poses;
     if (config.map_bundle) {
       graph.pose_graph_g2o = result.pose_graph_g2o;
@@ -2886,7 +3097,13 @@ void writeMapBundle(
   const RunnerLog & logger)
 {
   const graphslam::map_export::MapExportConfig & map_config = config.map_export;
-  const graphslam::map_export::ProjectorOrigin origin;  // no GNSS in the backend input
+  // The GNSS origin (use_gnss), else a local projector.
+  graphslam::map_export::ProjectorOrigin origin;
+  if (config.use_gnss && bag.gnss.originSet()) {
+    origin.set = true;
+    origin.latitude = bag.gnss.origin().latitude_deg;
+    origin.longitude = bag.gnss.origin().longitude_deg;
+  }
   graphslam::adapters::FilesystemMapOutput output;
   graphslam::map_export::MapExportLog log;
   log.line = [&logger](const std::string & line) {logger.info(line);};
@@ -2989,6 +3206,9 @@ bool OfflinePipeline::configure()
   readLoopSearchConfig(p.node, p.config);
   readPoseGraphConfig(p.node, p.config);
   readMapBundleConfig(p.node, p.config);
+  if (!readGnssConfig(p.node, p.logger, p.config)) {
+    return false;
+  }
 
   if (!setupBackendRegistration(p.config, p.logger, p.registration)) {
     return false;
@@ -3018,6 +3238,16 @@ void OfflinePipeline::addOdometry(const msg::Odometry & odometry)
 void OfflinePipeline::addCloud(msg::PointCloud2 && cloud)
 {
   impl_->bag_pass->addCloud(std::move(cloud));
+}
+
+bool OfflinePipeline::usesGnss() const {return impl_->config.use_gnss;}
+const std::string & OfflinePipeline::gnssTopic() const {return impl_->config.gnss_topic;}
+
+void OfflinePipeline::addGnssFix(const gnss::Fix & fix)
+{
+  if (impl_->config.use_gnss) {
+    impl_->bag_pass->addGnssFix(fix);
+  }
 }
 
 bool OfflinePipeline::finish()
