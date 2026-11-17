@@ -127,11 +127,9 @@ def test_selected_topics_match_sqlite(tmp_path, humble_schema, chunk):
 
 
 def test_message_definitions_rows_are_not_topics(tmp_path):
-    """Jazzy bags also hold message_definitions rows of the same shape as topics rows.
-
-    They share row ids with the topics (one per type) and must not replace them; a long
-    definition spills into overflow pages and is skipped too (RTK-SLAM Stadtgarten 2).
-    """
+    """Jazzy bags also hold message_definitions rows of the same shape as topics rows."""
+    # They share row ids with the topics (one per type) and must not replace them; a long
+    # definition spills into overflow pages and is skipped too (RTK-SLAM Stadtgarten 2).
     db = tmp_path / 'bag_0.db3'
     expected = make_bag(db)
     con = sqlite3.connect(db)
