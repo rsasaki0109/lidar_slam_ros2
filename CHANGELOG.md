@@ -23,6 +23,9 @@ latest published release.
   CI builds manylinux wheels of the package (`wheels.yml`) that bundle PCL,
   g2o, FLANN, oneTBB and Boost built from Ubuntu 24.04's sources, so the
   wheel installs with no apt packages and maps HILTI exp14 to the same bytes.
+  The wheels cover Python 3.10-3.13 on x86_64 and aarch64, and a release tag
+  publishes them to PyPI as `lidarslam` (`pip install lidarslam`) through
+  Trusted Publishing; the package version is the repository `VERSION`.
 - `graph_slam_multisession_join`: a GNSS gate, a candidate off by default
   (`multisession_gnss_gate`). When both sessions carry RTK GNSS, a set of
   place matches is accepted if, at its places, its transform agrees with

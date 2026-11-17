@@ -4,14 +4,19 @@ name: wheels
 # `pip install lidarslam-*.whl` needs no apt packages and no ROS 2. The C++ libraries are built
 # from Ubuntu 24.04's sources (lidarslam_core/wheel/build_deps.sh), cached between runs, and
 # bundled by auditwheel. The wheels are workflow artifacts (lidarslam-wheels-x86_64 and
-# lidarslam-wheels-aarch64); nothing is published.
+# lidarslam-wheels-aarch64). A release tag (v<VERSION>) publishes them to PyPI, and a manual run
+# can publish them to TestPyPI; both through PyPI's Trusted Publishing (no stored token), from
+# the environments `pypi` and `testpypi`.
 
 on:
-  # Pushes to develop/main keep current wheels downloadable from the run's artifacts.
+  # Pushes to develop/main keep current wheels downloadable from the run's artifacts; release tags
+  # publish them (path filters do not apply to tag pushes).
   push:
     branches:
       - develop
       - main
+    tags:
+      - 'v*'
     paths:
       - lidarslam_core/**
       - graph_based_slam/**
@@ -37,6 +42,14 @@ on:
       - Thirdparty/**
       - .github/workflows/wheels.yml
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Upload the built wheels to TestPyPI (a trial; PyPI is reached by release tags)
+        type: choice
+        options:
+          - none
+          - testpypi
+        default: none
 
 permissions:
   contents: read
@@ -169,3 +182,72 @@ jobs:
           echo "Libraries loaded by ${core}:"
           ldd "${core}"
           ! ldd "${core}" | grep -q 'not found'
+
+  publish-pypi:
+    name: Publish the wheels to PyPI
+    needs: [build, test]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment:
+      name: pypi
+      url: https://pypi.org/p/lidarslam
+    permissions:
+      id-token: write  # Trusted Publishing
+
+    steps:
+      - name: Check out repository (VERSION)
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: VERSION
+          sparse-checkout-cone-mode: false
+
+      - name: Download wheels
+        uses: actions/download-artifact@v7
+        with:
+          pattern: lidarslam-wheels-*
+          merge-multiple: true
+          path: dist
+
+      - name: Check the tag, VERSION and the wheels agree
+        shell: bash
+        run: |
+          version=$(tr -d '[:space:]' < VERSION)
+          test "${GITHUB_REF_NAME}" = "v${version}" || {
+            echo "tag ${GITHUB_REF_NAME} does not match VERSION ${version}" >&2; exit 1; }
+          ls -l dist
+          count=$(find dist -name "lidarslam-${version}-cp3*-manylinux_2_28_*.whl" | wc -l)
+          test "$(find dist -name '*.whl' | wc -l)" = "${count}"
+          test "${count}" = 8
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@v1.12.4
+        with:
+          packages-dir: dist/
+
+  publish-testpypi:
+    name: Publish the wheels to TestPyPI
+    needs: [build, test]
+    if: github.event_name == 'workflow_dispatch' && inputs.publish == 'testpypi'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/lidarslam
+    permissions:
+      id-token: write  # Trusted Publishing
+
+    steps:
+      - name: Download wheels
+        uses: actions/download-artifact@v7
+        with:
+          pattern: lidarslam-wheels-*
+          merge-multiple: true
+          path: dist
+
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@v1.12.4
+        with:
+          packages-dir: dist/
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true

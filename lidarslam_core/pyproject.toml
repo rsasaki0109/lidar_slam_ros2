@@ -4,11 +4,26 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "lidarslam"
-version = "0.12.0.dev0"
+dynamic = ["version"]  # the repository VERSION file, as the release tags (v<VERSION>)
 description = "LiDAR-inertial SLAM that writes Autoware-compatible maps, without a ROS 2 install"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "BSD-2-Clause" }
+keywords = ["lidar", "slam", "lio", "mapping", "autoware", "point-cloud", "rosbag"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: BSD License",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: C++",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering",
+]
 dependencies = [
   "numpy>=1.24",
   "pyyaml>=6",
@@ -24,9 +39,15 @@ test = ["pytest"]
 
 [project.urls]
 Homepage = "https://github.com/rsasaki0109/lidar_slam_ros2"
+Documentation = "https://github.com/rsasaki0109/lidar_slam_ros2/tree/develop/lidarslam_core"
+Changelog = "https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/CHANGELOG.md"
+Issues = "https://github.com/rsasaki0109/lidar_slam_ros2/issues"
 
 [tool.scikit-build]
 minimum-version = "build-system.requires"
+metadata.version.provider = "scikit_build_core.metadata.regex"
+metadata.version.input = "../VERSION"
+metadata.version.regex = '(?P<value>\d+\.\d+\.\d+\S*)'
 cmake.version = ">=3.22"
 cmake.build-type = "Release"
 wheel.packages = ["python/lidarslam"]
