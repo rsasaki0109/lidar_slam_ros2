@@ -1,9 +1,10 @@
 # Changelog
 
-## 0.12.0 - 2026-11-03 (candidate)
+## 0.12.0 - 2026-11-17
 
-The next release candidate after v0.11.0. It is not tagged; v0.11.0 is the
-latest published release.
+The first release with the ROS-free `lidarslam` Python package. The
+`newer_college_math_hard` release profile was not measured for this release
+(a second one-time exception; see the release notes).
 
 ### Added
 
