@@ -39,12 +39,14 @@ export CMAKE_PREFIX_PATH="${PREFIX}"
 export PKG_CONFIG_PATH="${PREFIX}/lib/pkgconfig:${PREFIX}/share/pkgconfig:${PKG_CONFIG_PATH:-}"
 export LD_LIBRARY_PATH="${PREFIX}/lib:${LD_LIBRARY_PATH:-}"
 
-# fetch <pool path> <sha256>: download one source tarball of Ubuntu 24.04 and check its hash
-# (the hashes are the Checksums-Sha256 of the packages' .dsc files).
+# fetch <pool path or URL> <sha256>: download one source tarball and check its hash. Pool paths
+# are Ubuntu 24.04's source packages (the hashes are the Checksums-Sha256 of their .dsc files).
 fetch() {
-  local path=$1 sha=$2 out
+  local path=$1 sha=$2 out url
   out="${WORK}/$(basename "${path}")"
-  curl -fsSL --retry 5 --retry-delay 5 -o "${out}" "${UBUNTU_POOL}/${path}"
+  url=${path}
+  [[ "${path}" == https://* ]] || url="${UBUNTU_POOL}/${path}"
+  curl -fsSL --retry 5 --retry-delay 5 -o "${out}" "${url}"
   echo "${sha}  ${out}" | sha256sum -c - >&2
   echo "${out}"
 }
@@ -92,9 +94,11 @@ src=$(unpack "$(fetch universe/o/onetbb/onetbb_2021.11.0.orig.tar.xz \
   83e84fd87d6b34f0d920753c2be327a74d1f327802bdce691a844b0b0bc25db3)")
 cmake_install "${src}" -DTBB_TEST=OFF -DTBB_EXAMPLES=OFF -DTBB4PY_BUILD=OFF -DTBB_STRICT=OFF
 
-# Boost 1.83.0 (boost1.83 1.83.0-2.1ubuntu3): the libraries PCL io links.
-src=$(unpack "$(fetch main/b/boost1.83/boost1.83_1.83.0.orig.tar.xz \
-  404df4b4072fc7f2d4483d4fc2d61ff6f554dd80c9a812652684d5952e881c91)")
+# Boost 1.83.0 (Ubuntu ships boost1.83 1.83.0): the libraries PCL io links. The upstream release
+# tarball, because Debian's orig tarball lacks the generated b2 parser (jamgram.cpp) that Debian
+# regenerates with bison; Boost does not touch the map's numbers.
+src=$(unpack "$(fetch https://archives.boost.io/release/1.83.0/source/boost_1_83_0.tar.bz2 \
+  6478edfe2f3305127cffe8caf73ea0176c53769f4bf1585be237eb30798c3b8e)")
 (
   cd "${src}"
   ./bootstrap.sh --prefix="${PREFIX}" --with-libraries=filesystem,iostreams,system
