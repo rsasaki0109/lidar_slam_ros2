@@ -46,7 +46,8 @@ jobs:
           submodules: recursive
 
       - name: Restore the built C++ dependencies
-        uses: actions/cache@v5
+        id: deps-cache
+        uses: actions/cache/restore@v5
         with:
           path: .wheel-deps
           key: wheel-deps-manylinux_2_28-x86_64-${{ hashFiles('lidarslam_core/wheel/build_deps.sh') }}
@@ -64,10 +65,23 @@ jobs:
           "${RUNNER_TEMP}/cibw/bin/cibuildwheel" lidarslam_core --output-dir wheelhouse
           ls -l wheelhouse
 
-      - name: Make the cached prefix readable for the cache upload
-        if: always()
+      - name: Check whether the C++ dependencies were built
+        id: deps-built
+        if: always() && steps.deps-cache.outputs.cache-hit != 'true'
         shell: bash
-        run: sudo chown -R "$(id -u):$(id -g)" .wheel-deps || true
+        run: |
+          sudo chown -R "$(id -u):$(id -g)" .wheel-deps || true
+          if compgen -G '.wheel-deps/.complete-*' >/dev/null; then
+            echo "complete=true" >> "${GITHUB_OUTPUT}"
+          fi
+
+      # Saved even when the wheel build after it fails, so a failing round does not rebuild them.
+      - name: Save the built C++ dependencies
+        if: always() && steps.deps-built.outputs.complete == 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: .wheel-deps
+          key: ${{ steps.deps-cache.outputs.cache-primary-key }}
 
       - name: Upload wheels
         uses: actions/upload-artifact@v6
