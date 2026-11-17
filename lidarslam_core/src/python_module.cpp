@@ -15,6 +15,7 @@
 #include "lidarslam_core/sensor_messages.hpp"
 
 namespace py = pybind11;
+void bind_velodyne(py::module_ & m);  // python_velodyne.cpp
 #ifdef LIDARSLAM_CORE_HAVE_FRONTEND
 void bind_frontend(py::module_ & m);  // python_frontend.cpp
 #endif
@@ -184,6 +185,7 @@ PYBIND11_MODULE(_core, m)
   .def_readwrite("angular_velocity", &lidarslam_core::Odometry::angular_velocity)
   .def_readwrite("twist_covariance", &lidarslam_core::Odometry::twist_covariance);
 
+  bind_velodyne(m);
 #ifdef LIDARSLAM_CORE_HAVE_FRONTEND
   bind_frontend(m);
 #endif

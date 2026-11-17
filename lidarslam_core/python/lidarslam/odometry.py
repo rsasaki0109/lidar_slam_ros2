@@ -14,6 +14,7 @@ import sys
 from typing import Any, Callable
 
 from lidarslam import _core
+from lidarslam import velodyne
 from lidarslam.io import IMU, POINT_CLOUD2, SensorLog
 from lidarslam.params import load_parameters as _load_parameters
 
@@ -38,9 +39,10 @@ def drive(log_path: str | Path, params: dict[str, Any],
     'lidar_messages', 'lidar_frame_id'}`` (``lidar_frame_id``: the header frame of the first LiDAR
     message). ``passthrough`` maps other topics of the log to a callable that gets each of their
     messages as it is read, as the ROS 2 offline node republishes ``gnss_topic`` (topics the log
-    lacks are skipped).
+    lacks are skipped). A ``velodyne_msgs/msg/VelodyneScan`` lidar_topic is decoded as
+    velodyne_transform_node does, with the ``velodyne.*`` parameters (:mod:`lidarslam.velodyne`).
     """
-    params = dict(params)
+    velodyne_settings, params = velodyne.split_parameters(params)
     skip_to_time = float(params.pop('skip_to_time', 0.0) or 0.0)
     buffer_size = int(params.get('async.max_lidar_buffer_size', 10))
     for name in OFFLINE_NODE_ONLY:
@@ -55,11 +57,19 @@ def drive(log_path: str | Path, params: dict[str, Any],
 
     result: dict[str, Any] = {'driver': driver, 'imu_messages': 0, 'lidar_messages': 0,
                               'lidar_frame_id': None}
-    with SensorLog(log_path) as log:
-        types = {t.name: t.msgtype for t in log.topics()}
+    with SensorLog(log_path) as probe:
+        types = {t.name: t.msgtype for t in probe.topics()}
+    decoder = None
+    if types.get(driver.lidar_topic) == velodyne.VELODYNE_SCAN:
+        decoder = velodyne.Decoder.from_settings(velodyne_settings)
+        result['velodyne_calibration'] = str(decoder.calibration_path)
+    with SensorLog(log_path, velodyne=decoder) as log:
         for topic, expected in ((driver.lidar_topic, POINT_CLOUD2), (driver.imu_topic, IMU)):
-            if types.get(topic) != expected:
-                raise KeyError(f'{topic}: not a {expected} topic of {log_path}')
+            if types.get(topic) != expected and not (
+                    topic == driver.lidar_topic and decoder is not None):
+                raise KeyError(f'{topic}: not a {expected} topic of {log_path}'
+                               + (f' (or {velodyne.VELODYNE_SCAN})'
+                                  if topic == driver.lidar_topic else ''))
         passthrough = {topic: handler for topic, handler in (passthrough or {}).items()
                        if topic in types and topic not in (driver.lidar_topic, driver.imu_topic)}
         start_ns = None
