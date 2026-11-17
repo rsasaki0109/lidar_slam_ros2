@@ -1,0 +1,42 @@
+ROS-free core, M7 step c: Velodyne packet input without ROS 2 (the core engine)
+Preregistered 2026-11-17, before the code exists and before any run below. Scope chosen by the
+maintainer: the packet decoding only. The classic packet_applanix_smoke profile (NDT scanmatcher)
+stays a ROS 2 profile.
+
+What changes
+- The decoding of velodyne_msgs/VelodyneScan into PointCloud2 (velodyne_pointcloud's RawData,
+  Calibration and the unorganized XYZIRT container, as velodyne_transform_node runs them with
+  organize_cloud false and no fixed or target frame) is vendored, without ROS, into lidarslam_core
+  at the upstream revision the July Leo Drive evidence used: ros-drivers/velodyne 56fc178d
+  (BSD-3-Clause, notice kept).
+- The package decodes a VelodyneScan LiDAR topic as it reads the sensor log, so the RKO-LIO
+  odometry, `lidarslam map` and `lidarslam-map run|start --engine core` take a packet bag
+  directly, with the model, calibration and range limits of velodyne_transform_node (defaults:
+  the parameters the Leo Drive benchmark passes: min_range 0.9, max_range 200.0,
+  view_direction 0.0, the model's calibration file from velodyne_pointcloud).
+- Nothing changes for PointCloud2 input (every existing profile).
+
+Checks without ground truth (must hold; a failure is a bug to fix, not a result)
+P1. Decoder identity. Leo Drive all-sensors-bag1 (public Autoware recording, 36.5 s), the three
+    VelodyneScan streams (front, left, right; VLP-16, VLP16db.yaml, the benchmark's parameters):
+    every scan decoded by the package equals the PointCloud2 velodyne_transform_node publishes
+    (overlay built from 56fc178d, diagnostics 81b53fad, angles a96224f9, Jazzy) for the same
+    VelodyneScan: header stamp and frame_id, height, width, fields, is_bigendian, point_step,
+    row_step, is_dense and the data bytes. The node's clouds are recorded with its input played
+    slowly enough that none is dropped (the count of recorded clouds must equal the count of
+    VelodyneScan messages, else the reference is redone).
+P2. Odometry identity. RKO-LIO in the package on the front packets + /sensing/imu/imu_data gives
+    the same trajectory bytes as RKO-LIO in the package on the P1 reference clouds (the node's
+    PointCloud2 written into a bag with the same IMU). With P1 this ties the packet path to the
+    PointCloud2 path, which M3 tied to the ROS 2 node.
+P3. PointCloud2 input unchanged: the M5/M6 HILTI exp14 core run gives the same data files.
+
+Report only (no threshold; the classic profile's 1.50 m gate is for a different pipeline)
+- `lidarslam-map run --engine core` on bag1 (front packets, IMU, extrinsics from /tf_static):
+  completion, map verifier, diagnosis; trajectory against the Applanix GSOF49 reference of the
+  same recording (cross-validation, as leo_drive_applanix_velodyne_cross), time and peak memory.
+- Decoding time per scan, package vs node.
+
+Decision
+- ACCEPT if P1, P2 and P3 hold. Otherwise the step is not done: find and fix the difference;
+  no tolerance is introduced for P1 or P2.

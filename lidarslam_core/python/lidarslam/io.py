@@ -8,6 +8,8 @@ core's plain types, which mirror the ROS 2 messages field for field:
 * ``sensor_msgs/msg/Imu`` -> :class:`lidarslam._core.ImuSample`
 * ``sensor_msgs/msg/NavSatFix`` -> :class:`lidarslam._core.NavSatFix`
 * ``nav_msgs/msg/Odometry`` -> :class:`lidarslam._core.Odometry`
+* ``velodyne_msgs/msg/VelodyneScan`` -> :class:`lidarslam._core.PackedCloud`, decoded by the
+  :class:`lidarslam.velodyne.Decoder` given to :class:`SensorLog` (as velodyne_transform_node)
 """
 
 from __future__ import annotations
@@ -20,12 +22,13 @@ from rosbags.highlevel import AnyReader
 from rosbags.typesys import Stores, get_typestore
 
 from lidarslam import _core
+from lidarslam.velodyne import VELODYNE_SCAN, register_types as _register_velodyne_types
 
 POINT_CLOUD2 = 'sensor_msgs/msg/PointCloud2'
 IMU = 'sensor_msgs/msg/Imu'
 NAV_SAT_FIX = 'sensor_msgs/msg/NavSatFix'
 ODOMETRY = 'nav_msgs/msg/Odometry'
-SUPPORTED_TYPES = (POINT_CLOUD2, IMU, NAV_SAT_FIX, ODOMETRY)
+SUPPORTED_TYPES = (POINT_CLOUD2, IMU, NAV_SAT_FIX, ODOMETRY, VELODYNE_SCAN)
 
 
 @dataclass(frozen=True)
@@ -39,7 +42,7 @@ class TopicInfo:
 class Record:
     topic: str
     log_time_ns: int
-    message: Any  # PackedCloud, ImuSample, NavSatFix or Odometry
+    message: Any  # PackedCloud (also for a decoded VelodyneScan), ImuSample, NavSatFix or Odometry
 
 
 def _header(src: Any) -> _core.Header:
@@ -121,12 +124,17 @@ _CONVERTERS = {
 class SensorLog:
     """A recorded sensor log (rosbag2 directory or ROS 1 bag), opened without ROS 2."""
 
-    def __init__(self, path: str | Path):
+    def __init__(self, path: str | Path, velodyne: Any = None):
+        """``velodyne``: a :class:`lidarslam.velodyne.Decoder` for VelodyneScan topics."""
         self.path = Path(path)
         if not self.path.exists():
             raise FileNotFoundError(self.path)
-        self._reader = AnyReader(
-            [self.path], default_typestore=get_typestore(Stores.LATEST))
+        typestore = get_typestore(Stores.LATEST)
+        _register_velodyne_types(typestore)
+        self._reader = AnyReader([self.path], default_typestore=typestore)
+        self._converters = dict(_CONVERTERS)
+        if velodyne is not None:
+            self._converters[VELODYNE_SCAN] = velodyne.decode
 
     def __enter__(self) -> 'SensorLog':
         self._reader.open()
@@ -146,14 +154,15 @@ class SensorLog:
         wanted = set(topics) if topics is not None else None
         connections = [
             c for c in self._reader.connections
-            if c.msgtype in _CONVERTERS and (wanted is None or c.topic in wanted)
+            if c.msgtype in self._converters and (wanted is None or c.topic in wanted)
         ]
         if wanted is not None:
             missing = wanted - {c.topic for c in connections}
             if missing:
                 raise KeyError(
-                    f'not in the log or not a supported type ({", ".join(SUPPORTED_TYPES)}): '
-                    f'{sorted(missing)}')
+                    f'not in the log or not a supported type ({", ".join(SUPPORTED_TYPES)}; '
+                    f'{VELODYNE_SCAN} with a Velodyne decoder): {sorted(missing)}')
         for connection, log_time_ns, raw in self._reader.messages(connections=connections):
             msg = self._reader.deserialize(raw, connection.msgtype)
-            yield Record(connection.topic, int(log_time_ns), _CONVERTERS[connection.msgtype](msg))
+            yield Record(connection.topic, int(log_time_ns),
+                         self._converters[connection.msgtype](msg))

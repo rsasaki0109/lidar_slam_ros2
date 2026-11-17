@@ -285,6 +285,21 @@ if(LIDARSLAM_CORE_BUILD_PYTHON)
   find_package(pybind11 CONFIG REQUIRED)
   pybind11_add_module(_core ${CMAKE_CURRENT_SOURCE_DIR}/src/python_module.cpp)
   target_link_libraries(_core PRIVATE lidarslam_core_messages)
+  # velodyne_msgs/VelodyneScan decoding (velodyne_pointcloud 56fc178d, BSD-3-Clause, vendored).
+  add_library(lidarslam_velodyne_decoder STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/velodyne_pointcloud/src/rawdata.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/velodyne_pointcloud/src/calibration.cpp)
+  target_include_directories(lidarslam_velodyne_decoder PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/velodyne_pointcloud/include)
+  set_property(TARGET lidarslam_velodyne_decoder PROPERTY POSITION_INDEPENDENT_CODE ON)
+  target_compile_features(lidarslam_velodyne_decoder PRIVATE cxx_std_17)
+  target_sources(_core PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/python_velodyne.cpp)
+  target_link_libraries(_core PRIVATE lidarslam_velodyne_decoder)
+  # The model calibrations and the licence of velodyne_pointcloud go with the package.
+  install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/third_party/velodyne_pointcloud/params/
+    DESTINATION lidarslam/velodyne FILES_MATCHING PATTERN "*.yaml")
+  install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/third_party/velodyne_pointcloud/LICENSE
+    DESTINATION lidarslam/velodyne)
   # A Python extension leaves the interpreter's symbols undefined; drop the directory's
   # -Wl,--no-undefined for this one target.
   set_property(TARGET _core PROPERTY LINK_OPTIONS "")

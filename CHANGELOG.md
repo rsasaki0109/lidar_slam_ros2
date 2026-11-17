@@ -15,6 +15,15 @@ latest published release.
   unchanged. With `use_gnss` false every output is byte-identical. On RTK-SLAM
   Stadtgarten 2 and 1 the core engine gives 0.100 m and 0.067 m absolute
   (the live ROS 2 path: 0.100 m and 0.068 m).
+- Velodyne packets without ROS 2: the `lidarslam` package decodes
+  `velodyne_msgs/msg/VelodyneScan` with velodyne_pointcloud's decoder
+  (ros-drivers/velodyne 56fc178d, BSD-3-Clause, vendored), so
+  `python -m lidarslam odometry|map` and `lidarslam.io.SensorLog` read packet
+  bags directly (`velodyne.*` parameters; the model calibrations ship with the
+  package). On Leo Drive all-sensors-bag1 every scan of the three streams is
+  byte-identical to velodyne_transform_node's cloud (1,093 of 1,093).
+  `lidarslam-map run|start` still takes packet bags only through the ROS 2
+  `packet_applanix_smoke` profile.
 
 ### Fixed
 
