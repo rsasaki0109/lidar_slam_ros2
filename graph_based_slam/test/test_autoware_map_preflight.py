@@ -57,6 +57,15 @@ def _load_module():
     return module
 
 
+def _load_product_profiles():
+    path = REPO_ROOT / 'scripts' / 'product_profiles.py'
+    spec = importlib.util.spec_from_file_location('product_profiles_under_test', path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def test_product_reader_logging_hides_info_but_keeps_warnings(
     monkeypatch,
     capfd,
@@ -945,6 +954,69 @@ def test_packet_applanix_path_is_recommended_when_packet_topics_exist(tmp_path: 
     assert payload['advisory'][0]['command'].startswith(
         'python3 scripts/inspect_applanix_gsof50_quality.py'
     )
+
+
+def test_velodyne_packets_with_imu_offer_rko_lio_on_the_core_engine(tmp_path: Path):
+    module = _load_module()
+    profiles = _load_product_profiles()
+    bag_dir = _write_metadata(
+        tmp_path,
+        [
+            ('/sensing/lidar/right/velodyne_packets', 'velodyne_msgs/msg/VelodyneScan', 365),
+            ('/sensing/lidar/front/velodyne_packets', 'velodyne_msgs/msg/VelodyneScan', 364),
+            ('/imu', 'sensor_msgs/msg/Imu', 3600),
+            ('/gsof49', 'applanix_msgs/msg/NavigationSolutionGsof49', 1500),
+        ],
+    )
+
+    payload = module.build_preflight_payload(
+        bag_dir, timestamp_inspector=_monotonic_timestamp_inspection)
+
+    by_id = {item['id']: item for item in payload['recommendations']}
+    # ROS 2 keeps its choice; RKO-LIO on the packets is below it and runs on the core engine.
+    assert payload['recommended_profile_id'] == 'packet_applanix_smoke'
+    packets = by_id['rko_lio_graph_public_path']
+    assert packets['priority'] < by_id['packet_applanix_smoke']['priority']
+    assert packets['engines'] == ['core']
+    assert packets['lidar_input'] == {
+        'topic': '/sensing/lidar/front/velodyne_packets',  # the front stream, as the benchmark
+        'msg_type': 'velodyne_msgs/msg/VelodyneScan',
+    }
+    assert profiles.select_profile(payload, None, 'ros2') == 'packet_applanix_smoke'
+    assert profiles.select_profile(payload, None, 'core') == 'rko_lio_graph_public_path'
+
+
+def test_rko_ready_pointcloud_keeps_the_pointcloud_rko_recommendation(tmp_path: Path):
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path,
+        [
+            ('/points', 'sensor_msgs/msg/PointCloud2', 100),
+            ('/packets', 'velodyne_msgs/msg/VelodyneScan', 100),
+            ('/imu', 'sensor_msgs/msg/Imu', 1000),
+        ],
+    )
+
+    payload = module.build_preflight_payload(
+        bag_dir,
+        pointcloud_inspector=_compatible_inspection,
+        timestamp_inspector=_monotonic_timestamp_inspection,
+    )
+
+    rko = [item for item in payload['recommendations']
+           if item['id'] == 'rko_lio_graph_public_path']
+    assert len(rko) == 1 and 'lidar_input' not in rko[0] and 'engines' not in rko[0]
+
+
+def test_packets_without_imu_offer_no_rko_lio(tmp_path: Path):
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path, [('/packets', 'velodyne_msgs/msg/VelodyneScan', 100)])
+
+    payload = module.build_preflight_payload(
+        bag_dir, timestamp_inspector=_monotonic_timestamp_inspection)
+
+    assert payload['recommendations'] == []
 
 
 def test_cli_json_output_matches_machine_readable_payload(tmp_path: Path):

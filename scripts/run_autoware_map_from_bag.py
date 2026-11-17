@@ -28,13 +28,17 @@ import xml.etree.ElementTree as ET
 import yaml
 
 try:
-    from product_profiles import PROFILE_HELP, PROFILE_IDS, select_profile
+    from product_profiles import (
+        PROFILE_HELP, PROFILE_IDS, recommendation_engines, select_profile,
+    )
 except ModuleNotFoundError as exc:
     if exc.name != 'product_profiles':
         raise
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     try:
-        from product_profiles import PROFILE_HELP, PROFILE_IDS, select_profile
+        from product_profiles import (
+            PROFILE_HELP, PROFILE_IDS, recommendation_engines, select_profile,
+        )
     finally:
         sys.path.pop(0)
 
@@ -351,8 +355,9 @@ def _run_guided(args: argparse.Namespace) -> int:
     return guided.main(guided_args)
 
 
-def _select_profile(payload: dict[str, object], forced_profile_id: str | None) -> str:
-    return select_profile(payload, forced_profile_id)
+def _select_profile(payload: dict[str, object], forced_profile_id: str | None,
+                    engine: str | None = None) -> str:
+    return select_profile(payload, forced_profile_id, engine)
 
 
 def build_execution_plan(
@@ -379,7 +384,7 @@ def build_execution_plan(
         pointcloud_inspector=pointcloud_inspector,
         timestamp_inspector=timestamp_inspector,
     )
-    selected_profile = _select_profile(payload, profile_id)
+    selected_profile = _select_profile(payload, profile_id, engine)
 
     recommendations = {item['id']: item for item in payload['recommendations']}
     if selected_profile not in recommendations:
@@ -388,6 +393,16 @@ def build_execution_plan(
             f'profile is not compatible with this bag: {selected_profile}. '
             f'Available profiles: {available_profiles}. '
             'Run preflight to inspect the detected topics and missing requirements.'
+        )
+    # A recommendation can name its LiDAR input (RKO-LIO on Velodyne packets) and the engines
+    # that run it (the packets are decoded by the lidarslam package only).
+    lidar_input = recommendations[selected_profile].get('lidar_input')
+    if engine == 'ros2' and 'ros2' not in recommendation_engines(
+            recommendations[selected_profile]):
+        raise ValueError(
+            f'profile {selected_profile} on this bag needs the core engine: '
+            f'{recommendations[selected_profile]["label"]}. Pass --engine core '
+            '(pip install lidarslam)'
         )
 
     summary = payload['summary']
@@ -412,7 +427,8 @@ def build_execution_plan(
             raise ValueError(f'{label} file does not exist: {path}')
 
     if selected_profile == 'rko_lio_graph_public_path':
-        pointcloud = summary['topics']['pointcloud2'][0]['name']
+        pointcloud = (lidar_input['topic'] if lidar_input
+                      else summary['topics']['pointcloud2'][0]['name'])
         imu = summary['topics']['imu'][0]['name']
         command = [
             'bash',

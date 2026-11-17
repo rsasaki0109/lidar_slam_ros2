@@ -39,11 +39,30 @@ PROFILE_HELP = tuple(
 )
 
 
+# The profiles the core engine (the lidarslam package, no ROS 2) runs.
+CORE_ENGINE_PROFILES = ('rko_lio_graph_public_path', 'rko_lio_graph_mid360_preset')
+
+
+def recommendation_engines(recommendation: dict[str, Any]) -> tuple[str, ...]:
+    """Return the engines that can run a preflight recommendation."""
+    engines = recommendation.get('engines')
+    if engines:
+        return tuple(engines)
+    if recommendation['id'] in CORE_ENGINE_PROFILES:
+        return ('ros2', 'core')
+    return ('ros2',)
+
+
 def select_profile(
     payload: dict[str, Any],
     forced_profile_id: str | None = None,
+    engine: str | None = None,
 ) -> str:
-    """Select the same maintained profile for every human and batch path."""
+    """Select the same maintained profile for every human and batch path.
+
+    ``engine`` (``ros2`` or ``core``, resolved) limits the automatic choice to the
+    recommendations that engine can run; without it the choice is the ROS 2 one.
+    """
     if forced_profile_id:
         return forced_profile_id
 
@@ -62,6 +81,15 @@ def select_profile(
     )
     if looks_like_livox and 'rko_lio_graph_mid360_preset' in recommendation_ids:
         return 'rko_lio_graph_mid360_preset'
+
+    if engine == 'core':
+        runnable = [item for item in recommendations
+                    if 'core' in recommendation_engines(item)]
+        if not runnable:
+            raise RuntimeError(
+                'no profile the core engine can run was found for this bag '
+                '(it runs RKO-LIO on PointCloud2 or Velodyne packets with an Imu)')
+        return runnable[0]['id']
 
     recommended_profile_id = payload['recommended_profile_id']
     if not recommended_profile_id:

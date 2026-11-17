@@ -27,13 +27,13 @@ from typing import Any, Sequence
 import yaml
 
 try:
-    from product_profiles import PROFILE_HELP, select_profile
+    from product_profiles import PROFILE_HELP, recommendation_engines, select_profile
 except ModuleNotFoundError as exc:
     if exc.name != 'product_profiles':
         raise
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     try:
-        from product_profiles import PROFILE_HELP, select_profile
+        from product_profiles import PROFILE_HELP, recommendation_engines, select_profile
     finally:
         sys.path.pop(0)
 
@@ -583,9 +583,18 @@ def _parameter_sources(
 def _profile_topics(
     summary: dict[str, Any],
     profile_id: str,
+    recommendation: dict[str, Any] | None = None,
 ) -> dict[str, str | None]:
-    """Resolve only the bag topics that the selected workflow consumes."""
-    spec = PROFILE_INPUTS[profile_id]
+    """Resolve only the bag topics that the selected workflow consumes.
+
+    A recommendation that names its LiDAR input (RKO-LIO on Velodyne packets) gives the LiDAR
+    topic and type.
+    """
+    spec = dict(PROFILE_INPUTS[profile_id])
+    lidar_input = (recommendation or {}).get('lidar_input')
+    if lidar_input:
+        spec['lidar_key'] = None
+        spec['lidar_type'] = lidar_input['msg_type']
 
     def select(key: str | None, *, required: bool = False) -> str | None:
         records = summary['topics'].get(key, []) if key else []
@@ -599,7 +608,8 @@ def _profile_topics(
         return None
 
     return {
-        'lidar': select(spec['lidar_key'], required=True),
+        'lidar': (lidar_input['topic'] if lidar_input
+                  else select(spec['lidar_key'], required=True)),
         'lidar_type': spec['lidar_type'],
         'imu': select(
             spec['imu_key'],
@@ -748,6 +758,7 @@ def _review_payload(
     payload: dict[str, Any],
     transforms: dict[str, list[float]],
     args: argparse.Namespace,
+    lidar_topic: str | None = None,
 ) -> dict[str, Any]:
     subcommand = 'start' if args.run_now else 'setup'
     rerun = [
@@ -760,6 +771,8 @@ def _review_payload(
         str(output_dir),
     ]
     rerun.append('--yes' if args.run_now else '--accept-profile-extrinsics')
+    if getattr(args, 'engine', 'auto') != 'auto':
+        rerun.extend(['--engine', args.engine])
     if args.motion != 'wheeled':
         rerun.extend(['--motion', args.motion])
     if args.map_output_dir:
@@ -785,7 +798,7 @@ def _review_payload(
         'bag_path': str(bag_path),
         'profile': {'id': profile_id, 'label': label},
         'detected': {
-            'lidar_topic': summary['topics']['pointcloud2'][0]['name'],
+            'lidar_topic': lidar_topic or summary['topics']['pointcloud2'][0]['name'],
             'imu_topic': summary['topics']['imu'][0]['name'],
             'point_timestamp_field': summary['pointcloud_inspection'][
                 'timestamp_field'
@@ -1064,7 +1077,17 @@ def generate(
             ),
             next_command=doctor_command,
         )
-    profile_id = select_profile(payload, args.profile)
+    engine = _resolve_engine(getattr(args, 'engine', 'auto'))
+    try:
+        profile_id = select_profile(payload, args.profile, engine)
+    except RuntimeError as exc:
+        return _not_ready_payload(
+            bag_path=bag_path,
+            payload=payload,
+            code='no-maintained-profile',
+            message=str(exc),
+            next_command=doctor_command,
+        )
     if profile_id not in SETUP_PROFILE_IDS:
         raise ValueError(
             f'profile has no maintained sensor setup contract: {profile_id}'
@@ -1094,8 +1117,29 @@ def generate(
             }],
             next_command=doctor_command,
         )
+    recommendation = recommendations[profile_id]
+    needs_core = 'ros2' not in recommendation_engines(recommendation)
+    if needs_core and engine != 'core':
+        # Only start takes --engine, so the retry is the one-command start on the core engine.
+        retry = [_product_command(), 'start', str(bag_path), '--engine', 'core']
+        message = (
+            f'{recommendation["label"]}: this input is read by the lidarslam package (core '
+            'engine) only. Pass --engine core.'
+        )
+        return _not_ready_payload(
+            bag_path=bag_path,
+            payload=payload,
+            code='profile-needs-core-engine',
+            message=message,
+            findings=[{
+                'code': 'profile-needs-core-engine',
+                'message': message,
+                'next_action': shlex.join(retry),
+            }],
+            next_command=doctor_command,
+        )
     _validate_profile_options(profile_id, args)
-    label = recommendations[profile_id]['label']
+    label = recommendation['label']
     output_dir = (
         Path(args.output_dir).expanduser().resolve()
         if args.output_dir
@@ -1133,6 +1177,7 @@ def generate(
                 payload=payload,
                 transforms=profile_transforms,
                 args=args,
+                lidar_topic=(recommendation.get('lidar_input') or {}).get('topic'),
             )
     if output_dir.exists():
         raise ValueError(
@@ -1142,7 +1187,7 @@ def generate(
         )
 
     summary = payload['summary']
-    topics = _profile_topics(summary, profile_id)
+    topics = _profile_topics(summary, profile_id, recommendation)
     if topics['lidar_type'] == 'sensor_msgs/msg/PointCloud2':
         lidar_frame, lidar_frame_source = _selected_frame(
             payload,
@@ -1150,6 +1195,10 @@ def generate(
             args.lidar_frame,
             'lidar',
         )
+    elif needs_core:
+        # Velodyne packets: the odometry takes the frame of the scans unless one is given.
+        lidar_frame, lidar_frame_source = (
+            (args.lidar_frame, 'cli_override') if args.lidar_frame else (None, 'scan_header'))
     else:
         lidar_frame, lidar_frame_source = None, 'not_applicable'
     if topics['imu'] is not None:
@@ -1204,8 +1253,7 @@ def generate(
                 str(final_destinations[1]),
                 '--base-frame',
                 args.base_frame,
-                '--lidar-frame',
-                lidar_frame,
+                *(['--lidar-frame', lidar_frame] if lidar_frame else []),
                 '--imu-frame',
                 imu_frame,
             ])
@@ -1223,6 +1271,8 @@ def generate(
                     'sha256': _sha256(temporary),
                 })
 
+        if needs_core and getattr(args, 'engine', 'auto') == 'auto':
+            command.extend(['--engine', 'core'])
         if args.run_now:
             if args.editable:
                 command.append('--editable')

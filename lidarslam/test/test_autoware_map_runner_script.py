@@ -2126,6 +2126,41 @@ def test_core_engine_refuses_profiles_that_need_ros(tmp_path: Path):
         )
 
 
+def test_core_engine_maps_velodyne_packets_with_rko_lio(tmp_path: Path):
+    """A packet bag with an Imu runs RKO-LIO on the packets with the core engine only."""
+    module = _load_module()
+    bag_dir = _write_metadata(
+        tmp_path,
+        'packet_bag',
+        [
+            ('/sensing/lidar/front/velodyne_packets', 'velodyne_msgs/msg/VelodyneScan', 30),
+            ('/imu', 'sensor_msgs/msg/Imu', 300),
+            ('/gsof49', 'applanix_msgs/msg/NavigationSolutionGsof49', 300),
+        ],
+    )
+    output_dir = tmp_path / 'out.partial'
+    common = {
+        'bag_path': bag_dir,
+        'output_dir': output_dir,
+        'verify_map': True,
+        'timestamp_inspector': _monotonic_timestamp_inspection,
+    }
+
+    plan = module.build_execution_plan(profile_id=None, engine='core', **common)
+    command = plan['command']
+    assert plan['profile_id'] == 'rko_lio_graph_public_path'
+    assert command[1] == str(REPO_ROOT / 'scripts' / 'run_rko_lio_graph_core.py')
+    assert command[command.index('--lidar-topic') + 1] == (
+        '/sensing/lidar/front/velodyne_packets')
+    assert command[command.index('--imu-topic') + 1] == '/imu'
+
+    # ROS 2 keeps the classic packet profile and refuses RKO-LIO on the packets.
+    assert module.build_execution_plan(profile_id=None, **common)['profile_id'] == (
+        'packet_applanix_smoke')
+    with pytest.raises(ValueError, match='--engine core'):
+        module.build_execution_plan(profile_id='rko_lio_graph_public_path', **common)
+
+
 def test_auto_engine_prefers_ros2_and_falls_back_to_the_core(monkeypatch):
     module = _load_module()
     monkeypatch.setattr(module, 'core_engine_status', lambda: (True, 'lidarslam test'))
