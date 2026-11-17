@@ -26,7 +26,7 @@
 | See a verified map, no build | **Default if unsure:** [Docker demo](#try-it-with-docker-one-command-no-build) | Stable `v0.11.0-humble`; needs Docker; host writes stay in `./lidarslam_output`. |
 | Map my own rosbag | [Own-bag route](#map-your-own-bag-one-command-after-install): `lidarslam-map doctor /path/to/rosbag2` | Read-only diagnosis first; then `lidarslam-map start /path/to/rosbag2` writes a new output. |
 | Build from source or contribute | [Source quickstart](#build--verified-demo-from-source-one-helper): `bash scripts/source_quickstart.sh --dry-run` | Release `v0.11.0`; needs ROS 2, 8 GiB, and roughly 30 minutes. |
-| Map a bag without ROS 2 (preview) | [pip install](#without-ros-2-pip-preview): `pip install lidarslam-*.whl` (prebuilt) or `pip install ./lidarslam_core`, then `lidarslam-map start /path/to/rosbag2` | No ROS 2; the prebuilt wheel needs no apt packages (Linux x86_64/aarch64, Python 3.10-3.13). RKO-LIO profiles only (GNSS and packet input need ROS 2). |
+| Map a bag without ROS 2 (preview) | [pip install](#without-ros-2-pip-preview): `pip install lidarslam-*.whl` (prebuilt) or `pip install ./lidarslam_core`, then `lidarslam-map start /path/to/rosbag2` | No ROS 2; the prebuilt wheel needs no apt packages (Linux x86_64/aarch64, Python 3.10-3.13). RKO-LIO profiles; with `--lidarslam-param lidarslam_rtk_gnss.yaml` the map is anchored to the bag's RTK GNSS (`/gnss/fix`). The classic GNSS and packet profiles need ROS 2. |
 
 ### Try it with Docker (one command, no build)
 
@@ -95,7 +95,7 @@ python -m lidarslam backend /path/to/backend_input \
 
 `--params` takes the same parameter file as the ROS 2 RKO-LIO node (`ros__parameters` layout), with `imu_topic`, `lidar_topic`, `base_frame` and both `extrinsic_*2base_quat_xyzw_xyz` set. On HILTI exp14 the trajectory is byte-identical to the ROS 2 offline node. Visual and radar fusion still need ROS 2.
 
-`lidarslam-map` is the same product command as the ROS 2 install (`run`, `start`, `view`, `sessions`, `report`, ...). Its map engine is chosen by `--engine auto`, the default: ROS 2 when the `ros2` command is found, else the pip package (`--engine core`). With the core engine the maps of an RKO-LIO profile are byte-identical to the ROS 2 offline path, and `--join-map` / `merge --place-recognition` run the multi-session join from the package; GNSS and packet profiles still need ROS 2.
+`lidarslam-map` is the same product command as the ROS 2 install (`run`, `start`, `view`, `sessions`, `report`, ...). Its map engine is chosen by `--engine auto`, the default: ROS 2 when the `ros2` command is found, else the pip package (`--engine core`). With the core engine the maps of an RKO-LIO profile are byte-identical to the ROS 2 offline path, and `--join-map` / `merge --place-recognition` run the multi-session join from the package. A graph parameter file with `use_gnss` (e.g. `lidarslam_rtk_gnss.yaml`) anchors the map to the bag's RTK GNSS in the core engine too (RTK-SLAM Stadtgarten: 0.100 / 0.067 m absolute, as the ROS 2 path). The classic GNSS and packet profiles still need ROS 2.
 
 `backend` runs `graph_slam_offline_runner` without ROS 2 on a backend input (the frontend's odometry and deskewed clouds, `/rko_lio/odometry` and `/rko_lio/frame`): it reads the `graph_based_slam` section of the parameter files, takes `-p name:=value` overrides like ROS 2, and writes the same files as the ROS 2 runner, byte for byte on the MapsHD checks. Registration plugins loaded through pluginlib still need ROS 2; the built-in NDT, GICP and SMALL_GICP do not.
 

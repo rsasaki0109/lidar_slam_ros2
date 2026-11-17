@@ -197,9 +197,11 @@ Each milestone is one reviewable change. Outputs of the ROS 2 path stay byte-ide
    backend inputs, the ROS 2 runner and the package write the same files (51 and 44), with 98
    and 59 RTK anchors and the yaw alignment applied. Report only: against the Construction
    checkpoints the GNSS-anchored backend gives 0.248 m (seq1) and 0.166 m (seq2) absolute 3D,
-   0.05-0.06 m outdoors; indoors, without GNSS, the odometry dominates. The preregistered
-   acceptance on RTK-SLAM Stadtgarten (core engine on the raw logs against the live ROS 2 path)
-   is pending.
+   0.05-0.06 m outdoors; indoors, without GNSS, the odometry dominates. Preregistered acceptance
+   (the core engine on the raw RTK-SLAM Stadtgarten logs, `lidarslam_rtk_gnss.yaml`, against the
+   live ROS 2 path, absolute 3D with no alignment): Stadtgarten 2 0.1000 m (live 0.100 m, 19/19
+   checkpoints), Stadtgarten 1 0.0670 m (live 0.068 m, 36/36, the same 448 anchors and 6 loops):
+   ACCEPT (bench_report/data/ros_free_gnss_2026-11-17/results.md).
 
 ## Notes
 
