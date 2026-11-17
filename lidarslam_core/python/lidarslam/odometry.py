@@ -30,12 +30,15 @@ def load_parameters(path: str | Path) -> dict[str, Any]:
 
 
 def drive(log_path: str | Path, params: dict[str, Any],
-          on_output: Callable[[dict[str, Any], dict[str, Any]], None]) -> dict[str, Any]:
+          on_output: Callable[[dict[str, Any], dict[str, Any]], None],
+          passthrough: dict[str, Callable[[Any], None]] | None = None) -> dict[str, Any]:
     """Runs the odometry over a log and hands each output to ``on_output(output, state)`` in order.
 
     ``state`` (also returned) holds the driver and counters: ``{'driver', 'imu_messages',
     'lidar_messages', 'lidar_frame_id'}`` (``lidar_frame_id``: the header frame of the first LiDAR
-    message).
+    message). ``passthrough`` maps other topics of the log to a callable that gets each of their
+    messages as it is read, as the ROS 2 offline node republishes ``gnss_topic`` (topics the log
+    lacks are skipped).
     """
     params = dict(params)
     skip_to_time = float(params.pop('skip_to_time', 0.0) or 0.0)
@@ -57,11 +60,16 @@ def drive(log_path: str | Path, params: dict[str, Any],
         for topic, expected in ((driver.lidar_topic, POINT_CLOUD2), (driver.imu_topic, IMU)):
             if types.get(topic) != expected:
                 raise KeyError(f'{topic}: not a {expected} topic of {log_path}')
+        passthrough = {topic: handler for topic, handler in (passthrough or {}).items()
+                       if topic in types and topic not in (driver.lidar_topic, driver.imu_topic)}
         start_ns = None
-        for record in log.records([driver.lidar_topic, driver.imu_topic]):
+        for record in log.records([driver.lidar_topic, driver.imu_topic, *passthrough]):
             if start_ns is None:
                 start_ns = record.log_time_ns
             if record.log_time_ns < start_ns + int(skip_to_time * 1e9):
+                continue
+            if record.topic in passthrough:
+                passthrough[record.topic](record)
                 continue
             if record.topic == driver.imu_topic:
                 driver.add_imu(record.message)

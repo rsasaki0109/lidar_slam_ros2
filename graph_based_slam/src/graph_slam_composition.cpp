@@ -30,6 +30,7 @@
 #include "graph_slam_composition.hpp"
 
 #include <algorithm>
+#include <vector>
 
 namespace graphslam
 {
@@ -250,6 +251,23 @@ detail::GnssWeightingConfig makeGnssWeightingConfig(const GraphSlamConfig & conf
   result.rtk_fix_max_horizontal_stddev_m = config.gnss_rtk_fix_max_horizontal_stddev_m_;
   result.rtk_fix_weight_scale = config.gnss_rtk_fix_weight_scale_;
   result.non_rtk_weight_scale = config.gnss_non_rtk_weight_scale_;
+  return result;
+}
+
+gnss::AnchorStoreConfig makeGnssAnchorStoreConfig(const GraphSlamConfig & config)
+{
+  gnss::AnchorStoreConfig result;
+  result.weighting = makeGnssWeightingConfig(config);
+  result.origin_min_samples = config.gnss_origin_min_samples_;
+  result.origin_consistency_threshold_m = config.gnss_origin_consistency_threshold_m_;
+  result.header_stamp_max_skew_sec = config.gnss_header_stamp_max_skew_sec_;
+  result.interpolation_max_gap_sec = config.gnss_interpolation_max_gap_sec_;
+  const std::vector<double> & antenna = config.gnss_antenna_offset_xyz_;
+  result.antenna_offset = Eigen::Vector3d(antenna[0], antenna[1], antenna[2]);
+  result.robust_kernel_delta = config.gnss_robust_kernel_delta_;
+  result.align_yaw = config.gnss_align_yaw_;
+  result.yaw_alignment_min_anchors = config.gnss_yaw_alignment_min_anchors_;
+  result.yaw_alignment_min_baseline_m = config.gnss_yaw_alignment_min_baseline_m_;
   return result;
 }
 

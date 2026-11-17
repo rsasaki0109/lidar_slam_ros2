@@ -2,6 +2,12 @@
 Changelog for package graph_based_slam
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.13.0 (2026-11-17)
+-------------------
+* GNSS anchors in graph_slam_offline_runner (``use_gnss``); the live node
+  keeps its GNSS handling in the shared ``gnss_anchor_store.hpp``.
+* Contributors: Ryohei Sasaki
+
 0.12.0 (2026-11-03)
 -------------------
 * Drop the tests of the retired two-system comparison tooling; the no-map

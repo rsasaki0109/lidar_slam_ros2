@@ -3,7 +3,9 @@
 RKO-LIO (:mod:`lidarslam.odometry`) registers each LiDAR scan; its deskewed scan and odometry go,
 in memory, to the graph_based_slam offline backend (:mod:`lidarslam.backend`) as the messages the
 ROS 2 offline node publishes on ``/rko_lio/frame`` and ``/rko_lio/odometry``: the same fields,
-frames and stamps, so the backend sees what it would read from a recorded backend input.
+frames and stamps, so the backend sees what it would read from a recorded backend input. With
+the backend's ``use_gnss``, the log's NavSatFix messages of ``gnss_topic`` go to the backend as
+they are read, as the ROS 2 offline node republishes them.
 """
 
 from __future__ import annotations
@@ -14,6 +16,7 @@ from typing import Any, Callable
 import numpy as np
 
 from lidarslam import _core
+from lidarslam.io import NAV_SAT_FIX, SensorLog
 from lidarslam.odometry import drive
 
 _XYZ_FIELDS = [('x', 0), ('y', 4), ('z', 8)]
@@ -77,6 +80,7 @@ class BackendInputWriter:
             '/rko_lio/odometry', 'nav_msgs/msg/Odometry', typestore=self._ts)
         self._frame = self._writer.add_connection(
             '/rko_lio/frame', 'sensor_msgs/msg/PointCloud2', typestore=self._ts)
+        self._fix = None  # added with the first fix, so an input without GNSS has no such topic
 
     def _header(self, header: _core.Header) -> Any:
         m = self._ts.types
@@ -116,6 +120,21 @@ class BackendInputWriter:
             self._frame, time_ns, self._ts.serialize_cdr(frame, 'sensor_msgs/msg/PointCloud2'))
         self._writer.write(
             self._odom, time_ns, self._ts.serialize_cdr(odometry, 'nav_msgs/msg/Odometry'))
+
+    def write_fix(self, topic: str, fix: _core.NavSatFix, time_ns: int) -> None:
+        """A NavSatFix of the backend's gnss_topic, at its log time in the sensor log."""
+        m = self._ts.types
+        if self._fix is None:
+            self._fix = self._writer.add_connection(
+                topic, 'sensor_msgs/msg/NavSatFix', typestore=self._ts)
+        msg = m['sensor_msgs/msg/NavSatFix'](
+            header=self._header(fix.header),
+            status=m['sensor_msgs/msg/NavSatStatus'](status=fix.status, service=fix.service),
+            latitude=fix.latitude, longitude=fix.longitude, altitude=fix.altitude,
+            position_covariance=np.asarray(fix.position_covariance, dtype=np.float64),
+            position_covariance_type=fix.position_covariance_type)
+        self._writer.write(
+            self._fix, time_ns, self._ts.serialize_cdr(msg, 'sensor_msgs/msg/NavSatFix'))
 
     def close(self) -> None:
         self._writer.close()
@@ -169,8 +188,22 @@ def run(log_path: str | Path, odometry_params: dict[str, Any], backend_params: d
         pipeline.add_odometry(odom)
         frames['count'] += 1
 
+    passthrough = {}
+    gnss_fixes = {'count': 0}
+    if pipeline.uses_gnss:
+        with SensorLog(log_path) as sensor_log:
+            types = {t.name: t.msgtype for t in sensor_log.topics()}
+        if types.get(pipeline.gnss_topic) == NAV_SAT_FIX:
+            def on_fix(record: Any) -> None:
+                if recorder is not None:
+                    recorder.write_fix(pipeline.gnss_topic, record.message, record.log_time_ns)
+                pipeline.add_gnss_fix(record.message)
+                gnss_fixes['count'] += 1
+
+            passthrough[pipeline.gnss_topic] = on_fix
+
     try:
-        state = drive(log_path, odometry_params, on_output)
+        state = drive(log_path, odometry_params, on_output, passthrough)
     finally:
         if recorder is not None:
             recorder.close()
@@ -182,5 +215,6 @@ def run(log_path: str | Path, odometry_params: dict[str, Any], backend_params: d
         'frames': frames['count'],
         'imu_messages': state['imu_messages'],
         'lidar_messages': state['lidar_messages'],
+        'gnss_fixes': gnss_fixes['count'],
         'dropped_trailing_frames': state['driver'].pending_lidar_frames,
     }

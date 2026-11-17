@@ -41,9 +41,11 @@
 
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/nav_sat_fix.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 
 #include "graph_based_slam/cloud_message.hpp"
+#include "graph_based_slam/gnss_anchor_store.hpp"
 #include "graph_based_slam/offline_runtime.hpp"
 
 namespace graphslam
@@ -164,6 +166,19 @@ inline msg::PointCloud2 toPlain(sensor_msgs::msg::PointCloud2 && in)
   out.row_step = in.row_step;
   out.data = std::move(in.data);
   out.is_dense = in.is_dense;
+  return out;
+}
+
+inline gnss::Fix toPlain(const sensor_msgs::msg::NavSatFix & in)
+{
+  gnss::Fix out;
+  out.header_stamp_sec = cloud_msg::stampSeconds(in.header.stamp);
+  out.status = in.status.status;
+  out.latitude = in.latitude;
+  out.longitude = in.longitude;
+  out.altitude = in.altitude;
+  out.position_covariance = in.position_covariance;
+  out.position_covariance_type = in.position_covariance_type;
   return out;
 }
 

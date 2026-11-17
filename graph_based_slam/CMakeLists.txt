@@ -273,6 +273,15 @@ if(BUILD_TESTING)
     target_include_directories(test_gnss_anchor_matching PRIVATE include ${EIGEN3_INCLUDE_DIR})
   endif()
   ament_add_gtest(
+    test_gnss_anchor_store
+    test/test_gnss_anchor_store.cpp
+  )
+  if(TARGET test_gnss_anchor_store)
+    target_include_directories(test_gnss_anchor_store PRIVATE include ${EIGEN3_INCLUDE_DIR})
+    target_link_libraries(
+      test_gnss_anchor_store g2o::core g2o::types_slam3d g2o::solver_eigen g2o::stuff)
+  endif()
+  ament_add_gtest(
     test_gnss_origin_accumulator
     test/test_gnss_origin_accumulator.cpp
   )

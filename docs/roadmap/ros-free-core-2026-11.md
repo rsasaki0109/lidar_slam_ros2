@@ -180,6 +180,28 @@ Each milestone is one reviewable change. Outputs of the ROS 2 path stay byte-ide
    header, wrote the same 7 files on MapsHD calibration-room 2. With no ROS 2 installed or
    sourced, `lidarslam-map merge --place-recognition` of two core-engine runs of HILTI exp14
    placed the second by the join (identity) and verified the project (14.8 s, 351 MB).
+   *Step b, GNSS anchors (2026-11-17, preregistered in
+   bench_report/data/ros_free_gnss_2026-11-17/plan.txt):* the live node's GNSS path (origin from
+   the first consistent fixes, covariance weights, the stamp check against the odometry, the
+   fixes from before the first odometry, anchor matching, yaw alignment) is one ROS-free module,
+   `gnss_anchor_store.hpp`, used by the live node and the offline pipeline. With `use_gnss` (the
+   live parameter names and defaults; `lidarslam_rtk_gnss.yaml` sets it) the offline pipeline
+   (`graph_slam_offline_runner`, `lidarslam.backend`, the core engine) reads `gnss_topic` from
+   its input, anchors the final optimization with the gravity prior and the yaw alignment, and
+   gives the map bundle the GNSS projector origin; the core engine passes the sensor log's fixes
+   through as they are read, as the ROS 2 offline node republishes them, and records them in its
+   backend input. Checks: the store against the live node's previous code on the same fix and
+   odometry sequences (unit test; samples, anchors, alignment identical); with GNSS off the
+   runner and the package give the earlier bytes (MapsHD calibration-room 2, 7 files; HILTI
+   exp14 core run, 24 data files as in step M6 1); with GNSS on, on the RTK-SLAM Construction
+   backend inputs, the ROS 2 runner and the package write the same files (51 and 44), with 98
+   and 59 RTK anchors and the yaw alignment applied. Report only: against the Construction
+   checkpoints the GNSS-anchored backend gives 0.248 m (seq1) and 0.166 m (seq2) absolute 3D,
+   0.05-0.06 m outdoors; indoors, without GNSS, the odometry dominates. Preregistered acceptance
+   (the core engine on the raw RTK-SLAM Stadtgarten logs, `lidarslam_rtk_gnss.yaml`, against the
+   live ROS 2 path, absolute 3D with no alignment): Stadtgarten 2 0.1000 m (live 0.100 m, 19/19
+   checkpoints), Stadtgarten 1 0.0670 m (live 0.068 m, 36/36, the same 448 anchors and 6 loops):
+   ACCEPT (bench_report/data/ros_free_gnss_2026-11-17/results.md).
 
 ## Notes
 

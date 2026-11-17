@@ -125,7 +125,7 @@ def test_walk_around_a_room(tmp_path: Path) -> None:
     summary = run(log, params, tmp_path / 'out1', log=lambda level, msg: messages.append(
         (level, msg)))
     assert summary == {'output_dir': str(tmp_path / 'out1'), 'odometry_messages': 160,
-                       'cloud_messages': 160}
+                       'cloud_messages': 160, 'gnss_fixes': 0}
     assert any('Offline run complete: 160 pairs' in msg for _, msg in messages)
     assert not [msg for level, msg in messages if level == 'ERROR']
 

@@ -238,7 +238,7 @@ if(LIDARSLAM_CORE_BUILD_TESTS AND LIDARSLAM_CORE_BUILD_BACKEND)
   enable_testing()
   find_package(GTest REQUIRED)
   set(LIDARSLAM_CORE_GTESTS
-    test_gnss_geometry test_gnss_anchor_matching test_gnss_origin_accumulator
+    test_gnss_geometry test_gnss_anchor_matching test_gnss_origin_accumulator test_gnss_anchor_store
     test_adjacent_edge_auto_scale test_scan_context test_solid_descriptor
     test_submap_bev_descriptor test_bev_mutual_visibility test_loop_edge_robustifier
     test_loop_search_schedule test_serialized_work_drain test_background_work_drain

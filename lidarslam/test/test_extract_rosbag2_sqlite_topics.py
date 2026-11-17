@@ -126,6 +126,30 @@ def test_selected_topics_match_sqlite(tmp_path, humble_schema, chunk):
     assert extractor.message_cells == sum(len(rows) for rows in expected.values())
 
 
+def test_message_definitions_rows_are_not_topics(tmp_path):
+    """Jazzy bags also hold message_definitions rows of the same shape as topics rows."""
+    # They share row ids with the topics (one per type) and must not replace them; a long
+    # definition spills into overflow pages and is skipped too (RTK-SLAM Stadtgarten 2).
+    db = tmp_path / 'bag_0.db3'
+    expected = make_bag(db)
+    con = sqlite3.connect(db)
+    con.execute('CREATE TABLE message_definitions(id INTEGER PRIMARY KEY, '
+                'topic_type TEXT NOT NULL, encoding TEXT NOT NULL, '
+                'encoded_message_definition TEXT NOT NULL, type_description_hash TEXT NOT NULL)')
+    for i, (_, typ) in enumerate(TOPICS, start=1):
+        definition = 'std_msgs/Header header\n' + ('float64 x\n' * (600 if i == 1 else 3))
+        con.execute('INSERT INTO message_definitions VALUES (?, ?, ?, ?, ?)',
+                    (i, typ, 'ros2msg', definition, 'RIHS01_' + '0' * 64))
+    con.commit()
+    con.execute('VACUUM')  # rewrites the file: the definitions may come before the topics
+    con.close()
+    wanted = ['/livox/points', '/gnss/fix']
+    extractor, kept = extract(db, wanted)
+    assert {v[0] for v in extractor.topics.values()} == {name for name, _ in TOPICS}
+    for topic in wanted:
+        assert kept[topic] == expected[topic], topic
+
+
 def test_local_payload_size_matches_sqlite_spill(tmp_path):
     """A row exactly at each boundary is read back intact (no off-by-one in the spill)."""
     db = tmp_path / 'edge_0.db3'

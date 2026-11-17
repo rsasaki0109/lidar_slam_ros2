@@ -48,6 +48,7 @@
 #include <string>
 
 #include "graph_based_slam/cloud_message.hpp"
+#include "graph_based_slam/gnss_anchor_store.hpp"
 #include "graph_based_slam/offline_runtime.hpp"
 
 namespace graphslam
@@ -79,6 +80,11 @@ public:
   void begin();
   void addOdometry(const msg::Odometry & odometry);
   void addCloud(msg::PointCloud2 && cloud);
+  // use_gnss: the NavSatFix messages of gnssTopic(), in recorded order with the odometry and the
+  // clouds (ignored when use_gnss is false).
+  bool usesGnss() const;
+  const std::string & gnssTopic() const;
+  void addGnssFix(const gnss::Fix & fix);
 
   // The remaining stages and all outputs. Returns false, after logging why, when the fixed loop
   // edges (fixed_loop_edges_path) cannot be loaded.
