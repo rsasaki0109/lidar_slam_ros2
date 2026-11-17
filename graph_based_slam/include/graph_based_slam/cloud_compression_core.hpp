@@ -50,6 +50,9 @@ struct BasicStoredCloud
 {
   Cloud message;  // its data is empty while `compressed` holds it
   std::vector<std::uint8_t> compressed;
+  // 0: `compressed` is lossless. Otherwise x, y and z were stored as multiples of this step
+  // (compressQuantized).
+  double quantization_step = 0.0;
 };
 
 // Whether graph_based_slam was built with zstd; without it, nothing is compressed.
@@ -67,6 +70,23 @@ bool compressPacked(
 void decompressPacked(
   const std::vector<std::uint8_t> & compressed, std::size_t points, std::size_t fields,
   std::size_t point_step, std::vector<std::uint8_t> & data);
+// Packed x, y, z (and intensity) with x, y and z rounded to multiples of `step`: each coordinate
+// as an int32 count of steps, the difference to the previous point's, zigzag-coded; intensity's
+// bits unchanged; then compressPacked. False, leaving `compressed` empty, when a coordinate is not
+// finite or 2^30 steps or more from 0, or as compressPacked.
+bool compressQuantized(
+  const std::vector<std::uint8_t> & data, std::size_t points, std::size_t fields, double step,
+  std::vector<std::uint8_t> & compressed);
+// The inverse of compressQuantized: x, y and z within step / 2 (plus float rounding).
+void decompressQuantized(
+  const std::vector<std::uint8_t> & compressed, std::size_t points, std::size_t fields,
+  std::size_t point_step, double step, std::vector<std::uint8_t> & data);
+// The step for a maximum error: 2 x max_error, less 0.1 % so that float rounding of a restored
+// coordinate stays inside the bound.
+inline double quantizationStep(double max_error)
+{
+  return 2.0 * max_error * 0.999;
+}
 }  // namespace detail
 
 // Keeps the message, its data compressed when the message is packed (isPackedForPointXYZI) and has
@@ -86,12 +106,43 @@ BasicStoredCloud<Cloud> store(Cloud message)
   return cloud;
 }
 
+// Keeps the message like store(), but with max_error > 0 its x, y and z within max_error metres
+// (submap_cloud_max_error_m): a much smaller store, no longer lossless. A message that cannot be
+// quantized (a non-finite or very large coordinate) is stored losslessly.
+template<typename Cloud>
+BasicStoredCloud<Cloud> store(Cloud message, double max_error)
+{
+  if (!(max_error > 0.0) || message.data.empty() ||
+    !pointcloud_conversion::isPackedForPointXYZI(message))
+  {
+    return store(std::move(message));
+  }
+  BasicStoredCloud<Cloud> cloud;
+  const double step = detail::quantizationStep(max_error);
+  if (!detail::compressQuantized(
+      message.data, static_cast<std::size_t>(message.width) * message.height,
+      message.fields.size(), step, cloud.compressed))
+  {
+    return store(std::move(message));
+  }
+  cloud.quantization_step = step;
+  std::vector<std::uint8_t>().swap(message.data);
+  cloud.message = std::move(message);
+  return cloud;
+}
+
 // The message as it was stored, its data restored.
 template<typename Cloud>
 Cloud restore(const BasicStoredCloud<Cloud> & cloud)
 {
   Cloud message = cloud.message;
   if (cloud.compressed.empty()) {
+    return message;
+  }
+  if (cloud.quantization_step > 0.0) {
+    detail::decompressQuantized(
+      cloud.compressed, static_cast<std::size_t>(message.width) * message.height,
+      message.fields.size(), message.point_step, cloud.quantization_step, message.data);
     return message;
   }
   detail::decompressPacked(

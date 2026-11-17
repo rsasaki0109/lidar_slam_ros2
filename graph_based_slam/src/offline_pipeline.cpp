@@ -133,17 +133,22 @@ struct SubmapCloudStats
   std::size_t restored = 0U;
   double store_sec = 0.0;
   double restore_sec = 0.0;
+  std::size_t quantized = 0U;  // clouds kept with submap_cloud_max_error_m
 };
 
 // Keeps `message` (the scan the submap's PCL cloud was converted from) the way
 // the live node does: only what the conversion reads, compressed.
+// With max_error > 0 (submap_cloud_max_error_m) x, y and z are kept within max_error metres.
 std::shared_ptr<const StoredCloud> storeSubmapCloud(
-  graphslam::msg::PointCloud2 message, SubmapCloudStats & stats)
+  graphslam::msg::PointCloud2 message, double max_error, SubmapCloudStats & stats)
 {
   const auto start = std::chrono::steady_clock::now();
   graphslam::pointcloud_conversion::packForPointXYZI(message);
   auto stored = std::make_shared<const StoredCloud>(
-    graphslam::cloud_compression::store(std::move(message)));
+    graphslam::cloud_compression::store(std::move(message), max_error));
+  if (stored->quantization_step > 0.0) {
+    ++stats.quantized;
+  }
   stats.stored_bytes += graphslam::cloud_compression::storedBytes(*stored);
   stats.store_sec +=
     std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
@@ -455,6 +460,12 @@ struct RunnerConfig
   // component's background thread does; a correction takes effect once the worker, started no
   // earlier than its submap's stamp, has spent the measured wall time on them (data time).
   bool causal_trajectory_output = false;
+
+  // Each submap's scan is kept compressed (cloud_compression). 0: losslessly, so every output is
+  // the same as with the scans kept as they are. > 0: x, y and z within this many metres, in about
+  // 0.3-0.45 x the bytes (0.001-0.005 m on six recorded runs,
+  // bench_report/data/sz3_cloud_store_2026-11-17); outputs then differ slightly.
+  double submap_cloud_max_error_m = 0.0;
 };
 
 // Reads the bag and output locations and the registration and submap
@@ -1227,6 +1238,8 @@ void readPoseGraphConfig(const RunnerParameters & node, RunnerConfig & config)
 
   // See RunnerConfig::causal_trajectory_output.
   node.get_parameter_or("causal_trajectory_output", config.causal_trajectory_output, false);
+  // See RunnerConfig::submap_cloud_max_error_m.
+  node.get_parameter_or("submap_cloud_max_error_m", config.submap_cloud_max_error_m, 0.0);
 }
 
 // The resolver and session are shell-owned.  Declaration order is
@@ -1666,6 +1679,13 @@ struct BagPass
       "%zu restored in %.3f s",
       bag.cloud_stats.stored_bytes / 1048576.0, bag.cloud_stats.pcl_bytes / 1048576.0,
       bag.cloud_stats.store_sec, bag.cloud_stats.restored, bag.cloud_stats.restore_sec);
+    if (config.submap_cloud_max_error_m > 0.0) {
+      GRAPHSLAM_LOG_INFO(
+        logger,
+        "Submap clouds within %.4f m (submap_cloud_max_error_m): %zu of %zu, %zu bytes stored",
+        config.submap_cloud_max_error_m, bag.cloud_stats.quantized, bag.records.size(),
+        bag.cloud_stats.stored_bytes);
+    }
     if (config.causal_trajectory_output) {
       causal_tum.close();
       GRAPHSLAM_LOG_INFO(
@@ -1740,7 +1760,8 @@ struct BagPass
       record.stamp_sec = graphslam::cloud_msg::stampSeconds(odom.header.stamp);
       record.odometry_covariance = odom.pose.covariance;
       record.cloud = scan_cloud;
-      record.stored_cloud = storeSubmapCloud(cloud_msg, bag.cloud_stats);
+      record.stored_cloud = storeSubmapCloud(
+        cloud_msg, config.submap_cloud_max_error_m, bag.cloud_stats);
       bag.cloud_stats.pcl_bytes += scan_cloud->size() * sizeof(pcl::PointXYZI);
       bag.records.push_back(record);
       // Only the latest search_submap_num submaps keep their PCL cloud.

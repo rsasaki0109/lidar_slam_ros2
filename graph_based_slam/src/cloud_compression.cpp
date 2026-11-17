@@ -29,6 +29,7 @@
 
 #include "graph_based_slam/cloud_compression_core.hpp"
 
+#include <cmath>
 #include <cstddef>
 #include <cstring>
 #include <stdexcept>
@@ -155,6 +156,61 @@ void decompressPacked(
   (void)data;
   throw std::runtime_error("cloud_compression: built without zstd");
 #endif
+}
+
+bool compressQuantized(
+  const std::vector<std::uint8_t> & data, std::size_t points, std::size_t fields, double step,
+  std::vector<std::uint8_t> & compressed)
+{
+  compressed.clear();
+  if (fields < 3 || !(step > 0.0) || data.size() != points * fields * sizeof(float)) {
+    return false;
+  }
+  std::vector<std::uint8_t> coded(data);
+  // |steps| < 2^30 keeps every difference within int32, so its zigzag code fits 32 bits (with a
+  // 2 mm step: coordinates within 2,000 km).
+  constexpr double kMax = static_cast<double>(1 << 30);
+  for (std::size_t k = 0; k < 3; ++k) {
+    std::int64_t previous = 0;
+    for (std::size_t i = 0; i < points; ++i) {
+      float value;
+      std::memcpy(&value, data.data() + (i * fields + k) * sizeof(value), sizeof(value));
+      const double steps = static_cast<double>(value) / step;
+      if (!std::isfinite(steps) || std::fabs(steps) >= kMax) {
+        return false;
+      }
+      const std::int64_t q = std::llround(steps);
+      const std::int64_t delta = q - previous;
+      previous = q;
+      const std::uint32_t zigzag = static_cast<std::uint32_t>(
+        (static_cast<std::uint64_t>(delta) << 1) ^ static_cast<std::uint64_t>(delta >> 63));
+      std::memcpy(coded.data() + (i * fields + k) * sizeof(zigzag), &zigzag, sizeof(zigzag));
+    }
+  }
+  if (!compressPacked(coded, points, fields, compressed)) {
+    compressed.clear();
+    return false;
+  }
+  return true;
+}
+
+void decompressQuantized(
+  const std::vector<std::uint8_t> & compressed, std::size_t points, std::size_t fields,
+  std::size_t point_step, double step, std::vector<std::uint8_t> & data)
+{
+  decompressPacked(compressed, points, fields, point_step, data);
+  for (std::size_t k = 0; k < 3 && k < fields; ++k) {
+    std::int64_t q = 0;
+    for (std::size_t i = 0; i < points; ++i) {
+      std::uint32_t zigzag;
+      std::memcpy(&zigzag, data.data() + (i * fields + k) * sizeof(zigzag), sizeof(zigzag));
+      const std::int64_t delta = static_cast<std::int64_t>(zigzag >> 1) ^
+        -static_cast<std::int64_t>(zigzag & 1U);
+      q += delta;
+      const float value = static_cast<float>(static_cast<double>(q) * step);
+      std::memcpy(data.data() + (i * fields + k) * sizeof(value), &value, sizeof(value));
+    }
+  }
 }
 
 }  // namespace detail

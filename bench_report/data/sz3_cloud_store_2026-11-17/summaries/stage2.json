@@ -1,0 +1,582 @@
+{
+ "T1": {
+  "d1/none": {
+   "files": 6,
+   "identical": true
+  },
+  "d1/0.0": {
+   "files": 6,
+   "identical": true
+  },
+  "d3/none": {
+   "files": 6,
+   "identical": true
+  },
+  "d3/0.0": {
+   "files": 6,
+   "identical": true
+  }
+ },
+ "T2": {
+  "d1": {
+   "lossless": {
+    "loops": 0,
+    "stored_mib": 2.8,
+    "stored_bytes": null,
+    "quantized": null,
+    "rss_mb": 72.19140625,
+    "wall_s": 1.81
+   },
+   "0.001": {
+    "opt": {
+     "matched": 66,
+     "only_a": 0,
+     "only_b": 0,
+     "pos_rms": 0.0,
+     "pos_max": 0.0,
+     "rot_max_deg": 2.4148365394514667e-06
+    },
+    "refined": {
+     "matched": 66,
+     "only_a": 0,
+     "only_b": 0,
+     "pos_rms": 0.0007526507202748406,
+     "pos_max": 0.0023202108609500518,
+     "rot_max_deg": 0.0310057643887104
+    },
+    "loops": 0,
+    "stored_mib": 1.1,
+    "stored_bytes": 1138060,
+    "quantized": "66/66",
+    "rss_mb": 71.78515625,
+    "wall_s": 1.82,
+    "bytes_ratio": 0.3876209259033203,
+    "pass": {
+     "a": true,
+     "b": true,
+     "c": true
+    }
+   },
+   "0.005": {
+    "opt": {
+     "matched": 66,
+     "only_a": 0,
+     "only_b": 0,
+     "pos_rms": 0.0,
+     "pos_max": 0.0,
+     "rot_max_deg": 2.4148365394514667e-06
+    },
+    "refined": {
+     "matched": 66,
+     "only_a": 0,
+     "only_b": 0,
+     "pos_rms": 0.0015603689291622163,
+     "pos_max": 0.003327472485116348,
+     "rot_max_deg": 0.04501148716478278
+    },
+    "loops": 0,
+    "stored_mib": 0.8,
+    "stored_bytes": 850605,
+    "quantized": "66/66",
+    "rss_mb": 71.46875,
+    "wall_s": 1.83,
+    "bytes_ratio": 0.28971433639526367,
+    "pass": {
+     "a": true,
+     "b": true,
+     "c": true
+    }
+   }
+  },
+  "d2": {
+   "lossless": {
+    "loops": 0,
+    "stored_mib": 6.9,
+    "stored_bytes": null,
+    "quantized": null,
+    "rss_mb": 98.9921875,
+    "wall_s": 11.77
+   },
+   "0.001": {
+    "opt": {
+     "matched": 116,
+     "only_a": 0,
+     "only_b": 0,
+     "pos_rms": 0.0,
+     "pos_max": 0.0,
+     "rot_max_deg": 2.9575586669421963e-06
+    },
+    "refined": {
+     "matched": 116,
+     "only_a": 0,
+     "only_b": 0,
+     "pos_rms": 0.0009582109936806326,
+     "pos_max": 0.003201428430242663,
+     "rot_max_deg": 0.01864329999863838
+    },
+    "loops": 0,
+    "stored_mib": 2.8,
+    "stored_bytes": 2886470,
+    "quantized": "116/116",
+    "rss_mb": 98.1171875,
+    "wall_s": 11.39,
+    "bytes_ratio": 0.3989496092865432,
+    "pass": {
+     "a": true,
+     "b": true,
+     "c": true
+    }
+   },
+   "0.005": {
+    "opt": {
+     "matched": 116,
+     "only_a": 0,
+     "only_b": 0,
+     "pos_rms": 0.0,
+     "pos_max": 0.0,
+     "rot_max_deg": 2.9575586669421963e-06
+    },
+    "refined": {
+     "matched": 116,
+     "only_a": 0,
+     "only_b": 0,
+     "pos_rms": 0.004690420238452799,
+     "pos_max": 0.008537244835275199,
+     "rot_max_deg": 0.024893958398758194
+    },
+    "loops": 0,
+    "stored_mib": 2.1,
+    "stored_bytes": 2170397,
+    "quantized": "116/116",
+    "rss_mb": 96.4921875,
+    "wall_s": 10.66,
+    "bytes_ratio": 0.299978532652924,
+    "pass": {
+     "a": true,
+     "b": true,
+     "c": true
+    }
+   }
+  },
+  "d3": {
+   "lossless": {
+    "loops": 0,
+    "stored_mib": 5.6,
+    "stored_bytes": null,
+    "quantized": null,
+    "rss_mb": 104.57421875,
+    "wall_s": 1.64
+   },
+   "0.001": {
+    "opt": {
+     "matched": 39,
+     "only_a": 0,
+     "only_b": 0,
+     "pos_rms": 0.0,
+     "pos_max": 0.0,
+     "rot_max_deg": 1.7075472925031877e-06
+    },
+    "refined": {
+     "matched": 39,
+     "only_a": 0,
+     "only_b": 0,
+     "pos_rms": 0.03330251390218514,
+     "pos_max": 0.075220463827085,
+     "rot_max_deg": 0.3445186600725234
+    },
+    "loops": 0,
+    "stored_mib": 2.5,
+    "stored_bytes": 2580075,
+    "quantized": "39/39",
+    "rss_mb": 104.0859375,
+    "wall_s": 1.59,
+    "bytes_ratio": 0.4393841539110456,
+    "pass": {
+     "a": true,
+     "b": true,
+     "c": true
+    }
+   },
+   "0.005": {
+    "opt": {
+     "matched": 39,
+     "only_a": 0,
+     "only_b": 0,
+     "pos_rms": 0.0,
+     "pos_max": 0.0,
+     "rot_max_deg": 1.7075472925031877e-06
+    },
+    "refined": {
+     "matched": 39,
+     "only_a": 0,
+     "only_b": 0,
+     "pos_rms": 0.04395944844004581,
+     "pos_max": 0.09250866344354133,
+     "rot_max_deg": 0.51106851357483
+    },
+    "loops": 0,
+    "stored_mib": 1.9,
+    "stored_bytes": 2028658,
+    "quantized": "39/39",
+    "rss_mb": 102.53125,
+    "wall_s": 1.5,
+    "bytes_ratio": 0.3454783984592983,
+    "pass": {
+     "a": true,
+     "b": true,
+     "c": true
+    }
+   }
+  },
+  "d4": {
+   "lossless": {
+    "loops": 0,
+    "stored_mib": 24.6,
+    "stored_bytes": null,
+    "quantized": null,
+    "rss_mb": 180.5703125,
+    "wall_s": 21.78
+   },
+   "0.001": {
+    "opt": {
+     "matched": 266,
+     "only_a": 0,
+     "only_b": 0,
+     "pos_rms": 0.0,
+     "pos_max": 0.0,
+     "rot_max_deg": 2.4148365394514667e-06
+    },
+    "refined": {
+     "matched": 266,
+     "only_a": 0,
+     "only_b": 0,
+     "pos_rms": 0.005724084768604013,
+     "pos_max": 0.01698753371761095,
+     "rot_max_deg": 0.06340016173640846
+    },
+    "loops": 0,
+    "stored_mib": 10.6,
+    "stored_bytes": 11069120,
+    "quantized": "266/266",
+    "rss_mb": 179.5625,
+    "wall_s": 25.55,
+    "bytes_ratio": 0.4291193272040142,
+    "pass": {
+     "a": true,
+     "b": true,
+     "c": true
+    }
+   },
+   "0.005": {
+    "opt": {
+     "matched": 266,
+     "only_a": 0,
+     "only_b": 0,
+     "pos_rms": 0.0,
+     "pos_max": 0.0,
+     "rot_max_deg": 2.4148365394514667e-06
+    },
+    "refined": {
+     "matched": 266,
+     "only_a": 0,
+     "only_b": 0,
+     "pos_rms": 0.008635722330752799,
+     "pos_max": 0.020140606409310386,
+     "rot_max_deg": 0.077406434367392
+    },
+    "loops": 0,
+    "stored_mib": 8.1,
+    "stored_bytes": 8444580,
+    "quantized": "266/266",
+    "rss_mb": 176.40625,
+    "wall_s": 22.72,
+    "bytes_ratio": 0.32737313247308497,
+    "pass": {
+     "a": true,
+     "b": true,
+     "c": true
+    }
+   }
+  },
+  "d5": {
+   "lossless": {
+    "loops": 9,
+    "stored_mib": 30.8,
+    "stored_bytes": null,
+    "quantized": null,
+    "rss_mb": 190.0234375,
+    "wall_s": 111.47999999999999
+   },
+   "0.001": {
+    "opt": {
+     "matched": 282,
+     "only_a": 0,
+     "only_b": 0,
+     "pos_rms": 0.0008782114587030842,
+     "pos_max": 0.001550541696611929,
+     "rot_max_deg": 0.0034706821792862366
+    },
+    "refined": {
+     "matched": 282,
+     "only_a": 0,
+     "only_b": 0,
+     "pos_rms": 0.0031581252776703567,
+     "pos_max": 0.007487247792774752,
+     "rot_max_deg": 0.02518535427247539
+    },
+    "loops": 10,
+    "stored_mib": 13.2,
+    "stored_bytes": 13805698,
+    "quantized": "282/282",
+    "rss_mb": 183.265625,
+    "wall_s": 111.39,
+    "bytes_ratio": 0.42747206502146534,
+    "pass": {
+     "a": true,
+     "b": true,
+     "c": true
+    }
+   },
+   "0.005": {
+    "opt": {
+     "matched": 282,
+     "only_a": 0,
+     "only_b": 0,
+     "pos_rms": 0.0007390850099447022,
+     "pos_max": 0.002319560387306405,
+     "rot_max_deg": 0.00585379638494366
+    },
+    "refined": {
+     "matched": 282,
+     "only_a": 0,
+     "only_b": 0,
+     "pos_rms": 0.007345149135066967,
+     "pos_max": 0.018330471778191866,
+     "rot_max_deg": 0.042095348644667664
+    },
+    "loops": 9,
+    "stored_mib": 10.0,
+    "stored_bytes": 10453471,
+    "quantized": "282/282",
+    "rss_mb": 182.43359375,
+    "wall_s": 108.97,
+    "bytes_ratio": 0.3236755457791415,
+    "pass": {
+     "a": true,
+     "b": true,
+     "c": true
+    }
+   }
+  },
+  "d6": {
+   "lossless": {
+    "loops": 1,
+    "stored_mib": 29.2,
+    "stored_bytes": null,
+    "quantized": null,
+    "rss_mb": 244.9609375,
+    "wall_s": 130.35
+   },
+   "0.001": {
+    "opt": {
+     "matched": 163,
+     "only_a": 0,
+     "only_b": 0,
+     "pos_rms": 0.0010125599164645227,
+     "pos_max": 0.0015714759994775983,
+     "rot_max_deg": 0.001824294333194234
+    },
+    "refined": {
+     "matched": 163,
+     "only_a": 0,
+     "only_b": 0,
+     "pos_rms": 0.2353539154500691,
+     "pos_max": 1.303285489522004,
+     "rot_max_deg": 1.1582728266209341
+    },
+    "loops": 1,
+    "stored_mib": 12.4,
+    "stored_bytes": 13038622,
+    "quantized": "163/163",
+    "rss_mb": 236.1875,
+    "wall_s": 126.62,
+    "bytes_ratio": 0.42584242886059903,
+    "pass": {
+     "a": true,
+     "b": true,
+     "c": true
+    }
+   },
+   "0.005": {
+    "opt": {
+     "matched": 163,
+     "only_a": 0,
+     "only_b": 0,
+     "pos_rms": 0.0004372742491883252,
+     "pos_max": 0.0007288828557634446,
+     "rot_max_deg": 0.001113390234398895
+    },
+    "refined": {
+     "matched": 163,
+     "only_a": 0,
+     "only_b": 0,
+     "pos_rms": 0.21765342942551594,
+     "pos_max": 1.0180321129303718,
+     "rot_max_deg": 0.8609706771127702
+    },
+    "loops": 1,
+    "stored_mib": 9.5,
+    "stored_bytes": 9953216,
+    "quantized": "163/163",
+    "rss_mb": 229.3984375,
+    "wall_s": 125.29,
+    "bytes_ratio": 0.3250728241384846,
+    "pass": {
+     "a": true,
+     "b": true,
+     "c": true
+    }
+   }
+  },
+  "d7": {
+   "lossless": {
+    "loops": 18,
+    "stored_mib": 8.7,
+    "stored_bytes": null,
+    "quantized": null,
+    "rss_mb": 105.17578125,
+    "wall_s": 22.65
+   },
+   "0.001": {
+    "opt": {
+     "matched": 190,
+     "only_a": 0,
+     "only_b": 0,
+     "pos_rms": 0.00042310859679658383,
+     "pos_max": 0.0010032009188686557,
+     "rot_max_deg": 0.019244502466281458
+    },
+    "refined": {
+     "matched": 190,
+     "only_a": 0,
+     "only_b": 0,
+     "pos_rms": 0.0014121998795245084,
+     "pos_max": 0.004722167786782871,
+     "rot_max_deg": 0.032501639000778966
+    },
+    "loops": 18,
+    "stored_mib": 3.3,
+    "stored_bytes": 3431932,
+    "quantized": "190/190",
+    "rss_mb": 104.32421875,
+    "wall_s": 19.89,
+    "bytes_ratio": 0.37620062115548675,
+    "pass": {
+     "a": true,
+     "b": true,
+     "c": true
+    }
+   },
+   "0.005": {
+    "opt": {
+     "matched": 190,
+     "only_a": 0,
+     "only_b": 0,
+     "pos_rms": 0.0005118539122710801,
+     "pos_max": 0.0014177571327438567,
+     "rot_max_deg": 0.015468281694048555
+    },
+    "refined": {
+     "matched": 190,
+     "only_a": 0,
+     "only_b": 0,
+     "pos_rms": 0.0022057892054198323,
+     "pos_max": 0.0085652059557994,
+     "rot_max_deg": 0.06873647708527318
+    },
+    "loops": 18,
+    "stored_mib": 2.4,
+    "stored_bytes": 2555982,
+    "quantized": "190/190",
+    "rss_mb": 103.70703125,
+    "wall_s": 18.11,
+    "bytes_ratio": 0.2801809639766299,
+    "pass": {
+     "a": true,
+     "b": true,
+     "c": true
+    }
+   }
+  },
+  "d8": {
+   "lossless": {
+    "loops": 1,
+    "stored_mib": 2.8,
+    "stored_bytes": null,
+    "quantized": null,
+    "rss_mb": 81.03125,
+    "wall_s": 4.02
+   },
+   "0.001": {
+    "opt": {
+     "matched": 66,
+     "only_a": 0,
+     "only_b": 0,
+     "pos_rms": 0.00019863471983105454,
+     "pos_max": 0.0004044942958447765,
+     "rot_max_deg": 0.0017677395200914317
+    },
+    "refined": {
+     "matched": 66,
+     "only_a": 0,
+     "only_b": 0,
+     "pos_rms": 0.0009423572979325995,
+     "pos_max": 0.002414132207469684,
+     "rot_max_deg": 0.026837221326260405
+    },
+    "loops": 1,
+    "stored_mib": 1.1,
+    "stored_bytes": 1138060,
+    "quantized": "66/66",
+    "rss_mb": 79.35546875,
+    "wall_s": 3.37,
+    "bytes_ratio": 0.3876209259033203,
+    "pass": {
+     "a": true,
+     "b": true,
+     "c": true
+    }
+   },
+   "0.005": {
+    "opt": {
+     "matched": 66,
+     "only_a": 0,
+     "only_b": 0,
+     "pos_rms": 0.0001885614192638703,
+     "pos_max": 0.0003870753730295414,
+     "rot_max_deg": 0.002570018079227447
+    },
+    "refined": {
+     "matched": 66,
+     "only_a": 0,
+     "only_b": 0,
+     "pos_rms": 0.0014631062334757325,
+     "pos_max": 0.0030222283078964437,
+     "rot_max_deg": 0.04047595332198479
+    },
+    "loops": 1,
+    "stored_mib": 0.8,
+    "stored_bytes": 850605,
+    "quantized": "66/66",
+    "rss_mb": 79.06640625,
+    "wall_s": 3.72,
+    "bytes_ratio": 0.28971433639526367,
+    "pass": {
+     "a": true,
+     "b": true,
+     "c": true
+    }
+   }
+  }
+ }
+}

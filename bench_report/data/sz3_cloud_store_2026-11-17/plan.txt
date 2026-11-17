@@ -1,0 +1,51 @@
+Error-bounded lossy compression (SZ3) for the backend's stored scans: stage 1, offline measurement
+Preregistered 2026-11-17, before any measurement. Suggested by the maintainer
+(https://github.com/szcompressor/SZ3).
+
+Question
+The backend keeps every submap's scan compressed (graph_based_slam cloud_compression: x, y, z,
+intensity as float32 planes, byte-shuffled, zstd level 1; lossless, so every output is
+byte-identical). Would an error-bounded lossy store make those scans much smaller, and is SZ3
+the way to do it, or does plain quantization do as well without a new dependency?
+Stage 1 only measures sizes, times and errors offline. No product code changes. Stage 2 (an
+opt-in, default-off store with a map-accuracy check) is proposed only if the rule below says so,
+and only with the maintainer's approval.
+
+Inputs (recorded backend inputs already on this host; /rko_lio/frame PointCloud2, every 5th
+message, packed to x, y, z, intensity float32 as packForPointXYZI does)
+  D1 MapsHD calibration-room trial 2     (ms_heldout)
+  D2 MapsHD underground-garage trial 1   (ms_heldout)
+  D3 HILTI 2022 exp04                     (dev_loops/rb)
+  D4 RTK-SLAM Stadtgarten seq 2           (loops_preset)
+  D5 RTK-SLAM Construction seq 1          (ms_cons)
+  D6 GrandTour CON-1                      (ms_outdoor)
+
+Methods (each cloud compressed on its own, single thread; intensity is stored losslessly the
+current way in every method, so the methods differ only in x, y, z)
+  A  current: shuffle + zstd 1 (reimplementation; its size must equal the C++ store's on D1)
+  Q1 x, y, z rounded to a 2 mm step (max |error| 1 mm, the same bound as S1) as int32, delta
+     along point order, zigzag, shuffle, zstd 1
+  Q5 the same with a 10 mm step (max |error| 5 mm)
+  S1 SZ3 (szcompressor/SZ3 db2eca3e, BSD), each of x, y, z a 1-D float32 array in point order,
+     EB_ABS 1 mm, default algorithm, zstd as SZ3's lossless stage
+  S5 the same with 5 mm
+Measured per dataset: total stored bytes (x, y, z part and intensity part), ratio to the raw
+16 bytes per point, compress and decompress seconds, max |error| per axis.
+
+Checks (must hold, else the harness is wrong and is fixed before anything is read)
+  C1 A restores every cloud bit-exactly; Q and S max |error| <= their bound on every axis.
+
+Decision (per error bound b in {1 mm, 5 mm}, over D1-D6)
+  - SZ3 is the stage-2 candidate if, on every dataset, S_b's x, y, z bytes <= 0.8 x Q_b's and
+    S_b compresses + decompresses all clouds at >= 50 MB/s of raw x, y, z data.
+  - Otherwise quantization (Q_b) is the stage-2 candidate if, on every dataset, Q_b's total
+    stored bytes <= 0.6 x A's.
+  - Otherwise no stage 2 for that bound: the lossless store stays.
+Report only: the bytes a run would save (A minus the candidate, summed over the sampled clouds
+x 5), against that run's recorded backend peak RSS where one exists.
+
+Amendment (2026-11-17, before any measurement): Q1/Q5 first rounded to a 1 mm / 5 mm step,
+which bounds the error by half of S1/S5's bound and so favours SZ3; they now use a 2 mm / 10 mm
+step so both methods have the same maximum error. Method A is graph_based_slam's own
+compressPacked (src/cloud_compression.cpp compiled into the harness) rather than a
+reimplementation, so C1's size-equality clause holds by construction.
