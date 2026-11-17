@@ -139,6 +139,20 @@ Each milestone is one reviewable change. Outputs of the ROS 2 path stay byte-ide
    set), FLANN, g2o (no OpenGL) and the Boost parts PCL io needs, and keep the map bytes. Next:
    a wheel build in CI (cibuildwheel, manylinux_2_28) with those built from source, repaired with
    auditwheel, then the same exp14 byte check on the installed wheel.
+   *Step 3, wheels (2026-11-17):* `.github/workflows/wheels.yml` builds manylinux_2_28 wheels
+   (cp310, cp312) with cibuildwheel. `lidarslam_core/wheel/build_deps.sh` builds what they bundle
+   from Ubuntu 24.04's source packages, SHA-256 pinned from their `.dsc` files and configured like
+   Debian: Eigen 3.4.0, robin-map 1.2.1, oneTBB 2021.11.0, FLANN 1.9.2, g2o 20230806 (Debian's
+   no-sse patch, no OpenGL) and PCL 1.14.0 (the step 2 module set); Boost 1.83.0 comes from the
+   upstream release tarball (Debian's lacks b2's generated parser). The prefix is cached between
+   runs (about 18 minutes to build), and auditwheel bundles it. The wheels install on clean
+   `ubuntu-22.04` and `ubuntu-24.04` runners with no apt packages and pass the package tests.
+   The installed cp312 wheel loads 35 libraries, all from the wheel except the manylinux base
+   (libc, libstdc++, libm, libgcc_s, libz). On HILTI exp14 with that wheel (no compiler, no apt
+   PCL, no ROS 2), `lidarslam-map run` wrote the same 24 data files as step 3's run, its diagnosis
+   and verify log equal step 3's after path normalization, and its receipt passes (22.7 s, 156 MB
+   peak RSS); `lidarslam-map start` gave a VERIFIED session with the same 29 data files. The
+   wheels are workflow artifacts; nothing is published.
 
 ## Notes
 
