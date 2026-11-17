@@ -36,3 +36,7 @@ slam_output/
 
 # mkdocs build output (docs-site.yml builds this in CI; never commit it)
 site/
+
+# lidarslam wheel builds (lidarslam_core/wheel/build_deps.sh, cibuildwheel)
+/.wheel-deps/
+/wheelhouse/

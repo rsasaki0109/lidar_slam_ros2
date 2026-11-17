@@ -1,0 +1,117 @@
+name: wheels
+
+# Prebuilt manylinux wheels of the lidarslam Python package (lidarslam_core), so
+# `pip install lidarslam-*.whl` needs no apt packages and no ROS 2. The C++ libraries are built
+# from Ubuntu 24.04's sources (lidarslam_core/wheel/build_deps.sh), cached between runs, and
+# bundled by auditwheel. The wheels are workflow artifacts; nothing is published.
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - main
+    paths:
+      - lidarslam_core/**
+      - graph_based_slam/**
+      - lidarslam_registration_loader/**
+      - lidarslam_plugin_interfaces/**
+      - lidarslam_default_plugins/**
+      - lidarslam/**
+      - scripts/**
+      - Thirdparty/**
+      - .github/workflows/wheels.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wheels-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build manylinux wheels
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    env:
+      CIBUILDWHEEL_VERSION: "4.3.4"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          submodules: recursive
+
+      - name: Restore the built C++ dependencies
+        uses: actions/cache@v5
+        with:
+          path: .wheel-deps
+          key: wheel-deps-manylinux_2_28-x86_64-${{ hashFiles('lidarslam_core/wheel/build_deps.sh') }}
+
+      - name: Build wheels (cibuildwheel)
+        shell: bash
+        env:
+          # The dependency prefix is a host directory mounted into the build container, so the
+          # cache above keeps it between runs.
+          CIBW_CONTAINER_ENGINE: "docker; create_args: --volume ${{ github.workspace }}/.wheel-deps:/wheel-deps"
+        run: |
+          mkdir -p .wheel-deps
+          python3 -m venv "${RUNNER_TEMP}/cibw"
+          "${RUNNER_TEMP}/cibw/bin/pip" install "cibuildwheel==${CIBUILDWHEEL_VERSION}"
+          "${RUNNER_TEMP}/cibw/bin/cibuildwheel" lidarslam_core --output-dir wheelhouse
+          ls -l wheelhouse
+
+      - name: Make the cached prefix readable for the cache upload
+        if: always()
+        shell: bash
+        run: sudo chown -R "$(id -u):$(id -g)" .wheel-deps || true
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v6
+        with:
+          name: lidarslam-wheels
+          path: wheelhouse/*.whl
+          if-no-files-found: error
+
+  test:
+    name: Install the wheel on ${{ matrix.os }} (no apt packages)
+    needs: build
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+
+    steps:
+      - name: Check out repository (for the tests)
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+
+      - name: Download wheels
+        uses: actions/download-artifact@v7
+        with:
+          name: lidarslam-wheels
+          path: wheelhouse
+
+      - name: Install into a fresh venv with the system Python and run the tests
+        shell: bash
+        run: |
+          test ! -d /opt/ros
+          test ! -e /usr/include/pcl-1.14
+          python3 --version
+          python3 -m venv "${RUNNER_TEMP}/venv"
+          "${RUNNER_TEMP}/venv/bin/pip" install --only-binary=:all: --find-links wheelhouse lidarslam pytest
+          cd "${RUNNER_TEMP}"
+          "${RUNNER_TEMP}/venv/bin/python" -m pytest -q -p no:cacheprovider "${GITHUB_WORKSPACE}/lidarslam_core/test"
+          "${RUNNER_TEMP}/venv/bin/lidarslam-map" --version
+          "${RUNNER_TEMP}/venv/bin/lidarslam-map" doctor --json
+          core=$("${RUNNER_TEMP}/venv/bin/python" -c "import lidarslam._core as c; print(c.__file__)")
+          echo "Libraries loaded by ${core}:"
+          ldd "${core}"
+          ! ldd "${core}" | grep -q 'not found'

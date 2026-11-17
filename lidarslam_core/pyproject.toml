@@ -39,3 +39,23 @@ LIDARSLAM_CORE_BUILD_TESTS = "OFF"
 LIDARSLAM_CORE_BUILD_BACKEND = "ON"
 LIDARSLAM_CORE_BUILD_FRONTEND = "ON"
 LIDARSLAM_CORE_INSTALL_PRODUCT = "ON"
+
+# Prebuilt Linux wheels (.github/workflows/wheels.yml). The C++ libraries are built from
+# Ubuntu 24.04's sources into /wheel-deps (lidarslam_core/wheel/build_deps.sh, a cached volume)
+# and bundled by auditwheel, so `pip install` needs no apt packages.
+[tool.cibuildwheel]
+build = ["cp310-manylinux_x86_64", "cp312-manylinux_x86_64"]
+manylinux-x86_64-image = "manylinux_2_28"
+build-verbosity = 1
+test-requires = ["pytest"]
+test-command = [
+  "python -m pytest -q -p no:cacheprovider {project}/lidarslam_core/test",
+  "lidarslam-map --version",
+]
+
+[tool.cibuildwheel.linux]
+before-all = [
+  "git config --global --add safe.directory '*'",
+  "bash {project}/lidarslam_core/wheel/build_deps.sh",
+]
+environment = { LIDARSLAM_WHEEL_DEPS = "/wheel-deps", CMAKE_PREFIX_PATH = "/wheel-deps", LD_LIBRARY_PATH = "/wheel-deps/lib:$LD_LIBRARY_PATH", CMAKE_BUILD_PARALLEL_LEVEL = "4" }
