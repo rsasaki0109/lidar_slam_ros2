@@ -1,0 +1,47 @@
+Plane refinement stability: screen of two window-BA safeguards (pre-registered)
+2026-11-17, after the diagnosis below and before any code of the variants exists. Scope chosen by
+the maintainer ("recommended": screen both, development ground truth only).
+
+Diagnosis (quantized-store study, bench_report/data/sz3_cloud_store_2026-11-17)
+graph_based_slam's map refinement (hba_pyramid.hpp, plane_ba.hpp) solves windows of 16 submaps
+(stride 8) in turn. A window's cost is the plane cost plus an absolute prior of every pose to its
+pose-graph pose (0.30 m, 0.035 rad); there is no factor between submaps, and a window's first pose
+is fixed at the previous window's result. On GrandTour CON-1 (lidarslam.yaml) the refinement moves
+adjacent submaps 47 and 48 by +0.46 m and -0.54 m in z (the odometry's z is flat), a 1 um change of
+the stored scans moves its output by up to 0.77 m, and against the development reference the
+refined trajectory is worse than the pose graph's (ATE 0.450 against 0.384 m; 0.746 against
+0.546 m in 110-160 s). The window is still accepted: acceptance only asks for a lower plane cost.
+
+Variants (parameters of the offline runner; default off, so outputs stay byte-identical)
+  R0  current refinement.
+  RB  adjacency gate: after a window's BA, if any pair of consecutive window poses changed its
+      relative transform (body frame, against the pose graph's) by more than 0.10 m or 1.0 deg,
+      the window's result is discarded (its poses stay as they were before the window).
+      refine_window_max_adjacent_change_m 0.10, refine_window_max_adjacent_change_deg 1.0.
+  RA  relative factors: each pair of consecutive window poses gets a factor to its pose-graph
+      relative transform (body frame), sigma 0.05 m / 0.0087 rad (0.5 deg), in the same
+      Gauss-Newton system as the plane cost and the prior.
+      refine_relative_translation_sigma 0.05, refine_relative_rotation_sigma_rad 0.0087.
+
+Runs (recorded backend inputs; development references only; held-out ground truth stays closed)
+  C1 GrandTour CON-1 (ms_outdoor/con-1), lidarslam.yaml; prism reference (reference_dev)
+  C2 GrandTour CON-2 (ms_outdoor/con-2), lidarslam.yaml; prism reference (reference_dev)
+  M1 MapsHD calibration-room trial 1 (dev_loops/rb), walking preset; ground_truth.tum
+  H4 HILTI 2022 exp04 (dev_loops/rb), lidarslam.yaml; 7 control points (a weak check)
+  S2 RTK-SLAM Stadtgarten 2 (loops_preset), walking preset; surveyed control points
+Each with R0, RB, RA, and each again with submap_cloud_max_error_m 1e-6 (a 1 um perturbation).
+
+Metrics
+  ATE: trajectory_refined.tum positions interpolated at the reference timestamps inside the run,
+       SE(3)-aligned (bench_report/scripts/p1_grandtour_ate.py align_se3), RMS.
+  Sensitivity: max position difference of trajectory_refined.tum between a run and its 1 um run.
+  Report only: the pose graph's ATE (trajectory_optimized.tum), windows accepted, wall time.
+
+Decision (per variant V in {RB, RA})
+  a. C1: ATE(V) <= 1.05 x ATE(pose graph)  (the refinement no longer makes CON-1 worse);
+  b. C2, M1, H4, S2: ATE(V) <= 1.02 x ATE(R0) + 0.001 m  (no loss elsewhere);
+  c. C1 sensitivity <= 0.10 m.
+  V passes if a, b and c hold. If both pass, RB is recommended unless RA's mean ATE(V)/ATE(R0)
+  over the five runs is lower by 0.02 or more. If neither passes, nothing is recommended. Either
+  way the defaults stay as they are in this step; changing the default refinement is a separate
+  decision for the maintainer.
