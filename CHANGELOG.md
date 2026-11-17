@@ -54,6 +54,14 @@ latest published release.
   The opt-in `refine_relative_translation_sigma` /
   `refine_relative_rotation_sigma_rad` add factors between consecutive
   submaps instead.
+- The repository is now `rsasaki0109/lidar_slam` (was `lidar_slam_ros2`;
+  GitHub redirects the old URLs) and the docs live at
+  https://rsasaki0109.github.io/lidar_slam/. Release images from v0.13.0 on
+  are `ghcr.io/rsasaki0109/lidar_slam:vX.Y.Z-<distro>`; the v0.12.x and older
+  images keep `ghcr.io/rsasaki0109/lidar_slam_ros2`. The release checker and
+  the `lidarslam-map-docker` launcher pick the name from the version, and the
+  product schemas accept both repository and docs URLs (their `$id`s are
+  unchanged).
 
 ### Fixed
 

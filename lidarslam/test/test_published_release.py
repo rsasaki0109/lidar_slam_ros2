@@ -49,7 +49,9 @@ SPEC.loader.exec_module(AUDIT)
 VERSION = '0.9.0'
 TAG = f'v{VERSION}'
 COMMIT = 'c' * 40
+# Releases up to 0.12.x published images under the pre-rename name.
 REPOSITORY = 'rsasaki0109/lidar_slam_ros2'
+RELEASE_REPOSITORY = 'rsasaki0109/lidar_slam'
 
 
 def _json_bytes(value):
@@ -211,7 +213,7 @@ def _snapshot(*, version=VERSION, include_launcher=False):
             'draft': False,
             'prerelease': False,
             'html_url': (
-                f'https://github.com/{REPOSITORY}/releases/tag/{tag}'
+                f'https://github.com/{RELEASE_REPOSITORY}/releases/tag/{tag}'
             ),
         },
         'asset_payloads': asset_payloads,
@@ -468,6 +470,13 @@ def test_registry_digest_resolver_uses_public_bearer_token(monkeypatch):
     monkeypatch.setattr(AUDIT.urllib.request, 'urlopen', fake_urlopen)
 
     assert AUDIT._registry_tag_digest('v0.9.0-jazzy') == digest
+
+
+def test_image_repository_follows_the_rename():
+    assert AUDIT.image_repository('0.9.0') == 'rsasaki0109/lidar_slam_ros2'
+    assert AUDIT.image_repository('0.12.1') == 'rsasaki0109/lidar_slam_ros2'
+    assert AUDIT.image_repository('0.13.0') == 'rsasaki0109/lidar_slam'
+    assert AUDIT.image_repository('1.0.0') == 'rsasaki0109/lidar_slam'
 
 
 def test_tag_without_release_is_in_progress():

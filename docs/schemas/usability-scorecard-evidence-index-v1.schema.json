@@ -21,7 +21,7 @@
     },
     "scorecard_id": {"const": "stable-release-lidarslam-vs-glim-v1"},
     "generated_at": {"type": "string", "format": "date-time"},
-    "repository": {"const": "rsasaki0109/lidar_slam_ros2"},
+    "repository": {"enum": ["rsasaki0109/lidar_slam", "rsasaki0109/lidar_slam_ros2"]},
     "preparation_receipt_path": {
       "type": ["string", "null"],
       "minLength": 1,

@@ -25,7 +25,7 @@
     },
     "queue_id": {"const": "g0-community-starters-2026-08-16-r4"},
     "generated_at": {"type": "string", "format": "date-time"},
-    "repository": {"const": "rsasaki0109/lidar_slam_ros2"},
+    "repository": {"enum": ["rsasaki0109/lidar_slam", "rsasaki0109/lidar_slam_ros2"]},
     "status": {"const": "PREPARED_NOT_PUBLISHED"},
     "prepared_environment": {
       "type": "object",

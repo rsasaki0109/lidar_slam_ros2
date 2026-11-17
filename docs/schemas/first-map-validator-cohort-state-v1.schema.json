@@ -24,7 +24,7 @@
     "extension_decision_url": {
       "type": ["string", "null"],
       "format": "uri",
-      "pattern": "^https://github\\.com/rsasaki0109/lidar_slam_ros2/(?:issues/[1-9][0-9]*#issuecomment-[1-9][0-9]*|pull/[1-9][0-9]*#(?:issuecomment|discussion_r)-[1-9][0-9]*)$"
+      "pattern": "^https://github\\.com/rsasaki0109/lidar_slam(?:_ros2)?/(?:issues/[1-9][0-9]*#issuecomment-[1-9][0-9]*|pull/[1-9][0-9]*#(?:issuecomment|discussion_r)-[1-9][0-9]*)$"
     },
     "operational_signals": {
       "type": "object",
@@ -42,7 +42,7 @@
         "audit_url": {
           "type": ["string", "null"],
           "format": "uri",
-          "pattern": "^https://github\\.com/rsasaki0109/lidar_slam_ros2/"
+          "pattern": "^https://github\\.com/rsasaki0109/lidar_slam(?:_ros2)?/"
         },
         "public_source_or_documentation_drift": {"type": ["boolean", "null"]},
         "supported_p0_open": {"type": ["boolean", "null"]},
@@ -119,7 +119,7 @@
         "report_url": {
           "type": ["string", "null"],
           "format": "uri",
-          "pattern": "^https://github\\.com/rsasaki0109/lidar_slam_ros2/issues/[1-9][0-9]*$"
+          "pattern": "^https://github\\.com/rsasaki0109/lidar_slam(?:_ros2)?/issues/[1-9][0-9]*$"
         },
         "active_operator_minutes": {
           "type": ["number", "null"],
@@ -133,7 +133,7 @@
         "blocker_url": {
           "type": ["string", "null"],
           "format": "uri",
-          "pattern": "^https://github\\.com/rsasaki0109/lidar_slam_ros2/(?:issues|pull)/[1-9][0-9]*"
+          "pattern": "^https://github\\.com/rsasaki0109/lidar_slam(?:_ros2)?/(?:issues|pull)/[1-9][0-9]*"
         },
         "accepted_validation_id": {
           "type": ["string", "null"],

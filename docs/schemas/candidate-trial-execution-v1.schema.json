@@ -31,7 +31,7 @@
     },
     "started_at": {"type": "string", "format": "date-time"},
     "completed_at": {"type": "string", "format": "date-time"},
-    "repository": {"const": "rsasaki0109/lidar_slam_ros2"},
+    "repository": {"enum": ["rsasaki0109/lidar_slam", "rsasaki0109/lidar_slam_ros2"]},
     "trial_id": {"$ref": "#/definitions/slug"},
     "handoff": {"$ref": "#/definitions/handoff"},
     "row": {"$ref": "#/definitions/row"},
@@ -192,7 +192,7 @@
         "preparation_sha256": {"$ref": "#/definitions/sha256"},
         "workflow_run_url": {
           "type": "string",
-          "pattern": "^https://github\\.com/rsasaki0109/lidar_slam_ros2/actions/runs/[1-9][0-9]*$"
+          "pattern": "^https://github\\.com/rsasaki0109/lidar_slam(?:_ros2)?/actions/runs/[1-9][0-9]*$"
         },
         "run_id": {"type": "integer", "minimum": 1},
         "source_pr": {"type": "integer", "minimum": 1},

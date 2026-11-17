@@ -42,7 +42,7 @@
       "type": ["string", "null"],
       "pattern": "^[0-9a-f]{64}$"
     },
-    "repository": {"const": "rsasaki0109/lidar_slam_ros2"},
+    "repository": {"enum": ["rsasaki0109/lidar_slam", "rsasaki0109/lidar_slam_ros2"]},
     "source_pr": {"type": "integer", "minimum": 1},
     "source_commit": {
       "type": "string",
@@ -54,7 +54,7 @@
     },
     "workflow_run_url": {
       "type": "string",
-      "pattern": "^https://github\\.com/rsasaki0109/lidar_slam_ros2/actions/runs/[1-9][0-9]*$"
+      "pattern": "^https://github\\.com/rsasaki0109/lidar_slam(?:_ros2)?/actions/runs/[1-9][0-9]*$"
     },
     "workflow_branch_ref": {"const": "refs/heads/develop"},
     "workflow_gate_commit": {
@@ -156,7 +156,7 @@
           },
           "immutable_ref": {
             "type": "string",
-            "pattern": "^ghcr\\.io/rsasaki0109/lidar_slam_ros2@sha256:[0-9a-f]{64}$"
+            "pattern": "^ghcr\\.io/rsasaki0109/lidar_slam(?:_ros2)?@sha256:[0-9a-f]{64}$"
           },
           "registry_status": {"enum": ["NOT_CHECKED", "PASS", "FAIL"]},
           "attestation_status": {"enum": ["NOT_CHECKED", "PASS", "FAIL"]}

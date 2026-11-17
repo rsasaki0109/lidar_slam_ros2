@@ -19,10 +19,10 @@
     "schema_uri": {
       "const": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/docs-deployment-manifest-v1.schema.json"
     },
-    "repository": {"const": "rsasaki0109/lidar_slam_ros2"},
+    "repository": {"enum": ["rsasaki0109/lidar_slam", "rsasaki0109/lidar_slam_ros2"]},
     "source_revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
     "product_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
-    "site_url": {"const": "https://rsasaki0109.github.io/lidar_slam_ros2/"},
+    "site_url": {"enum": ["https://rsasaki0109.github.io/lidar_slam/", "https://rsasaki0109.github.io/lidar_slam_ros2/"]},
     "workflow": {
       "type": "object",
       "additionalProperties": false,

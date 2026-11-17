@@ -220,11 +220,11 @@
             },
             "workflow_run_url": {
               "type": "string",
-              "pattern": "^https://github\\.com/rsasaki0109/lidar_slam_ros2/actions/runs/[1-9][0-9]*$"
+              "pattern": "^https://github\\.com/rsasaki0109/lidar_slam(?:_ros2)?/actions/runs/[1-9][0-9]*$"
             },
             "immutable_ref": {
               "type": "string",
-              "pattern": "^ghcr\\.io/rsasaki0109/lidar_slam_ros2@sha256:[0-9a-f]{64}$"
+              "pattern": "^ghcr\\.io/rsasaki0109/lidar_slam(?:_ros2)?@sha256:[0-9a-f]{64}$"
             }
           }
         }

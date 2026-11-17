@@ -20,7 +20,7 @@
     },
     "matrix_id": {"const": "g0-humble-jazzy-docker-source"},
     "generated_at": {"type": "string", "format": "date-time"},
-    "repository": {"const": "rsasaki0109/lidar_slam_ros2"},
+    "repository": {"enum": ["rsasaki0109/lidar_slam", "rsasaki0109/lidar_slam_ros2"]},
     "rows": {
       "type": "array",
       "minItems": 4,

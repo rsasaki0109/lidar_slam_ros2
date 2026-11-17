@@ -24,7 +24,7 @@
       "const": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/first-map-validator-cohort-v1.schema.json"
     },
     "cohort_id": {"const": "g1-first-map-cohort-2026-08"},
-    "repository": {"const": "rsasaki0109/lidar_slam_ros2"},
+    "repository": {"enum": ["rsasaki0109/lidar_slam", "rsasaki0109/lidar_slam_ros2"]},
     "status": {
       "enum": ["WAITING_FOR_PUBLIC_GATES", "COPY_READY_NOT_AUTHORIZED"]
     },
@@ -58,7 +58,7 @@
         "canonical_documentation_url": {
           "type": ["string", "null"],
           "format": "uri",
-          "pattern": "^https://rsasaki0109\\.github\\.io/lidar_slam_ros2/"
+          "pattern": "^https://rsasaki0109\\.github\\.io/lidar_slam(?:_ros2)?/"
         },
         "canonical_documentation_provenance": {
           "oneOf": [
@@ -73,7 +73,7 @@
               ],
               "properties": {
                 "manifest_url": {
-                  "const": "https://rsasaki0109.github.io/lidar_slam_ros2/docs-deployment-v1.json"
+                  "enum": ["https://rsasaki0109.github.io/lidar_slam/docs-deployment-v1.json", "https://rsasaki0109.github.io/lidar_slam_ros2/docs-deployment-v1.json"]
                 },
                 "source_revision": {
                   "type": "string",

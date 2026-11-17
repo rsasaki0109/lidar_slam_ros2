@@ -23,7 +23,7 @@
     "status": {
       "enum": ["NOT_PUBLISHED", "IN_PROGRESS", "PUBLISHED", "BLOCKED"]
     },
-    "repository": {"const": "rsasaki0109/lidar_slam_ros2"},
+    "repository": {"enum": ["rsasaki0109/lidar_slam", "rsasaki0109/lidar_slam_ros2"]},
     "expected_version": {
       "type": "string",
       "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
@@ -55,7 +55,7 @@
         "prerelease": {"type": ["boolean", "null"]},
         "html_url": {
           "type": ["string", "null"],
-          "pattern": "^https://github\\.com/rsasaki0109/lidar_slam_ros2/releases/"
+          "pattern": "^https://github\\.com/rsasaki0109/lidar_slam(?:_ros2)?/releases/"
         },
         "errors": {
           "type": "array",
@@ -113,7 +113,7 @@
       "properties": {
         "tag": {
           "type": "string",
-          "pattern": "^ghcr\\.io/rsasaki0109/lidar_slam_ros2:v[0-9]+\\.[0-9]+\\.[0-9]+-(humble|jazzy)$"
+          "pattern": "^ghcr\\.io/rsasaki0109/lidar_slam(?:_ros2)?:v[0-9]+\\.[0-9]+\\.[0-9]+-(humble|jazzy)$"
         },
         "status": {
           "enum": ["PUBLISHED", "ABSENT", "NOT_CHECKED", "ERROR"]

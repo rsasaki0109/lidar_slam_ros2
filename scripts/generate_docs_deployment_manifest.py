@@ -46,9 +46,11 @@ from docs_deployment_contract import (
 from product_schema import validate_contract
 
 
-REPOSITORY = 'rsasaki0109/lidar_slam_ros2'
-SITE_URL = 'https://rsasaki0109.github.io/lidar_slam_ros2/'
-SCHEMA_URI = SITE_URL + 'schemas/docs-deployment-manifest-v1.schema.json'
+REPOSITORY = 'rsasaki0109/lidar_slam'
+SITE_URL = 'https://rsasaki0109.github.io/lidar_slam/'
+# Schema identifiers keep the pre-rename URL base (stable contract IDs).
+SCHEMA_BASE = 'https://rsasaki0109.github.io/lidar_slam_ros2/schemas/'
+SCHEMA_URI = SCHEMA_BASE + 'docs-deployment-manifest-v1.schema.json'
 SCHEMA_NAME = 'docs-deployment-manifest-v1.schema.json'
 MANIFEST_NAME = 'docs-deployment-v1.json'
 PAGE_NAME = 'getting-started.html'

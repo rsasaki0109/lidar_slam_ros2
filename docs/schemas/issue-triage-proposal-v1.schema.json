@@ -155,7 +155,7 @@
       "properties": {
         "id": {"const": "issue-69-public-draft"},
         "kind": {"const": "product-draft"},
-        "repository": {"const": "rsasaki0109/lidar_slam_ros2"},
+        "repository": {"enum": ["rsasaki0109/lidar_slam", "rsasaki0109/lidar_slam_ros2"]},
         "pull_request": {"const": 427},
         "expected_head_sha": {
           "type": "string",
@@ -191,7 +191,7 @@
       "properties": {
         "id": {"const": "issue-69-stable-release-absence"},
         "kind": {"const": "stable-release-absence"},
-        "repository": {"const": "rsasaki0109/lidar_slam_ros2"},
+        "repository": {"enum": ["rsasaki0109/lidar_slam", "rsasaki0109/lidar_slam_ros2"]},
         "fix_commit_sha": {
           "const": "a2368c486fc35c0edcac6d9dbf2f9cb89475c820"
         },

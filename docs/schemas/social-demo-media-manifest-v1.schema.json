@@ -27,7 +27,7 @@
       "const": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/social-demo-media-manifest-v1.schema.json"
     },
     "status": {"enum": ["LOCAL_PREVIEW", "PUBLICATION_CANDIDATE"]},
-    "repository": {"const": "rsasaki0109/lidar_slam_ros2"},
+    "repository": {"enum": ["rsasaki0109/lidar_slam", "rsasaki0109/lidar_slam_ros2"]},
     "source_revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
     "product_version": {"const": "0.13.0"},
     "content_contract": {"$ref": "#/definitions/repository_artifact"},
@@ -39,7 +39,7 @@
         "source_path": {"const": "docs/getting-started.md"},
         "url": {
           "type": "string",
-          "pattern": "^https://github\\.com/rsasaki0109/lidar_slam_ros2/blob/[0-9a-f]{40}/docs/getting-started\\.md$"
+          "pattern": "^https://github\\.com/rsasaki0109/lidar_slam(?:_ros2)?/blob/[0-9a-f]{40}/docs/getting-started\\.md$"
         }
       }
     },

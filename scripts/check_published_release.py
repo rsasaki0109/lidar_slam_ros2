@@ -36,6 +36,7 @@ import hashlib
 import io
 import json
 from pathlib import Path, PurePosixPath
+import re
 import sys
 import tarfile
 import time
@@ -53,7 +54,22 @@ except ModuleNotFoundError:  # pragma: no cover - importlib test path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-REPOSITORY = 'rsasaki0109/lidar_slam_ros2'
+REPOSITORY = 'rsasaki0109/lidar_slam'
+# The repository was named lidar_slam_ros2 until 2026-11-17. Releases up to v0.12.0 published
+# their images and release records under that name, and keep it.
+LEGACY_REPOSITORY = 'rsasaki0109/lidar_slam_ros2'
+LAST_LEGACY_MINOR = 12  # 0.12.x
+
+
+def image_repository(version: str) -> str:
+    """Return the GHCR repository (and release-record name) of one product version."""
+    parts = version.split('.')
+    if len(parts) >= 2 and parts[0] == '0' and parts[1].isdigit() and (
+            int(parts[1]) <= LAST_LEGACY_MINOR):
+        return LEGACY_REPOSITORY
+    return REPOSITORY
+
+
 REPORT_SCHEMA_URI = (
     'https://rsasaki0109.github.io/lidar_slam_ros2/'
     'schemas/published-release-v1.schema.json'
@@ -164,9 +180,13 @@ def _request_json(url: str) -> tuple[int, dict[str, Any] | None]:
 
 def _registry_tag_digest(tag: str) -> str | None:
     """Resolve one public GHCR tag without pulling its image layers."""
+    match = re.fullmatch(r'v(?P<version>.+)-(?:humble|jazzy)', tag)
+    repository = (
+        image_repository(match.group('version')) if match else REPOSITORY
+    )
     token_url = 'https://ghcr.io/token?' + urllib.parse.urlencode({
         'service': 'ghcr.io',
-        'scope': f'repository:{REPOSITORY}:pull',
+        'scope': f'repository:{repository}:pull',
     })
     status, token_payload = _request(
         token_url,
@@ -186,7 +206,7 @@ def _registry_tag_digest(tag: str) -> str | None:
     if not isinstance(token, str) or not token:
         raise PublishedReleaseError('GHCR token response has no token')
 
-    url = f'https://ghcr.io/v2/{REPOSITORY}/manifests/{tag}'
+    url = f'https://ghcr.io/v2/{repository}/manifests/{tag}'
     request = urllib.request.Request(
         url,
         headers={
@@ -222,7 +242,7 @@ def _inspect_image_tags(
     errors: list[str] = []
     for distro in IMAGE_DISTROS:
         tag = f'v{version}-{distro}'
-        image_tag = f'ghcr.io/{REPOSITORY}:{tag}'
+        image_tag = f'ghcr.io/{image_repository(version)}:{tag}'
         try:
             digest = _registry_tag_digest(tag)
         except PublishedReleaseError as exc:
@@ -527,7 +547,7 @@ def _normalise_image_reports(
     reports: list[dict[str, Any]] = []
     for distro in IMAGE_DISTROS:
         tag = f'v{version}-{distro}'
-        image_tag = f'ghcr.io/{REPOSITORY}:{tag}'
+        image_tag = f'ghcr.io/{image_repository(version)}:{tag}'
         digest = (
             digests.get(image_tag)
             if isinstance(digests, dict)
@@ -681,7 +701,7 @@ def evaluate_publication(
                 image = images[distro]
                 plan = rollback[distro]
                 expected_tag = (
-                    f'ghcr.io/{REPOSITORY}:v{version}-{distro}')
+                    f'ghcr.io/{image_repository(version)}:v{version}-{distro}')
                 if (
                     image['ros_distro'] != distro
                     or image['product_version'] != version
@@ -701,7 +721,7 @@ def evaluate_publication(
                     if plan[field] != image[field]:
                         raise PublishedReleaseError(
                             f'{distro} rollback {field} differs from image record')
-                if plan['repository'] != REPOSITORY:
+                if plan['repository'] != image_repository(version):
                     raise PublishedReleaseError(
                         f'{distro} rollback repository differs')
                 if plan['source_record'] != f'release-image-{distro}.json':
@@ -709,7 +729,7 @@ def evaluate_publication(
                         f'{distro} rollback source record differs')
             if (
                 promotion['mode'] != 'applied'
-                or promotion['repository'] != REPOSITORY
+                or promotion['repository'] != image_repository(version)
                 or promotion['product_version'] != version
                 or promotion['git_commit'] != tag_commit
                 or promotion['moving_tag_mutated'] is not False

@@ -62,7 +62,7 @@
         },
         "issue_url": {
           "type": "string",
-          "pattern": "^https://github\\.com/rsasaki0109/lidar_slam_ros2/issues/[1-9][0-9]*$"
+          "pattern": "^https://github\\.com/rsasaki0109/lidar_slam(?:_ros2)?/issues/[1-9][0-9]*$"
         },
         "submitted_at": {
           "type": "string",

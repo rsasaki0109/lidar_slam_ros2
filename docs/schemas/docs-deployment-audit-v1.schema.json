@@ -24,9 +24,9 @@
       "const": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/docs-deployment-audit-v1.schema.json"
     },
     "status": {"enum": ["VERIFIED", "NOT_READY", "BLOCKED"]},
-    "repository": {"const": "rsasaki0109/lidar_slam_ros2"},
+    "repository": {"enum": ["rsasaki0109/lidar_slam", "rsasaki0109/lidar_slam_ros2"]},
     "manifest_url": {
-      "const": "https://rsasaki0109.github.io/lidar_slam_ros2/docs-deployment-v1.json"
+      "enum": ["https://rsasaki0109.github.io/lidar_slam/docs-deployment-v1.json", "https://rsasaki0109.github.io/lidar_slam_ros2/docs-deployment-v1.json"]
     },
     "network_requested": {"const": true},
     "writes_performed": {"const": false},
@@ -56,7 +56,7 @@
         "page_url": {
           "type": ["string", "null"],
           "format": "uri",
-          "pattern": "^https://rsasaki0109\\.github\\.io/lidar_slam_ros2/"
+          "pattern": "^https://rsasaki0109\\.github\\.io/lidar_slam(?:_ros2)?/"
         },
         "page_size_bytes": {"type": ["integer", "null"], "minimum": 1, "maximum": 16777216},
         "page_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"}

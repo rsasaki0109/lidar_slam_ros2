@@ -47,12 +47,14 @@ from docs_deployment_contract import (
 from product_schema import validate_contract
 
 
-REPOSITORY = 'rsasaki0109/lidar_slam_ros2'
-SITE_URL = 'https://rsasaki0109.github.io/lidar_slam_ros2/'
+REPOSITORY = 'rsasaki0109/lidar_slam'
+SITE_URL = 'https://rsasaki0109.github.io/lidar_slam/'
 MANIFEST_URL = SITE_URL + 'docs-deployment-v1.json'
 MANIFEST_SCHEMA_NAME = 'docs-deployment-manifest-v1.schema.json'
 REPORT_SCHEMA_NAME = 'docs-deployment-audit-v1.schema.json'
-REPORT_SCHEMA_URI = SITE_URL + 'schemas/docs-deployment-audit-v1.schema.json'
+# Schema identifiers keep the pre-rename URL base (stable contract IDs).
+SCHEMA_BASE = 'https://rsasaki0109.github.io/lidar_slam_ros2/schemas/'
+REPORT_SCHEMA_URI = SCHEMA_BASE + 'docs-deployment-audit-v1.schema.json'
 MAX_MANIFEST_BYTES = 256 * 1024
 MAX_PAGE_BYTES = 16 * 1024 * 1024
 REVISION_PATTERN = re.compile(r'^[0-9a-f]{40}$')

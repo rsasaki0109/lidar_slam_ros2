@@ -31,7 +31,7 @@
     "issue_url": {
       "type": "string",
       "format": "uri",
-      "pattern": "^https://github\\.com/rsasaki0109/lidar_slam_ros2/issues/new\\?template=first-map-validation\\.yml$"
+      "pattern": "^https://github\\.com/rsasaki0109/lidar_slam(?:_ros2)?/issues/new\\?template=first-map-validation\\.yml$"
     },
     "run": {
       "type": "object",
