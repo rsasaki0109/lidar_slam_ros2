@@ -625,7 +625,7 @@ def test_start_join_refusal_keeps_the_run_and_warns(
 
 
 def test_start_join_map_runs_on_the_core_engine(monkeypatch, tmp_path: Path):
-    """Without ROS 2 the join replays and joins with the lidarslam package (merge --engine core)."""
+    """Without ROS 2 the join runs on the lidarslam package (merge --engine core)."""
     def prepare(module) -> None:
         monkeypatch.setattr(module, '_core_engine_status', lambda: (True, 'lidarslam test'))
 

@@ -26,6 +26,13 @@ latest published release.
   The wheels cover Python 3.10-3.13 on x86_64 and aarch64, and a release tag
   publishes them to PyPI as `lidarslam` (`pip install lidarslam`) through
   Trusted Publishing; the package version is the repository `VERSION`.
+- The multi-session join without ROS 2: `lidarslam-map merge
+  --place-recognition` and `start --join-map` run on the `lidarslam` package
+  when ROS 2 is missing (`merge --engine auto|ros2|core`; `python -m lidarslam
+  join` takes the parameters of `graph_slam_multisession_join`). The join is
+  one ROS-free library under both, and the package writes the same files as
+  the ROS 2 executable. A core-engine run's `core_params.json` serves as the
+  join's parameter file.
 - `graph_slam_multisession_join`: a GNSS gate, a candidate off by default
   (`multisession_gnss_gate`). When both sessions carry RTK GNSS, a set of
   place matches is accepted if, at its places, its transform agrees with

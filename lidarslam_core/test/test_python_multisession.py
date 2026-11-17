@@ -19,11 +19,10 @@ core = pytest.importorskip('lidarslam._core')
 if not hasattr(core, 'run_join_tool'):
     pytest.skip('lidarslam built without the multi-session join', allow_module_level=True)
 
-import yaml  # noqa: E402
-
 from lidarslam import backend, multisession  # noqa: E402
 from lidarslam.__main__ import main as cli  # noqa: E402
 from test_python_backend import _write_input  # noqa: E402
+import yaml  # noqa: E402
 
 PARAMS = {'registration_method': 'SMALL_GICP', 'gicp_max_correspondence_distance': 0.5,
           'ndt_num_threads': 1, 'voxel_leaf_size': 0.2, 'submap_distance_threshold': 1.5}

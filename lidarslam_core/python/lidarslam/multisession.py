@@ -20,13 +20,15 @@ NODE_NAME = 'graph_based_slam'
 
 
 def load_parameters(*paths: str | Path) -> dict[str, Any]:
-    """The ``graph_based_slam`` parameters of ROS 2 parameter files (later files override)."""
+    """Return the ``graph_based_slam`` parameters of ROS 2 parameter files (later override)."""
     return _load_parameters(paths, node=NODE_NAME)
 
 
 def _read(path: str, topics: list[str]) -> Iterator[tuple[str, Any]]:
-    """(topic, message) of the given topics of a log in log-time order; topics it lacks give none,
-    as rosbag2 gives none for them."""
+    """Yield (topic, message) of the given topics of a log in log-time order.
+
+    Topics the log lacks give none, as rosbag2 gives none for them.
+    """
     with SensorLog(path) as log:
         present = {topic.name for topic in log.topics()}
         wanted = [topic for topic in topics if topic in present]
@@ -37,7 +39,7 @@ def _read(path: str, topics: list[str]) -> Iterator[tuple[str, Any]]:
 
 
 def run(params: dict[str, Any], log: Callable[[str, str], None] | None = None) -> int:
-    """Runs the join; returns the executable's exit code (0: outputs written).
+    """Run the join; return the executable's exit code (0: outputs written).
 
     ``params`` are the executable's parameters (:func:`load_parameters` plus the session lists:
     ``session_bag_paths``, ``session_backend_dirs``, ``output_dir``, ...). ``log(level, message)``
