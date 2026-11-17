@@ -1,0 +1,28 @@
+ROS-free core, M7 step c, part 2: lidarslam-map run|start on a Velodyne packet bag (core engine)
+Preregistered 2026-11-17, after step c (plan.txt) was accepted and before the code below exists.
+
+What changes
+- Preflight: a bag with VelodyneScan + Imu (IMU header order passing) and no RKO-LIO-ready
+  PointCloud2 gets the rko_lio_graph_public_path recommendation with the packet topic as its
+  LiDAR input, marked as needing the core engine. Its priority is below every existing
+  recommendation, so the recommended profile of every bag that had one is unchanged.
+- Profile selection: with the core engine, the automatic choice is the best recommendation the
+  core engine can run (the rko_lio_graph profiles); with ROS 2 it is unchanged. A packet-input
+  RKO-LIO profile on the ROS 2 engine is refused with the reason and `--engine core`.
+- lidarslam-map run passes the packet topic to the core runner; lidarslam-map start writes the
+  setup with it. The odometry sets lidar_timestamps.force_relative for a VelodyneScan lidar_topic
+  unless the parameter file sets lidar_timestamps (the decoder's time counts from the scan stamp).
+
+Checks (must hold)
+Q1. Unchanged for bags without packets: the existing product test suites pass; preflight on the
+    PointCloud2 fixtures gives the same recommendations as before.
+Q2. Leo Drive all-sensors-bag1 (front packets auto-selected, /sensing/imu/imu_data,
+    tools/leo_rko.yaml as --rko-param, lidarslam.yaml): `lidarslam-map run --engine core`
+    with no ROS 2 completes, the map verifier passes and the first-map receipt is written; its
+    raw trajectory is byte-identical to `python -m lidarslam map` with the same parameters.
+Q3. `lidarslam-map start --engine core` on bag1 with the extrinsics of tools/leo_rko.yaml
+    (--lidar-to-base, --imu-to-base) and --yes ends in a VERIFIED session.
+Q4. With ROS 2 the Leo Drive bag's automatic profile stays pointcloud_gnss_smoke; forcing
+    rko_lio_graph_public_path there is refused with a message naming --engine core.
+
+Decision: ACCEPT if Q1-Q4 hold; otherwise fix and re-run, no relaxed check.
