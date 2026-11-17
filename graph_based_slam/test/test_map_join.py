@@ -31,6 +31,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 from pathlib import Path
 import sys
@@ -38,12 +39,14 @@ import textwrap
 
 import numpy as np
 import pytest
+import yaml
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / 'scripts'))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import map_join  # noqa: E402,I100
 from map_join import (  # noqa: E402,I100
     default_cache_dir,
     initial_transform,
@@ -51,6 +54,7 @@ from map_join import (  # noqa: E402,I100
     MapJoinError,
     place_recognition_alignments,
     refusal_reason,
+    resolve_engine,
 )
 from map_merge import merge_map_sessions  # noqa: E402
 import merge_map_sessions as merge_cli  # noqa: E402
@@ -201,6 +205,90 @@ def test_params_default_to_the_anchor_runs_graph_params(tmp_path: Path):
     (anchor / 'graph_params.ros.yaml').write_text('graph_based_slam:\n  ros__parameters: {}\n')
     _, summary = place_recognition_alignments([anchor, other], tmp_path / 'work2', settings)
     assert summary['params'] == str((anchor / 'graph_params.ros.yaml').resolve())
+
+
+def test_a_core_engine_run_gives_its_backend_parameters(tmp_path: Path):
+    # A run of the core engine records core_params.json, not graph_params.ros.yaml; its backend
+    # parameters, with the odometry's LiDAR extrinsic as the core engine applies it, become the
+    # join's parameter file.
+    replay, join = _fake_tools(tmp_path, textwrap.dedent(f"""\
+        sessions:
+          - session: 0
+            joined: true
+          - session: 1
+            joined: true
+            transform_to_session_0: {_row(0.0, 1.0, 0.0, 0.0)}
+        """))
+    anchor, other = _bundle(tmp_path / 'a'), _bundle(tmp_path / 'b')
+    extrinsic = [0.0, 0.0, 0.0, 1.0, 0.1, 0.0, 0.2]
+    (anchor / 'core_params.json').write_text(json.dumps({
+        'backend': {'loop_detection_period': 1000, 'bag_path': '/old', 'output_dir': '/old'},
+        'odometry': {'extrinsic_lidar2base_quat_xyzw_xyz': extrinsic},
+    }))
+    settings = JoinSettings(replay_script=replay, join_command=join, cache_dir=tmp_path / 'c')
+    _, summary = place_recognition_alignments([anchor, other], tmp_path / 'work', settings)
+    params = Path(summary['params'])
+    assert params == tmp_path / 'work' / 'graph_params.ros.yaml'
+    recorded = yaml.safe_load(params.read_text())['graph_based_slam']['ros__parameters']
+    assert recorded == {'loop_detection_period': 1000,
+                        'extrinsic_lidar2base_quat_xyzw_xyz': extrinsic}
+    assert not (anchor / 'graph_params.ros.yaml').exists()  # the source output is unchanged
+
+
+def test_engine_auto_prefers_ros2_and_falls_back_to_the_python_package(monkeypatch):
+    monkeypatch.setattr(map_join.shutil, 'which', lambda _name: None)
+    assert resolve_engine(JoinSettings()) == 'core'
+    assert resolve_engine(JoinSettings(setup_path=Path('setup.bash'))) == 'ros2'
+    assert resolve_engine(JoinSettings(engine='ros2')) == 'ros2'
+    monkeypatch.setattr(map_join.shutil, 'which', lambda _name: '/opt/ros/jazzy/bin/ros2')
+    assert resolve_engine(JoinSettings()) == 'ros2'
+    assert resolve_engine(JoinSettings(engine='core')) == 'core'
+    with pytest.raises(MapJoinError, match='unknown engine'):
+        resolve_engine(JoinSettings(engine='colcon'))
+
+
+def test_the_core_engine_replays_and_joins_with_the_python_package(
+        tmp_path: Path, monkeypatch):
+    commands: list[list[str]] = []
+
+    def fake_run(command: list[str], _what: str) -> None:
+        commands.append(command)
+        if command[3] == 'backend':
+            out = Path(command[command.index('--out') + 1])
+            out.mkdir(parents=True)
+            (out / 'trajectory_raw.tum').write_text('1.0 0 0 0 0 0 0 1\n')
+            (out / 'loop_edges.csv').write_text('from,to\n')
+        else:
+            out = Path(next(a for a in command if a.startswith('output_dir:='))[12:])
+            out.mkdir(parents=True)
+            (out / 'join_report.yaml').write_text(textwrap.dedent(f"""\
+                sessions:
+                  - session: 0
+                    joined: true
+                  - session: 1
+                    joined: true
+                    transform_to_session_0: {_row(90.0, 2.0, 0.0, 0.0)}
+                """))
+
+    monkeypatch.setattr(map_join, '_run', fake_run)
+    monkeypatch.setattr(map_join, '_check_core_engine', lambda: None)
+    params = tmp_path / 'params.yaml'
+    params.write_text('graph_based_slam:\n  ros__parameters: {}\n')
+    bundles = [_bundle(tmp_path / 'a'), _bundle(tmp_path / 'b')]
+    transforms, summary = place_recognition_alignments(
+        bundles, tmp_path / 'work',
+        JoinSettings(params_path=params, cache_dir=tmp_path / 'c', engine='core'))
+    assert transforms[1] == pytest.approx((2.0, 0.0, 0.0, 90.0))
+    assert summary['engine'] == 'core'
+    replay_a, replay_b, join = commands
+    assert replay_a[:4] == [sys.executable, '-m', 'lidarslam', 'backend']
+    assert replay_a[4] == str((tmp_path / 'a' / 'backend_input').resolve())
+    assert replay_a[5:] == ['--params', str(params), '--out',
+                            str(tmp_path / 'work' / 'session0' / 'run1')]
+    assert replay_b[4] == str((tmp_path / 'b' / 'backend_input').resolve())
+    assert join[:6] == [sys.executable, '-m', 'lidarslam', 'join', '--params', str(params)]
+    assert '--ros-args' not in join
+    assert f"multisession_cache_dir:={(tmp_path / 'c').resolve()}" in join
 
 
 def test_default_cache_follows_xdg_cache_home(tmp_path: Path, monkeypatch):

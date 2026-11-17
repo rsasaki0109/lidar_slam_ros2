@@ -1125,12 +1125,15 @@ ament_target_dependencies(graph_slam_offline_runner
 )
 target_link_libraries(graph_slam_offline_runner graph_slam_offline_pipeline)
 
-# Multi-session join (several sessions of one site in one pose graph).
-add_executable(graph_slam_multisession_join src/graph_slam_multisession_join.cpp)
+# Multi-session join (several sessions of one site in one pose graph): the ROS 2 shell around
+# multisession_join_tool.cpp, which the Python package (lidarslam_core) builds too.
+add_executable(graph_slam_multisession_join
+  src/graph_slam_multisession_join.cpp
+  src/multisession_join_tool.cpp)
 target_compile_features(graph_slam_multisession_join PRIVATE cxx_std_17)
 target_include_directories(graph_slam_multisession_join PRIVATE include ${PCL_INCLUDE_DIRS})
 ament_target_dependencies(graph_slam_multisession_join
-  rclcpp rosbag2_cpp pcl_conversions nav_msgs sensor_msgs)
+  rclcpp rosbag2_cpp nav_msgs sensor_msgs)
 target_link_libraries(graph_slam_multisession_join
   graph_slam_application
   small_gicp::small_gicp

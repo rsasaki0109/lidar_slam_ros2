@@ -1,7 +1,9 @@
 // Copyright 2026 lidarslam_ros2 contributors. BSD-2-Clause.
 //
 // lidarslam._core.BackendPipeline: the offline backend of graph_slam_offline_runner
-// (graphslam::offline::OfflinePipeline) with its parameters from a Python dict. Values keep the
+// (graphslam::offline::OfflinePipeline) with its parameters from a Python dict; and
+// lidarslam._core.run_join_tool: graph_slam_multisession_join (multisession_join_tool.hpp) on logs
+// read by a Python callable. Values keep the
 // types of the ROS 2 parameter they stand for (bool, int, float, str, or a list of one of those),
 // and each is read with the type rules of rclcpp, so a parameter file gives the same values here
 // as in the ROS 2 runner.
@@ -10,6 +12,7 @@
 #include <pybind11/stl.h>
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -17,6 +20,7 @@
 #include <vector>
 
 #include "graph_based_slam/cloud_message.hpp"
+#include "graph_based_slam/multisession_join_tool.hpp"
 #include "graph_based_slam/offline_pipeline.hpp"
 #include "graph_based_slam/offline_runtime.hpp"
 #include "lidarslam_core/sensor_messages.hpp"
@@ -213,6 +217,65 @@ private:
   std::unique_ptr<graphslam::offline::OfflinePipeline> pipeline_;
 };
 
+// The sessions' logs through read(path, topics), which yields (topic, message) of those topics in
+// the log's order (core messages: Odometry, PackedCloud, NavSatFix).
+class PythonSessionReader : public graphslam::multisession::SessionLogReader
+{
+public:
+  explicit PythonSessionReader(py::object read)
+  : read_(std::move(read)) {}
+
+  void readOdometryAndClouds(
+    const std::string & path, const std::string & odometry_topic, const std::string & cloud_topic,
+    const std::function<void(graphslam::msg::Odometry &&)> & odometry,
+    const std::function<void(graphslam::msg::PointCloud2 &&)> & cloud) override
+  {
+    const std::vector<std::string> topics {odometry_topic, cloud_topic};
+    for (const py::handle item : py::iter(read_(path, topics))) {
+      const py::tuple record = py::reinterpret_borrow<py::tuple>(item);
+      const std::string topic = record[0].cast<std::string>();
+      if (topic == odometry_topic) {
+        odometry(toOdometry(record[1].cast<const lidarslam_core::Odometry &>()));
+      } else if (topic == cloud_topic) {
+        cloud(toCloud(record[1].cast<const lidarslam_core::PackedCloud &>()));
+      }
+    }
+  }
+
+  void readNavSatFixes(
+    const std::string & path, const std::string & topic,
+    const std::function<void(const graphslam::multisession::NavSatFixMessage &)> & fix) override
+  {
+    for (const py::handle item : py::iter(read_(path, std::vector<std::string>{topic}))) {
+      const py::tuple record = py::reinterpret_borrow<py::tuple>(item);
+      if (record[0].cast<std::string>() != topic) {
+        continue;
+      }
+      const auto & in = record[1].cast<const lidarslam_core::NavSatFix &>();
+      graphslam::multisession::NavSatFixMessage out;
+      out.stamp.sec = in.header.stamp.sec;
+      out.stamp.nanosec = in.header.stamp.nanosec;
+      out.status = in.status;
+      out.latitude = in.latitude;
+      out.longitude = in.longitude;
+      out.altitude = in.altitude;
+      out.position_covariance = in.position_covariance;
+      fix(out);
+    }
+  }
+
+private:
+  py::object read_;
+};
+
+int runJoinTool(const py::dict & params, py::object read, py::object log)
+{
+  const graphslam::offline::Parameters parameters = toParameters(params);
+  const PythonLog python_log(std::move(log));
+  PythonSessionReader reader(std::move(read));
+  return graphslam::multisession::runJoinTool(parameters, python_log, reader);
+}
+
 }  // namespace
 
 void bind_backend(py::module_ & m)
@@ -243,4 +306,8 @@ void bind_backend(py::module_ & m)
   .def("finish", &BackendPipeline::finish,
     "The pose graph, refinement and all outputs; False (after logging why) when the fixed loop "
     "edges cannot be loaded.");
+  m.def(
+    "run_join_tool", &runJoinTool, py::arg("params"), py::arg("read"), py::arg("log") = py::none(),
+    "graph_slam_multisession_join with its parameters (node graph_based_slam); read(path, topics) "
+    "yields (topic, message) of a session log in its order. Returns the executable's exit code.");
 }

@@ -561,8 +561,11 @@ def test_start_pins_setup_then_delegates_map_and_viewer(
     assert (session / 'session.html').is_file()
 
 
-def _run_start_with_join(monkeypatch, tmp_path: Path, merge_returncode: int):
+def _run_start_with_join(monkeypatch, tmp_path: Path, merge_returncode: int,
+                         extra: list[str] | None = None, prepare=None):
     module = _load_module()
+    if prepare is not None:
+        prepare(module)
     monkeypatch.setattr(module, '_maybe_open_session_report', lambda *_args: None)
     bag = tmp_path / 'mid360_bag'
     session = tmp_path / 'session'
@@ -581,9 +584,9 @@ def _run_start_with_join(monkeypatch, tmp_path: Path, merge_returncode: int):
     monkeypatch.setattr(module, '_run_delegated_session', fake_run)
     result = module.main([
         '--run', str(bag), '--output-dir', str(session), '--yes',
-        '--join-map', str(stored), '--viewer', 'none',
+        '--join-map', str(stored), '--viewer', 'none', *(extra or []),
     ])
-    return result, calls, session, stored
+    return result, calls, session, stored, module
 
 
 def test_start_join_map_records_backend_input_then_joins_the_stored_map(
@@ -592,14 +595,16 @@ def test_start_join_map_records_backend_input_then_joins_the_stored_map(
     capsys,
 ):
     """--join-map implies --editable and runs one place-recognition merge after the run."""
-    result, calls, session, stored = _run_start_with_join(monkeypatch, tmp_path, 0)
+    result, calls, session, stored, module = _run_start_with_join(monkeypatch, tmp_path, 0)
 
     assert result == 0
     assert calls[0][:2] == ['./scripts/lidarslam', 'run']
     assert '--editable' in calls[0]
+    # The join runs on the engine that made the map.
     assert calls[1] == [
         './scripts/lidarslam', 'merge', str(stored), str(session / 'map'),
-        '--place-recognition', '--output-dir', str(session / 'map_joined'),
+        '--place-recognition', '--engine', module._resolve_engine('auto'),
+        '--output-dir', str(session / 'map_joined'),
     ]
     assert f"Joined map project: {session / 'map_joined'}" in capsys.readouterr().out
 
@@ -610,13 +615,28 @@ def test_start_join_refusal_keeps_the_run_and_warns(
     capsys,
 ):
     """A refused join leaves the completed run as it is; the session still succeeds."""
-    result, calls, _, stored = _run_start_with_join(monkeypatch, tmp_path, 2)
+    result, calls, _, stored, _ = _run_start_with_join(monkeypatch, tmp_path, 2)
 
     assert result == 0
     assert any('merge' in call for call in calls)
     error = capsys.readouterr().err
     assert '[join-not-made]' in error
     assert str(stored) in error
+
+
+def test_start_join_map_runs_on_the_core_engine(monkeypatch, tmp_path: Path):
+    """Without ROS 2 the join replays and joins with the lidarslam package (merge --engine core)."""
+    def prepare(module) -> None:
+        monkeypatch.setattr(module, '_core_engine_status', lambda: (True, 'lidarslam test'))
+
+    result, calls, session, stored, _ = _run_start_with_join(
+        monkeypatch, tmp_path, 0, ['--engine', 'core'], prepare)
+
+    assert result == 0
+    assert '--editable' in calls[0]
+    merge = next(call for call in calls if 'merge' in call)
+    assert merge[merge.index('--engine') + 1] == 'core'
+    assert merge[2:4] == [str(stored), str(session / 'map')]
 
 
 def test_start_refuses_before_mapping_when_output_storage_is_short(
