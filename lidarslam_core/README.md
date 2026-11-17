@@ -6,7 +6,9 @@ ROS 2 install. ROS 2 stays one way to run it; this directory is the other.
 Status: preview (`docs/roadmap/ros-free-core-2026-11.md`). The Python package reads sensor logs
 (rosbag2 MCAP/SQLite3, ROS 1 bags), runs the RKO-LIO odometry and the graph_based_slam offline
 backend, and installs the `lidarslam-map` product command. Maps of an RKO-LIO profile are
-byte-identical to the ROS 2 offline path. Source install only for now (no prebuilt wheels).
+byte-identical to the ROS 2 offline path. Install from source for now; CI also builds
+manylinux wheels that bundle every C++ library (`.github/workflows/wheels.yml`, workflow
+artifacts, not published), which give the same map bytes.
 
 ## Python package
 

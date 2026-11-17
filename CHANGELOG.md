@@ -20,6 +20,9 @@ latest published release.
   runs in a plain Python environment; `lidarslam-map doctor` reports ready with
   the core engine there, and the diagnosis's map tilt check reads the IMU
   without ROS 2.
+  CI builds manylinux wheels of the package (`wheels.yml`) that bundle PCL,
+  g2o, FLANN, oneTBB and Boost built from Ubuntu 24.04's sources, so the
+  wheel installs with no apt packages and maps HILTI exp14 to the same bytes.
 - `graph_slam_multisession_join`: a GNSS gate, a candidate off by default
   (`multisession_gnss_gate`). When both sessions carry RTK GNSS, a set of
   place matches is accepted if, at its places, its transform agrees with
