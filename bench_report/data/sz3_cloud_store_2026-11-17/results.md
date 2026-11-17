@@ -61,7 +61,74 @@ RSS, so no ratio to peak memory is given.
 | D5 Construction seq 1 | 420 MB | 497 MB |
 | D6 GrandTour CON-1 | 409 MB | 481 MB |
 
-Stage 2 (not started; needs the maintainer's approval): an opt-in, default-off quantized store
-(`submap_cloud_quantization_m`, e.g. 0.001) with its own preregistered check that maps and
-trajectories stay within tolerance of the lossless store, and the memory it saves measured as
-peak RSS. The default stays lossless, so every byte-identical check stays valid.
+Stage 2 (below) was approved by the maintainer and pre-registered in plan_stage2.txt.
+
+
+## Stage 2: opt-in quantized store in the offline backend (plan_stage2.txt + addendum)
+
+Code: `submap_cloud_max_error_m` (offline_pipeline.cpp; default 0.0), `cloud_compression`'s
+`store(message, max_error)` / `compressQuantized`. Runs: `python -m lidarslam backend` with the
+package built from these sources (`tools/run_stage2.sh`, `tools/compare_stage2.py`,
+`summaries/stage2.json`).
+
+### T1 default unchanged
+
+With the parameter absent and with 0.0, all 6 output files on D1 and D3 are byte-identical to the
+build before the change. The cloud_compression unit tests pass (4/4, including the quantized
+round trip within the bound, the lossless fallback for non-finite or very large coordinates, and
+0.0 giving the lossless bytes).
+
+### T2 against the lossless run of the same build
+
+Loops lossless / quantized; trajectory_optimized position difference RMS / max and rotation max;
+stored submap-cloud bytes as a fraction of lossless. Report only: trajectory_refined max
+difference, peak RSS (MB) and wall time (s), lossless / quantized.
+
+| Dataset | bound (m) | loops | opt pos RMS / max | opt rot max (deg) | bytes | T2 | refined max | RSS | wall |
+| --- | --- | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: |
+| D1 MapsHD calib-room 2 | 0.001 | 0 / 0 | 0.0 / 0.0 mm | 0.000 | 0.388 | pass | 2.3 mm | 72 / 72 | 2 / 2 |
+| D1 MapsHD calib-room 2 | 0.005 | 0 / 0 | 0.0 / 0.0 mm | 0.000 | 0.290 | pass | 3.3 mm | 72 / 71 | 2 / 2 |
+| D2 MapsHD garage 1 | 0.001 | 0 / 0 | 0.0 / 0.0 mm | 0.000 | 0.399 | pass | 3.2 mm | 99 / 98 | 12 / 11 |
+| D2 MapsHD garage 1 | 0.005 | 0 / 0 | 0.0 / 0.0 mm | 0.000 | 0.300 | pass | 8.5 mm | 99 / 96 | 12 / 11 |
+| D3 HILTI exp04 | 0.001 | 0 / 0 | 0.0 / 0.0 mm | 0.000 | 0.439 | pass | 75.2 mm | 105 / 104 | 2 / 2 |
+| D3 HILTI exp04 | 0.005 | 0 / 0 | 0.0 / 0.0 mm | 0.000 | 0.345 | pass | 92.5 mm | 105 / 103 | 2 / 2 |
+| D4 Stadtgarten 2 | 0.001 | 0 / 0 | 0.0 / 0.0 mm | 0.000 | 0.429 | pass | 17.0 mm | 181 / 180 | 22 / 26 |
+| D4 Stadtgarten 2 | 0.005 | 0 / 0 | 0.0 / 0.0 mm | 0.000 | 0.327 | pass | 20.1 mm | 181 / 176 | 22 / 23 |
+| D5 Construction 1 | 0.001 | 9 / 10 | 0.9 / 1.6 mm | 0.003 | 0.427 | pass | 7.5 mm | 190 / 183 | 111 / 111 |
+| D5 Construction 1 | 0.005 | 9 / 9 | 0.7 / 2.3 mm | 0.006 | 0.324 | pass | 18.3 mm | 190 / 182 | 111 / 109 |
+| D6 GrandTour CON-1 | 0.001 | 1 / 1 | 1.0 / 1.6 mm | 0.002 | 0.426 | pass | 1303.3 mm | 245 / 236 | 130 / 127 |
+| D6 GrandTour CON-1 | 0.005 | 1 / 1 | 0.4 / 0.7 mm | 0.001 | 0.325 | pass | 1018.0 mm | 245 / 229 | 130 / 125 |
+| D7 MapsHD calib-room 1 (walking) | 0.001 | 18 / 18 | 0.4 / 1.0 mm | 0.019 | 0.376 | pass | 4.7 mm | 105 / 104 | 23 / 20 |
+| D7 MapsHD calib-room 1 (walking) | 0.005 | 18 / 18 | 0.5 / 1.4 mm | 0.015 | 0.280 | pass | 8.6 mm | 105 / 104 | 23 / 18 |
+| D8 calib-room 2 (walking) | 0.001 | 1 / 1 | 0.2 / 0.4 mm | 0.002 | 0.388 | pass | 2.4 mm | 81 / 79 | 4 / 3 |
+| D8 calib-room 2 (walking) | 0.005 | 1 / 1 | 0.2 / 0.4 mm | 0.003 | 0.290 | pass | 3.0 mm | 81 / 79 | 4 / 4 |
+
+**Decision (pre-registered rule): both bounds pass T2 on all eight datasets; the parameter ships,
+default 0.0, with 0.005 named as the tested setting.** D1-D4 accept no loop either way, so only
+D5-D8 test loop closure (9, 1, 18 and 1 loop edges; 18 of 18 kept on D7).
+
+### What the numbers do not show: the refinement's sensitivity (report only)
+
+The pose-graph result (trajectory_optimized) moves by at most 2.3 mm. The plane refinement that
+runs after it reads the restored clouds of every submap and can amplify a small change:
+trajectory_refined moves by 2-20 mm on six datasets, by up to 92 mm on D3 and by up to 1.3 m on
+D6. A diagnostic run with a 1 um bound (not pre-registered) separates the two cases:
+
+| Dataset | refined max, 1 um | 1 mm | 5 mm | lossless refined vs optimized, max |
+| --- | ---: | ---: | ---: | ---: |
+| D3 HILTI exp04 | 0 | 75 mm | 92 mm | 168 mm |
+| D6 GrandTour CON-1 | 0.77 m | 1.30 m | 1.02 m | 0.87 m |
+
+On D6 the refinement itself is unstable: a 1 um change of the stored scans already moves its
+output by 0.77 m, so any input change (another build, another parameter) would; this is a
+finding about the refinement on this sequence, not about quantization. On D3 the refinement is
+stable at 1 um and amplifies the quantization (1 mm -> up to 75 mm, within the 168 mm the
+refinement moves the poses anyway). Users who keep the refined map should take this into account;
+the default stays lossless.
+
+### Memory
+
+The store shrinks to 0.28-0.44x of the lossless bytes (D5: 30.8 -> 13.2 MiB at 1 mm), but on these
+runs (2-130 s, at most 282 submaps) the stored scans are a small part of the backend's memory:
+peak RSS drops by 0-16 MB (D6: 245 -> 229 MB at 5 mm). The saving grows with the number of
+submaps; a run whose peak is dominated by stored scans gains most.

@@ -29,6 +29,16 @@ latest published release.
   parameters say otherwise. The ROS 2 engine keeps its profiles; the classic
   `packet_applanix_smoke` profile still needs ROS 2.
 
+- Offline backend (`graph_slam_offline_runner`, `lidarslam.backend` and the
+  core engine): `submap_cloud_max_error_m` (default 0.0, lossless as before)
+  keeps each submap's scan with x, y and z within that many metres, in
+  0.28-0.44x the bytes (step quantization + zstd; SZ3 was measured and stored
+  more). On eight recorded runs 0.005 m moves the pose-graph trajectory by at
+  most 2.3 mm and keeps the loop edges; the plane refinement can amplify the
+  change (up to 92 mm on HILTI exp04), and on GrandTour CON-1 it moves by
+  0.77 m even for a 1 um change
+  (bench_report/data/sz3_cloud_store_2026-11-17).
+
 ### Fixed
 
 - `extract_rosbag2_sqlite_topics.py`: rows of a Jazzy bag's
