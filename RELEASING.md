@@ -227,6 +227,26 @@ publication:
 lidarslam-map rollback-plan release-image-jazzy.json
 ```
 
+### Python wheels on PyPI (`lidarslam`)
+
+`.github/workflows/wheels.yml` runs on the same `v<version>` tag. It builds the
+manylinux wheels (Python 3.10-3.13, x86_64 and aarch64), tests them in the build
+container and on clean runners, checks that the tag, `VERSION` and the eight
+wheel file names agree, and uploads the wheels to <https://pypi.org/p/lidarslam>
+through PyPI's Trusted Publishing from the GitHub environment `pypi`; no token is
+stored in the repository. The package version is the `VERSION` file, read when
+the wheel is built. PyPI never accepts a version twice, so a bad upload is
+superseded by the next version, not replaced. No sdist is uploaded: the package
+builds from the repository tree (`pip install ./lidarslam_core`).
+
+One-time setup on PyPI, done by a project owner while signed in at pypi.org:
+*Your account → Publishing → Add a new pending publisher → GitHub*, with
+PyPI project name `lidarslam`, owner `rsasaki0109`, repository
+`lidar_slam_ros2`, workflow `wheels.yml`, environment `pypi`. The first tagged
+upload then creates the project. For a trial on TestPyPI, add the same pending
+publisher at test.pypi.org with environment `testpypi`, and run the `wheels`
+workflow by hand with `publish: testpypi`.
+
 ## Tagging
 
 ```bash

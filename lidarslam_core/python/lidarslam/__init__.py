@@ -14,4 +14,9 @@ from lidarslam._core import (  # noqa: F401
     Stamp,
 )
 
-__version__ = '0.12.0.dev0'
+try:
+    from importlib.metadata import PackageNotFoundError, version as _version
+
+    __version__ = _version('lidarslam')  # the repository VERSION file, set at build time
+except PackageNotFoundError:  # imported from a source tree that is not installed
+    __version__ = 'unknown'
