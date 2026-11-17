@@ -153,6 +153,12 @@ Each milestone is one reviewable change. Outputs of the ROS 2 path stay byte-ide
    and verify log equal step 3's after path normalization, and its receipt passes (22.7 s, 156 MB
    peak RSS); `lidarslam-map start` gave a VERIFIED session with the same 29 data files. The
    wheels are workflow artifacts; nothing is published.
+   *Step 4, coverage (2026-11-17):* wheels for Python 3.10-3.13 on x86_64 and aarch64 (native
+   `ubuntu-24.04-arm` runner, its own dependency cache); each wheel passes the 20 package tests in
+   the build container and installs on clean runners (3.10 on 22.04, 3.11-3.13 on 24.04, 3.12 on
+   24.04-arm). Pushes to develop/main build them too, so the latest run there has current wheels.
+   aarch64 maps are not byte-compared with x86_64: GCC contracts multiply-adds into FMA on aarch64
+   by default.
 
 ## Notes
 
