@@ -39,7 +39,13 @@ jobs:
       - name: Install Python test dependency
         shell: bash
         run: |
-          python3 -m pip install --upgrade pytest jsonschema
+          python3 -m pip install --upgrade pytest jsonschema mkdocs mkdocs-material
+
+      - name: Build and validate documentation metadata
+        shell: bash
+        run: |
+          python3 -m mkdocs build --strict
+          python3 scripts/check_docs_metadata.py
 
       - name: Initialize NDT release candidate
         shell: bash
