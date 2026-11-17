@@ -133,3 +133,58 @@ TEST(CloudCompression, KeepsOtherCloudsAsTheyAre)
     EXPECT_EQ(graphslam::cloud_compression::restore(stored), message);
   }
 }
+
+TEST(CloudCompression, KeepsQuantizedCoordinatesWithinTheirBound)
+{
+  if (!graphslam::cloud_compression::available()) {
+    GTEST_SKIP() << "built without zstd";
+  }
+  for (const double max_error : {0.001, 0.005}) {
+    sensor_msgs::msg::PointCloud2 original = packedCloud(500, 4, true);
+    const float finite[3] = {-123.4567F, 4321.0F, -0.0F};  // replaces NaN and infinity
+    std::memcpy(original.data.data(), finite, sizeof(finite));
+    const graphslam::cloud_compression::StoredCloud lossless =
+      graphslam::cloud_compression::store(original);
+    const graphslam::cloud_compression::StoredCloud stored =
+      graphslam::cloud_compression::store(original, max_error);
+    EXPECT_GT(stored.quantization_step, 0.0);
+    EXPECT_TRUE(stored.message.data.empty());
+    EXPECT_LT(stored.compressed.size(), lossless.compressed.size());
+    const sensor_msgs::msg::PointCloud2 restored = graphslam::cloud_compression::restore(stored);
+    ASSERT_EQ(restored.data.size(), original.data.size());
+    EXPECT_EQ(restored.fields, original.fields);
+    const std::size_t values = original.data.size() / sizeof(float);
+    for (std::size_t v = 0; v < values; ++v) {
+      float a;
+      float b;
+      std::memcpy(&a, original.data.data() + v * sizeof(float), sizeof(float));
+      std::memcpy(&b, restored.data.data() + v * sizeof(float), sizeof(float));
+      if (v % 4 == 3) {
+        EXPECT_EQ(std::memcmp(&a, &b, sizeof(float)), 0) << "intensity " << v;  // unchanged
+      } else {
+        EXPECT_LE(std::fabs(static_cast<double>(a) - b), max_error) << "coordinate " << v;
+      }
+    }
+  }
+}
+
+TEST(CloudCompression, StoresUnquantizableCloudsLosslessly)
+{
+  // NaN and infinity among the coordinates; then a coordinate 2^30 steps from 0.
+  sensor_msgs::msg::PointCloud2 far = packedCloud(10, 1, false);
+  const float big = 3.0e6F;  // 3,000 km: more than 2^30 steps of 2 mm
+  std::memcpy(far.data.data(), &big, sizeof(big));
+  std::memcpy(far.data.data() + sizeof(big), &big, sizeof(big));
+  std::memcpy(far.data.data() + 2 * sizeof(big), &big, sizeof(big));
+  for (const auto & message : {packedCloud(500, 4, true), far}) {
+    const graphslam::cloud_compression::StoredCloud stored =
+      graphslam::cloud_compression::store(message, 0.001);
+    EXPECT_EQ(stored.quantization_step, 0.0);
+    EXPECT_EQ(graphslam::cloud_compression::restore(stored), message);
+  }
+  // 0 keeps the lossless store, byte for byte.
+  const sensor_msgs::msg::PointCloud2 cloud = packedCloud(500, 4, true);
+  EXPECT_EQ(
+    graphslam::cloud_compression::store(cloud, 0.0).compressed,
+    graphslam::cloud_compression::store(cloud).compressed);
+}
