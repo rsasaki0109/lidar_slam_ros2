@@ -104,6 +104,9 @@ src=$(unpack "$(fetch https://archives.boost.io/release/1.83.0/source/boost_1_83
   ./bootstrap.sh --prefix="${PREFIX}" --with-libraries=filesystem,iostreams,system
   ./b2 -j "${JOBS}" -d0 variant=release link=shared threading=multi cxxflags=-O2 \
     --prefix="${PREFIX}" --libdir="${PREFIX}/lib" install
+  # b2 installs only the headers of the libraries built; install all of them, as libboost-dev
+  # does (3D-BBS includes boost/functional/hash).
+  cp -a boost "${PREFIX}/include/"
 )
 
 # FLANN 1.9.2 (flann 1.9.2+dfsg-2build1), with OpenMP as Debian builds it.
