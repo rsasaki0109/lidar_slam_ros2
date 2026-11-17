@@ -23,9 +23,9 @@
 
 | Goal | Start here | Safety and cost boundary |
 | --- | --- | --- |
-| See a verified map, no build | **Default if unsure:** [Docker demo](#try-it-with-docker-one-command-no-build) | Stable `v0.11.0-humble`; needs Docker; host writes stay in `./lidarslam_output`. |
+| See a verified map, no build | **Default if unsure:** [Docker demo](#try-it-with-docker-one-command-no-build) | Stable `v0.12.0-humble`; needs Docker; host writes stay in `./lidarslam_output`. |
 | Map my own rosbag | [Own-bag route](#map-your-own-bag-one-command-after-install): `lidarslam-map doctor /path/to/rosbag2` | Read-only diagnosis first; then `lidarslam-map start /path/to/rosbag2` writes a new output. |
-| Build from source or contribute | [Source quickstart](#build--verified-demo-from-source-one-helper): `bash scripts/source_quickstart.sh --dry-run` | Release `v0.11.0`; needs ROS 2, 8 GiB, and roughly 30 minutes. |
+| Build from source or contribute | [Source quickstart](#build--verified-demo-from-source-one-helper): `bash scripts/source_quickstart.sh --dry-run` | Release `v0.12.0`; needs ROS 2, 8 GiB, and roughly 30 minutes. |
 | Map a bag without ROS 2 (preview) | [pip install](#without-ros-2-pip-preview): `pip install lidarslam-*.whl` (prebuilt) or `pip install ./lidarslam_core`, then `lidarslam-map start /path/to/rosbag2` | No ROS 2; the prebuilt wheel needs no apt packages (Linux x86_64/aarch64, Python 3.10-3.13). RKO-LIO profiles; with `--lidarslam-param lidarslam_rtk_gnss.yaml` the map is anchored to the bag's RTK GNSS (`/gnss/fix`). The classic GNSS and packet profiles need ROS 2. |
 
 ### Try it with Docker (one command, no build)
@@ -33,7 +33,7 @@
 ```bash
 docker run --rm -e LIDARSLAM_HOST_UID="$(id -u)" -e LIDARSLAM_HOST_GID="$(id -g)" \
   -v "$PWD/lidarslam_output:/lidarslam_ws/output" \
-  ghcr.io/rsasaki0109/lidar_slam_ros2:v0.11.0-humble
+  ghcr.io/rsasaki0109/lidar_slam_ros2:v0.12.0-humble
 ```
 
 The 517 MB MID-360 demo writes `lidarslam_output/mid360_demo/` as your user. Other platforms: [Getting Started](docs/getting-started.md).

@@ -456,7 +456,7 @@ Unsafe claims:
 
 ## Release Scope Reminder
 
-`v0.11.0` is the current release. The maintained product boundary is
+`v0.12.0` is the current release. The maintained product boundary is
 offline rosbag2-to-verified-map authoring through the three official
 entrypoints. Lanelet generation remains operator-reviewed, and evaluation-tier
 sensor, GNSS, radar, coloured-map, and optional loop-detector paths do not
