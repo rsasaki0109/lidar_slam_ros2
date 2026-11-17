@@ -416,7 +416,7 @@ def test_docs_exist_and_are_linked_from_readme():
     assert '(docs/benchmarking.md)' in readme
     assert 'python3 -m mkdocs serve' in readme
     assert 'lidarslam-map run' in readme
-    assert 'git clone --recursive https://github.com/rsasaki0109/lidar_slam_ros2.git' in readme
+    assert 'git clone --recursive https://github.com/rsasaki0109/lidar_slam.git' in readme
     assert 'bash scripts/source_quickstart.sh' in readme
     assert 'Run `lidarslam-map` with no arguments' in readme
     assert 'ghcr.io/rsasaki0109/lidar_slam_ros2:v0.12.0-humble' in readme
@@ -1438,9 +1438,9 @@ def test_release_metadata_and_core_package_versions_match(tmp_path: Path):
         assert f'Changelog for package {path.parent.name}' in changelog_rst
         assert f'{version} (' in changelog_rst
 
-    assert 'site_name: lidarslam_ros2 Docs' in mkdocs_config
-    assert 'site_url: https://rsasaki0109.github.io/lidar_slam_ros2/' in mkdocs_config
-    assert 'repo_url: https://github.com/rsasaki0109/lidar_slam_ros2' in mkdocs_config
+    assert 'site_name: lidar_slam Docs' in mkdocs_config
+    assert 'site_url: https://rsasaki0109.github.io/lidar_slam/' in mkdocs_config
+    assert 'repo_url: https://github.com/rsasaki0109/lidar_slam' in mkdocs_config
     assert 'name: material' in mkdocs_config
     assert 'assets/stylesheets/extra.css' in mkdocs_config
     assert 'Getting Started: getting-started.md' in mkdocs_config

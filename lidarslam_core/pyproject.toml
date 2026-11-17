@@ -38,10 +38,10 @@ lidarslam-map = "lidarslam.product:main"
 test = ["pytest"]
 
 [project.urls]
-Homepage = "https://github.com/rsasaki0109/lidar_slam_ros2"
-Documentation = "https://github.com/rsasaki0109/lidar_slam_ros2/tree/develop/lidarslam_core"
-Changelog = "https://github.com/rsasaki0109/lidar_slam_ros2/blob/develop/CHANGELOG.md"
-Issues = "https://github.com/rsasaki0109/lidar_slam_ros2/issues"
+Homepage = "https://github.com/rsasaki0109/lidar_slam"
+Documentation = "https://github.com/rsasaki0109/lidar_slam/tree/develop/lidarslam_core"
+Changelog = "https://github.com/rsasaki0109/lidar_slam/blob/develop/CHANGELOG.md"
+Issues = "https://github.com/rsasaki0109/lidar_slam/issues"
 
 [tool.scikit-build]
 minimum-version = "build-system.requires"
