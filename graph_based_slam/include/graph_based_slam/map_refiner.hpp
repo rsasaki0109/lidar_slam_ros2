@@ -196,6 +196,26 @@ inline std::vector<std::string> refinerReportYamlLines(
   }
   lines.push_back("  improved_windows: " + std::to_string(improved_windows));
   lines.push_back("  no_feature_windows: " + std::to_string(no_feature_windows));
+  // Only with the opt-in safeguards, so the default report keeps its bytes.
+  if (config.pyramid.window_ba.relative_translation_sigma > 0.0 &&
+    config.pyramid.window_ba.relative_rotation_sigma_rad > 0.0)
+  {
+    lines.push_back(
+      "  relative_translation_sigma_m: " +
+      detail::refinerDouble(config.pyramid.window_ba.relative_translation_sigma));
+    lines.push_back(
+      "  relative_rotation_sigma_rad: " +
+      detail::refinerDouble(config.pyramid.window_ba.relative_rotation_sigma_rad));
+  }
+  if (config.pyramid.window_max_adjacent_change_m > 0.0 &&
+    config.pyramid.window_max_adjacent_change_rad > 0.0)
+  {
+    int gated_windows = 0;
+    for (const auto & window : result.pyramid_result.windows) {
+      gated_windows += window.gated ? 1 : 0;
+    }
+    lines.push_back("  gated_windows: " + std::to_string(gated_windows));
+  }
   lines.push_back(
     "  global_pass_ran: " +
     std::string(result.pyramid_result.global_pass_ran ? "true" : "false"));

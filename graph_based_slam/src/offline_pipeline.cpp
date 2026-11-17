@@ -424,6 +424,14 @@ struct RunnerConfig
   double refine_prior_rotation_sigma_rad = 0.035;
   double refine_max_step_translation = 0.25;
   double refine_max_step_rotation_rad = 0.052;
+  // Opt-in refinement safeguards (bench_report/data/refine_stability_2026-11-17), 0 = off:
+  // factors between consecutive submaps of a window to their pose-graph relative transform
+  // (sigma, m / rad), and a gate that discards a window whose result changes a consecutive
+  // pair's relative transform by more than (m / deg).
+  double refine_relative_translation_sigma = 0.0;
+  double refine_relative_rotation_sigma_rad = 0.0;
+  double refine_window_max_adjacent_change_m = 0.0;
+  double refine_window_max_adjacent_change_deg = 0.0;
   bool refine_save_maps = false;
 
   // Optional long-baseline plane re-observation factors. Disabled by default
@@ -793,6 +801,14 @@ void readRefineConfig(const RunnerParameters & node, RunnerConfig & config)
   node.get_parameter_or(
     "refine_max_step_rotation_rad", config.refine_max_step_rotation_rad, 0.052);
   node.get_parameter_or("refine_save_maps", config.refine_save_maps, false);
+  node.get_parameter_or(
+    "refine_relative_translation_sigma", config.refine_relative_translation_sigma, 0.0);
+  node.get_parameter_or(
+    "refine_relative_rotation_sigma_rad", config.refine_relative_rotation_sigma_rad, 0.0);
+  node.get_parameter_or(
+    "refine_window_max_adjacent_change_m", config.refine_window_max_adjacent_change_m, 0.0);
+  node.get_parameter_or(
+    "refine_window_max_adjacent_change_deg", config.refine_window_max_adjacent_change_deg, 0.0);
 }
 
 // Reads the plane revisit factor parameters
@@ -3036,6 +3052,14 @@ void runMapRefinement(
     config.refine_max_step_translation;
   refiner_config.pyramid.window_ba.max_step_rotation_rad =
     config.refine_max_step_rotation_rad;
+  refiner_config.pyramid.window_ba.relative_translation_sigma =
+    config.refine_relative_translation_sigma;
+  refiner_config.pyramid.window_ba.relative_rotation_sigma_rad =
+    config.refine_relative_rotation_sigma_rad;
+  refiner_config.pyramid.window_max_adjacent_change_m =
+    config.refine_window_max_adjacent_change_m;
+  refiner_config.pyramid.window_max_adjacent_change_rad =
+    config.refine_window_max_adjacent_change_deg * M_PI / 180.0;
   refiner_config.pyramid.global_ba.prior_translation_sigma =
     config.refine_prior_translation_sigma;
   refiner_config.pyramid.global_ba.prior_rotation_sigma_rad =
