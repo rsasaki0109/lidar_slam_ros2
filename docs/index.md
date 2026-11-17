@@ -1,5 +1,6 @@
 ---
-title: lidarslam_ros2 Docs
+title: ROS 2 LiDAR SLAM and Autoware map authoring
+description: Create Autoware-compatible pointcloud maps from LiDAR bags with RKO-LIO and graph_based_slam. Choose a Docker demo, your own bag, or a ROS 2 source build.
 ---
 
 <section class="hero">

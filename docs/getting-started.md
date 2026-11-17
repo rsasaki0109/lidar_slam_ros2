@@ -1,3 +1,8 @@
+---
+title: Getting started with ROS 2 LiDAR SLAM
+description: Run the lidar_slam_ros2 Docker demo or build for ROS 2 Humble or Jazzy. Check your rosbag2 topics and calibration, then create and verify a pointcloud map.
+---
+
 # Getting Started
 
 Use this page when you are new to `lidarslam_ros2` and want the shortest path

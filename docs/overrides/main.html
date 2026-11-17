@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block extrahead %}
+  {{ super() }}
+  {% if page and page.canonical_url %}
+    {% set description = page.meta.description | default(config.site_description, true) %}
+    <script type="application/ld+json">{{ {
+      "@context": "https://schema.org",
+      "@type": "WebPage",
+      "name": page.title,
+      "description": description,
+      "url": page.canonical_url,
+      "inLanguage": page.meta.lang | default(config.theme.language, true),
+      "isPartOf": {
+        "@type": "WebSite",
+        "name": config.site_name,
+        "url": config.site_url
+      }
+    } | tojson }}</script>
+  {% endif %}
+{% endblock %}

@@ -5,6 +5,10 @@
 [![ROS 2: Humble | Jazzy](https://img.shields.io/badge/ROS%202-Humble%20%7C%20Jazzy-22314E?logo=ros&logoColor=white)](#support-and-license)
 [![GitHub stars](https://img.shields.io/github/stars/rsasaki0109/lidar_slam_ros2?style=flat&logo=github)](https://github.com/rsasaki0109/lidar_slam_ros2/stargazers)
 
+**Turn a rosbag into a map you can actually drive on.** ROS 2 LiDAR SLAM that writes an Autoware-compatible map bundle: `pointcloud_map/`, `map_projector_info.yaml` and lanelet2. `RKO-LIO` (MIT) + `graph_based_slam` (BSD-2), no GPL on the default workflow. [日本語クイックスタート](docs/getting-started-ja.md) · release notes [v0.12.0](docs/releases/v0.12.0.md) · next [v0.13.0](docs/releases/v0.13.0.md)
+
+[Documentation](https://rsasaki0109.github.io/lidar_slam_ros2/) · [Supported inputs and outputs](docs/product-contract.md) · [Workflow and benchmark comparison](docs/comparison.md)
+
 <p align="center">
   <img src="lidarslam/images/slam_koide_outdoor_hard_02a.gif" alt="Live map building on a handheld outdoor walk, coloured by when each part was mapped" width="56%">
   <img src="lidarslam/images/map_flythrough_stadtgarten.webp" alt="Camera-coloured SLAM point-cloud map of a park" width="42%">
@@ -14,8 +18,6 @@
 </p>
 
 *Outdoor walk, APE 0.55 m ([Koide](https://zenodo.org/records/10122133), CC BY 4.0) · camera-coloured park ([RTK-SLAM](https://rtk-slam-dataset.github.io/), CC BY 4.0) · stairs, ATE 0.24 m on development data · held-out metro tunnel, 0.38 m like BIEVR-LIO and FAST-LIO2 ([GEODE](https://github.com/PengYu-Team/GEODE_dataset)) · three separate walks joined into one map with no position hint ([Oxford Spires](https://huggingface.co/datasets/ori-drs/oxford_spires_dataset), CC BY-NC-SA 4.0). [How these were made](docs/readme-media.md).*
-
-**Turn a rosbag into a map you can actually drive on.** ROS 2 LiDAR SLAM that writes an Autoware-compatible map bundle: `pointcloud_map/`, `map_projector_info.yaml` and lanelet2. `RKO-LIO` (MIT) + `graph_based_slam` (BSD-2), no GPL on the default workflow. [日本語クイックスタート](docs/getting-started-ja.md) · release notes [v0.12.0](docs/releases/v0.12.0.md) · next [v0.13.0](docs/releases/v0.13.0.md)
 
 ## Quickstart
 

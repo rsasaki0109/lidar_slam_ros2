@@ -50,6 +50,7 @@ jobs:
         run: |
           python3 scripts/check_first_map_verification_package.py --json
           python3 -m mkdocs build --strict
+          python3 scripts/check_docs_metadata.py
 
       - name: Bind rendered docs to the exact source revision
         shell: bash
