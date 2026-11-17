@@ -1,0 +1,30 @@
+Quantized store for the backend's scans: stage 2, opt-in parameter and map-level check
+Preregistered 2026-11-17, after stage 1 (results.md: quantization is the candidate, SZ3 is not)
+and the maintainer's go-ahead, before the code below exists.
+
+What changes
+- graph_based_slam cloud_compression: a second encoding for a packed x, y, z, intensity scan:
+  x, y, z rounded to a step of 2 x max_error x 0.999 as int32, delta along point order, zigzag,
+  then the existing shuffle + zstd 1 together with the untouched intensity bits. Restoring gives
+  floats within max_error. A scan with a non-finite coordinate or a value outside int32 is kept
+  with the lossless encoding.
+- Offline backend (offline_pipeline.cpp: graph_slam_offline_runner and the lidarslam package's
+  backend / map): parameter submap_cloud_max_error_m, default 0.0 = the lossless store as now.
+  The live ROS 2 node is not changed in this step.
+
+Checks
+T1 Default unchanged: with the parameter absent and with 0.0, every output file of
+   `python -m lidarslam backend` on D1 and D3 is byte-identical to the build before the change.
+   graph_based_slam's cloud_compression unit tests pass, with new ones for the quantized round
+   trip (error <= bound) and the lossless fallback.
+T2 With submap_cloud_max_error_m 0.001 and 0.005, against the lossless run of the same build,
+   on each of D1-D6 (stage 1's datasets; parameters: lidarslam/param/lidarslam.yaml for D1, D2,
+   D3, D6, lidarslam_mid360_rko_graph_walking.yaml for D4, D5, the handheld MID-360 runs):
+   a. trajectory_optimized.tum, matched by stamp: position difference RMS <= 0.01 m and
+      max <= 0.05 m, rotation difference max <= 0.2 deg;
+   b. loop edges (loop_edges.csv rows): within +-10 % or +-2 of the lossless count;
+   c. the run log's stored submap-cloud bytes <= 0.6 x the lossless run's.
+Decision: the parameter ships, documented, default 0.0, with the largest bound of {0.005, 0.001}
+that passes T2 on all six named as the tested setting; if neither passes, it does not ship and
+the result is recorded. T1 must hold either way. The default is never changed in this step.
+Report only: peak RSS (/usr/bin/time) and wall time of each run, map point count.
