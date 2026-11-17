@@ -34,6 +34,12 @@ The first release with the ROS-free `lidarslam` Python package. The
   one ROS-free library under both, and the package writes the same files as
   the ROS 2 executable. A core-engine run's `core_params.json` serves as the
   join's parameter file.
+- GNSS anchors without ROS 2: with `use_gnss` (e.g. `lidarslam_rtk_gnss.yaml`)
+  `graph_slam_offline_runner`, `lidarslam.backend` and the core engine read
+  the input's `gnss_topic` and anchor the final pose graph as the live node
+  does (yaw alignment, gravity prior, GNSS projector origin). The live node's
+  GNSS handling moved into the shared ROS-free `gnss_anchor_store.hpp`
+  unchanged. With `use_gnss` false every output is byte-identical.
 - `graph_slam_multisession_join`: a GNSS gate, a candidate off by default
   (`multisession_gnss_gate`). When both sessions carry RTK GNSS, a set of
   place matches is accepted if, at its places, its transform agrees with

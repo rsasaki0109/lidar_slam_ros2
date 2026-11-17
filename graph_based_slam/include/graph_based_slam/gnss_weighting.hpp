@@ -32,9 +32,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <limits>
-
-#include <sensor_msgs/msg/nav_sat_fix.hpp>
 
 namespace graphslam
 {
@@ -74,9 +73,15 @@ inline double clampVariance(double value, double min_value, double max_value)
   return std::max(min_value, std::min(max_value, value));
 }
 
-inline bool hasKnownGnssCovariance(const sensor_msgs::msg::NavSatFix & msg)
+// sensor_msgs/NavSatFix COVARIANCE_TYPE_UNKNOWN
+constexpr std::uint8_t kGnssCovarianceTypeUnknown = 0;
+
+// Fix: sensor_msgs::msg::NavSatFix, or any type with its position_covariance (9 values) and
+// position_covariance_type.
+template<typename Fix>
+inline bool hasKnownGnssCovariance(const Fix & msg)
 {
-  if (msg.position_covariance_type == sensor_msgs::msg::NavSatFix::COVARIANCE_TYPE_UNKNOWN) {
+  if (msg.position_covariance_type == kGnssCovarianceTypeUnknown) {
     return false;
   }
   const double var_x = msg.position_covariance[0];
@@ -86,8 +91,9 @@ inline bool hasKnownGnssCovariance(const sensor_msgs::msg::NavSatFix & msg)
          var_x > 0.0 && var_y > 0.0 && var_z > 0.0;
 }
 
+template<typename Fix>
 inline GnssConstraintWeights computeGnssConstraintWeights(
-  const sensor_msgs::msg::NavSatFix & msg,
+  const Fix & msg,
   const GnssWeightingConfig & config)
 {
   GnssConstraintWeights weights;

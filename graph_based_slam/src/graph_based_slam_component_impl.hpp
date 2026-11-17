@@ -71,7 +71,7 @@
 #include "graph_based_slam/cloud_input_extrinsic.hpp"
 #include "graph_based_slam/degeneracy_report_summary.hpp"
 #include "graph_based_slam/external_io_ports.hpp"
-#include "graph_based_slam/gnss_origin_accumulator.hpp"
+#include "graph_based_slam/gnss_anchor_store.hpp"
 #include "graph_based_slam/graph_state_store.hpp"
 #include "graph_based_slam/map_export.hpp"
 #include "graph_based_slam/map_point.hpp"
@@ -232,36 +232,15 @@ private:
 
     // GNSS constraints for georeferenced mapping
   rclcpp::Subscription<sensor_msgs::msg::NavSatFix>::SharedPtr gnss_sub_;
-  struct GnssEnu
-  {
-    double stamp;
-    double x;
-    double y;
-    double z;    // ENU coordinates relative to origin
-    double info_x;
-    double info_y;
-    double info_z;
-    bool covariance_valid;
-    bool rtk_like;
-    double horizontal_stddev_m;
-  };
-  std::vector<GnssEnu> gnss_buffer_;
-  // Fixes received before the first odometry (header stamps not yet checked).
-  std::vector<GnssEnu> gnss_pre_odom_buffer_;
-  // Moves gnss_pre_odom_buffer_ into gnss_buffer_ once the first odometry stamp is
-  // known; the caller holds gnss_mtx_.
+  // The fixes, origin and anchors (gnss_anchor_store.hpp, shared with the offline pipeline);
+  // guarded by gnss_mtx_.
+  gnss::AnchorStore gnss_store_;
+  // Moves the fixes from before the first odometry into the store's samples once the first
+  // odometry stamp is known; the caller holds gnss_mtx_.
   void flushPreOdometryGnssLocked();
-  detail::GnssOriginAccumulator gnss_origin_accumulator_;
   std::mutex gnss_mtx_;
-  bool gnss_origin_set_ {false};
-  double gnss_origin_lat_ {0.0};
-  double gnss_origin_lon_ {0.0};
-  double gnss_origin_alt_ {0.0};
   void receiveNavSatFix(const sensor_msgs::msg::NavSatFix & msg);
   bool isGnssOriginSet();
-  bool isUsableGnssFix(const sensor_msgs::msg::NavSatFix & msg) const;
-  void tryInitializeGnssOrigin(double lat, double lon, double alt);
-  Eigen::Vector3d geodeticToEnu(double lat, double lon, double alt) const;
 
     // IMU preintegration
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
