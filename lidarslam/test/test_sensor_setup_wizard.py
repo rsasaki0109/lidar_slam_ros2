@@ -2651,3 +2651,114 @@ def test_unchanged_stage_emits_bounded_no_eta_heartbeat(
     ) in output
     assert '%' not in output
     assert 'ETA' not in output
+
+
+def _write_packet_metadata_bag(path: Path) -> None:
+    path.mkdir()
+    topics = [
+        ('/sensing/lidar/front/velodyne_packets', 'velodyne_msgs/msg/VelodyneScan', 30),
+        ('/imu', 'sensor_msgs/msg/Imu', 300),
+    ]
+    metadata = {
+        'rosbag2_bagfile_information': {
+            'duration': {'nanoseconds': 3_000_000_000},
+            'message_count': 330,
+            'storage_identifier': 'sqlite3',
+            'relative_file_paths': ['packet_bag_0.db3'],
+            'topics_with_message_count': [
+                {
+                    'topic_metadata': {
+                        'name': name,
+                        'type': msg_type,
+                        'serialization_format': 'cdr',
+                        'offered_qos_profiles': '',
+                    },
+                    'message_count': count,
+                }
+                for name, msg_type, count in topics
+            ],
+        },
+    }
+    (path / 'metadata.yaml').write_text(yaml.safe_dump(metadata), encoding='utf-8')
+    (path / 'packet_bag_0.db3').write_bytes(b'')
+
+
+def _packet_wizard(monkeypatch):
+    """Load the wizard with a preflight whose header-order probe passes without a database."""
+    module = _load_module()
+    load = module._load_script_module
+
+    def inspection(_bag, topics, _storage, max_records_per_topic):
+        return {
+            'status': 'passed',
+            'timestamp_source': 'header.stamp',
+            'max_records_per_topic': max_records_per_topic,
+            'failed_topics': [],
+            'topics': [
+                {
+                    'topic': topic.name,
+                    'msg_type': topic.msg_type,
+                    'expected_records': topic.message_count,
+                    'records_scanned': topic.message_count,
+                    'complete': True,
+                    'readable': True,
+                    'first_stamp_ns': 1_000_000_000,
+                    'last_stamp_ns': 2_000_000_000,
+                    'reversal_count': 0,
+                    'invalid_stamp_count': 0,
+                    'max_backward_jump_ns': 0,
+                }
+                for topic in topics
+            ],
+        }
+
+    def patched(name, alias):
+        loaded = load(name, alias)
+        if name == 'preflight_autoware_map_bag.py':
+            build = loaded.build_preflight_payload
+            monkeypatch.setattr(
+                loaded, 'build_preflight_payload',
+                lambda bag, **kwargs: build(bag, timestamp_inspector=inspection, **kwargs))
+        return loaded
+
+    monkeypatch.setattr(module, '_load_script_module', patched)
+    monkeypatch.setattr(module, '_product_command', lambda: 'lidarslam-map')
+    return module
+
+
+def test_packet_bag_setup_needs_the_core_engine(monkeypatch, tmp_path: Path):
+    """A packet + Imu bag maps with RKO-LIO on --engine core and is refused on ROS 2."""
+    bag = tmp_path / 'packet_bag'
+    _write_packet_metadata_bag(bag)
+    monkeypatch.setenv('LIDARSLAM_CLI_COMMAND', 'lidarslam-map start')
+    module = _packet_wizard(monkeypatch)
+    calibration = ['--lidar-to-base', '0,0,0,1,0.1,0,0.2', '--imu-to-base', '0,0,0,1,0,0,0',
+                   '--imu-frame', 'imu_link']
+
+    ready = module.generate(module.parse_args(
+        [str(bag), '--run', '--output-dir', str(tmp_path / 'core'), '--engine', 'core',
+         *calibration]))
+    assert ready['status'] == 'ready', ready
+    persisted = json.loads((tmp_path / 'core' / 'sensor_setup.json').read_text(encoding='utf-8'))
+    jsonschema.validate(persisted, json.loads(SCHEMA.read_text(encoding='utf-8')))
+    assert ready['profile']['id'] == 'rko_lio_graph_public_path'
+    argv = ready['run']['argv']
+    assert argv[argv.index('--engine') + 1] == 'core'
+    assert '--lidar-frame' not in argv
+    assert ready['frames']['lidar']['source'] == 'scan_header'
+
+    refused = module.generate(module.parse_args(
+        [str(bag), '--run', '--output-dir', str(tmp_path / 'ros2'), '--engine', 'ros2',
+         '--profile', 'rko_lio_graph_public_path', *calibration]),
+        publish=False)
+    assert refused['status'] == 'not_ready'
+    assert refused['reason']['code'] == 'profile-needs-core-engine'
+    assert refused['findings'][0]['next_action'].endswith(f'start {bag} --engine core')
+
+    # setup has no --engine; on a ROS 2 host it points at start --engine core.
+    monkeypatch.setenv('LIDARSLAM_CLI_COMMAND', 'lidarslam-map setup')
+    monkeypatch.setattr(module, '_resolve_engine', lambda requested: 'ros2')
+    refused = module.generate(module.parse_args(
+        [str(bag), '--output-dir', str(tmp_path / 'setup'), *calibration]), publish=False)
+    assert refused['reason']['code'] == 'profile-needs-core-engine'
+    assert refused['findings'][0]['next_action'].endswith(f'start {bag} --engine core')

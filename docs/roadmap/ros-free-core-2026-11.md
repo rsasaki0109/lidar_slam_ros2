@@ -217,9 +217,17 @@ Each milestone is one reviewable change. Outputs of the ROS 2 path stay byte-ide
    packets gives the same trajectory bytes as on the node's clouds; PointCloud2 input gives the
    earlier bytes: ACCEPT (bench_report/data/ros_free_packets_2026-11-17/results.md). Report only:
    `lidarslam map` on bag1's front packets, no ROS 2, 4.8 s, 0.285 m against Applanix (untuned
-   KITTI odometry parameters; the classic NDT packet profile: 0.142 m). Not done:
-   `lidarslam-map run|start` on a packet bag. The product's preflight and wizard take
-   VelodyneScan only for the ROS 2 `packet_applanix_smoke` profile.
+   KITTI odometry parameters; the classic NDT packet profile: 0.142 m).
+   *Step c, part 2, the product on packet bags (2026-11-17, preregistered in
+   bench_report/data/ros_free_packets_2026-11-17/plan_product.txt):* the preflight offers
+   `rko_lio_graph_public_path` for VelodyneScan + Imu with the packet topic as its LiDAR input,
+   marked core-only and ranked below every earlier recommendation; `lidarslam-map run|start
+   --engine core` picks it and maps the packets, and the ROS 2 engine refuses it with
+   `--engine core` as the next step. The package odometry sets
+   `lidar_timestamps.force_relative` for a VelodyneScan `lidar_topic`. On bag1, no ROS 2: `run`
+   PASS (verifier and receipt, 33 s, 217 MB), trajectories byte-identical to `lidarslam map`
+   with the same parameters; `start` VERIFIED; the ROS 2 automatic profile unchanged: ACCEPT
+   (results.md, part 2). The classic `packet_applanix_smoke` (NDT, Applanix) still needs ROS 2.
 
 ## Notes
 

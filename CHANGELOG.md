@@ -22,8 +22,12 @@ latest published release.
   bags directly (`velodyne.*` parameters; the model calibrations ship with the
   package). On Leo Drive all-sensors-bag1 every scan of the three streams is
   byte-identical to velodyne_transform_node's cloud (1,093 of 1,093).
-  `lidarslam-map run|start` still takes packet bags only through the ROS 2
-  `packet_applanix_smoke` profile.
+  `lidarslam-map run|start --engine core` maps a VelodyneScan + Imu bag with
+  the RKO-LIO profile on the packets (Leo Drive bag1: verifier PASS,
+  `start` VERIFIED, trajectories byte-identical to `lidarslam map`), and
+  `lidar_timestamps.force_relative` is set for packet input unless the
+  parameters say otherwise. The ROS 2 engine keeps its profiles; the classic
+  `packet_applanix_smoke` profile still needs ROS 2.
 
 ### Fixed
 

@@ -175,6 +175,7 @@
             "cli_or_default",
             "cli_override",
             "bag_header",
+            "scan_header",
             "fallback",
             "not_applicable"
           ]

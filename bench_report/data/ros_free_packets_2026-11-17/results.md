@@ -54,7 +54,33 @@ alignment and matching):
 
 The RKO-LIO parameters are KITTI's, not tuned for this rig.
 
-Not done in this step: `lidarslam-map run|start --engine core` on a packet bag. The product's
-preflight and setup wizard take a VelodyneScan bag only for the classic `packet_applanix_smoke`
-profile, which needs ROS 2; the RKO-LIO profiles require PointCloud2. The packet path works
-through `python -m lidarslam odometry|map` and the Python API (`velodyne.*` parameters).
+Not done in step c: `lidarslam-map run|start` on a packet bag (done in part 2 below).
+
+## Part 2: `lidarslam-map run|start --engine core` on a packet bag (plan_product.txt)
+
+Carrier: develop 88878120 plus this change. The package and its `lidarslam-map` were run with no
+ROS environment; Q4 ran the runner's plan step from the checkout.
+
+| Check | Result |
+| --- | --- |
+| Q1 bags without packets unchanged | Preflight, runner and wizard tests pass, including new ones for a packet + Imu bag (RKO-LIO on the packets offered only with the core engine, below every earlier recommendation), a packet bag without Imu (not offered) and a bag with an RKO-ready PointCloud2 (its recommendation kept). `scripts/run_product_python_tests.sh`: 82 failures on this host, each also failing on develop 88878120 in the same environment (78 in graph_based_slam need `lidarslam_benchmark_tools`, which is not installed here; 2 in lidarslam need git history or files this clone lacks; 2 wizard checks see the stale-install note the host's frozen `install/` prints). `lidarslam_core` tests 29/29. |
+| Q2 `lidarslam-map run --engine core` on bag1 | Auto profile `rko_lio_graph_public_path` on `/sensing/lidar/front/velodyne_packets` (+ `/sensing/imu/imu_data`, `tools/leo_rko.yaml`, `lidarslam.yaml`): map verifier PASS, first-map receipt PASS, 33 s, 217 MB peak. `odometry_tum.txt` (f0d951b0…) and `trajectory_optimized.tum` (4d119d87…) byte-identical to `python -m lidarslam map` with the parameters the run recorded (`core_params.json`, `tools/q2_map.py`). |
+| Q3 `lidarslam-map start --engine core --yes` on bag1 with the extrinsics of `tools/leo_rko.yaml` | Profile "RKO-LIO + graph_based_slam on Velodyne packets (core engine)", `Map session: VERIFIED`. |
+| Q4 ROS 2 engine on bag1 | Auto profile stays `pointcloud_gnss_smoke` (recommendations: pointcloud_gnss_smoke 80, packet_applanix_smoke 70, rko_lio_graph_public_path 60 core only). Forcing `rko_lio_graph_public_path` is refused: "needs the core engine … Pass --engine core (pip install lidarslam)"; the wizard returns `profile-needs-core-engine` (`tools/q4_ros2_profile.py`). |
+
+**ACCEPT.**
+
+What changed: the preflight offers `rko_lio_graph_public_path` for VelodyneScan + Imu (a front
+packet topic preferred) marked core-only; with `--engine core` the automatic choice is the best
+recommendation the core engine runs; the runner passes the packet topic; the wizard writes the
+setup with it and adds `--engine core` to the command. The package odometry sets
+`lidar_timestamps.force_relative` for a VelodyneScan `lidar_topic` unless the parameters set
+`lidar_timestamps.force_relative` or `force_absolute`.
+
+Found after the runs, fixed before the commit: the `sensor_setup.json` of the Q3 session records
+the LiDAR frame as `{"id": null, "source": "scan_header"}` (the odometry takes the frame of the
+scans), and `scan_header` was not in the frame-source enum of `sensor-setup-v1` and
+`support-bundle-v1`, so the manifest did not validate. Both schemas now list it (an added enum
+value; earlier manifests stay valid), and a wizard test validates a packet setup against the
+schema. The same test found that `setup` on a ROS 2 host offered `setup … --engine core` as the
+retry, which `setup` does not accept; the retry is now `start … --engine core`.

@@ -51,14 +51,21 @@ def drive(log_path: str | Path, params: dict[str, Any],
     for name in ('dump_results', 'results_dir', 'run_name'):
         params.pop(name, None)
 
+    with SensorLog(log_path) as probe:
+        types = {t.name: t.msgtype for t in probe.topics()}
+    if (types.get(params.get('lidar_topic')) == velodyne.VELODYNE_SCAN
+            and not {'lidar_timestamps.force_absolute',
+                     'lidar_timestamps.force_relative'} & set(params)):
+        # The decoder's per-point time counts from the scan stamp, which RKO-LIO's automatic
+        # check does not take when the first point is more than 1 ms after it.
+        params['lidar_timestamps.force_relative'] = True
+
     driver = _core.OdometryDriver(params, buffer_size)
     for name in driver.unused_parameters:
         print(f'[lidarslam] parameter not used by the odometry: {name}', file=sys.stderr)
 
     result: dict[str, Any] = {'driver': driver, 'imu_messages': 0, 'lidar_messages': 0,
                               'lidar_frame_id': None}
-    with SensorLog(log_path) as probe:
-        types = {t.name: t.msgtype for t in probe.topics()}
     decoder = None
     if types.get(driver.lidar_topic) == velodyne.VELODYNE_SCAN:
         decoder = velodyne.Decoder.from_settings(velodyne_settings)

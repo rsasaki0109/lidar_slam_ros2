@@ -1731,6 +1731,44 @@ def build_recommendations(summary: dict[str, Any]) -> list[dict[str, Any]]:
             })
 
     if (
+        not any(item['id'] == 'rko_lio_graph_public_path' for item in recommendations)
+        and capabilities['has_velodyne_scan']
+        and capabilities['has_imu']
+        and timestamp_order_ready
+        and best_imu['name'] not in failed_timestamp_topics
+    ):
+        # The lidarslam package decodes the packets as velodyne_transform_node does, so RKO-LIO
+        # reads them directly; the ROS 2 launch takes PointCloud2 only. Below every other
+        # recommendation, so the profile chosen for ROS 2 does not change. Of several packet
+        # streams the front one is taken, as the Leo Drive packet benchmark does.
+        packet_topic = next(
+            (item for item in summary['topics']['velodyne_scan']
+             if 'front' in item['name'].lower()),
+            best_packet,
+        )
+        recommendations.append({
+            'id': 'rko_lio_graph_public_path',
+            'priority': 60,
+            'label': 'RKO-LIO + graph_based_slam on Velodyne packets (core engine)',
+            'why': [
+                f"VelodyneScan is available on {packet_topic['name']}",
+                f"Imu is available on {best_imu['name']}",
+                (
+                    'The lidarslam package decodes the packets as velodyne_transform_node '
+                    'does (velodyne.* parameters; VLP16 by default).'
+                ),
+            ],
+            'command': f'lidarslam-map run {bag_q} --engine core',
+            'notes': [
+                'Needs the core engine (pip install lidarslam); the ROS 2 launch reads '
+                'PointCloud2 only.',
+                'Give the LiDAR and IMU extrinsics of the rig (RKO-LIO parameter file).',
+            ],
+            'lidar_input': {'topic': packet_topic['name'], 'msg_type': VELODYNE_SCAN},
+            'engines': ['core'],
+        })
+
+    if (
         capabilities['has_pointcloud2']
         and capabilities['has_navsatfix']
         and timestamp_order_ready
