@@ -39,6 +39,22 @@ latest published release.
   0.77 m even for a 1 um change
   (bench_report/data/sz3_cloud_store_2026-11-17).
 
+### Changed
+
+- Map refinement (offline runner, `lidarslam.backend`, core engine): a
+  window whose result changes the relative transform of two consecutive
+  submaps by more than 0.10 m or 1 deg against the pose graph is now
+  discarded (`refine_window_max_adjacent_change_m` / `_deg`; 0 restores the
+  old behaviour byte for byte). On GrandTour CON-1 and CON-2 the ungated
+  refinement moved adjacent submaps apart by up to 1 m, left the trajectory
+  worse than the pose graph (0.450 / 0.352 m against 0.384 / 0.291 m) and
+  moved by up to 1.6 m for a 1 um input change; gated it keeps the pose graph
+  there. On MapsHD calibration-room 1 and Stadtgarten 2 no window is gated
+  and the output is unchanged (bench_report/data/refine_stability_2026-11-17).
+  The opt-in `refine_relative_translation_sigma` /
+  `refine_relative_rotation_sigma_rad` add factors between consecutive
+  submaps instead.
+
 ### Fixed
 
 - `extract_rosbag2_sqlite_topics.py`: rows of a Jazzy bag's

@@ -81,6 +81,12 @@ struct PlaneBaConfig
   // Gauss-Newton with a unit twist Jacobian (exact as the residual -> 0).
   double prior_translation_sigma {0.30};
   double prior_rotation_sigma_rad {0.035};
+  // Soft factor between consecutive poses to their relative transform in the
+  // prior poses (body frame); <= 0 disables it (the default). Without it, a
+  // group of poses that no plane links to its neighbours can move as a block
+  // within the prior.
+  double relative_translation_sigma {0.0};
+  double relative_rotation_sigma_rad {0.0};
 };
 
 struct PlaneBaResult
@@ -123,6 +129,51 @@ inline Vector6d priorResidual(
   return logSe3(pose * input_inverse);
 }
 
+inline bool relativeFactorsEnabled(const PlaneBaConfig & config)
+{
+  return config.relative_translation_sigma > 0.0 && config.relative_rotation_sigma_rad > 0.0;
+}
+
+inline double relativeWeight(const PlaneBaConfig & config, int axis)
+{
+  const double sigma =
+    axis < 3 ? config.relative_translation_sigma : config.relative_rotation_sigma_rad;
+  return 1.0 / (sigma * sigma);
+}
+
+inline Eigen::Matrix4d inverseSe3(const Eigen::Matrix4d & transform)
+{
+  Eigen::Matrix4d inverse = Eigen::Matrix4d::Identity();
+  const Eigen::Matrix3d rotation = transform.block<3, 3>(0, 0);
+  inverse.block<3, 3>(0, 0) = rotation.transpose();
+  inverse.block<3, 1>(0, 3) = -rotation.transpose() * transform.block<3, 1>(0, 3);
+  return inverse;
+}
+
+// Relative residual of poses i and i + 1: the twist of their body-frame
+// relative transform against the reference poses' (log(B0^-1 B)).
+inline Vector6d relativeResidual(
+  const Eigen::Matrix4d & pose_i, const Eigen::Matrix4d & pose_j,
+  const Eigen::Matrix4d & reference_i, const Eigen::Matrix4d & reference_j)
+{
+  const Eigen::Matrix4d relative = inverseSe3(pose_i) * pose_j;
+  const Eigen::Matrix4d reference_relative = inverseSe3(reference_i) * reference_j;
+  return logSe3(inverseSe3(reference_relative) * relative);
+}
+
+// d(residual) / d(left twist of pose j) = Ad(pose_j^-1) (and its negative
+// for pose i), with the unit twist Jacobian the priors use.
+inline Eigen::Matrix<double, 6, 6> relativeJacobian(const Eigen::Matrix4d & pose_j)
+{
+  const Eigen::Matrix4d inverse = inverseSe3(pose_j);
+  const Eigen::Matrix3d rotation = inverse.block<3, 3>(0, 0);
+  Eigen::Matrix<double, 6, 6> adjoint = Eigen::Matrix<double, 6, 6>::Zero();
+  adjoint.block<3, 3>(0, 0) = rotation;
+  adjoint.block<3, 3>(0, 3) = skew(Eigen::Vector3d(inverse.block<3, 1>(0, 3))) * rotation;
+  adjoint.block<3, 3>(3, 3) = rotation;
+  return adjoint;
+}
+
 struct CostEvaluation
 {
   double total_cost {0.0};
@@ -156,6 +207,16 @@ inline CostEvaluation evaluateTotalCost(
       for (int axis = 0; axis < 6; ++axis) {
         evaluation.total_cost +=
           priorWeight(config, axis) * residual(axis) * residual(axis);
+      }
+    }
+  }
+  if (relativeFactorsEnabled(config)) {
+    for (int i = 0; i + 1 < pose_count; ++i) {
+      const Vector6d residual =
+        relativeResidual(poses[i], poses[i + 1], input_poses[i], input_poses[i + 1]);
+      for (int axis = 0; axis < 6; ++axis) {
+        evaluation.total_cost +=
+          relativeWeight(config, axis) * residual(axis) * residual(axis);
       }
     }
   }
@@ -214,6 +275,27 @@ inline bool assembleSystem(
         (*gradient)(6 * i + axis) += 2.0 * weight * residual(axis);
         (*hessian)(6 * i + axis, 6 * i + axis) += 2.0 * weight;
       }
+    }
+  }
+  if (relativeFactorsEnabled(config)) {
+    Eigen::Matrix<double, 6, 6> weights = Eigen::Matrix<double, 6, 6>::Zero();
+    for (int axis = 0; axis < 6; ++axis) {
+      weights(axis, axis) = relativeWeight(config, axis);
+    }
+    for (int i = 0; i + 1 < pose_count; ++i) {
+      const Vector6d residual =
+        relativeResidual(poses[i], poses[i + 1], input_poses[i], input_poses[i + 1]);
+      const Eigen::Matrix<double, 6, 6> jacobian = relativeJacobian(poses[i + 1]);
+      const Eigen::Matrix<double, 6, 6> jtw = jacobian.transpose() * weights;
+      const Vector6d g = 2.0 * jtw * residual;
+      const Eigen::Matrix<double, 6, 6> h = 2.0 * jtw * jacobian;
+      // The residual moves with +J for pose i + 1 and -J for pose i.
+      gradient->segment<6>(6 * (i + 1)) += g;
+      gradient->segment<6>(6 * i) -= g;
+      hessian->block<6, 6>(6 * (i + 1), 6 * (i + 1)) += h;
+      hessian->block<6, 6>(6 * i, 6 * i) += h;
+      hessian->block<6, 6>(6 * i, 6 * (i + 1)) -= h;
+      hessian->block<6, 6>(6 * (i + 1), 6 * i) -= h;
     }
   }
   return true;

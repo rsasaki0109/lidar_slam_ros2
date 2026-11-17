@@ -1,0 +1,197 @@
+{
+ "c1": {
+  "R0": {
+   "ate_refined": 0.44967239140944243,
+   "n_ref": 5374,
+   "ate_optimized": 0.38441852606364474,
+   "sensitivity_m": 0.767186250355696,
+   "report": {
+    "status": "refined",
+    "windows": "20",
+    "improved_windows": "20"
+   },
+   "wall_s": 115.11
+  },
+  "RB": {
+   "ate_refined": 0.3848112929349832,
+   "n_ref": 5374,
+   "ate_optimized": 0.38441852606364474,
+   "sensitivity_m": 0.0003964173070553922,
+   "report": {
+    "status": "refined",
+    "windows": "20",
+    "improved_windows": "2",
+    "gated_windows": "18"
+   },
+   "wall_s": 113.1
+  },
+  "RA": {
+   "ate_refined": 0.3931013761833406,
+   "n_ref": 5374,
+   "ate_optimized": 0.38441852606364474,
+   "sensitivity_m": 0.017317231747061585,
+   "report": {
+    "status": "refined",
+    "windows": "20",
+    "improved_windows": "20"
+   },
+   "wall_s": 114.86
+  }
+ },
+ "c2": {
+  "R0": {
+   "ate_refined": 0.3517896046663321,
+   "n_ref": 4115,
+   "ate_optimized": 0.29074699685281125,
+   "sensitivity_m": 1.6208075858049718,
+   "report": {
+    "status": "refined",
+    "windows": "20",
+    "improved_windows": "20"
+   },
+   "wall_s": 137.57999999999998
+  },
+  "RB": {
+   "ate_refined": 0.29074699685281125,
+   "n_ref": 4115,
+   "ate_optimized": 0.29074699685281125,
+   "sensitivity_m": 0.0,
+   "report": {
+    "status": "no_improvement",
+    "windows": "20",
+    "improved_windows": "0",
+    "gated_windows": "20"
+   },
+   "wall_s": 119.75
+  },
+  "RA": {
+   "ate_refined": 0.30030831359520094,
+   "n_ref": 4115,
+   "ate_optimized": 0.29074699685281125,
+   "sensitivity_m": 0.007851225842593262,
+   "report": {
+    "status": "refined",
+    "windows": "20",
+    "improved_windows": "20"
+   },
+   "wall_s": 124.23
+  }
+ },
+ "m1": {
+  "R0": {
+   "ate_refined": 0.22936912666400694,
+   "n_ref": 76021,
+   "ate_optimized": 0.23272607489900102,
+   "sensitivity_m": 0.00010752101122106098,
+   "report": {
+    "status": "refined",
+    "windows": "23",
+    "improved_windows": "23"
+   },
+   "wall_s": 19.92
+  },
+  "RB": {
+   "ate_refined": 0.22936912666400694,
+   "n_ref": 76021,
+   "ate_optimized": 0.23272607489900102,
+   "sensitivity_m": 0.00010752101122106098,
+   "report": {
+    "status": "refined",
+    "windows": "23",
+    "improved_windows": "23",
+    "gated_windows": "0"
+   },
+   "wall_s": 17.09
+  },
+  "RA": {
+   "ate_refined": 0.23035489391135686,
+   "n_ref": 76021,
+   "ate_optimized": 0.23272607489900102,
+   "sensitivity_m": 0.00010403608858917966,
+   "report": {
+    "status": "refined",
+    "windows": "23",
+    "improved_windows": "23"
+   },
+   "wall_s": 16.96
+  }
+ },
+ "h4": {
+  "R0": {
+   "ate_refined": 1.4269652732556262,
+   "n_ref": 6,
+   "ate_optimized": 1.4224601025729473,
+   "sensitivity_m": 4.500155553484747e-07,
+   "report": {
+    "status": "refined",
+    "windows": "4",
+    "improved_windows": "4"
+   },
+   "wall_s": 2.06
+  },
+  "RB": {
+   "ate_refined": 1.4263289227304592,
+   "n_ref": 6,
+   "ate_optimized": 1.4224601025729473,
+   "sensitivity_m": 0.0001665340301139739,
+   "report": {
+    "status": "refined",
+    "windows": "4",
+    "improved_windows": "1",
+    "gated_windows": "3"
+   },
+   "wall_s": 1.36
+  },
+  "RA": {
+   "ate_refined": 1.416947951800759,
+   "n_ref": 6,
+   "ate_optimized": 1.4224601025729473,
+   "sensitivity_m": 2.1929990880947475e-06,
+   "report": {
+    "status": "refined",
+    "windows": "4",
+    "improved_windows": "4"
+   },
+   "wall_s": 1.32
+  }
+ },
+ "s2": {
+  "R0": {
+   "ate_refined": 0.7818050227032157,
+   "n_ref": 19,
+   "ate_optimized": 0.7794679409492372,
+   "sensitivity_m": 0.017347242103430627,
+   "report": {
+    "status": "refined",
+    "windows": "33",
+    "improved_windows": "33"
+   },
+   "wall_s": 18.56
+  },
+  "RB": {
+   "ate_refined": 0.7818050227032157,
+   "n_ref": 19,
+   "ate_optimized": 0.7794679409492372,
+   "sensitivity_m": 0.017347242103430627,
+   "report": {
+    "status": "refined",
+    "windows": "33",
+    "improved_windows": "33",
+    "gated_windows": "0"
+   },
+   "wall_s": 16.9
+  },
+  "RA": {
+   "ate_refined": 0.7826116951039618,
+   "n_ref": 19,
+   "ate_optimized": 0.7794679409492372,
+   "sensitivity_m": 0.0008237050732634247,
+   "report": {
+    "status": "refined",
+    "windows": "33",
+    "improved_windows": "33"
+   },
+   "wall_s": 16.97
+  }
+ }
+}

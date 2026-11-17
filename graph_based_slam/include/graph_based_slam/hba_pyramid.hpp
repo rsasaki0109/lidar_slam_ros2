@@ -68,6 +68,11 @@ struct HbaPyramidConfig
   bool run_global_pass {true};
   int global_pass_max_poses {64};
   PlaneBaConfig global_ba;
+  // Adjacency gate: a window's result is discarded when it changes the
+  // relative transform of two consecutive poses (body frame, against the
+  // initial poses) by more than this; <= 0 disables the gate (the default).
+  double window_max_adjacent_change_m {0.0};
+  double window_max_adjacent_change_rad {0.0};
 };
 
 struct WindowReport
@@ -76,6 +81,7 @@ struct WindowReport
   int pose_count {0};
   int features {0};
   bool improved {false};
+  bool gated {false};  // discarded by the adjacency gate
   std::string termination;
   double initial_cost {0.0};
   double final_cost {0.0};
@@ -222,6 +228,28 @@ inline HbaPyramidResult refinePosesHierarchically(
       window_config,
       window_prior_poses);
     detail::fillReportFromBa(ba_result, &report);
+
+    if (config.window_max_adjacent_change_m > 0.0 &&
+      config.window_max_adjacent_change_rad > 0.0)
+    {
+      for (std::size_t pose_i = 0; pose_i + 1 < ba_result.poses.size(); ++pose_i) {
+        const Vector6d change = detail::relativeResidual(
+          ba_result.poses[pose_i], ba_result.poses[pose_i + 1],
+          window_prior_poses[pose_i], window_prior_poses[pose_i + 1]);
+        if (change.head<3>().norm() > config.window_max_adjacent_change_m ||
+          change.tail<3>().norm() > config.window_max_adjacent_change_rad)
+        {
+          report.gated = true;
+          break;
+        }
+      }
+    }
+    if (report.gated) {
+      report.improved = false;
+      report.termination = "adjacency_gate";
+      result.windows.push_back(report);
+      continue;
+    }
     result.any_window_improved = result.any_window_improved ||
       ba_result.improved;
 

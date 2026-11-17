@@ -340,4 +340,37 @@ TEST(PlaneBa, BlockAssemblyIsBitwiseTheDenseSum) {
   EXPECT_EQ(0, std::memcmp(&evaluation.total_cost, &dense_cost, sizeof(double)));
 }
 
+
+TEST(PlaneBa, RelativeFactorJacobianMatchesFiniteDifferences) {
+  namespace d = graphslam::map_refinement::detail;
+  using graphslam::map_refinement::expSe3;
+  Vector6d a;
+  a << 1.0, -2.0, 0.5, 0.1, -0.2, 0.3;
+  Vector6d b;
+  b << 2.4, -1.5, 0.6, 0.15, -0.1, 0.45;
+  const Eigen::Matrix4d pose_i = expSe3(a);
+  const Eigen::Matrix4d pose_j = expSe3(b);
+  // References a few millimetres and milliradians away, where the unit twist
+  // Jacobian of the residual is accurate.
+  Vector6d offset;
+  offset << 0.004, -0.003, 0.002, 0.001, -0.002, 0.0015;
+  const Eigen::Matrix4d reference_i = pose_i;
+  const Eigen::Matrix4d reference_j = leftPerturb(offset, pose_j);
+  const Vector6d r0 = d::relativeResidual(pose_i, pose_j, reference_i, reference_j);
+  const Eigen::Matrix<double, 6, 6> jacobian = d::relativeJacobian(pose_j);
+  const double h = 1e-6;
+  for (int axis = 0; axis < 6; ++axis) {
+    Vector6d delta = Vector6d::Zero();
+    delta(axis) = h;
+    const Vector6d dj =
+      (d::relativeResidual(pose_i, leftPerturb(delta, pose_j), reference_i, reference_j) - r0) / h;
+    const Vector6d di =
+      (d::relativeResidual(leftPerturb(delta, pose_i), pose_j, reference_i, reference_j) - r0) / h;
+    for (int row = 0; row < 6; ++row) {
+      EXPECT_NEAR(dj(row), jacobian(row, axis), 2e-2) << "pose j, axis " << axis;
+      EXPECT_NEAR(di(row), -jacobian(row, axis), 2e-2) << "pose i, axis " << axis;
+    }
+  }
+}
+
 }  // namespace
