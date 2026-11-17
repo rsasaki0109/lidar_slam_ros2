@@ -23,8 +23,9 @@ message, packed to x, y, z, intensity float32 as packForPointXYZI does)
 Methods (each cloud compressed on its own, single thread; intensity is stored losslessly the
 current way in every method, so the methods differ only in x, y, z)
   A  current: shuffle + zstd 1 (reimplementation; its size must equal the C++ store's on D1)
-  Q1 x, y, z rounded to 1 mm int32, delta along point order, zigzag, shuffle, zstd 1
-  Q5 the same with 5 mm
+  Q1 x, y, z rounded to a 2 mm step (max |error| 1 mm, the same bound as S1) as int32, delta
+     along point order, zigzag, shuffle, zstd 1
+  Q5 the same with a 10 mm step (max |error| 5 mm)
   S1 SZ3 (szcompressor/SZ3 db2eca3e, BSD), each of x, y, z a 1-D float32 array in point order,
      EB_ABS 1 mm, default algorithm, zstd as SZ3's lossless stage
   S5 the same with 5 mm
@@ -42,3 +43,9 @@ Decision (per error bound b in {1 mm, 5 mm}, over D1-D6)
   - Otherwise no stage 2 for that bound: the lossless store stays.
 Report only: the bytes a run would save (A minus the candidate, summed over the sampled clouds
 x 5), against that run's recorded backend peak RSS where one exists.
+
+Amendment (2026-11-17, before any measurement): Q1/Q5 first rounded to a 1 mm / 5 mm step,
+which bounds the error by half of S1/S5's bound and so favours SZ3; they now use a 2 mm / 10 mm
+step so both methods have the same maximum error. Method A is graph_based_slam's own
+compressPacked (src/cloud_compression.cpp compiled into the harness) rather than a
+reimplementation, so C1's size-equality clause holds by construction.
