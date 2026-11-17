@@ -26,7 +26,7 @@
 | See a verified map, no build | **Default if unsure:** [Docker demo](#try-it-with-docker-one-command-no-build) | Stable `v0.11.0-humble`; needs Docker; host writes stay in `./lidarslam_output`. |
 | Map my own rosbag | [Own-bag route](#map-your-own-bag-one-command-after-install): `lidarslam-map doctor /path/to/rosbag2` | Read-only diagnosis first; then `lidarslam-map start /path/to/rosbag2` writes a new output. |
 | Build from source or contribute | [Source quickstart](#build--verified-demo-from-source-one-helper): `bash scripts/source_quickstart.sh --dry-run` | Release `v0.11.0`; needs ROS 2, 8 GiB, and roughly 30 minutes. |
-| Map a bag without ROS 2 (preview) | [pip install](#without-ros-2-pip-preview): `pip install ./lidarslam_core`, then `lidarslam-map start /path/to/rosbag2` | Builds from source with Ubuntu packages, no ROS 2; RKO-LIO profiles only (GNSS, packet input and `--join-map` need ROS 2). |
+| Map a bag without ROS 2 (preview) | [pip install](#without-ros-2-pip-preview): `pip install lidarslam-*.whl` (prebuilt) or `pip install ./lidarslam_core`, then `lidarslam-map start /path/to/rosbag2` | No ROS 2; the prebuilt wheel needs no apt packages (Linux x86_64/aarch64, Python 3.10-3.13). RKO-LIO profiles only (GNSS, packet input and `--join-map` need ROS 2). |
 
 ### Try it with Docker (one command, no build)
 
@@ -61,6 +61,19 @@ The helper detects Humble/Jazzy, installs the dependencies, builds the six maint
 ### Without ROS 2 (pip, preview)
 
 ROS 2 is becoming one option rather than a requirement. The pip package installs the `lidarslam-map` command with the RKO-LIO odometry and the graph_based_slam backend (loop closure, pose graph, refinement, Autoware map bundle) inside, and reads rosbag2 (MCAP, SQLite3) and ROS 1 bags without ROS 2 ([roadmap](docs/roadmap/ros-free-core-2026-11.md)).
+
+**Prebuilt wheel (no apt packages, no compiler).** The [wheels workflow](https://github.com/rsasaki0109/lidar_slam_ros2/actions/workflows/wheels.yml) builds manylinux wheels (glibc 2.28+, x86_64 and aarch64, Python 3.10-3.13) that bundle PCL, g2o and the other C++ libraries; they are not on PyPI yet. Open the latest successful run on `develop`, download `lidarslam-wheels-x86_64` (or `-aarch64`; GitHub sign-in needed), unzip it and install the wheel for your Python:
+
+```bash
+python3 -m venv .venv && . .venv/bin/activate
+pip install lidarslam-0.12.0.dev0-cp312-cp312-manylinux_2_28_x86_64.whl   # your cpXY and arch
+lidarslam-map doctor                             # ready: map engine core, no ROS 2 needed
+lidarslam-map start /path/to/rosbag2             # verified Autoware map bundle, lanelet2, 3D preview
+```
+
+On HILTI exp14 the x86_64 wheel writes the same map bytes as the source install below.
+
+**From source** (Ubuntu packages, builds the C++ core):
 
 ```bash
 sudo apt install build-essential cmake libeigen3-dev libtbb-dev robin-map-dev \
