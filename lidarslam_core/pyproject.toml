@@ -58,4 +58,6 @@ before-all = [
   "git config --global --add safe.directory '*'",
   "bash {project}/lidarslam_core/wheel/build_deps.sh",
 ]
-environment = { LIDARSLAM_WHEEL_DEPS = "/wheel-deps", CMAKE_PREFIX_PATH = "/wheel-deps", LD_LIBRARY_PATH = "/wheel-deps/lib:$LD_LIBRARY_PATH", CMAKE_BUILD_PARALLEL_LEVEL = "4" }
+# CPATH: the prefix is the system include path the core assumes on Ubuntu (3D-BBS includes Boost
+# headers without asking CMake for Boost).
+environment = { LIDARSLAM_WHEEL_DEPS = "/wheel-deps", CMAKE_PREFIX_PATH = "/wheel-deps", CPATH = "/wheel-deps/include", LD_LIBRARY_PATH = "/wheel-deps/lib:$LD_LIBRARY_PATH", CMAKE_BUILD_PARALLEL_LEVEL = "4" }
