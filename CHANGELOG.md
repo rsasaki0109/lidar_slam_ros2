@@ -30,6 +30,13 @@
   hall). `scripts/convert_luh_longterm_bag.py` streams one of its ROS 1 bags
   into a compact ROS 2 bag (Ouster OS1 and IMU). First look on development
   sequence S3: RKO-LIO odometry 0.033 m position RMSE over 44.5 m.
+- Live mapping without ROS 2 (`lidarslam.live`): a `Session` fed IMU and LiDAR
+  messages one at a time hands out every scan's live pose (the backend's
+  causal pose, through the new `OfflinePipeline::setLivePoseListener`), and
+  `python -m lidarslam live <log> --realtime` plays a log at the sensor's
+  rate. On LUH S3 it keeps up with the data (118.7 s in 118.9 s, pose 0.028 s
+  after its scan at the median, 0.67 s at most). Outputs of the other paths are
+  unchanged.
 
 ## 0.13.0 - 2026-11-18
 

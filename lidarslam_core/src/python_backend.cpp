@@ -185,6 +185,13 @@ graphslam::msg::PointCloud2 toCloud(const lidarslam_core::PackedCloud & in)
   return out;
 }
 
+std::vector<double> poseList(const Eigen::Isometry3d & pose)
+{
+  const Eigen::Quaterniond q(pose.rotation());
+  const Eigen::Vector3d t = pose.translation();
+  return {t.x(), t.y(), t.z(), q.x(), q.y(), q.z(), q.w()};
+}
+
 class BackendPipeline
 {
 public:
@@ -220,6 +227,27 @@ public:
     pipeline_->addGnssFix(fix);
   }
   bool finish() {return pipeline_->finish();}
+
+  // listener(dict): stamp_sec, odometry and map ([x, y, z, qx, qy, qz, qw]), new_submap, submaps,
+  // corrections_applied; called during add_odometry / add_cloud (causal_trajectory_output).
+  void setLivePoseListener(py::object listener)
+  {
+    if (listener.is_none()) {
+      pipeline_->setLivePoseListener(nullptr);
+      return;
+    }
+    pipeline_->setLivePoseListener(
+      [listener](const graphslam::offline::LivePose & live) {
+        py::dict out;
+        out["stamp_sec"] = live.stamp_sec;
+        out["odometry"] = poseList(live.odometry);
+        out["map"] = poseList(live.map);
+        out["new_submap"] = live.new_submap;
+        out["submaps"] = live.submaps;
+        out["corrections_applied"] = live.corrections_applied;
+        listener(out);
+      });
+  }
 
   const graphslam::offline::OfflinePipeline & pipeline() const {return *pipeline_;}
 
@@ -323,6 +351,10 @@ void bind_backend(py::module_ & m)
   .def("add_cloud", &BackendPipeline::addCloud, py::arg("cloud"))
   .def("add_gnss_fix", &BackendPipeline::addGnssFix, py::arg("fix"),
     "With use_gnss: a NavSatFix of gnss_topic, in recorded order with the odometry and clouds.")
+  .def("set_live_pose_listener", &BackendPipeline::setLivePoseListener, py::arg("listener"),
+    "Call listener(dict) for every odometry / cloud pair with its live (causal) pose: stamp_sec, "
+    "odometry and map as [x, y, z, qx, qy, qz, qw], new_submap, submaps, corrections_applied. "
+    "Needs causal_trajectory_output; set it before begin().")
   .def("finish", &BackendPipeline::finish,
     "The pose graph, refinement and all outputs; False (after logging why) when the fixed loop "
     "edges cannot be loaded.");
