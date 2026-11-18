@@ -7,6 +7,9 @@
                                         odometry and backend in one pass over a sensor log
   join --params P -p session_bag_paths:=[...] -p session_backend_dirs:=[...] -p output_dir:=DIR
                                         multi-session join (graph_slam_multisession_join)
+  live <log> --odometry-params P --backend-params P --out DIR [--realtime] [--speed S]
+                                        live mapping: the log played message by message, live
+                                        (causal) poses as they come (lidarslam.live)
 """
 
 from __future__ import annotations
@@ -53,6 +56,20 @@ def main(argv: list[str] | None = None) -> int:
                          help='backend parameter override, as ROS 2 -p (YAML value)')
     mapping.add_argument('--backend-input', metavar='DIR',
                          help='also record the backend input (rosbag2, MCAP) for later replays')
+    live = sub.add_parser(
+        'live', help='live mapping: play a log into a live session, poses as they come (no ROS 2)')
+    live.add_argument('log', help='rosbag2 directory or ROS 1 .bag file (LiDAR + IMU)')
+    live.add_argument('--odometry-params', required=True,
+                      help='RKO-LIO parameter file (ROS 2 ros__parameters layout or flat YAML)')
+    live.add_argument('--backend-params', required=True, action='append',
+                      help='graph_based_slam parameter file; repeat to layer files')
+    live.add_argument('--out', required=True, help='output directory')
+    live.add_argument('-p', '--param', action='append', default=[], metavar='NAME:=VALUE',
+                      help='backend parameter override, as ROS 2 -p (YAML value)')
+    live.add_argument('--realtime', action='store_true',
+                      help='hand each message over at its log time (sensor rate)')
+    live.add_argument('--speed', type=float, default=1.0,
+                      help='with --realtime: playback speed (2 = twice the sensor rate)')
     join = sub.add_parser(
         'join', help='multi-session join of backend inputs and their offline runs (no ROS 2)')
     join.add_argument('--params', action='append', default=[],
@@ -96,6 +113,16 @@ def main(argv: list[str] | None = None) -> int:
             backend_module.load_parameters(*args.backend_params), args.param)
         summary = mapping_module.run(args.log, odometry_params, backend_params, args.out,
                                      backend_input=args.backend_input)
+        print(json.dumps(summary, indent=2))
+    elif args.command == 'live':
+        from lidarslam import backend as backend_module, live as live_module
+        from lidarslam.odometry import load_parameters as load_odometry_parameters
+        from lidarslam.params import apply_overrides
+        backend_params = apply_overrides(
+            backend_module.load_parameters(*args.backend_params), args.param)
+        summary = live_module.replay(args.log, load_odometry_parameters(args.odometry_params),
+                                     backend_params, args.out, realtime=args.realtime,
+                                     speed=args.speed)
         print(json.dumps(summary, indent=2))
     elif args.command == 'join':
         from lidarslam import multisession

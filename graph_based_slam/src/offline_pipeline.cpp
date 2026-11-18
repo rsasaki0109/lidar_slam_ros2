@@ -1569,6 +1569,8 @@ struct BagPass
   BagPassResult & bag;
 
   bool loop_edges_changed = false;
+  // OfflinePipeline::setLivePoseListener: told of every pair's causal pose.
+  LivePoseListener live_pose_listener;
   // Sensor time for the GNSS stamp check, as the live node keeps it: the odometry stamps of the
   // pairs (with a finite position), the first and the latest.
   double first_pair_stamp_sec = 0.0;
@@ -1823,6 +1825,16 @@ struct BagPass
       }
       const Eigen::Isometry3d pose =
         causal_map_from_odom * Eigen::Isometry3d(pose_affine.matrix());
+      if (live_pose_listener) {
+        LivePose live;
+        live.stamp_sec = stamp_sec;
+        live.odometry = Eigen::Isometry3d(pose_affine.matrix());
+        live.map = pose;
+        live.new_submap = decision.create;
+        live.submaps = bag.records.size();
+        live.corrections_applied = causal_applied;
+        live_pose_listener(live);
+      }
       const Eigen::Vector3d t = pose.translation();
       const Eigen::Quaterniond q(pose.rotation());
       char line[256];
@@ -3229,6 +3241,7 @@ struct OfflinePipeline::Impl
   std::unique_ptr<LoopSearchBackend> backend;
   BagPassResult bag;
   std::unique_ptr<BagPass> bag_pass;
+  LivePoseListener live_pose_listener;
 };
 
 OfflinePipeline::OfflinePipeline(const Parameters & parameters, const Log & log)
@@ -3274,8 +3287,14 @@ const std::string & OfflinePipeline::odometryTopic() const {return impl_->config
 const std::string & OfflinePipeline::cloudTopic() const {return impl_->config.cloud_topic;}
 const std::string & OfflinePipeline::outputDir() const {return impl_->config.output_dir;}
 
+void OfflinePipeline::setLivePoseListener(LivePoseListener listener)
+{
+  impl_->live_pose_listener = std::move(listener);
+}
+
 void OfflinePipeline::begin()
 {
+  impl_->bag_pass->live_pose_listener = impl_->live_pose_listener;
   impl_->bag_pass->begin();
 }
 

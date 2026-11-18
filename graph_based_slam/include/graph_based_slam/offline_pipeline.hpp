@@ -44,6 +44,10 @@
 #ifndef GRAPH_BASED_SLAM__OFFLINE_PIPELINE_HPP_
 #define GRAPH_BASED_SLAM__OFFLINE_PIPELINE_HPP_
 
+#include <Eigen/Geometry>
+
+#include <cstddef>
+#include <functional>
 #include <memory>
 #include <string>
 
@@ -55,6 +59,23 @@ namespace graphslam
 {
 namespace offline
 {
+
+// What a live system could output for one odometry / cloud pair, as the causal trajectory
+// (causal_trajectory_output) defines it: the pair's odometry pose and that pose corrected by the
+// latest pose-graph optimization the background worker had finished by the pair's stamp.
+struct LivePose
+{
+  double stamp_sec {0.0};
+  Eigen::Isometry3d odometry {Eigen::Isometry3d::Identity()};
+  Eigen::Isometry3d map {Eigen::Isometry3d::Identity()};
+  // The pair started a submap.
+  bool new_submap {false};
+  // Submaps and corrections (optimizations whose result applies) so far.
+  std::size_t submaps {0U};
+  std::size_t corrections_applied {0U};
+};
+
+using LivePoseListener = std::function<void (const LivePose &)>;
 
 class OfflinePipeline
 {
@@ -75,6 +96,11 @@ public:
   const std::string & odometryTopic() const;
   const std::string & cloudTopic() const;
   const std::string & outputDir() const;
+
+  // Called for every odometry / cloud pair, as it is processed, with its live pose. Only with
+  // causal_trajectory_output (without it the listener is not called). Set before begin(). The
+  // outputs are the same with or without a listener.
+  void setLivePoseListener(LivePoseListener listener);
 
   // The input, in recorded order, between begin() and finish().
   void begin();
