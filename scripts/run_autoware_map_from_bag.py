@@ -701,11 +701,19 @@ def _allocate_emergency_evidence_reserve(working_dir: Path) -> Path:
         0o600,
     )
     try:
-        os.posix_fallocate(
-            descriptor,
-            0,
-            EMERGENCY_EVIDENCE_RESERVE_BYTES,
-        )
+        if hasattr(os, 'posix_fallocate'):
+            os.posix_fallocate(
+                descriptor,
+                0,
+                EMERGENCY_EVIDENCE_RESERVE_BYTES,
+            )
+        else:
+            # macOS has no posix_fallocate; written zeros take real blocks too.
+            remaining = EMERGENCY_EVIDENCE_RESERVE_BYTES
+            chunk = bytes(min(remaining, 1024 * 1024))
+            while remaining > 0:
+                remaining -= os.write(descriptor, chunk[:remaining])
+            os.fsync(descriptor)
     except OSError:
         reserve_path.unlink(missing_ok=True)
         raise

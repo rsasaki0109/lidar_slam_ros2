@@ -16,6 +16,7 @@ classifiers = [
   "Intended Audience :: Developers",
   "License :: OSI Approved :: BSD License",
   "Operating System :: POSIX :: Linux",
+  "Operating System :: MacOS",
   "Programming Language :: C++",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
@@ -61,12 +62,16 @@ LIDARSLAM_CORE_BUILD_BACKEND = "ON"
 LIDARSLAM_CORE_BUILD_FRONTEND = "ON"
 LIDARSLAM_CORE_INSTALL_PRODUCT = "ON"
 
-# Prebuilt Linux wheels (.github/workflows/wheels.yml). The C++ libraries are built from
-# Ubuntu 24.04's sources into /wheel-deps (lidarslam_core/wheel/build_deps.sh, a cached volume)
-# and bundled by auditwheel, so `pip install` needs no apt packages.
+# Prebuilt Linux and macOS wheels (.github/workflows/wheels.yml). The C++ libraries are built
+# from Ubuntu 24.04's sources (lidarslam_core/wheel/build_deps.sh, a cached directory) and bundled
+# by auditwheel / delocate, so `pip install` needs no apt or Homebrew packages.
 [tool.cibuildwheel]
-# The runner's own architecture (x86_64 or aarch64; wheels.yml runs one job per architecture).
-build = ["cp310-manylinux_*", "cp311-manylinux_*", "cp312-manylinux_*", "cp313-manylinux_*"]
+# The runner's own architecture (x86_64 or aarch64 on Linux, arm64 on macOS; wheels.yml runs one
+# job per platform).
+build = [
+  "cp310-manylinux_*", "cp311-manylinux_*", "cp312-manylinux_*", "cp313-manylinux_*",
+  "cp310-macosx_arm64", "cp311-macosx_arm64", "cp312-macosx_arm64", "cp313-macosx_arm64",
+]
 manylinux-x86_64-image = "manylinux_2_28"
 manylinux-aarch64-image = "manylinux_2_28"
 build-verbosity = 1
@@ -84,3 +89,13 @@ before-all = [
 # CPATH: the prefix is the system include path the core assumes on Ubuntu (3D-BBS includes Boost
 # headers without asking CMake for Boost).
 environment = { LIDARSLAM_WHEEL_DEPS = "/wheel-deps", CMAKE_PREFIX_PATH = "/wheel-deps", CPATH = "/wheel-deps/include", LD_LIBRARY_PATH = "/wheel-deps/lib:$LD_LIBRARY_PATH", CMAKE_BUILD_PARALLEL_LEVEL = "4" }
+
+# Apple Silicon. The dependencies are built on the runner into LIDARSLAM_WHEEL_DEPS (set by
+# wheels.yml) with Homebrew's libomp, which sets the oldest macOS the wheels run on. The libomp,
+# lz4 and zstd kegs go on CPATH and LIBRARY_PATH: the core adds -fopenmp to every target (Eigen
+# then includes omp.h), and FLANN's headers include lz4.h and its CMake package links lz4 by name.
+# CMAKE_PREFIX_PATH from the environment is a colon-separated list on macOS and Linux.
+[tool.cibuildwheel.macos]
+archs = ["arm64"]
+before-all = ["bash {project}/lidarslam_core/wheel/build_deps.sh"]
+environment = { MACOSX_DEPLOYMENT_TARGET = "15.0", OpenMP_ROOT = "/opt/homebrew/opt/libomp", CMAKE_PREFIX_PATH = "$LIDARSLAM_WHEEL_DEPS:/opt/homebrew", CPATH = "$LIDARSLAM_WHEEL_DEPS/include:/opt/homebrew/opt/libomp/include:/opt/homebrew/opt/lz4/include:/opt/homebrew/opt/zstd/include", LIBRARY_PATH = "/opt/homebrew/opt/libomp/lib:/opt/homebrew/opt/lz4/lib:/opt/homebrew/opt/zstd/lib", CMAKE_BUILD_PARALLEL_LEVEL = "3" }

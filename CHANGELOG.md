@@ -17,6 +17,12 @@
   then a top view and an interactive 3-D view of the verified map and a
   download of the bundle. It ran end to end in a fresh Python 3.12 venv with
   no ROS 2 (VERIFIED, 2,233,762 map points, about 4.5 minutes).
+- macOS arm64 wheels (Apple Silicon, macOS 15+, Python 3.10-3.13): the wheels
+  workflow builds the same C++ dependencies from source on a macOS 15 runner
+  with Homebrew's libomp, bundles them with delocate, and installs and tests
+  the wheel on macOS 15 and the latest macOS runner. A release tag publishes
+  them to PyPI with the manylinux wheels. The map runner reserves its emergency evidence space by
+  writing zeros where `os.posix_fallocate` does not exist (macOS).
 
 ## 0.13.0 - 2026-11-18
 

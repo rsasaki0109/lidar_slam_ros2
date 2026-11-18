@@ -12,12 +12,24 @@
 # Runs in the manylinux_2_28 container of cibuildwheel (before-all) and installs into
 # LIDARSLAM_WHEEL_DEPS (default: .wheel-deps in the repository, which CI caches). A stamp file
 # named after this script's hash skips the build when the prefix is already complete.
+#
+# On macOS (the arm64 wheels) it runs on the runner itself (bash 3.2), with Apple clang and
+# Homebrew's libomp, lz4 and zstd. The libraries get absolute install names, so delocate finds
+# and bundles them.
 set -euo pipefail
 
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 PREFIX=${LIDARSLAM_WHEEL_DEPS:-${REPO_ROOT}/.wheel-deps}
-JOBS=${LIDARSLAM_WHEEL_JOBS:-$(nproc)}
-STAMP="${PREFIX}/.complete-$(sha256sum "${BASH_SOURCE[0]}" | cut -c1-16)"
+DARWIN=false
+[[ "$(uname -s)" == Darwin ]] && DARWIN=true
+if ${DARWIN}; then
+  JOBS=${LIDARSLAM_WHEEL_JOBS:-$(sysctl -n hw.ncpu)}
+  sha256() { shasum -a 256 "$@"; }
+else
+  JOBS=${LIDARSLAM_WHEEL_JOBS:-$(nproc)}
+  sha256() { sha256sum "$@"; }
+fi
+STAMP="${PREFIX}/.complete-$(sha256 "${BASH_SOURCE[0]}" | cut -c1-16)"
 UBUNTU_POOL=${LIDARSLAM_UBUNTU_POOL:-http://archive.ubuntu.com/ubuntu/pool}
 
 # System packages of the container, needed also when the prefix comes from the cache: the
@@ -25,6 +37,9 @@ UBUNTU_POOL=${LIDARSLAM_UBUNTU_POOL:-http://archive.ubuntu.com/ubuntu/pool}
 if command -v dnf >/dev/null 2>&1; then
   dnf install -y zlib-devel bzip2-devel xz-devel libzstd-devel lz4-devel pkgconf-pkg-config \
     patch xz bzip2 curl
+fi
+if ${DARWIN}; then
+  HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 brew install libomp lz4 zstd pkgconf
 fi
 
 if [[ -f "${STAMP}" ]]; then
@@ -49,7 +64,7 @@ fetch() {
   url=${path}
   [[ "${path}" == https://* ]] || url="${UBUNTU_POOL}/${path}"
   curl -fsSL --retry 5 --retry-delay 5 -o "${out}" "${url}"
-  echo "${sha}  ${out}" | sha256sum -c - >&2
+  echo "${sha}  ${out}" | sha256 -c - >&2
   echo "${out}"
 }
 
@@ -72,6 +87,40 @@ CMAKE_COMMON=(
   -DCMAKE_POLICY_VERSION_MINIMUM=3.5
   -DBUILD_SHARED_LIBS=ON
 )
+if ${DARWIN}; then
+  # Homebrew's libomp (OpenMP_ROOT, also for projects with old cmake_minimum_required) and its
+  # lz4 / zstd; absolute install names in the prefix.
+  export OpenMP_ROOT=${OpenMP_ROOT:-$(brew --prefix libomp)}
+  # FLANN links lz4 by name (from pkg-config) without its directory; Homebrew's prefix is not on
+  # the default search paths. Only the lz4 and zstd kegs, not all of Homebrew's headers.
+  export LIBRARY_PATH="$(brew --prefix lz4)/lib:$(brew --prefix zstd)/lib${LIBRARY_PATH:+:${LIBRARY_PATH}}"
+  export CPATH="$(brew --prefix lz4)/include:$(brew --prefix zstd)/include${CPATH:+:${CPATH}}"
+  CMAKE_COMMON+=(
+    -DCMAKE_POLICY_DEFAULT_CMP0074=NEW
+    -DCMAKE_PREFIX_PATH="${PREFIX};$(brew --prefix)"
+    -DCMAKE_MACOSX_RPATH=OFF
+    -DCMAKE_INSTALL_NAME_DIR="${PREFIX}/lib"
+  )
+fi
+
+# absolute_install_names (macOS): give every library in the prefix its absolute path as install
+# name and point references to @rpath/<library in the prefix> there too, then re-sign (Apple
+# Silicon does not load a library whose signature the edit invalidated).
+absolute_install_names() {
+  ${DARWIN} || return 0
+  local lib id dep
+  for lib in "${PREFIX}"/lib/*.dylib; do
+    [[ -e "${lib}" && ! -L "${lib}" ]] || continue
+    id=$(otool -D "${lib}" | sed -n 2p)
+    [[ "${id}" == /* ]] || install_name_tool -id "${PREFIX}/lib/$(basename "${id}")" "${lib}"
+    otool -L "${lib}" | sed -n '2,$p' | awk '{print $1}' | while read -r dep; do
+      if [[ "${dep}" != /* && -e "${PREFIX}/lib/$(basename "${dep}")" ]]; then
+        install_name_tool -change "${dep}" "${PREFIX}/lib/$(basename "${dep}")" "${lib}"
+      fi
+    done
+    codesign --force --sign - "${lib}" 2>/dev/null
+  done
+}
 
 cmake_install() {
   local src=$1
@@ -79,6 +128,7 @@ cmake_install() {
   cmake -S "${src}" -B "${src}/build" "${CMAKE_COMMON[@]}" "$@"
   cmake --build "${src}/build" -j "${JOBS}"
   cmake --install "${src}/build"
+  absolute_install_names
 }
 
 # Eigen 3.4.0 (eigen3 3.4.0-4build0.1), header-only.
@@ -104,12 +154,17 @@ src=$(unpack "$(fetch https://archives.boost.io/release/1.83.0/source/boost_1_83
 (
   cd "${src}"
   ./bootstrap.sh --prefix="${PREFIX}" --with-libraries=filesystem,iostreams,system
-  ./b2 -j "${JOBS}" -d0 variant=release link=shared threading=multi cxxflags=-O2 \
+  # macOS: room in the headers for the absolute install names set below (CMake adds this
+  # linker flag by itself; b2 does not).
+  linkflags=""
+  ${DARWIN} && linkflags="linkflags=-Wl,-headerpad_max_install_names"
+  ./b2 -j "${JOBS}" -d0 variant=release link=shared threading=multi cxxflags=-O2 ${linkflags} \
     --prefix="${PREFIX}" --libdir="${PREFIX}/lib" install
   # b2 installs only the headers of the libraries built; install all of them, as libboost-dev
   # does (3D-BBS includes boost/functional/hash).
   cp -a boost "${PREFIX}/include/"
 )
+absolute_install_names
 
 # FLANN 1.9.2 (flann 1.9.2+dfsg-2build1), with OpenMP as Debian builds it.
 src=$(unpack "$(fetch universe/f/flann/flann_1.9.2+dfsg.orig.tar.xz \
@@ -136,6 +191,13 @@ cmake_install "${src}" -DG2O_USE_CHOLMOD=OFF -DG2O_USE_CSPARSE=OFF -DG2O_USE_OPE
 # PCL 1.14.0 (pcl 1.14.0+dfsg-1), the modules the core uses, flags as Debian (PCL_ENABLE_SSE=OFF).
 src=$(unpack "$(fetch universe/p/pcl/pcl_1.14.0+dfsg.orig.tar.xz \
   d084703d01397fa83c314b76e5e80a63ed310c5f57094365a993285bb734e7a9)")
+if ${DARWIN}; then
+  # Apple clang 17 (LLVM 19) rejects this->getClassName() in a nested class template that has
+  # no such member; PCL 1.15 names the class in the message instead. Same change here.
+  crf="${src}/registration/include/pcl/registration/correspondence_rejection_features.h"
+  perl -0pi -e 's/this->getClassName\(\)\.c_str\(\)\);/"CorrespondenceRejectorFeatures::FeatureContainer");/' "${crf}"
+  grep -q '"CorrespondenceRejectorFeatures::FeatureContainer");' "${crf}"
+fi
 pcl_off=()
 for module in apps tools examples global_tests geometry keypoints ml outofcore people recognition \
   segmentation simulation stereo surface tracking visualization cuda gpu benchmarks; do

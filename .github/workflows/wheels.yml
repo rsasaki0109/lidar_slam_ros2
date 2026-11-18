@@ -1,12 +1,13 @@
 name: wheels
 
-# Prebuilt manylinux wheels of the lidarslam Python package (lidarslam_core), so
-# `pip install lidarslam-*.whl` needs no apt packages and no ROS 2. The C++ libraries are built
-# from Ubuntu 24.04's sources (lidarslam_core/wheel/build_deps.sh), cached between runs, and
-# bundled by auditwheel. The wheels are workflow artifacts (lidarslam-wheels-x86_64 and
-# lidarslam-wheels-aarch64). A release tag (v<VERSION>) publishes them to PyPI, and a manual run
-# can publish them to TestPyPI; both through PyPI's Trusted Publishing (no stored token), from
-# the environments `pypi` and `testpypi`.
+# Prebuilt manylinux and macOS arm64 wheels of the lidarslam Python package (lidarslam_core), so
+# `pip install lidarslam-*.whl` needs no apt or Homebrew packages and no ROS 2. The C++ libraries
+# are built from Ubuntu 24.04's sources (lidarslam_core/wheel/build_deps.sh), cached between runs,
+# and bundled by auditwheel / delocate. The wheels are workflow artifacts
+# (lidarslam-wheels-x86_64, lidarslam-wheels-aarch64 and lidarslam-wheels-macos-arm64). A release
+# tag (v<VERSION>) publishes them to PyPI, and a manual run can publish them to TestPyPI; both
+# through PyPI's Trusted Publishing (no stored token), from the environments `pypi` and
+# `testpypi`.
 
 on:
   # Pushes to develop/main keep current wheels downloadable from the run's artifacts; release tags
@@ -127,9 +128,67 @@ jobs:
           path: wheelhouse/*.whl
           if-no-files-found: error
 
+  build-macos:
+    name: Build macOS wheels (arm64)
+    runs-on: macos-15
+    timeout-minutes: 240
+    env:
+      CIBUILDWHEEL_VERSION: "4.3.4"
+      # The libraries' install names are absolute paths in this prefix, so the cache below is
+      # only valid at this same path.
+      LIDARSLAM_WHEEL_DEPS: ${{ github.workspace }}/.wheel-deps
+      MACOSX_DEPLOYMENT_TARGET: "15.0"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          submodules: recursive
+
+      - name: Restore the built C++ dependencies
+        id: deps-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: .wheel-deps
+          key: wheel-deps-macos-15-arm64-${{ hashFiles('lidarslam_core/wheel/build_deps.sh') }}
+
+      - name: Build wheels (cibuildwheel)
+        shell: bash
+        run: |
+          mkdir -p .wheel-deps
+          python3 -m venv "${RUNNER_TEMP}/cibw"
+          "${RUNNER_TEMP}/cibw/bin/pip" install "cibuildwheel==${CIBUILDWHEEL_VERSION}"
+          "${RUNNER_TEMP}/cibw/bin/cibuildwheel" lidarslam_core --output-dir wheelhouse
+          ls -l wheelhouse
+
+      - name: Check whether the C++ dependencies were built
+        id: deps-built
+        if: always() && steps.deps-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          if compgen -G '.wheel-deps/.complete-*' >/dev/null; then
+            echo "complete=true" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Save the built C++ dependencies
+        if: always() && steps.deps-built.outputs.complete == 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: .wheel-deps
+          key: ${{ steps.deps-cache.outputs.cache-primary-key }}
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v6
+        with:
+          name: lidarslam-wheels-macos-arm64
+          path: wheelhouse/*.whl
+          if-no-files-found: error
+
   test:
     name: Install the wheel on ${{ matrix.os }}, Python ${{ matrix.python }} (no apt packages)
-    needs: build
+    needs: [build, build-macos]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
@@ -142,6 +201,8 @@ jobs:
           - {os: ubuntu-24.04, python: "3.12", setup: false}
           - {os: ubuntu-24.04, python: "3.13", setup: true}
           - {os: ubuntu-24.04-arm, python: "3.12", setup: false}
+          - {os: macos-15, python: "3.12", setup: true}
+          - {os: macos-latest, python: "3.13", setup: true}
 
     steps:
       - name: Check out repository (for the tests)
@@ -180,12 +241,18 @@ jobs:
           "${RUNNER_TEMP}/venv/bin/lidarslam-map" doctor --json
           core=$("${RUNNER_TEMP}/venv/bin/python" -c "import lidarslam._core as c; print(c.__file__)")
           echo "Libraries loaded by ${core}:"
-          ldd "${core}"
-          ! ldd "${core}" | grep -q 'not found'
+          if [[ "$(uname -s)" == Darwin ]]; then
+            # Everything but the system's own libraries comes from the wheel (delocate).
+            otool -L "${core}"
+            ! otool -L "${core}" | sed -n '2,$p' | awk '{print $1}' | grep -vE '^(@loader_path/|/usr/lib/|/System/)'
+          else
+            ldd "${core}"
+            ! ldd "${core}" | grep -q 'not found'
+          fi
 
   publish-pypi:
     name: Publish the wheels to PyPI
-    needs: [build, test]
+    needs: [build, build-macos, test]
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -216,9 +283,11 @@ jobs:
           test "${GITHUB_REF_NAME}" = "v${version}" || {
             echo "tag ${GITHUB_REF_NAME} does not match VERSION ${version}" >&2; exit 1; }
           ls -l dist
-          count=$(find dist -name "lidarslam-${version}-cp3*-manylinux_2_28_*.whl" | wc -l)
-          test "$(find dist -name '*.whl' | wc -l)" = "${count}"
-          test "${count}" = 8
+          linux=$(find dist -name "lidarslam-${version}-cp3*-manylinux_2_28_*.whl" | wc -l)
+          macos=$(find dist -name "lidarslam-${version}-cp3*-macosx_*_arm64.whl" | wc -l)
+          test "$(find dist -name '*.whl' | wc -l)" = "$((linux + macos))"
+          test "${linux}" = 8
+          test "${macos}" = 4
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@v1.12.4
@@ -227,7 +296,7 @@ jobs:
 
   publish-testpypi:
     name: Publish the wheels to TestPyPI
-    needs: [build, test]
+    needs: [build, build-macos, test]
     if: github.event_name == 'workflow_dispatch' && inputs.publish == 'testpypi'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
