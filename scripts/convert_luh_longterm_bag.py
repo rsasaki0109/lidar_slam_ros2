@@ -49,6 +49,7 @@ class Stream:
 
     def __init__(self, source: str, retries: int = 20):
         self.source, self.retries, self.offset = source, retries, 0
+        self.size = None
         self.md5 = hashlib.md5()
         self._open()
 
@@ -57,6 +58,12 @@ class Stream:
             request = urllib.request.Request(
                 self.source, headers={'Range': f'bytes={self.offset}-'})
             self.handle = urllib.request.urlopen(request, timeout=120)
+            # Content-Range: bytes START-END/TOTAL gives the whole size on every (re)open.
+            content_range = self.handle.headers.get('Content-Range', '')
+            if '/' in content_range and content_range.rsplit('/', 1)[1].isdigit():
+                self.size = int(content_range.rsplit('/', 1)[1])
+            elif self.offset == 0 and self.handle.headers.get('Content-Length'):
+                self.size = int(self.handle.headers['Content-Length'])
         else:
             self.handle = open(self.source, 'rb')
             self.handle.seek(self.offset)
@@ -66,6 +73,9 @@ class Stream:
         while remaining:
             try:
                 part = self.handle.read(min(remaining, 1 << 22))
+                if not part and self.size is not None and self.offset < self.size:
+                    # The server closed the connection early: resume from here.
+                    raise ConnectionError(f'connection closed at {self.offset} of {self.size}')
             except OSError as error:
                 part, failures = b'', failures + 1
                 if failures > self.retries:
