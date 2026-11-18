@@ -12,6 +12,11 @@
   it). `web/` holds the build (`build_wasm.sh`, a serial oneTBB stand-in) and
   the clip writer. The RKO-LIO submodule copies two IMU priors into a lambda
   explicitly so Emscripten's clang 15 compiles it; outputs are unchanged.
+- Colab notebook (`examples/colab/first_map.ipynb`): `pip install lidarslam`,
+  download the public MID-360 recording, `lidarslam-map start --engine core`,
+  then a top view and an interactive 3-D view of the verified map and a
+  download of the bundle. It ran end to end in a fresh Python 3.12 venv with
+  no ROS 2 (VERIFIED, 2,233,762 map points, about 4.5 minutes).
 
 ## 0.13.0 - 2026-11-18
 
