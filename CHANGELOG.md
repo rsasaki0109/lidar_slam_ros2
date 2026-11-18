@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Browser demo ([Try It in Your Browser](docs/browser-demo.md)): RKO-LIO odometry
+  (`rko_lio::driver::OfflineDriver`) compiled to WebAssembly maps a 60 s clip of
+  the public Livox MID-360 recording in a web worker and draws the map with
+  three.js. On the clip the WebAssembly build gives the native build's 599
+  poses (`web/replay_node.js` against `web/demo_reference.tum`; a CI job checks
+  it). `web/` holds the build (`build_wasm.sh`, a serial oneTBB stand-in) and
+  the clip writer. The RKO-LIO submodule copies two IMU priors into a lambda
+  explicitly so Emscripten's clang 15 compiles it; outputs are unchanged.
+
 ## 0.13.0 - 2026-11-18
 
 The first release from the renamed repository `rsasaki0109/lidar_slam`. The

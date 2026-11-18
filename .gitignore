@@ -40,3 +40,7 @@ site/
 # lidarslam wheel builds (lidarslam_core/wheel/build_deps.sh, cibuildwheel)
 /.wheel-deps/
 /wheelhouse/
+
+# Browser demo build output (web/build_wasm.sh)
+docs/demo/slam_web.js
+docs/demo/slam_web.wasm

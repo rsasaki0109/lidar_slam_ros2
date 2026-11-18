@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LiDAR SLAM in your browser</title>
+<meta name="description" content="RKO-LIO LiDAR-inertial odometry from lidar_slam, compiled to WebAssembly, mapping a public Livox MID-360 recording in your browser.">
+<style>
+  :root { --bg: #0e1116; --panel: rgba(18, 22, 30, 0.86); --text: #e6e9ef; --muted: #9aa3b2; --accent: #4fc3f7; --border: rgba(255,255,255,0.12); }
+  @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --bg: #f4f6fa; --panel: rgba(255,255,255,0.9); --text: #1b1f27; --muted: #5b6474; --accent: #0277bd; --border: rgba(0,0,0,0.12); } }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #view { position: fixed; inset: 0; }
+  .panel { position: fixed; left: 16px; top: 16px; max-width: min(420px, calc(100vw - 32px)); background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; backdrop-filter: blur(6px); box-sizing: border-box; }
+  h1 { font-size: 17px; margin: 0 0 6px; }
+  p { margin: 0 0 10px; color: var(--muted); }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 8px 0; }
+  button, select { background: transparent; color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; font: inherit; cursor: pointer; }
+  button.primary { background: var(--accent); color: #fff; border-color: transparent; font-weight: 600; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  .stats { display: grid; grid-template-columns: auto auto; gap: 2px 14px; font-variant-numeric: tabular-nums; }
+  .stats span:nth-child(odd) { color: var(--muted); }
+  progress { width: 100%; height: 6px; }
+  .credit { position: fixed; right: 12px; bottom: 10px; color: var(--muted); font-size: 12px; text-align: right; max-width: calc(100vw - 24px); }
+  .credit a, .panel a { color: var(--accent); }
+  #error { color: #ef5350; display: none; }
+  @media (max-height: 760px) { .panel .lead { display: none; } .panel { padding: 10px 12px; } }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="view"></div>
+<div class="panel">
+  <h1>LiDAR SLAM in your browser</h1>
+  <p class="lead">RKO-LIO, the LiDAR-inertial odometry of <a href="https://github.com/rsasaki0109/lidar_slam">lidar_slam</a>, compiled to WebAssembly. It maps 60 s of a public Livox MID-360 drive on this device; nothing is uploaded.</p>
+  <div class="row">
+    <button id="start" class="primary">Start (7.4 MB download)</button>
+    <button id="pause" disabled>Pause</button>
+    <select id="speed" aria-label="Playback speed">
+      <option value="1">Real time</option>
+      <option value="4">4× real time</option>
+      <option value="0" selected>As fast as possible</option>
+    </select>
+    <label><input type="checkbox" id="follow" checked> Follow</label>
+  </div>
+  <progress id="progress" value="0" max="1"></progress>
+  <div class="stats" aria-live="polite">
+    <span>Scans</span><span id="s-scans">–</span>
+    <span>Data time</span><span id="s-time">–</span>
+    <span>Odometry speed</span><span id="s-speed">–</span>
+    <span>Distance</span><span id="s-dist">–</span>
+    <span>Map points</span><span id="s-points">–</span>
+  </div>
+  <p id="error"></p>
+</div>
+<div class="credit">Data: Livox MID-360 public driving recording (<a href="https://zenodo.org/records/14841855">Zenodo 14841855</a>, CC BY 4.0), every 4th point. Drag to orbit, scroll to zoom.</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const MAX_POINTS = 3_000_000;
+const container = document.getElementById('view');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+container.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const dark = !window.matchMedia('(prefers-color-scheme: light)').matches;
+scene.background = new THREE.Color(dark ? 0x0e1116 : 0xf4f6fa);
+const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 5000);
+camera.up.set(0, 0, 1);
+camera.position.set(-30, -30, 40);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+
+const positions = new Float32Array(MAX_POINTS * 3);
+const colors = new Float32Array(MAX_POINTS * 3);
+const cloudGeometry = new THREE.BufferGeometry();
+cloudGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3).setUsage(THREE.DynamicDrawUsage));
+cloudGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3).setUsage(THREE.DynamicDrawUsage));
+cloudGeometry.setDrawRange(0, 0);
+scene.add(new THREE.Points(cloudGeometry, new THREE.PointsMaterial({ size: 0.12, vertexColors: true })));
+
+const MAX_POSES = 20000;
+const trackPositions = new Float32Array(MAX_POSES * 3);
+const trackGeometry = new THREE.BufferGeometry();
+trackGeometry.setAttribute('position', new THREE.BufferAttribute(trackPositions, 3).setUsage(THREE.DynamicDrawUsage));
+trackGeometry.setDrawRange(0, 0);
+scene.add(new THREE.Line(trackGeometry, new THREE.LineBasicMaterial({ color: 0xff5252 })));
+const marker = new THREE.Mesh(new THREE.ConeGeometry(0.8, 2.4, 16), new THREE.MeshBasicMaterial({ color: 0xffd54f }));
+marker.geometry.rotateZ(-Math.PI / 2);
+marker.visible = false;
+scene.add(marker);
+
+let pointCount = 0;
+let poseCount = 0;
+let distance = 0;
+let lastPose = null;
+
+function heightColor(z, out, i) {
+  const t = Math.min(1, Math.max(0, (z + 3) / 12));
+  const c = new THREE.Color().setHSL(0.66 - 0.66 * t, 0.85, dark ? 0.6 : 0.45);
+  out[i] = c.r; out[i + 1] = c.g; out[i + 2] = c.b;
+}
+
+function addPoints(points) {
+  const n = Math.min(points.length / 3, MAX_POINTS - pointCount);
+  if (n <= 0) return;
+  positions.set(points.subarray(0, n * 3), pointCount * 3);
+  for (let i = 0; i < n; i++) heightColor(points[i * 3 + 2], colors, (pointCount + i) * 3);
+  const attr = cloudGeometry.attributes;
+  attr.position.clearUpdateRanges();
+  attr.color.clearUpdateRanges();
+  attr.position.addUpdateRange(pointCount * 3, n * 3);
+  attr.color.addUpdateRange(pointCount * 3, n * 3);
+  attr.position.needsUpdate = true;
+  attr.color.needsUpdate = true;
+  pointCount += n;
+  cloudGeometry.setDrawRange(0, pointCount);
+}
+
+function addPoses(poses) {
+  for (let i = 0; i < poses.length / 8 && poseCount < MAX_POSES; i++) {
+    const x = poses[i * 8 + 1], y = poses[i * 8 + 2], z = poses[i * 8 + 3];
+    trackPositions.set([x, y, z], poseCount * 3);
+    if (lastPose) distance += Math.hypot(x - lastPose[0], y - lastPose[1], z - lastPose[2]);
+    lastPose = [x, y, z];
+    poseCount += 1;
+    marker.position.set(x, y, z);
+    marker.quaternion.set(poses[i * 8 + 4], poses[i * 8 + 5], poses[i * 8 + 6], poses[i * 8 + 7]);
+    marker.visible = true;
+  }
+  trackGeometry.attributes.position.needsUpdate = true;
+  trackGeometry.setDrawRange(0, poseCount);
+}
+
+const $ = (id) => document.getElementById(id);
+const worker = new Worker('slam_worker.js');
+let paused = false;
+worker.onmessage = (event) => {
+  const m = event.data;
+  if (m.type === 'download') {
+    $('progress').max = m.total || 1; $('progress').value = m.received;
+  } else if (m.type === 'header') {
+    $('progress').max = m.header.n_scans; $('progress').value = 0;
+  } else if (m.type === 'progress') {
+    addPoints(m.points);
+    addPoses(m.poses);
+    $('progress').value = m.scan;
+    $('s-scans').textContent = `${m.scan} / ${m.nScans}`;
+    $('s-time').textContent = `${m.dataSeconds.toFixed(1)} s`;
+    $('s-speed').textContent = `${(m.dataSeconds * 1000 / Math.max(m.computeMs, 1)).toFixed(1)}× real time`;
+    $('s-dist').textContent = `${distance.toFixed(1)} m`;
+    $('s-points').textContent = pointCount.toLocaleString();
+  } else if (m.type === 'done') {
+    fitView();
+    $('pause').disabled = true;
+    $('start').textContent = 'Done';
+  } else if (m.type === 'error') {
+    $('error').style.display = 'block';
+    $('error').textContent = m.message;
+  }
+};
+$('start').onclick = () => {
+  $('start').disabled = true;
+  $('start').textContent = 'Running…';
+  $('pause').disabled = false;
+  worker.postMessage({ type: 'speed', speed: Number($('speed').value) });
+  worker.postMessage({ type: 'start', clipUrl: 'clip_mid360_60s.lswc2.gz', paramsUrl: 'params.json' });
+};
+$('pause').onclick = () => {
+  paused = !paused;
+  $('pause').textContent = paused ? 'Resume' : 'Pause';
+  worker.postMessage({ type: 'pause', paused });
+};
+$('speed').onchange = () => worker.postMessage({ type: 'speed', speed: Number($('speed').value) });
+
+// Frames the whole map from above at an angle once the run ends.
+function fitView() {
+  cloudGeometry.computeBoundingBox();
+  const box = cloudGeometry.boundingBox;
+  if (!box || box.isEmpty()) return;
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const radius = Math.max(size.x, size.y) * 0.6;
+  $('follow').checked = false;
+  controls.target.copy(center);
+  camera.position.set(center.x - radius * 0.35, center.y - radius * 0.6, center.z + radius);
+  controls.update();
+}
+
+function resize() {
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+resize();
+const offset = new THREE.Vector3();
+renderer.setAnimationLoop(() => {
+  if ($('follow').checked && marker.visible) {
+    offset.copy(camera.position).sub(controls.target);
+    controls.target.lerp(marker.position, 0.1);
+    camera.position.copy(controls.target).add(offset);
+  }
+  controls.update();
+  renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>

@@ -11,6 +11,7 @@ not belong at the root.
 | `graph_based_slam/` | Loop closure and pose-graph backend |
 | `lidarslam_msgs/` | ROS 2 interfaces |
 | `lidarslam_*_plugins/` | Registration plugin interfaces and implementations |
+| `web/` | WebAssembly build of the odometry for the browser demo (`docs/demo/`) |
 | `scripts/` | Maintained command-line workflows and automation |
 | `tools/` | Offline processing libraries and specialized tooling |
 | `configs/` | Versioned runtime and benchmark configurations |
