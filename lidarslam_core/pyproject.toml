@@ -91,11 +91,11 @@ before-all = [
 environment = { LIDARSLAM_WHEEL_DEPS = "/wheel-deps", CMAKE_PREFIX_PATH = "/wheel-deps", CPATH = "/wheel-deps/include", LD_LIBRARY_PATH = "/wheel-deps/lib:$LD_LIBRARY_PATH", CMAKE_BUILD_PARALLEL_LEVEL = "4" }
 
 # Apple Silicon. The dependencies are built on the runner into LIDARSLAM_WHEEL_DEPS (set by
-# wheels.yml) with Homebrew's libomp, which sets the oldest macOS the wheels run on. FLANN's
-# CMake package links lz4 by name and its headers include lz4.h, hence the lz4 keg on LIBRARY_PATH and
-# CPATH. CMAKE_PREFIX_PATH from the environment is a
-# colon-separated list on macOS and Linux.
+# wheels.yml) with Homebrew's libomp, which sets the oldest macOS the wheels run on. The libomp,
+# lz4 and zstd kegs go on CPATH and LIBRARY_PATH: the core adds -fopenmp to every target (Eigen
+# then includes omp.h), and FLANN's headers include lz4.h and its CMake package links lz4 by name.
+# CMAKE_PREFIX_PATH from the environment is a colon-separated list on macOS and Linux.
 [tool.cibuildwheel.macos]
 archs = ["arm64"]
 before-all = ["bash {project}/lidarslam_core/wheel/build_deps.sh"]
-environment = { MACOSX_DEPLOYMENT_TARGET = "15.0", OpenMP_ROOT = "/opt/homebrew/opt/libomp", CMAKE_PREFIX_PATH = "$LIDARSLAM_WHEEL_DEPS:/opt/homebrew", CPATH = "$LIDARSLAM_WHEEL_DEPS/include:/opt/homebrew/opt/lz4/include:/opt/homebrew/opt/zstd/include", LIBRARY_PATH = "/opt/homebrew/opt/lz4/lib:/opt/homebrew/opt/zstd/lib", CMAKE_BUILD_PARALLEL_LEVEL = "3" }
+environment = { MACOSX_DEPLOYMENT_TARGET = "15.0", OpenMP_ROOT = "/opt/homebrew/opt/libomp", CMAKE_PREFIX_PATH = "$LIDARSLAM_WHEEL_DEPS:/opt/homebrew", CPATH = "$LIDARSLAM_WHEEL_DEPS/include:/opt/homebrew/opt/libomp/include:/opt/homebrew/opt/lz4/include:/opt/homebrew/opt/zstd/include", LIBRARY_PATH = "/opt/homebrew/opt/libomp/lib:/opt/homebrew/opt/lz4/lib:/opt/homebrew/opt/zstd/lib", CMAKE_BUILD_PARALLEL_LEVEL = "3" }
