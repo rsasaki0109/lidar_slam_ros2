@@ -5,7 +5,7 @@
 [![ROS 2: Humble | Jazzy](https://img.shields.io/badge/ROS%202-Humble%20%7C%20Jazzy-22314E?logo=ros&logoColor=white)](#support-and-license)
 [![GitHub stars](https://img.shields.io/github/stars/rsasaki0109/lidar_slam?style=flat&logo=github)](https://github.com/rsasaki0109/lidar_slam/stargazers)
 
-**Turn a rosbag into a map you can actually drive on.** LiDAR SLAM that writes an Autoware-compatible map bundle: `pointcloud_map/`, `map_projector_info.yaml` and lanelet2. It runs as ROS 2 packages (Humble, Jazzy) or without ROS 2 from `pip install lidarslam`. `RKO-LIO` (MIT) + `graph_based_slam` (BSD-2), no GPL on the default workflow. [日本語クイックスタート](docs/getting-started-ja.md) · release notes [v0.12.0](docs/releases/v0.12.0.md) · next [v0.13.0](docs/releases/v0.13.0.md)
+**Turn a rosbag into a map you can actually drive on.** LiDAR SLAM that writes an Autoware-compatible map bundle: `pointcloud_map/`, `map_projector_info.yaml` and lanelet2. It runs as ROS 2 packages (Humble, Jazzy) or without ROS 2 from `pip install lidarslam`. `RKO-LIO` (MIT) + `graph_based_slam` (BSD-2), no GPL on the default workflow. [日本語クイックスタート](docs/getting-started-ja.md) · release notes [v0.13.0](docs/releases/v0.13.0.md) · [v0.12.0](docs/releases/v0.12.0.md)
 
 [Documentation](https://rsasaki0109.github.io/lidar_slam/) · [Supported inputs and outputs](docs/product-contract.md) · [Workflow and benchmark comparison](docs/comparison.md)
 
@@ -176,7 +176,7 @@ Release-gate thresholds ([Benchmarking](docs/benchmarking.md#release-gate-accura
 - **Getting started**: [Getting Started](docs/getting-started.md) · [Distribution](docs/distribution.md) · [Autoware quickstart](docs/autoware-quickstart.md) · [Operator workflows](docs/workflows.md) · [Autoware Foxglove](docs/autoware-foxglove.md)
 - **Pipelines**: [Autoware-compatible map authoring](docs/autoware-map-authoring.md)
 - **Benchmarking**: [Benchmarking and release gate](docs/benchmarking.md) · [Comparison](docs/comparison.md)
-- **Project**: [Product contract](docs/product-contract.md) · [v1.0 readiness](docs/v1-readiness.md) · [Independent first-map validation](docs/external-first-map-validation.md) · [v0.11.0 notes](docs/releases/v0.11.0.md) · [v0.12.0 notes](docs/releases/v0.12.0.md) · [v0.13.0 candidate](docs/releases/v0.13.0.md) · [v0.9 roadmap](docs/roadmap/v0.9.md) · [Contributing](CONTRIBUTING.md) · [Support](SUPPORT.md) · [Security](SECURITY.md) · [Governance](GOVERNANCE.md) · [Changelog](CHANGELOG.md) · [Releasing](RELEASING.md)
+- **Project**: [Product contract](docs/product-contract.md) · [v1.0 readiness](docs/v1-readiness.md) · [Independent first-map validation](docs/external-first-map-validation.md) · [v0.11.0 notes](docs/releases/v0.11.0.md) · [v0.12.0 notes](docs/releases/v0.12.0.md) · [v0.13.0 notes](docs/releases/v0.13.0.md) · [v0.9 roadmap](docs/roadmap/v0.9.md) · [Contributing](CONTRIBUTING.md) · [Support](SUPPORT.md) · [Security](SECURITY.md) · [Governance](GOVERNANCE.md) · [Changelog](CHANGELOG.md) · [Releasing](RELEASING.md)
 
 Preview the doc site locally: `python3 -m mkdocs serve`.
 

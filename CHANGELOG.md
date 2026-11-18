@@ -1,9 +1,10 @@
 # Changelog
 
-## 0.13.0 - 2026-11-17 (candidate)
+## 0.13.0 - 2026-11-18
 
-The next release candidate after v0.12.0. It is not tagged; v0.12.0 is the
-latest published release.
+The first release from the renamed repository `rsasaki0109/lidar_slam`. The
+`newer_college_math_hard` release profile was not measured for this release
+(a third one-time exception; see the release notes).
 
 ### Added
 

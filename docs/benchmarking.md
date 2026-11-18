@@ -1107,19 +1107,19 @@ after review confirms that none of those values is present.
 ## Release-gate accuracy snapshot
 
 Numbers from the release-gate profiles (`scripts/release_profiles.yaml`) at the
-v0.12.0 carrier commit `b499ce88`. Every release is blocked by these
-per-dataset thresholds; v0.11.0 and v0.12.0 were released without the
-Maths-Hard row as recorded one-time exceptions (see `RELEASING.md`).
+v0.13.0 carrier commit `37216eff`. Every release is blocked by these
+per-dataset thresholds; v0.11.0, v0.12.0 and v0.13.0 were released without
+the Maths-Hard row as recorded one-time exceptions (see `RELEASING.md`).
 
 | Dataset | Sensor | Reference | APE RMSE | Gate (pass) |
 | --- | --- | --- | --- | --- |
-| NTU VIRAL `tnp_01` (outdoor, ~580 s) | Ouster OS1-16 + VN-100 | Leica prism ground truth | **0.995 m** (v0.11.0: 0.995) | ≤ 1.00 m |
-| RTK-SLAM Construction Hall 2 (indoor, ~600 s) | Livox MID-360 | total-station checkpoints¹ | **0.062 m** (median 0.059, 16/16; v0.11.0: 0.165) | ≤ 0.30 m |
-| RTK-SLAM Construction Hall 1 (indoor, ~741 s) | Livox MID-360 | total-station checkpoints¹ | **0.205 m** (median 0.095, 16/16; v0.11.0: 0.280) | ≤ 0.55 m |
+| NTU VIRAL `tnp_01` (outdoor, ~580 s) | Ouster OS1-16 + VN-100 | Leica prism ground truth | **0.995 m** (v0.12.0: 0.995) | ≤ 1.00 m |
+| RTK-SLAM Construction Hall 2 (indoor, ~600 s) | Livox MID-360 | total-station checkpoints¹ | **0.062 m** (median 0.059, 16/16; v0.12.0: 0.062) | ≤ 0.30 m |
+| RTK-SLAM Construction Hall 1 (indoor, ~741 s) | Livox MID-360 | total-station checkpoints¹ | **0.205 m** (median 0.095, 16/16; v0.12.0: 0.205) | ≤ 0.55 m |
 | RTK-SLAM Stadtgarten 2 (outdoor park, ~876 s) | Livox MID-360 | total-station checkpoints¹ | **0.426 m** (median 0.264, 19/19; earlier run) | report-only² |
 | RTK-SLAM Stadtgarten 1 (outdoor park, ~1 km loop) | Livox MID-360 | total-station checkpoints¹ | **0.838 m** (median 0.511, 36/36; earlier run) | report-only² |
-| Newer College `Maths-Hard` (~320 m loop) | Ouster OS0-128 | ICP registration to survey-grade map | not measured for v0.12.0 or v0.11.0 (v0.10.0: 0.070) | ≤ 0.10 m |
-| Leo Drive all-sensors bag 1 (~36 s) | Velodyne VLP-16 packets | Applanix GSOF49 (cross-validation) | **0.142 m** (v0.11.0: 0.139) | ≤ 1.50 m |
+| Newer College `Maths-Hard` (~320 m loop) | Ouster OS0-128 | ICP registration to survey-grade map | not measured for v0.13.0, v0.12.0 or v0.11.0 (v0.10.0: 0.070) | ≤ 0.10 m |
+| Leo Drive all-sensors bag 1 (~36 s) | Velodyne VLP-16 packets | Applanix GSOF49 (cross-validation) | **0.142 m** (v0.12.0: 0.142) | ≤ 1.50 m |
 
 ¹ Surveyed checkpoints from the public RTK-SLAM dataset (CC-BY 4.0), scored like
 its published baselines (dense odometry trajectory).
