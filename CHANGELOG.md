@@ -23,6 +23,13 @@
   the wheel on macOS 15 and the latest macOS runner. A release tag publishes
   them to PyPI with the manylinux wheels. The map runner reserves its emergency evidence space by
   writing zeros where `os.posix_fallocate` does not exist (macOS).
+- Long-term mapping plan ([roadmap](docs/roadmap/long-term-mapping-2026-11.md)):
+  update a stored map live while driving, removing stale points automatically,
+  with a preregistered evaluation on the public LUH long-term indoor dataset
+  (three layouts of one hall, total-station positions, a scan of the empty
+  hall). `scripts/convert_luh_longterm_bag.py` streams one of its ROS 1 bags
+  into a compact ROS 2 bag (Ouster OS1 and IMU). First look on development
+  sequence S3: RKO-LIO odometry 0.033 m position RMSE over 44.5 m.
 
 ## 0.13.0 - 2026-11-18
 

@@ -197,9 +197,20 @@ section do not change after the first holdout run.
   `/hesai/pandar`. The converter keeps x, y, z, intensity and `t`, drops zero-range returns and
   keeps every second column (the OS1's 1024-column mode): about 1.4 MB per scan with zstd
   instead of 12.6 MB.
-- The LiDAR-IMU extrinsic is not in the topics seen so far; if the bag has no `/tf_static`, it is
-  taken from the Ouster's documented sensor frames and checked against the data (gravity in the
-  IMU against the floor normal in the scans, and the odometry with either yaw convention).
+- The bags have no `/tf_static`. The LiDAR-IMU extrinsic comes from the Ouster's documented
+  sensor frames: the LiDAR frame turned 180 degrees about z, at (-0.006253, 0.011775, 0.028535) m
+  in the IMU frame. On S3 (development) RKO-LIO odometry with it is closer to the total station
+  than with no rotation (position RMSE 0.033 vs 0.041 m), so it is kept.
+- The ground-truth files write each stamp with its tenth of a second fused on
+  (`17410941326` is 1741094132.6 s); 10 Hz, one row per scan.
+
+### L0 status (2026-11-18)
+
+S3 converted (7.70 GB read, md5 as published, 1,189 scans and 11,886 IMU messages, 1.7 GB, 48
+min at about 2.7 MB/s). RKO-LIO odometry alone (lidarslam 0.12.0 from PyPI, no ROS 2, voxel 0.25
+m, the walking preset's registration settings): position RMSE 0.033 m, median 0.033 m, max 0.103
+m against the total station over 1,183 matched scans and 44.5 m of path; 38 s for 119 s of data
+on the development machine, 183 MB peak memory.
 
 ## Milestones
 
