@@ -212,6 +212,23 @@ m, the walking preset's registration settings): position RMSE 0.033 m, median 0.
 m against the total station over 1,183 matched scans and 44.5 m of path; 38 s for 119 s of data
 on the development machine, 183 MB peak memory.
 
+### L1 status (2026-11-18)
+
+`lidarslam.live.Session` takes IMU and LiDAR messages one at a time and hands out every scan's
+live pose as it is processed: the backend's causal pose (`OfflinePipeline::setLivePoseListener`,
+the odometry corrected by the latest optimization the background worker had finished by the
+scan's stamp). `python -m lidarslam live <log> ... --realtime` plays a log into a session at the
+sensor's rate and writes `trajectory_live.tum` and `live_timing.json`. The CI test
+(`lidarslam_core/test/test_python_live.py`) checks that the live poses are the causal trajectory
+and that the session's files are byte-identical to `lidarslam map` with the causal output on.
+
+S3 at sensor rate (development machine, 4 cores, walking backend preset): 118.7 s of data
+streamed in 118.9 s with no message held back; a scan's live pose came 0.028 s after the scan's
+data time (median; p95 0.26 s, max 0.67 s); the backend's remaining stages took 2.5 s after the
+last message; peak memory 310 MB. Live poses against the total station: 0.033 m RMSE over 44.5
+m (no loop edges in this sequence, so the live poses equal the odometry). The playback started
+77 s after the command (opening the log and the session); to be looked at with the store (L2).
+
 ## Milestones
 
 Each milestone is one reviewable change with its own checks.
