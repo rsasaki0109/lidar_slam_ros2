@@ -6,7 +6,9 @@ graph_based_slam backend at once, and the backend reports every scan's *live* po
 pose corrected by the latest pose-graph optimization its background worker has finished, which
 is what a robot could use at that moment (the backend's causal trajectory,
 ``trajectory_causal.tum``). :meth:`Session.finish` runs the backend's remaining stages and writes
-the same files as ``python -m lidarslam map``.
+the same files as ``python -m lidarslam map``. With ``store`` (:class:`lidarslam.store.Store`) the
+finished session is added to that long-term map store and, as its first session, exported as the
+store's Autoware bundle (milestone L2).
 
 :func:`replay` plays a sensor log into a session, at the sensor's rate with ``realtime`` (the
 playback waits for each message's log time), and records how far behind the data the poses came.
@@ -24,6 +26,7 @@ from lidarslam import _core
 from lidarslam.io import IMU, NAV_SAT_FIX, POINT_CLOUD2, SensorLog
 from lidarslam.mapping import deskewed_cloud, odometry_message
 from lidarslam.odometry import make_driver
+from lidarslam.store import Store
 
 LivePose = dict[str, Any]
 
@@ -35,13 +38,19 @@ class Session:
     for :func:`lidarslam.mapping.run`). ``on_pose(pose)`` gets every scan's live pose as a dict:
     ``stamp_sec``, ``odometry`` and ``map`` (``[x, y, z, qx, qy, qz, qw]``), ``new_submap``,
     ``submaps``, ``corrections_applied``. The backend writes its files to ``out_dir`` at
-    :meth:`finish`.
+    :meth:`finish`; with ``store`` (a :class:`lidarslam.store.Store` or its path, created when
+    missing) the session is also added to that map store.
     """
 
     def __init__(self, odometry_params: dict[str, Any], backend_params: dict[str, Any],
                  out_dir: str | Path, on_pose: Callable[[LivePose], None] | None = None,
-                 log: Callable[[str, str], None] | None = None):
+                 log: Callable[[str, str], None] | None = None,
+                 store: Store | str | Path | None = None):
         self.out = Path(out_dir)
+        self._store = (store if isinstance(store, Store) or store is None
+                       else Store.open_or_create(store))
+        self._log = log
+        self._odometry_params = dict(odometry_params)
         self.out.mkdir(parents=True, exist_ok=True)
         odometry_params = dict(odometry_params)
         odometry_params['publish_deskewed_scan'] = True
@@ -53,6 +62,7 @@ class Session:
         backend_params.setdefault('bag_path', str(self.out / 'live'))
         backend_params['output_dir'] = str(self.out)
         backend_params['causal_trajectory_output'] = True
+        self._backend_params = backend_params
 
         self._base_frame = str(odometry_params.get('base_frame', ''))
         self._odom_frame = str(odometry_params.get('odom_frame') or 'odom')
@@ -63,6 +73,8 @@ class Session:
             raise RuntimeError('the backend could not be configured (see its log)')
         self._on_pose = on_pose
         self._pipeline.set_live_pose_listener(self._pose)
+        if self._store is not None:
+            self._pipeline.keep_session_map(True)
         self._pipeline.begin()
         self.poses: list[LivePose] = []
         self.imu_messages = 0
@@ -124,18 +136,29 @@ class Session:
         self._driver.write_tum(str(self.out / 'odometry_tum.txt'))
         if not self._pipeline.finish():
             raise RuntimeError('the backend failed (see its log)')
-        return {
+        summary = {
             'output_dir': str(self.out),
             'live_poses': len(self.poses),
             'imu_messages': self.imu_messages,
             'lidar_messages': self.lidar_messages,
             'dropped_trailing_frames': self._driver.pending_lidar_frames,
         }
+        if self._store is not None:
+            info = {'live_poses': len(self.poses), 'lidar_messages': self.lidar_messages,
+                    'first_stamp_sec': self.poses[0]['stamp_sec'] if self.poses else None,
+                    'last_stamp_sec': self.poses[-1]['stamp_sec'] if self.poses else None}
+            entry = self._store.add_session(self._pipeline.write_session_map,
+                                            self._odometry_params, self._backend_params, info,
+                                            log=self._log)
+            summary['store'] = str(self._store.path)
+            summary['store_session'] = entry['id']
+        return summary
 
 
 def replay(log_path: str | Path, odometry_params: dict[str, Any],
            backend_params: dict[str, Any], out_dir: str | Path, realtime: bool = False,
-           speed: float = 1.0, log: Callable[[str, str], None] | None = None) -> dict[str, Any]:
+           speed: float = 1.0, log: Callable[[str, str], None] | None = None,
+           store: Store | str | Path | None = None) -> dict[str, Any]:
     """Plays a sensor log into a :class:`Session` and writes its live trajectory and timing.
 
     With ``realtime`` each message is handed over no earlier than its log time after the first
@@ -143,6 +166,7 @@ def replay(log_path: str | Path, odometry_params: dict[str, Any],
     ``live_timing.json``. With ``realtime`` it records each pose's ``lag``: the wall time from
     the moment the pose's data time (the scan's end) was reached in the playback to the moment
     the pose was available; a live system keeps up when the lag stays small and does not grow.
+    ``store``: as for :class:`Session`.
     """
     out = Path(out_dir)
     lags: list[float] = []
@@ -153,7 +177,8 @@ def replay(log_path: str | Path, odometry_params: dict[str, Any],
             reached = clock['wall_start'] + (pose['stamp_sec'] - clock['log_start_sec']) / speed
             lags.append(time.monotonic() - reached)
 
-    session = Session(odometry_params, backend_params, out, on_pose=on_pose, log=log)
+    session = Session(odometry_params, backend_params, out, on_pose=on_pose, log=log,
+                      store=store)
     topics = [session.lidar_topic, session.imu_topic]
     with SensorLog(log_path) as sensor_log:
         types = {t.name: t.msgtype for t in sensor_log.topics()}

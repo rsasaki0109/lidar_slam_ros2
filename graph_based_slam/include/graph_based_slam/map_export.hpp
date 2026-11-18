@@ -127,6 +127,16 @@ map_saver::BundleManifest bundleManifest(
   const MapExportConfig & config, const std::string & frame_id, std::size_t submap_count,
   std::size_t loop_edge_count);
 
+// The whole map bundle of the submap clouds moved by their poses, as the live node saves it:
+// pose_graph.g2o (when not empty), the map files (the dynamic-object-filtered map with
+// use_dynamic_object_filter, else streamed or assembled by map_save_points_per_pass) and
+// map_bundle.yaml. map_points is the submaps' point count.
+void writeBundle(
+  const SubmapCloudLoader & load, const std::vector<Eigen::Isometry3d> & poses,
+  std::size_t map_points, std::size_t loop_edge_count, const std::string & pose_graph_g2o,
+  const std::string & save_dir, const MapExportConfig & config, const ProjectorOrigin & origin,
+  ports::MapOutputPort & output, const MapExportLog & log);
+
 }  // namespace map_export
 }  // namespace graphslam
 

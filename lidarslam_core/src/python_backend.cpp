@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "graph_based_slam/cloud_message.hpp"
+#include "graph_based_slam/map_store.hpp"
 #include "graph_based_slam/multisession_join_tool.hpp"
 #include "graph_based_slam/offline_pipeline.hpp"
 #include "graph_based_slam/offline_runtime.hpp"
@@ -227,6 +228,16 @@ public:
     pipeline_->addGnssFix(fix);
   }
   bool finish() {return pipeline_->finish();}
+  void keepSessionMap(bool keep) {pipeline_->keepSessionMap(keep);}
+  std::size_t writeSessionMap(const std::string & directory) const
+  {
+    const graphslam::map_store::SessionMap & session = pipeline_->sessionMap();
+    std::string error;
+    if (!graphslam::map_store::writeSession(session, directory, error)) {
+      throw std::runtime_error(error);
+    }
+    return session.submaps.size();
+  }
 
   // listener(dict): stamp_sec, odometry and map ([x, y, z, qx, qy, qz, qw]), new_submap, submaps,
   // corrections_applied; called during add_odometry / add_cloud (causal_trajectory_output).
@@ -308,6 +319,32 @@ private:
   py::object read_;
 };
 
+// The Autoware map bundle of stored sessions (map_store::exportBundle) with the map-saving
+// parameters of params. Returns the number of submaps.
+std::size_t exportStoreBundle(
+  const std::vector<std::string> & session_dirs, const py::dict & params,
+  const std::string & out_dir, py::object log)
+{
+  const graphslam::offline::Parameters parameters = toParameters(params);
+  const graphslam::map_export::MapExportConfig config =
+    graphslam::offline::mapExportConfig(parameters);
+  std::vector<graphslam::map_store::SessionMap> sessions(session_dirs.size());
+  std::size_t submaps = 0U;
+  for (std::size_t i = 0; i < session_dirs.size(); ++i) {
+    std::string error;
+    if (!graphslam::map_store::readSession(session_dirs[i], sessions[i], error)) {
+      throw std::runtime_error(error);
+    }
+    submaps += sessions[i].submaps.size();
+  }
+  const PythonLog python_log(std::move(log));
+  graphslam::map_export::MapExportLog export_log;
+  export_log.line = [&python_log](const std::string & line) {python_log.info(line);};
+  export_log.info = export_log.line;
+  graphslam::map_store::exportBundle(sessions, config, out_dir, export_log);
+  return submaps;
+}
+
 int runJoinTool(const py::dict & params, py::object read, py::object log)
 {
   const graphslam::offline::Parameters parameters = toParameters(params);
@@ -357,7 +394,19 @@ void bind_backend(py::module_ & m)
     "Needs causal_trajectory_output; set it before begin().")
   .def("finish", &BackendPipeline::finish,
     "The pose graph, refinement and all outputs; False (after logging why) when the fixed loop "
-    "edges cannot be loaded.");
+    "edges cannot be loaded.")
+  .def("keep_session_map", &BackendPipeline::keepSessionMap, py::arg("keep") = true,
+    "Keep the session's submaps for write_session_map (a long-term map store session); set it "
+    "before begin(). The outputs are the same either way.")
+  .def("write_session_map", &BackendPipeline::writeSessionMap, py::arg("directory"),
+    "After finish() with keep_session_map: writes the submaps at their optimized poses "
+    "(submaps.bin, pose_graph.g2o) to directory; returns the number of submaps.");
+  m.def(
+    "export_store_bundle", &exportStoreBundle, py::arg("session_dirs"), py::arg("params"),
+    py::arg("out_dir"), py::arg("log") = py::none(),
+    "Writes the Autoware map bundle of the stored sessions (directories written by "
+    "write_session_map) with the map-saving parameters of params to out_dir; returns the number "
+    "of submaps. For one session it is the bundle the backend wrote.");
   m.def(
     "run_join_tool", &runJoinTool, py::arg("params"), py::arg("read"), py::arg("log") = py::none(),
     "graph_slam_multisession_join with its parameters (node graph_based_slam); read(path, topics) "
