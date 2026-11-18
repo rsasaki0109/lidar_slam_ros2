@@ -191,6 +191,13 @@ cmake_install "${src}" -DG2O_USE_CHOLMOD=OFF -DG2O_USE_CSPARSE=OFF -DG2O_USE_OPE
 # PCL 1.14.0 (pcl 1.14.0+dfsg-1), the modules the core uses, flags as Debian (PCL_ENABLE_SSE=OFF).
 src=$(unpack "$(fetch universe/p/pcl/pcl_1.14.0+dfsg.orig.tar.xz \
   d084703d01397fa83c314b76e5e80a63ed310c5f57094365a993285bb734e7a9)")
+if ${DARWIN}; then
+  # Apple clang 17 (LLVM 19) rejects this->getClassName() in a nested class template that has
+  # no such member; PCL 1.15 names the class in the message instead. Same change here.
+  crf="${src}/registration/include/pcl/registration/correspondence_rejection_features.h"
+  perl -0pi -e 's/this->getClassName\(\)\.c_str\(\)\);/"CorrespondenceRejectorFeatures::FeatureContainer");/' "${crf}"
+  grep -q '"CorrespondenceRejectorFeatures::FeatureContainer");' "${crf}"
+fi
 pcl_off=()
 for module in apps tools examples global_tests geometry keypoints ml outofcore people recognition \
   segmentation simulation stereo surface tracking visualization cuda gpu benchmarks; do
