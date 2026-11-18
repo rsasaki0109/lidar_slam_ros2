@@ -1,0 +1,22 @@
+# RKO-LIO for the LUH long-term indoor dataset (Ouster OS1-128 and its IMU; IMU frame = base).
+# The LiDAR frame is turned 180 degrees about z (Ouster sensor frames); see
+# docs/roadmap/long-term-mapping-2026-11.md.
+lidar_topic: /ouster/points
+imu_topic: /ouster/imu
+base_frame: base_link
+extrinsic_imu2base_quat_xyzw_xyz: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+extrinsic_lidar2base_quat_xyzw_xyz: [0.0, 0.0, 1.0, 0.0, -0.006253, 0.011775, 0.028535]
+initialization_phase: true
+deskew: true
+voxel_size: 0.25
+min_range: 1.0
+max_range: 100.0
+double_downsample: true
+max_iterations: 50
+convergence_criterion: 3.0e-05
+icp_keypoint_voxel_multiplier: 2.25
+initialization_max_gyro_rad_s: 0.02
+max_correspondence_distance: 0.25
+localizability_weighting: true
+localizability_boost: 10.0
+localizability_normal_only: true
