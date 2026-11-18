@@ -1,0 +1,41 @@
+name: web demo
+
+on:
+  pull_request:
+    paths:
+      - 'web/**'
+      - 'docs/demo/**'
+      - 'Thirdparty/rko_lio'
+      - '.github/workflows/web-demo.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wasm:
+    name: WebAssembly build matches the native trajectory
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Install the WebAssembly toolchain
+        shell: bash
+        run: web/install_wasm_toolchain.sh "${RUNNER_TEMP}/wasm-include"
+
+      - name: Build the page module
+        shell: bash
+        run: web/build_wasm.sh --include-dir "${RUNNER_TEMP}/wasm-include" --out-dir "${RUNNER_TEMP}/wasm-web"
+
+      - name: Replay the demo clip against the native trajectory
+        shell: bash
+        run: |
+          web/build_wasm.sh --include-dir "${RUNNER_TEMP}/wasm-include" \
+            --out-dir "${RUNNER_TEMP}/wasm-node" --target node
+          node web/replay_node.js "${RUNNER_TEMP}/wasm-node/slam_web_node.js" \
+            docs/demo/clip_mid360_60s.lswc2.gz docs/demo/params.json \
+            "${RUNNER_TEMP}/wasm.tum" --reference web/demo_reference.tum

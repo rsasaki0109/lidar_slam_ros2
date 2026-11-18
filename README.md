@@ -5,7 +5,7 @@
 [![ROS 2: Humble | Jazzy](https://img.shields.io/badge/ROS%202-Humble%20%7C%20Jazzy-22314E?logo=ros&logoColor=white)](#support-and-license)
 [![GitHub stars](https://img.shields.io/github/stars/rsasaki0109/lidar_slam?style=flat&logo=github)](https://github.com/rsasaki0109/lidar_slam/stargazers)
 
-**Turn a rosbag into a map you can actually drive on.** LiDAR SLAM that writes an Autoware-compatible map bundle: `pointcloud_map/`, `map_projector_info.yaml` and lanelet2. It runs as ROS 2 packages (Humble, Jazzy) or without ROS 2 from `pip install lidarslam`. `RKO-LIO` (MIT) + `graph_based_slam` (BSD-2), no GPL on the default workflow. [日本語クイックスタート](docs/getting-started-ja.md) · release notes [v0.13.0](docs/releases/v0.13.0.md) · [v0.12.0](docs/releases/v0.12.0.md)
+**Turn a rosbag into a map you can actually drive on.** LiDAR SLAM that writes an Autoware-compatible map bundle: `pointcloud_map/`, `map_projector_info.yaml` and lanelet2. It runs as ROS 2 packages (Humble, Jazzy) or without ROS 2 from `pip install lidarslam`. `RKO-LIO` (MIT) + `graph_based_slam` (BSD-2), no GPL on the default workflow. [Try it in your browser](https://rsasaki0109.github.io/lidar_slam/browser-demo.html) · [日本語クイックスタート](docs/getting-started-ja.md) · release notes [v0.13.0](docs/releases/v0.13.0.md) · [v0.12.0](docs/releases/v0.12.0.md)
 
 [Documentation](https://rsasaki0109.github.io/lidar_slam/) · [Supported inputs and outputs](docs/product-contract.md) · [Workflow and benchmark comparison](docs/comparison.md)
 

@@ -6,6 +6,8 @@ on:
       - develop
     paths:
       - 'docs/**'
+      - 'web/**'
+      - 'Thirdparty/rko_lio'
       - 'mkdocs.yml'
       - '.github/workflows/docs-site.yml'
       - 'README.md'
@@ -34,6 +36,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -44,6 +48,17 @@ jobs:
         shell: bash
         run: |
           python3 -m pip install --upgrade jsonschema mkdocs mkdocs-material
+
+      - name: Build the browser demo module
+        shell: bash
+        run: |
+          web/install_wasm_toolchain.sh "${RUNNER_TEMP}/wasm-include"
+          web/build_wasm.sh --include-dir "${RUNNER_TEMP}/wasm-include" --out-dir docs/demo
+          web/build_wasm.sh --include-dir "${RUNNER_TEMP}/wasm-include" \
+            --out-dir "${RUNNER_TEMP}/wasm-node" --target node
+          node web/replay_node.js "${RUNNER_TEMP}/wasm-node/slam_web_node.js" \
+            docs/demo/clip_mid360_60s.lswc2.gz docs/demo/params.json \
+            "${RUNNER_TEMP}/wasm.tum" --reference web/demo_reference.tum
 
       - name: Build site
         shell: bash

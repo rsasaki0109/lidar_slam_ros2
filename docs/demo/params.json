@@ -1,0 +1,25 @@
+{
+  "base_frame": "livox_frame",
+  "extrinsic_imu2base_quat_xyzw_xyz": [
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "extrinsic_lidar2base_quat_xyzw_xyz": [
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "imu_topic": "/livox/imu",
+  "initialization_phase": true,
+  "lidar_topic": "/livox/lidar",
+  "publish_deskewed_scan": true
+}
