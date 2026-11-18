@@ -1056,10 +1056,9 @@ void readLoopSearchConfig(const RunnerParameters & node, RunnerConfig & config)
 // Reads the pose-graph edge parameters into the adjacent / loop edge
 // configurations, and the causal trajectory output switch.
 // The live node's map-saving parameters, with its defaults (map_export::MapExportConfig).
-void readMapBundleConfig(const RunnerParameters & node, RunnerConfig & config)
+graphslam::map_export::MapExportConfig readMapExportConfig(const RunnerParameters & node)
 {
-  node.get_parameter_or("offline_map_bundle", config.map_bundle, false);
-  graphslam::map_export::MapExportConfig & m = config.map_export;
+  graphslam::map_export::MapExportConfig m;
   const graphslam::map_export::MapExportConfig d;
   node.get_parameter_or("map_leaf_size", m.map_leaf_size, d.map_leaf_size);
   node.get_parameter_or("map_grid_size_x", m.map_grid_size_x, d.map_grid_size_x);
@@ -1098,6 +1097,13 @@ void readMapBundleConfig(const RunnerParameters & node, RunnerConfig & config)
     "dynamic_object_filter_max_range_from_sensor_m",
     m.dynamic_object_filter.max_range_from_sensor_m,
     d.dynamic_object_filter.max_range_from_sensor_m);
+  return m;
+}
+
+void readMapBundleConfig(const RunnerParameters & node, RunnerConfig & config)
+{
+  node.get_parameter_or("offline_map_bundle", config.map_bundle, false);
+  config.map_export = readMapExportConfig(node);
 }
 
 // The live node's GNSS and gravity-prior parameters (graph_slam_config.cpp: same names, defaults,
@@ -3179,41 +3185,9 @@ void writeMapBundle(
       record.stored_cloud->message.height;
   }
 
-  output.prepareDirectory(config.output_dir);
-  if (!graph.pose_graph_g2o.empty()) {
-    output.writeBytes(config.output_dir + "/pose_graph.g2o", graph.pose_graph_g2o);
-  }
-  if (map_config.use_dynamic_object_filter) {
-    // As the live node: the assembled map, or the dynamic-filtered one when it is not empty.
-    std::vector<graphslam::TimedSubmapCloud> submaps;
-    graphslam::MapCloud::Ptr map = graphslam::map_export::assembleMap(load, poses, map_points);
-    for (std::size_t i = 0; i < poses.size(); ++i) {
-      pcl::PointCloud<pcl::PointXYZI>::Ptr transformed(new pcl::PointCloud<pcl::PointXYZI>);
-      graphslam::map_export::transformSubmapCloud(load, poses, i, *transformed);
-      const Eigen::Vector3d position = poses[i].translation();
-      submaps.push_back(graphslam::TimedSubmapCloud{static_cast<int>(i), position, transformed});
-    }
-    const auto filter_result =
-      graphslam::buildDynamicObjectFilteredMap(submaps, map_config.dynamic_object_filter);
-    if (!filter_result.cloud->empty()) {
-      map = graphslam::toMapCloud(*filter_result.cloud);
-    }
-    submaps.clear();
-    graphslam::map_export::saveGridDividedMap(
-      std::move(map), config.output_dir, map_config, origin, output, log);
-  } else if (map_config.map_save_points_per_pass > 0) {
-    graphslam::map_export::saveStreamedMap(
-      load, poses, map_points, config.output_dir, map_config, origin, output, log);
-  } else {
-    graphslam::map_export::saveGridDividedMap(
-      graphslam::map_export::assembleMap(load, poses, map_points), config.output_dir, map_config,
-      origin, output, log);
-  }
-  output.writeBytes(
-    config.output_dir + "/map_bundle.yaml",
-    graphslam::map_saver::bundleManifestYaml(
-      graphslam::map_export::bundleManifest(
-        map_config, "map", poses.size(), bag.edge_set.edges().size())));
+  graphslam::map_export::writeBundle(
+    load, poses, map_points, bag.edge_set.edges().size(), graph.pose_graph_g2o,
+    config.output_dir, map_config, origin, output, log);
   GRAPHSLAM_LOG_INFO(
     logger, "Wrote the map bundle (pointcloud_map/, map.pcd, map_projector_info.yaml, "
     "map_bundle.yaml, pose_graph.g2o) to %s", config.output_dir.c_str());
@@ -3242,7 +3216,14 @@ struct OfflinePipeline::Impl
   BagPassResult bag;
   std::unique_ptr<BagPass> bag_pass;
   LivePoseListener live_pose_listener;
+  bool keep_session_map {false};
+  graphslam::map_store::SessionMap session_map;
 };
+
+graphslam::map_export::MapExportConfig mapExportConfig(const Parameters & parameters)
+{
+  return readMapExportConfig(parameters);
+}
 
 OfflinePipeline::OfflinePipeline(const Parameters & parameters, const Log & log)
 : impl_(std::make_unique<Impl>(parameters, log))
@@ -3290,6 +3271,13 @@ const std::string & OfflinePipeline::outputDir() const {return impl_->config.out
 void OfflinePipeline::setLivePoseListener(LivePoseListener listener)
 {
   impl_->live_pose_listener = std::move(listener);
+}
+
+void OfflinePipeline::keepSessionMap(bool keep) {impl_->keep_session_map = keep;}
+
+const graphslam::map_store::SessionMap & OfflinePipeline::sessionMap() const
+{
+  return impl_->session_map;
 }
 
 void OfflinePipeline::begin()
@@ -3342,6 +3330,26 @@ bool OfflinePipeline::finish()
     writeDensePoseOutputs(config, p.bag, graph, p.logger);
   }
   writePoseGraphOutputs(config, p.bag, graph);
+  if (p.keep_session_map && graph.optimized_poses.size() == p.bag.records.size()) {
+    graphslam::map_store::SessionMap & session = p.session_map;
+    session.submaps.reserve(p.bag.records.size());
+    for (std::size_t i = 0; i < p.bag.records.size(); ++i) {
+      const SubmapRecord & record = p.bag.records[i];
+      graphslam::map_store::StoredSubmap submap;
+      submap.stamp_sec = record.stamp_sec;
+      submap.odometry_pose = Eigen::Isometry3d(record.meta.pose.matrix());
+      submap.pose = graph.optimized_poses[i];
+      submap.cloud = record.stored_cloud;
+      session.submaps.push_back(std::move(submap));
+    }
+    session.loop_edge_count = p.bag.edge_set.edges().size();
+    if (config.use_gnss && p.bag.gnss.originSet()) {
+      session.origin.set = true;
+      session.origin.latitude = p.bag.gnss.origin().latitude_deg;
+      session.origin.longitude = p.bag.gnss.origin().longitude_deg;
+    }
+    session.pose_graph_g2o = graph.pose_graph_g2o;
+  }
   if (config.map_bundle && !graph.optimized_poses.empty()) {
     writeMapBundle(config, p.bag, graph, p.logger);
   }

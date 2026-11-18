@@ -229,6 +229,31 @@ last message; peak memory 310 MB. Live poses against the total station: 0.033 m 
 m (no loop edges in this sequence, so the live poses equal the odometry). The playback started
 77 s after the command (opening the log and the session); to be looked at with the store (L2).
 
+### L2 status (2026-11-18)
+
+The store exists (`lidarslam.store.Store`, format version 1). A live session given a store
+(`live.Session(..., store=)`, `python -m lidarslam live <log> ... --store STORE`) writes itself
+to `sessions/<id>/` when it finishes and is then listed in `store.json` (one rename): the
+backend's submaps in `submaps.bin` (stamp, odometry pose, optimized pose, the scan compressed as
+the backend keeps it), `pose_graph.g2o`, and the parameters it was mapped with. `export/` is the
+Autoware bundle written from the stored sessions (`python -m lidarslam store export STORE`);
+`store rollback` takes the latest session off the list and leaves its files. `graph/` and
+`evidence/` of the layout above come with L3 and L4. The C++ side is
+`graph_based_slam/map_store.hpp` (session files, export) and `map_export::writeBundle`, now the
+one map-bundle writer of both the backend and the store.
+
+Check: the store's export of one session is byte-identical to the bundle the backend wrote. CI
+(`lidarslam_core/test/test_python_store.py`, streamed and assembled map paths) and S3 (29
+submaps; `map.pcd`, `map_bundle.yaml`, `map_projector_info.yaml`, `pose_graph.g2o` and the 15
+`pointcloud_map/` files all identical). The S3 session takes 22 MB in the store; the export 4.8
+MB. A store of two sessions is refused for export until they share a frame (L3), unless asked to
+stack them.
+
+The 77 s before playback in the L1 run did not come back: S3 at sensor rate with the store took
+122.7 s from the command for 118.7 s of data (0.4 s before the first message, 3.4 s for the
+backend's last stages and the store), with live poses 0.026 s after their scan's data time
+(median; p95 0.033 s, max 0.045 s). The L1 run had shared the machine with the S6 conversion.
+
 ## Milestones
 
 Each milestone is one reviewable change with its own checks.

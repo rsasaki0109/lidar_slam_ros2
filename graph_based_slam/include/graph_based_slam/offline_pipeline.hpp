@@ -53,6 +53,8 @@
 
 #include "graph_based_slam/cloud_message.hpp"
 #include "graph_based_slam/gnss_anchor_store.hpp"
+#include "graph_based_slam/map_export.hpp"
+#include "graph_based_slam/map_store.hpp"
 #include "graph_based_slam/offline_runtime.hpp"
 
 namespace graphslam
@@ -76,6 +78,10 @@ struct LivePose
 };
 
 using LivePoseListener = std::function<void (const LivePose &)>;
+
+// The map-saving parameters (offline_map_bundle's map_leaf_size, map_grid_size_x, ...), with the
+// live node's defaults. Throws ParameterTypeError for a parameter of the wrong type.
+map_export::MapExportConfig mapExportConfig(const Parameters & parameters);
 
 class OfflinePipeline
 {
@@ -102,6 +108,11 @@ public:
   // outputs are the same with or without a listener.
   void setLivePoseListener(LivePoseListener listener);
 
+  // Keep the session's submaps (stamps, odometry and optimized poses, compressed scans) for
+  // sessionMap(), the session of a long-term map store (map_store.hpp). Set before begin(). The
+  // outputs are the same either way.
+  void keepSessionMap(bool keep);
+
   // The input, in recorded order, between begin() and finish().
   void begin();
   void addOdometry(const msg::Odometry & odometry);
@@ -115,6 +126,10 @@ public:
   // The remaining stages and all outputs. Returns false, after logging why, when the fixed loop
   // edges (fixed_loop_edges_path) cannot be loaded.
   bool finish();
+
+  // After finish() with keepSessionMap(true): the session's submaps at their optimized poses
+  // (the poses of the map bundle), its loop edge count, GNSS origin and pose graph.
+  const map_store::SessionMap & sessionMap() const;
 
 private:
   struct Impl;

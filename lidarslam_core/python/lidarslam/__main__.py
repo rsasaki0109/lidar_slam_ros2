@@ -8,8 +8,13 @@
   join --params P -p session_bag_paths:=[...] -p session_backend_dirs:=[...] -p output_dir:=DIR
                                         multi-session join (graph_slam_multisession_join)
   live <log> --odometry-params P --backend-params P --out DIR [--realtime] [--speed S]
-                                        live mapping: the log played message by message, live
-                                        (causal) poses as they come (lidarslam.live)
+       [--store STORE]                  live mapping: the log played message by message, live
+                                        (causal) poses as they come (lidarslam.live); with
+                                        --store the session is added to a long-term map store
+  store info|export|rollback STORE [--out DIR]
+                                        a long-term map store (lidarslam.store): list its
+                                        sessions, export its Autoware bundle, take the latest
+                                        session off the map
 """
 
 from __future__ import annotations
@@ -70,6 +75,12 @@ def main(argv: list[str] | None = None) -> int:
                       help='hand each message over at its log time (sensor rate)')
     live.add_argument('--speed', type=float, default=1.0,
                       help='with --realtime: playback speed (2 = twice the sensor rate)')
+    live.add_argument('--store', metavar='STORE',
+                      help='add the session to this long-term map store (created when missing)')
+    store = sub.add_parser('store', help='a long-term map store: info, export, rollback')
+    store.add_argument('action', choices=['info', 'export', 'rollback'])
+    store.add_argument('store', help='map store directory')
+    store.add_argument('--out', help='export: bundle directory (default: STORE/export)')
     join = sub.add_parser(
         'join', help='multi-session join of backend inputs and their offline runs (no ROS 2)')
     join.add_argument('--params', action='append', default=[],
@@ -122,8 +133,18 @@ def main(argv: list[str] | None = None) -> int:
             backend_module.load_parameters(*args.backend_params), args.param)
         summary = live_module.replay(args.log, load_odometry_parameters(args.odometry_params),
                                      backend_params, args.out, realtime=args.realtime,
-                                     speed=args.speed)
+                                     speed=args.speed, store=args.store)
         print(json.dumps(summary, indent=2))
+    elif args.command == 'store':
+        from lidarslam.store import Store
+        map_store = Store.open(args.store)
+        if args.action == 'export':
+            print(map_store.export(args.out))
+        elif args.action == 'rollback':
+            print(json.dumps(map_store.rollback(), indent=2))
+        else:
+            print(json.dumps({'store': str(map_store.path), 'frame': map_store.frame,
+                              'sessions': map_store.sessions}, indent=2))
     elif args.command == 'join':
         from lidarslam import multisession
         from lidarslam.params import apply_overrides

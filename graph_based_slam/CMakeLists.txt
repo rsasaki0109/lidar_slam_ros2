@@ -1094,6 +1094,7 @@ ament_target_dependencies(graph_based_slam_node
 # shell (parameters, rosbag2 input, logging) and lidarslam_core builds the same sources.
 add_library(graph_slam_offline_pipeline STATIC
   src/offline_pipeline.cpp
+  src/map_store.cpp
   src/three_d_bbs_loop_verifier.cpp
 )
 target_compile_features(graph_slam_offline_pipeline PUBLIC cxx_std_17)

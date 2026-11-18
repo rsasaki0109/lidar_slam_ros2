@@ -188,6 +188,7 @@ target_link_libraries(lidarslam_registration_loader PUBLIC lidarslam_plugin_inte
 # The offline backend (graph_slam_offline_runner's stages, graph_based_slam/offline_pipeline.hpp).
 add_library(graph_slam_offline_pipeline STATIC
   ${GBS_ROOT}/src/offline_pipeline.cpp
+  ${GBS_ROOT}/src/map_store.cpp
   ${GBS_ROOT}/src/three_d_bbs_loop_verifier.cpp)
 set_target_properties(graph_slam_offline_pipeline PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_compile_features(graph_slam_offline_pipeline PUBLIC cxx_std_17)

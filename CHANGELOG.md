@@ -37,6 +37,13 @@
   rate. On LUH S3 it keeps up with the data (118.7 s in 118.9 s, pose 0.028 s
   after its scan at the median, 0.67 s at most). Outputs of the other paths are
   unchanged.
+- Long-term map store (`lidarslam.store`): a directory of mapping sessions with
+  `store.json` as the committed list, each session's submaps (poses and the
+  backend's compressed scans) and an Autoware bundle exported from them.
+  `python -m lidarslam live ... --store STORE` adds a live session;
+  `python -m lidarslam store info|export|rollback STORE`. For one session the
+  export is byte-identical to the backend's bundle (CI, and LUH S3). The map
+  bundle writing moved into `map_export::writeBundle`; outputs are unchanged.
 
 ## 0.13.0 - 2026-11-18
 

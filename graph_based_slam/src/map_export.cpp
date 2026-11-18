@@ -256,5 +256,42 @@ map_saver::BundleManifest bundleManifest(
   return manifest;
 }
 
+void writeBundle(
+  const SubmapCloudLoader & load, const std::vector<Eigen::Isometry3d> & poses,
+  std::size_t map_points, std::size_t loop_edge_count, const std::string & pose_graph_g2o,
+  const std::string & save_dir, const MapExportConfig & config, const ProjectorOrigin & origin,
+  ports::MapOutputPort & output, const MapExportLog & log)
+{
+  output.prepareDirectory(save_dir);
+  if (!pose_graph_g2o.empty()) {
+    output.writeBytes(save_dir + "/pose_graph.g2o", pose_graph_g2o);
+  }
+  if (config.use_dynamic_object_filter) {
+    // As the live node: the assembled map, or the dynamic-filtered one when it is not empty.
+    std::vector<TimedSubmapCloud> submaps;
+    MapCloud::Ptr map = assembleMap(load, poses, map_points);
+    for (std::size_t i = 0; i < poses.size(); ++i) {
+      pcl::PointCloud<pcl::PointXYZI>::Ptr transformed(new pcl::PointCloud<pcl::PointXYZI>);
+      transformSubmapCloud(load, poses, i, *transformed);
+      const Eigen::Vector3d position = poses[i].translation();
+      submaps.push_back(TimedSubmapCloud{static_cast<int>(i), position, transformed});
+    }
+    const auto filter_result = buildDynamicObjectFilteredMap(submaps, config.dynamic_object_filter);
+    if (!filter_result.cloud->empty()) {
+      map = toMapCloud(*filter_result.cloud);
+    }
+    submaps.clear();
+    saveGridDividedMap(std::move(map), save_dir, config, origin, output, log);
+  } else if (config.map_save_points_per_pass > 0) {
+    saveStreamedMap(load, poses, map_points, save_dir, config, origin, output, log);
+  } else {
+    saveGridDividedMap(
+      assembleMap(load, poses, map_points), save_dir, config, origin, output, log);
+  }
+  output.writeBytes(
+    save_dir + "/map_bundle.yaml",
+    map_saver::bundleManifestYaml(bundleManifest(config, "map", poses.size(), loop_edge_count)));
+}
+
 }  // namespace map_export
 }  // namespace graphslam
