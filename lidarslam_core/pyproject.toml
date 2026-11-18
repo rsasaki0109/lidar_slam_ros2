@@ -95,4 +95,4 @@ environment = { LIDARSLAM_WHEEL_DEPS = "/wheel-deps", CMAKE_PREFIX_PATH = "/whee
 [tool.cibuildwheel.macos]
 archs = ["arm64"]
 before-all = ["bash {project}/lidarslam_core/wheel/build_deps.sh"]
-environment = { MACOSX_DEPLOYMENT_TARGET = "14.0", OpenMP_ROOT = "/opt/homebrew/opt/libomp", CMAKE_PREFIX_PATH = "$LIDARSLAM_WHEEL_DEPS;/opt/homebrew", CPATH = "$LIDARSLAM_WHEEL_DEPS/include", CMAKE_BUILD_PARALLEL_LEVEL = "3" }
+environment = { MACOSX_DEPLOYMENT_TARGET = "15.0", OpenMP_ROOT = "/opt/homebrew/opt/libomp", CMAKE_PREFIX_PATH = "$LIDARSLAM_WHEEL_DEPS;/opt/homebrew", CPATH = "$LIDARSLAM_WHEEL_DEPS/include", CMAKE_BUILD_PARALLEL_LEVEL = "3" }

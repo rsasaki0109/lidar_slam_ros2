@@ -4,9 +4,10 @@ name: wheels
 # `pip install lidarslam-*.whl` needs no apt or Homebrew packages and no ROS 2. The C++ libraries
 # are built from Ubuntu 24.04's sources (lidarslam_core/wheel/build_deps.sh), cached between runs,
 # and bundled by auditwheel / delocate. The wheels are workflow artifacts
-# (lidarslam-wheels-x86_64, lidarslam-wheels-aarch64 and lidarslam-wheels-macos-arm64). A release tag (v<VERSION>) publishes them to PyPI, and a manual run
-# can publish them to TestPyPI; both through PyPI's Trusted Publishing (no stored token), from
-# the environments `pypi` and `testpypi`.
+# (lidarslam-wheels-x86_64, lidarslam-wheels-aarch64 and lidarslam-wheels-macos-arm64). A release
+# tag (v<VERSION>) publishes them to PyPI, and a manual run can publish them to TestPyPI; both
+# through PyPI's Trusted Publishing (no stored token), from the environments `pypi` and
+# `testpypi`.
 
 on:
   # Pushes to develop/main keep current wheels downloadable from the run's artifacts; release tags
@@ -129,14 +130,14 @@ jobs:
 
   build-macos:
     name: Build macOS wheels (arm64)
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 240
     env:
       CIBUILDWHEEL_VERSION: "4.3.4"
       # The libraries' install names are absolute paths in this prefix, so the cache below is
       # only valid at this same path.
       LIDARSLAM_WHEEL_DEPS: ${{ github.workspace }}/.wheel-deps
-      MACOSX_DEPLOYMENT_TARGET: "14.0"
+      MACOSX_DEPLOYMENT_TARGET: "15.0"
 
     steps:
       - name: Check out repository
@@ -151,7 +152,7 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: .wheel-deps
-          key: wheel-deps-macos-14-arm64-${{ hashFiles('lidarslam_core/wheel/build_deps.sh') }}
+          key: wheel-deps-macos-15-arm64-${{ hashFiles('lidarslam_core/wheel/build_deps.sh') }}
 
       - name: Build wheels (cibuildwheel)
         shell: bash
@@ -200,8 +201,8 @@ jobs:
           - {os: ubuntu-24.04, python: "3.12", setup: false}
           - {os: ubuntu-24.04, python: "3.13", setup: true}
           - {os: ubuntu-24.04-arm, python: "3.12", setup: false}
-          - {os: macos-14, python: "3.12", setup: true}
-          - {os: macos-15, python: "3.13", setup: true}
+          - {os: macos-15, python: "3.12", setup: true}
+          - {os: macos-latest, python: "3.13", setup: true}
 
     steps:
       - name: Check out repository (for the tests)
