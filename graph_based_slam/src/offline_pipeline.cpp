@@ -1570,7 +1570,7 @@ struct BagPass
 
   bool loop_edges_changed = false;
   // OfflinePipeline::setLivePoseListener: told of every pair's causal pose.
-  LivePoseListener live_pose_listener;
+  graphslam::offline::LivePoseListener live_pose_listener;
   // Sensor time for the GNSS stamp check, as the live node keeps it: the odometry stamps of the
   // pairs (with a finite position), the first and the latest.
   double first_pair_stamp_sec = 0.0;
@@ -1826,7 +1826,7 @@ struct BagPass
       const Eigen::Isometry3d pose =
         causal_map_from_odom * Eigen::Isometry3d(pose_affine.matrix());
       if (live_pose_listener) {
-        LivePose live;
+        graphslam::offline::LivePose live;
         live.stamp_sec = stamp_sec;
         live.odometry = Eigen::Isometry3d(pose_affine.matrix());
         live.map = pose;
