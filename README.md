@@ -7,7 +7,7 @@
 
 **Turn a rosbag into a map you can actually drive on.** LiDAR SLAM that writes an Autoware-compatible map bundle: `pointcloud_map/`, `map_projector_info.yaml` and lanelet2. It runs as ROS 2 packages (Humble, Jazzy) or without ROS 2 from `pip install lidarslam`. `RKO-LIO` (MIT) + `graph_based_slam` (BSD-2), no GPL on the default workflow. [日本語クイックスタート](docs/getting-started-ja.md) · release notes [v0.12.0](docs/releases/v0.12.0.md) · next [v0.13.0](docs/releases/v0.13.0.md)
 
-[Documentation](https://rsasaki0109.github.io/lidar_slam/) · [Supported inputs and outputs](docs/product-contract.md) · [Workflow and benchmark comparison](docs/comparison.md)
+[Documentation](https://rsasaki0109.github.io/lidar_slam/) · [Common questions](docs/common-questions.md) · [Supported inputs and outputs](docs/product-contract.md) · [Workflow and benchmark comparison](docs/comparison.md)
 
 <p align="center">
   <img src="lidarslam/images/slam_koide_outdoor_hard_02a.gif" alt="Live map building on a handheld outdoor walk, coloured by when each part was mapped" width="56%">
