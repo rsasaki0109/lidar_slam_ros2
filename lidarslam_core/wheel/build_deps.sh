@@ -91,6 +91,10 @@ if ${DARWIN}; then
   # Homebrew's libomp (OpenMP_ROOT, also for projects with old cmake_minimum_required) and its
   # lz4 / zstd; absolute install names in the prefix.
   export OpenMP_ROOT=${OpenMP_ROOT:-$(brew --prefix libomp)}
+  # FLANN links lz4 by name (from pkg-config) without its directory; Homebrew's prefix is not on
+  # the default search paths. Only the lz4 and zstd kegs, not all of Homebrew's headers.
+  export LIBRARY_PATH="$(brew --prefix lz4)/lib:$(brew --prefix zstd)/lib${LIBRARY_PATH:+:${LIBRARY_PATH}}"
+  export CPATH="$(brew --prefix lz4)/include:$(brew --prefix zstd)/include${CPATH:+:${CPATH}}"
   CMAKE_COMMON+=(
     -DCMAKE_POLICY_DEFAULT_CMP0074=NEW
     -DCMAKE_PREFIX_PATH="${PREFIX};$(brew --prefix)"
@@ -150,7 +154,11 @@ src=$(unpack "$(fetch https://archives.boost.io/release/1.83.0/source/boost_1_83
 (
   cd "${src}"
   ./bootstrap.sh --prefix="${PREFIX}" --with-libraries=filesystem,iostreams,system
-  ./b2 -j "${JOBS}" -d0 variant=release link=shared threading=multi cxxflags=-O2 \
+  # macOS: room in the headers for the absolute install names set below (CMake adds this
+  # linker flag by itself; b2 does not).
+  linkflags=""
+  ${DARWIN} && linkflags="linkflags=-Wl,-headerpad_max_install_names"
+  ./b2 -j "${JOBS}" -d0 variant=release link=shared threading=multi cxxflags=-O2 ${linkflags} \
     --prefix="${PREFIX}" --libdir="${PREFIX}/lib" install
   # b2 installs only the headers of the libraries built; install all of them, as libboost-dev
   # does (3D-BBS includes boost/functional/hash).
