@@ -39,7 +39,7 @@
         "MAINTAINER_PUBLICATION_REQUIRED"
       ]
     },
-    "repository": {"const": "rsasaki0109/lidar_slam_ros2"},
+    "repository": {"enum": ["rsasaki0109/lidar_slam", "rsasaki0109/lidar_slam_ros2"]},
     "local_queue_status": {
       "enum": ["QUEUE_READY_LOCAL_ONLY", "QUEUE_STALE_LOCAL_ONLY"]
     },
@@ -106,7 +106,7 @@
     },
     "githubUrl": {
       "type": "string",
-      "pattern": "^https://github\\.com/rsasaki0109/lidar_slam_ros2/"
+      "pattern": "^https://github\\.com/rsasaki0109/lidar_slam(?:_ros2)?/"
     },
     "publicIssue": {
       "type": "object",
@@ -427,7 +427,7 @@
               ]
             },
             "task_id": {"$ref": "#/definitions/taskId"},
-            "repository": {"const": "rsasaki0109/lidar_slam_ros2"},
+            "repository": {"enum": ["rsasaki0109/lidar_slam", "rsasaki0109/lidar_slam_ros2"]},
             "title": {"type": "string", "minLength": 1, "maxLength": 300},
             "labels": {
               "type": "array",

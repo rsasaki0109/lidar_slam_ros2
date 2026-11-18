@@ -24,7 +24,7 @@
       "const": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/issue-triage-application-packet-v1.schema.json"
     },
     "status": {"const": "PREPARED_NOT_AUTHORIZED"},
-    "repository": {"const": "rsasaki0109/lidar_slam_ros2"},
+    "repository": {"enum": ["rsasaki0109/lidar_slam", "rsasaki0109/lidar_slam_ros2"]},
     "source": {
       "type": "object",
       "additionalProperties": false,
@@ -455,7 +455,7 @@
         "title": {"type": "string", "minLength": 1, "maxLength": 300},
         "url": {
           "type": "string",
-          "pattern": "^https://github\\.com/rsasaki0109/lidar_slam_ros2/issues/[1-9][0-9]*$"
+          "pattern": "^https://github\\.com/rsasaki0109/lidar_slam(?:_ros2)?/issues/[1-9][0-9]*$"
         },
         "observed": {"$ref": "#/definitions/observed"},
         "theme": {"$ref": "#/definitions/theme"},

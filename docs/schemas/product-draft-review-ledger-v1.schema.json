@@ -20,7 +20,7 @@
     "schema_uri": {
       "const": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/product-draft-review-ledger-v1.schema.json"
     },
-    "repository": {"const": "rsasaki0109/lidar_slam_ros2"},
+    "repository": {"enum": ["rsasaki0109/lidar_slam", "rsasaki0109/lidar_slam_ros2"]},
     "pull_request": {"const": 427},
     "scope": {"const": "anonymous-product-draft-review-ledger"},
     "exact_head": {

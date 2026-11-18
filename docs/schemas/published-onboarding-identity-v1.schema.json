@@ -23,7 +23,7 @@
       "const": "https://rsasaki0109.github.io/lidar_slam_ros2/schemas/published-onboarding-identity-v1.schema.json"
     },
     "status": {"enum": ["READY", "NOT_READY", "BLOCKED"]},
-    "repository": {"const": "rsasaki0109/lidar_slam_ros2"},
+    "repository": {"enum": ["rsasaki0109/lidar_slam", "rsasaki0109/lidar_slam_ros2"]},
     "network_requested": {"const": true},
     "writes_performed": {"const": false},
     "expected": {"$ref": "#/definitions/identity"},

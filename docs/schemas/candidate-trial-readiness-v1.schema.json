@@ -31,7 +31,7 @@
       ]
     },
     "checked_at": {"type": "string", "format": "date-time"},
-    "repository": {"const": "rsasaki0109/lidar_slam_ros2"},
+    "repository": {"enum": ["rsasaki0109/lidar_slam", "rsasaki0109/lidar_slam_ros2"]},
     "row": {
       "type": "object",
       "additionalProperties": false,
@@ -215,7 +215,7 @@
           "request": {
             "properties": {
               "workflow_run_url": {
-                "pattern": "^https://github\\.com/rsasaki0109/lidar_slam_ros2/actions/runs/[1-9][0-9]*$"
+                "pattern": "^https://github\\.com/rsasaki0109/lidar_slam(?:_ros2)?/actions/runs/[1-9][0-9]*$"
               }
             }
           }

@@ -30,7 +30,7 @@
         "scope"
       ],
       "properties": {
-        "repository": {"const": "rsasaki0109/lidar_slam_ros2"},
+        "repository": {"enum": ["rsasaki0109/lidar_slam", "rsasaki0109/lidar_slam_ros2"]},
         "pull_request": {"const": 427},
         "base_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
         "public_head_sha": {

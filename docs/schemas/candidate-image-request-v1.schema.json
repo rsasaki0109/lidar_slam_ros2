@@ -33,7 +33,7 @@
     },
     "status": {"const": "AUTHORIZED"},
     "publication_mode": {"const": "digest_only"},
-    "repository": {"const": "rsasaki0109/lidar_slam_ros2"},
+    "repository": {"enum": ["rsasaki0109/lidar_slam", "rsasaki0109/lidar_slam_ros2"]},
     "event_name": {"const": "repository_dispatch"},
     "event_action": {"const": "e2-publish-candidate-image"},
     "default_branch": {"const": "develop"},

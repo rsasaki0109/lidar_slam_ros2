@@ -18,7 +18,7 @@ Usage:
 Repository checkout compatibility:
   bash scripts/docker_map_bag.sh [options] ROSBAG2_DIR [-- START_OPTIONS...]
 
-Map one local rosbag2 directory with the published lidar_slam_ros2 image. The
+Map one local rosbag2 directory with the published lidar_slam image. The
 bag is mounted read-only, the container runs as the current user, and the
 high-level `lidarslam-map start` workflow detects, configures, maps, verifies,
 and writes a reopenable session under one host output directory.
@@ -178,7 +178,14 @@ if [[ -z "${IMAGE}" ]]; then
   if [[ "${LIDARSLAM_DOCKER_LAUNCHER_VERSION}" != "development" ]]; then
     IMAGE_TAG="${LIDARSLAM_DOCKER_LAUNCHER_VERSION}-${ROS_DISTRO}"
   fi
-  IMAGE="ghcr.io/rsasaki0109/lidar_slam_ros2:${IMAGE_TAG}"
+  # The repository was named lidar_slam_ros2 until 2026-11-17; v0.12.x and earlier images keep
+  # that name, later releases and the development tags are published as lidar_slam.
+  IMAGE_REPOSITORY="ghcr.io/rsasaki0109/lidar_slam"
+  if [[ "${LIDARSLAM_DOCKER_LAUNCHER_VERSION}" =~ ^v0\.([0-9]+)\. ]] \
+    && (( BASH_REMATCH[1] <= 12 )); then
+    IMAGE_REPOSITORY="ghcr.io/rsasaki0109/lidar_slam_ros2"
+  fi
+  IMAGE="${IMAGE_REPOSITORY}:${IMAGE_TAG}"
 fi
 if [[ ! "${IMAGE}" =~ ^[A-Za-z0-9][A-Za-z0-9._/@:-]*$ ]]; then
   die 2 unsafe-image-reference "image reference contains unsafe characters" \

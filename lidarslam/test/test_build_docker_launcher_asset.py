@@ -52,14 +52,19 @@ SPEC.loader.exec_module(BUILDER)
 REVISION = 'a' * 40
 
 
-def _build(tmp_path: Path, *, name: str = 'lidarslam-map-docker') -> Path:
+def _build(
+    tmp_path: Path,
+    *,
+    name: str = 'lidarslam-map-docker',
+    tag: str = 'v0.9.1',
+) -> Path:
     output = tmp_path / name
     result = subprocess.run(
         [
             sys.executable,
             str(SCRIPT),
             '--tag',
-            'v0.9.1',
+            tag,
             '--source-revision',
             REVISION,
             '--output',
@@ -129,6 +134,35 @@ def test_release_asset_is_executable_and_pins_versioned_images(tmp_path):
     )
     assert plan['side_effects']['filesystem_writes'] is False
     assert not (tmp_path / 'lidarslam_output').exists()
+
+
+@pytest.mark.parametrize(
+    ('tag', 'image'),
+    [
+        ('v0.12.1', 'ghcr.io/rsasaki0109/lidar_slam_ros2:v0.12.1-humble'),
+        ('v0.13.0', 'ghcr.io/rsasaki0109/lidar_slam:v0.13.0-humble'),
+        ('v1.0.0', 'ghcr.io/rsasaki0109/lidar_slam:v1.0.0-humble'),
+    ],
+)
+def test_release_asset_image_follows_the_repository_rename(
+    tmp_path, tag, image,
+):
+    asset = _build(tmp_path, tag=tag)
+    bag = tmp_path / 'bag'
+    bag.mkdir()
+    (bag / 'metadata.yaml').write_text(
+        'rosbag2_bagfile_information: {}\n',
+        encoding='utf-8',
+    )
+    plan = subprocess.run(
+        [str(asset), '--dry-run', '--json', str(bag)],
+        cwd=tmp_path,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert plan.returncode == 0, plan.stderr
+    assert json.loads(plan.stdout)['image']['reference'] == image
 
 
 def test_build_is_deterministic_and_create_only(tmp_path):
