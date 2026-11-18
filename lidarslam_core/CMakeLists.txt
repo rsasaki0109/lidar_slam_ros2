@@ -32,7 +32,10 @@ if(NOT CMAKE_CXX_STANDARD)
 endif()
 set(CMAKE_CXX_FLAGS "-O2 -g ${CMAKE_CXX_FLAGS}")
 add_compile_definitions(G2O_USE_VENDORED_CERES)
-add_link_options(-Wl,--no-undefined)
+# Unresolved symbols fail the link (GNU ld needs the flag; Apple's linker does it by default).
+if(NOT APPLE)
+  add_link_options(-Wl,--no-undefined)
+endif()
 
 find_package(Eigen3 REQUIRED)
 

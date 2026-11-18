@@ -12,6 +12,12 @@
   it). `web/` holds the build (`build_wasm.sh`, a serial oneTBB stand-in) and
   the clip writer. The RKO-LIO submodule copies two IMU priors into a lambda
   explicitly so Emscripten's clang 15 compiles it; outputs are unchanged.
+- macOS arm64 wheels (Apple Silicon, macOS 14+, Python 3.10-3.13): the wheels
+  workflow builds the same C++ dependencies from source on a macOS runner with
+  Homebrew's libomp, bundles them with delocate, and installs and tests the
+  wheel on macOS 14 and 15. A release tag publishes them to PyPI with the
+  manylinux wheels. The map runner reserves its emergency evidence space by
+  writing zeros where `os.posix_fallocate` does not exist (macOS).
 
 ## 0.13.0 - 2026-11-18
 
