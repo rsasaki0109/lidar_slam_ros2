@@ -758,3 +758,31 @@ Each milestone is one reviewable change with its own checks.
 - **One dataset.** All public data with a known changed layout and a reference scan found so far
   is this one hall. Static-structure checks on other multi-session data (no change expected) are
   added when it is downloaded again; they can only lower confidence, not replace the holdout.
+
+## Agent review, development trial (preregistered 2026-11-19, before any measurement)
+
+Question: does reviewing an update's candidates with the map review tools
+(`docs/map-review.md`, `python -m lidarslam mcp`) improve the map over the automatic change
+detection alone? Development data only (S1, S3, S6); no holdout data is used.
+
+- **Stores.** Two chains, each a base session in an empty store and one update, both with
+  `live --start-near-first-submap --detect-changes --filter-new-points` (walking backend preset,
+  `rko_lio_luh_os1.yaml`, column step 2): S3 → S6 (update to layout C) and S6 → S3 (update to
+  layout B).
+- **Arms.** A: the store's export after the update, no edits. B: the same store after one
+  agent review, committed as one `agent:claude` edit.
+- **Reviewer.** Claude, through `lidarslam.map_review.Review` only (the MCP tools'
+  implementation: `info`, `list_candidates`, `describe`, `view_region`, `decide`,
+  `decide_box`, `commit`). It sees no TLS, total-station or other reference data and no score
+  until its edit is committed. Budget: the 20 largest candidates of each kind (60 per chain),
+  in list order; it may leave any undecided. It decides from the tool's numbers and pictures with
+  the instructions of the MCP server (`lidarslam/mcp_server.py`, `INSTRUCTIONS`) as written at
+  this commit.
+- **Measures.** `scripts/evaluate_luh_map_update.py` with the full TLS cloud
+  (`Reference_Map_TLS.pcd`, md5 `231eb6939447570e407ebad56029e151`), the L5 hall polygon and
+  floor (−1.39 m), the update's path, and the store-to-TLS transform fitted once per chain
+  from the base session's odometry against its total-station positions (Umeyama, rigid). G
+  and S on both chains; N on S6 → S3 against S1 mapped alone (the development N proxy).
+- **Rule.** Review helps on a chain if, against A, G falls by at least 0.02 (absolute) while S
+  stays at least 0.97 and, on S6 → S3, N falls by no more than 0.02. Both chains are reported
+  whatever the outcome, with the decisions and the time the review took.
