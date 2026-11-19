@@ -81,6 +81,23 @@ def _clusters(keys: np.ndarray) -> list[np.ndarray]:
     return sorted(groups, key=lambda g: (-g.size, int(g[0])))
 
 
+def _object_sized(cluster: np.ndarray, max_extent_m: float, tile_m: float) -> list[np.ndarray]:
+    """A cluster wider than max_extent_m split into the connected parts of each tile_m floor
+    tile (a whole room's floor is one cluster; a reviewer judges objects)."""
+    voxels = _voxels(cluster)
+    extent = (voxels[:, :2].max(axis=0) - voxels[:, :2].min(axis=0) + 1) * VOXEL_M
+    if max_extent_m <= 0 or np.all(extent <= max_extent_m):
+        return [cluster]
+    tiles = np.floor(voxels[:, :2] * VOXEL_M / tile_m).astype(np.int64)
+    order = np.lexsort((tiles[:, 1], tiles[:, 0]))
+    tiles, part = tiles[order], cluster[order]
+    starts = np.flatnonzero(np.r_[True, np.any(tiles[1:] != tiles[:-1], axis=1)])
+    pieces = []
+    for piece in np.split(part, starts[1:]):
+        pieces.extend(_clusters(np.sort(piece)))
+    return sorted(pieces, key=lambda g: (-g.size, int(g[0])))
+
+
 def candidate_id(kind: str, keys: np.ndarray) -> str:
     """A stable id: the kind and a digest of the cluster's voxels."""
     digest = hashlib.sha1(np.sort(np.asarray(keys, dtype='<i8')).tobytes()).hexdigest()[:10]
@@ -99,10 +116,11 @@ def _summary(kind: str, keys: np.ndarray, xyz: np.ndarray, sessions: np.ndarray,
 
 
 def candidates(store: Any, min_voxels: int = 5, points: dict[str, np.ndarray] | None = None,
-               ) -> list[dict[str, Any]]:
+               max_extent_m: float = 3.0, tile_m: float = 2.0) -> list[dict[str, Any]]:
     """Clusters of what to review, largest first within each kind; each with its ``id``, ``kind``,
     voxel and point counts, centroid and bounds (store frame, metres) and its sessions. The
-    voxels of each candidate are under the key ``voxel_keys`` (see :func:`resolve`)."""
+    voxels of each candidate are under the key ``voxel_keys`` (see :func:`resolve`). A cluster
+    wider than ``max_extent_m`` is split into the connected parts of ``tile_m`` floor tiles."""
     sessions = store.sessions
     if not sessions:
         return []
@@ -138,7 +156,9 @@ def candidates(store: Any, min_voxels: int = 5, points: dict[str, np.ndarray] | 
         sorted_keys = selected_keys[order]
         xyz = points['xyz'][select][order]
         sess = session[select][order]
-        for cluster in _clusters(sorted_keys):
+        pieces = [piece for cluster in _clusters(sorted_keys)
+                  for piece in _object_sized(cluster, max_extent_m, tile_m)]
+        for cluster in sorted(pieces, key=lambda g: (-g.size, int(g[0]))):
             if cluster.size < min_voxels:
                 continue
             lo = np.searchsorted(sorted_keys, cluster, side='left')
