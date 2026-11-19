@@ -11,10 +11,14 @@
        [--store STORE]                  live mapping: the log played message by message, live
                                         (causal) poses as they come (lidarslam.live); with
                                         --store the session is added to a long-term map store
-  store info|export|rollback|candidates|edit|apply-edit|rollback-edit STORE [...]
+  store info|export|rollback|candidates|edit|apply-edit|rollback-edit|review-pack STORE [...]
                                         a long-term map store (lidarslam.store): list its
                                         sessions, export its Autoware bundle, take the latest
                                         session off the map
+  mcp STORE [--propose-only] [--author agent:NAME]
+                                        an MCP server (stdio) for an agent to review the
+                                        store's changes (lidarslam.mcp_server; needs
+                                        pip install "lidarslam[agent]")
 """
 
 from __future__ import annotations
@@ -139,6 +143,13 @@ def main(argv: list[str] | None = None) -> int:
                             'rollback-edit: take the latest edit off the map; review-pack: the '
                             'file the map editor opens (--out)')
     store.add_argument('store', help='map store directory')
+    mcp = sub.add_parser('mcp', help='MCP server (stdio) for an agent to review a map store')
+    mcp.add_argument('store', help='map store directory')
+    mcp.add_argument('--author', default='agent:claude', help="'agent:<name>' (default)")
+    mcp.add_argument('--propose-only', action='store_true',
+                     help='write proposals for a person to apply instead of editing the store')
+    mcp.add_argument('--min-voxels', type=int, default=5,
+                     help='smallest candidate listed (0.15 m voxels)')
     store.add_argument('--out', help='export: bundle directory (default: STORE/export)')
     store.add_argument('--min-voxels', type=int, default=5,
                        help='candidates / edit: smallest cluster listed (0.15 m voxels)')
@@ -217,6 +228,9 @@ def main(argv: list[str] | None = None) -> int:
                                      start_near_first_submap=args.start_near_first_submap,
                                      refine_visibility=args.refine_visibility)
         print(json.dumps(summary, indent=2))
+    elif args.command == 'mcp':
+        from lidarslam.mcp_server import build_server
+        build_server(args.store, args.author, args.propose_only, args.min_voxels).run('stdio')
     elif args.command == 'store':
         from lidarslam.store import Store
         map_store = Store.open(args.store)

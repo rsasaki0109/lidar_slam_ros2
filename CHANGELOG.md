@@ -13,7 +13,11 @@
   the edit it saves. Edits are append-only store-frame voxel decisions with
   their author and reason, applied after the change evidence;
   `store rollback-edit` undoes the latest. Without edits the export is
-  unchanged.
+  unchanged. `python -m lidarslam mcp STORE` (`pip install "lidarslam[agent]"`)
+  is an MCP server for an agent such as Claude Code to do the same review:
+  candidates with numbers and a top/side picture, keep / remove decisions
+  committed as one `agent:<name>` edit, or with `--propose-only` a proposal
+  file for a person to apply.
 - Browser demo ([Try It in Your Browser](docs/browser-demo.md)): RKO-LIO odometry
   (`rko_lio::driver::OfflineDriver`) compiled to WebAssembly maps a 60 s clip of
   the public Livox MID-360 recording in a web worker and draws the map with

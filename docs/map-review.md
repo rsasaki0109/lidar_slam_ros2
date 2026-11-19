@@ -65,3 +65,24 @@ python -m lidarslam store edit STORE --author human:alice --reason "a person" \
   the export; the edit's file stays. Without edits the export is the same as before.
 - Edits address the store frame, so they stay in force when a later session sees the place
   again, until a later edit says otherwise.
+
+## Let an agent review
+
+`python -m lidarslam mcp STORE` is an MCP server (stdio) over the same review. Its tools list
+the candidates, describe one with numbers (size, height above the floor, points per session,
+how much of it touches structure that stays) and a picture (a top and a side view of it in its
+surroundings), show any region, keep or remove candidates or boxes, commit the decisions as one
+edit with a reason, and roll the latest edit back. The server tells the agent what each kind
+of candidate means and when to keep or remove it; what it is unsure about it leaves undecided
+for a person.
+
+```bash
+pip install "lidarslam[agent]"   # the MCP SDK
+claude mcp add lidarslam-review -- python -m lidarslam mcp /path/to/store --propose-only
+```
+
+Then ask Claude Code to review the store. With `--propose-only` the agent cannot change the
+store: each commit writes `STORE/proposals/<time>-<name>.json`, which you inspect (or open next
+to a review pack in the editor) and apply with `store apply-edit`. Without it the agent's
+edits go straight into the store as `agent:<name>` edits (`--author agent:NAME`), each undone
+with `store rollback-edit`.
