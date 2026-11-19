@@ -786,3 +786,36 @@ detection alone? Development data only (S1, S3, S6); no holdout data is used.
 - **Rule.** Review helps on a chain if, against A, G falls by at least 0.02 (absolute) while S
   stays at least 0.97 and, on S6 → S3, N falls by no more than 0.02. Both chains are reported
   whatever the outcome, with the decisions and the time the review took.
+
+### Agent review, development results (2026-11-19)
+
+Both reviews were committed before any TLS or total-station data was read. The
+store-to-TLS fits used 1,183 (S3) and 1,218 (S6) matched poses, with 3.7 cm and 1.6 cm RMSE;
+the S1 reference fit 1,626 poses at 3.8 cm. The TLS md5 matched. "Before" is the base session
+exported alone.
+
+| Chain | Arm | G (%) | S (%) | N (%) | Map points in region |
+| --- | --- | ---: | ---: | ---: | ---: |
+| S3 → S6 | A, no edits | 14.45 | 100.71 | — | 34,463 |
+| S3 → S6 | B, agent edit | 13.91 | 100.66 | — | 34,085 |
+| S6 → S3 | A, no edits | 29.55 | 100.79 | 11.04 | 41,205 |
+| S6 → S3 | B, agent edit | 27.52 | 100.81 | 9.55 | 39,851 |
+
+Decisions (60 candidates per chain): S3 → S6 kept 13, removed 34, left 13 undecided
+(16,801 voxels in the edit); S6 → S3 kept 19, removed 31, left 10 undecided (13,701 voxels).
+Removing a `removed_old` or `suppressed_new` candidate only confirms the evidence; the map
+changes come from keeps on those kinds and removes on `added`. The review time was not
+recorded.
+
+Under the rule:
+
+- **S3 → S6: does not help.** G fell by 0.0054, below 0.02. S held.
+- **S6 → S3: helps, at the margin.** G fell by 0.0203. S held at 100.81%. N fell by 0.0149,
+  within 0.02.
+
+Both arms leave G far above the 2% L5 target, and N on S6 → S3 is about 10% in both: the
+automatic update misses most new structure, and review, which only sees what the update
+produced, cannot add it back. The review removed some points that the S1 reference counts as
+new structure. One chain at the margin on development data is not enough to change the
+product. A further check would need a fresh public holdout, since the LUH holdout ground
+truth is open.
