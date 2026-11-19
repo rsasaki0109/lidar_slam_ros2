@@ -52,7 +52,9 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <map>
+#include <functional>
 #include <memory>
 #include <set>
 #include <string>
@@ -106,10 +108,50 @@ void exportBundle(
 
 // Session order, then submap index and suppressed submap-local voxels.
 using RemovedVoxels = std::vector<std::map<std::size_t, std::set<std::array<int, 3>>>>;
+
+// Reviewed edits of a person or an agent (lidarslam.map_edits), folded to their final state:
+// store-frame voxels (map_change::voxel of a point at its exported pose). A point in a `keep`
+// voxel stays even when the change evidence removed it; a point in a `remove` voxel is dropped.
+// A voxel is in at most one of the two sets.
+struct StoreFrameEdits
+{
+  std::set<std::array<int, 3>> remove;
+  std::set<std::array<int, 3>> keep;
+  bool empty() const {return remove.empty() && keep.empty();}
+};
+
+// What the export does with one stored point.
+enum class PointState : std::uint8_t
+{
+  kept = 0,  // kept (no evidence or edit removes it)
+  removed_by_evidence = 1,  // the change evidence removed it
+  removed_by_edit = 2,  // an edit removed it
+  kept_by_edit = 3,  // the change evidence removed it and an edit keeps it
+};
+
+// The state of a point given in its submap frame, with its submap's mask (may be null), its
+// exported pose and the edits.
+PointState pointState(
+  const pcl::PointXYZI & point, const std::set<std::array<int, 3>> * mask,
+  const Eigen::Isometry3d & pose, const StoreFrameEdits & edits);
+
 void exportBundle(
   const std::vector<SessionMap> & sessions, const map_export::MapExportConfig & config,
   const std::string & save_dir, const map_export::MapExportLog & log,
-  const RemovedVoxels & removed);
+  const RemovedVoxels & removed, const StoreFrameEdits & edits = StoreFrameEdits());
+
+// The store-frame voxel of a point given in its submap frame at its exported pose, as edits
+// address it.
+std::array<int, 3> storeFrameVoxel(const pcl::PointXYZI & point, const Eigen::Isometry3d & pose);
+
+// Every stored point at its exported pose with its state, in session, submap and point order:
+// visit(session, submap, store-frame position, store-frame voxel, state).
+void forEachPoint(
+  const std::vector<SessionMap> & sessions, const RemovedVoxels & removed,
+  const StoreFrameEdits & edits,
+  const std::function<void(
+    std::size_t, std::size_t, const Eigen::Vector3f &, const std::array<int, 3> &,
+    PointState)> & visit);
 
 }  // namespace map_store
 }  // namespace graphslam

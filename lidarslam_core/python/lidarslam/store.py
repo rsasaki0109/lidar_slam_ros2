@@ -20,6 +20,10 @@ Sessions anchored to the primary map record ``store_from_session``. Other sessio
 own frame. :meth:`Store.export` requires a common frame by default.
 When present, ``store_submap_poses.npy`` holds the session's absolute tracked submap poses in
 ``submaps.bin`` order, which take precedence over the rigid transform for export.
+
+Reviewed edits (:mod:`lidarslam.map_edits`, by a person or an agent) are ``edits/<id>.json``,
+listed in ``store.json`` under ``edits`` in the order they apply. The export applies them after
+the change evidence; :meth:`Store.rollback_edit` takes the latest one off the list.
 """
 
 from __future__ import annotations
@@ -144,11 +148,101 @@ class Store:
         index['sessions'] = self._index['sessions'][:-1]
         _write_json(self.path / _INDEX, index)
         removed = self._index['sessions'][-1]
-        rebuild = any(e.get('map_change_evidence') for e in self._index['sessions'])
+        rebuild = (any(e.get('map_change_evidence') for e in self._index['sessions'])
+                   or bool(self._index.get('edits')))
         self._index = index
         if rebuild and index['sessions'] and len(self._aligned_sessions()) == len(index['sessions']):
             self.export()
         return dict(removed)
+
+    @property
+    def edits(self) -> list[dict[str, Any]]:
+        """The applied edits, oldest first (copies of their store.json entries)."""
+        return [dict(entry) for entry in self._index.get('edits', [])]
+
+    def edit_document(self, edit_id: str) -> dict[str, Any]:
+        from lidarslam import map_edits
+        return map_edits.read(self.path / 'edits' / f'{edit_id}.json')
+
+    def add_edit(self, edit: dict[str, Any],
+                 log: Callable[[str, str], None] | None = None) -> dict[str, Any]:
+        """Writes a reviewed edit (:func:`lidarslam.map_edits.make_edit`), lists it in store.json
+        and rebuilds the export when the sessions share a frame. Returns its entry."""
+        from lidarslam import map_edits
+        map_edits.validate(edit)
+        if not self._index['sessions']:
+            raise ValueError('the store has no session to edit')
+        directory = self.path / 'edits'
+        directory.mkdir(exist_ok=True)
+        existing = {p.stem for p in directory.glob('*.json')}
+        number = len(existing)
+        while f'{number:04d}' in existing:
+            number += 1
+        edit_id = f'{number:04d}'
+        document = {**edit, 'id': edit_id,
+                    'sessions': [entry['id'] for entry in self._index['sessions']]}
+        _write_json(directory / f'{edit_id}.json', document)
+        entry = {'id': edit_id, 'author': edit['author'], 'reason': edit['reason'],
+                 'operations': len(edit['operations']),
+                 'voxels': sum(len(op['voxels']) for op in edit['operations']),
+                 'applied': datetime.now(timezone.utc).isoformat(timespec='seconds')}
+        index = dict(self._index)
+        index['edits'] = [*self._index.get('edits', []), entry]
+        _write_json(self.path / _INDEX, index)
+        self._index = index
+        if len(self._aligned_sessions()) == len(index['sessions']):
+            self.export(log=log)
+        return dict(entry)
+
+    def rollback_edit(self, log: Callable[[str, str], None] | None = None) -> dict[str, Any]:
+        """Takes the latest edit off the list (its file stays) and rebuilds the export."""
+        edits = self._index.get('edits', [])
+        if not edits:
+            raise ValueError('the store has no edit')
+        index = dict(self._index)
+        index['edits'] = edits[:-1]
+        _write_json(self.path / _INDEX, index)
+        self._index = index
+        if index['sessions'] and len(self._aligned_sessions()) == len(index['sessions']):
+            self.export(log=log)
+        return dict(edits[-1])
+
+    def _edit_voxels(self) -> dict[str, list[list[int]]]:
+        from lidarslam import map_edits
+        if not self._index.get('edits'):
+            return {}
+        remove, keep = map_edits.fold(
+            self.edit_document(entry['id']) for entry in self._index['edits'])
+        return {'edit_remove': remove.tolist(), 'edit_keep': keep.tolist()}
+
+    def _session_args(self, sessions: list[dict[str, Any]]) -> tuple[list[str], dict[str, Any]]:
+        """The session directories and the pose, evidence and edit arguments of the export."""
+        aligned = self._aligned_sessions()
+        dirs = [str(self.session_dir(entry['id'])) for entry in sessions]
+        transforms = dict(aligned)
+        extra = ({'transforms': [transforms.get(directory, np.eye(4).tolist())
+                                 for directory in dirs]}
+                 if any('store_from_session' in entry for entry in sessions) else {})
+        if any((Path(directory) / 'store_submap_poses.npy').is_file() for directory in dirs):
+            from lidarslam.relocalization import tracked_poses
+            extra['optimized_poses'] = [tracked_poses(directory) for directory in dirs]
+        if any(entry.get('map_change_evidence') for entry in sessions):
+            from lidarslam.map_changes import removal_masks
+            extra['removed'] = removal_masks(self, sessions)
+        extra.update(self._edit_voxels())
+        return dirs, extra
+
+    def points(self) -> dict[str, np.ndarray]:
+        """Every stored point at its exported pose (``_core.store_points``): ``xyz``, ``voxel``
+        (the store-frame voxel edits address), ``session``, ``submap`` and ``state`` (0 kept,
+        1 removed by change evidence, 2 removed by an edit, 3 kept by an edit)."""
+        sessions = self._index['sessions']
+        if not sessions:
+            raise ValueError('the store has no session')
+        if len(self._aligned_sessions()) != len(sessions):
+            raise ValueError('the store contains sessions mapped in their own frames')
+        dirs, extra = self._session_args(sessions)
+        return _core.store_points(dirs, **extra)
 
     def backend_params(self, session_id: str) -> dict[str, Any]:
         with (self.session_dir(session_id) / 'backend_params.json').open(encoding='utf-8') as f:
@@ -184,16 +278,7 @@ class Store:
                              'pass stack_sessions=True to export them stacked')
         if params is None:
             params = self.backend_params(sessions[0]['id'])
-        dirs = [str(self.session_dir(entry['id'])) for entry in sessions]
-        transforms = dict(aligned)
-        extra = ({'transforms': [transforms.get(directory, np.eye(4).tolist()) for directory in dirs]}
-                 if any('store_from_session' in entry for entry in sessions) else {})
-        if any((Path(directory) / 'store_submap_poses.npy').is_file() for directory in dirs):
-            from lidarslam.relocalization import tracked_poses
-            extra['optimized_poses'] = [tracked_poses(directory) for directory in dirs]
-        if any(entry.get('map_change_evidence') for entry in sessions):
-            from lidarslam.map_changes import removal_masks
-            extra['removed'] = removal_masks(self, sessions)
+        dirs, extra = self._session_args(sessions)
         if out_dir is not None:
             _core.export_store_bundle(dirs, params, str(out_dir), log, **extra)
             return Path(out_dir)
