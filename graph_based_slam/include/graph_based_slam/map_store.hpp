@@ -50,8 +50,11 @@
 
 #include <Eigen/Geometry>  // NOLINT(build/include_order)
 
+#include <array>
 #include <cstddef>
+#include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -100,6 +103,13 @@ pcl::PointCloud<pcl::PointXYZI>::Ptr submapCloud(const StoredSubmap & submap);
 void exportBundle(
   const std::vector<SessionMap> & sessions, const map_export::MapExportConfig & config,
   const std::string & save_dir, const map_export::MapExportLog & log);
+
+// Session order, then submap index and suppressed submap-local voxels.
+using RemovedVoxels = std::vector<std::map<std::size_t, std::set<std::array<int, 3>>>>;
+void exportBundle(
+  const std::vector<SessionMap> & sessions, const map_export::MapExportConfig & config,
+  const std::string & save_dir, const map_export::MapExportLog & log,
+  const RemovedVoxels & removed);
 
 }  // namespace map_store
 }  // namespace graphslam

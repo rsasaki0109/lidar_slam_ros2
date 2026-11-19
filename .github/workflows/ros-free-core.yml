@@ -44,8 +44,21 @@ jobs:
       - name: Install build dependencies (Ubuntu packages only, no ROS)
         shell: bash
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
+          # This runner is Ubuntu 24.04. Use its signed packages from the official archive.
+          # Runner-provided regional mirrors can exhaust the timeout downloading PCL dependencies.
+          ubuntu_sources="$(mktemp --suffix=.sources)"
+          trap 'rm -f "$ubuntu_sources"' EXIT
+          cat > "$ubuntu_sources" <<'EOF'
+          Types: deb
+          URIs: https://archive.ubuntu.com/ubuntu
+          Suites: noble noble-updates noble-security
+          Components: main restricted universe multiverse
+          Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+          EOF
+          chmod 0644 "$ubuntu_sources"
+          apt_sources=(-o "Dir::Etc::sourcelist=$ubuntu_sources" -o Dir::Etc::sourceparts=-)
+          sudo apt-get "${apt_sources[@]}" update
+          sudo apt-get "${apt_sources[@]}" install -y --no-install-recommends \
             build-essential cmake libeigen3-dev libpcl-dev libg2o-dev libzstd-dev \
             libtbb-dev robin-map-dev libgtest-dev python3-pytest python3-venv
 

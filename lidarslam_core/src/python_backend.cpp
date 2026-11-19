@@ -8,14 +8,20 @@
 // and each is read with the type rules of rclcpp, so a parameter file gives the same values here
 // as in the ROS 2 runner.
 
+#include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
+#include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <functional>
+#include <map>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -24,7 +30,9 @@
 #include "graph_based_slam/multisession_join_tool.hpp"
 #include "graph_based_slam/offline_pipeline.hpp"
 #include "graph_based_slam/offline_runtime.hpp"
+#include "graph_based_slam/startup_relocalization.hpp"
 #include "lidarslam_core/sensor_messages.hpp"
+#include "python_map_changes.hpp"
 
 namespace py = pybind11;
 
@@ -319,12 +327,236 @@ private:
   py::object read_;
 };
 
+Eigen::Isometry3d rigidTransform(const Eigen::Matrix4d & matrix)
+{
+  const Eigen::Matrix3d rotation = matrix.topLeftCorner<3, 3>();
+  if (!matrix.allFinite() ||
+    !matrix.row(3).isApprox(Eigen::RowVector4d(0, 0, 0, 1)) ||
+    !(rotation.transpose() * rotation).isApprox(Eigen::Matrix3d::Identity(), 1e-6) ||
+    std::abs(rotation.determinant() - 1) > 1e-6)
+  {
+    throw std::invalid_argument("expected a finite rigid 4x4 transform");
+  }
+  return Eigen::Isometry3d(matrix);
+}
+
+class StoreRelocalizer
+{
+public:
+  using Scan = Eigen::Matrix<float, Eigen::Dynamic, 3, Eigen::RowMajor>;
+  using Windows = std::map<std::size_t, Scan>;
+
+  StoreRelocalizer(
+    const std::vector<std::string> & directories,
+    const std::vector<Eigen::Matrix4d> & transforms, const std::vector<Windows> & windows,
+    const std::vector<std::vector<Eigen::Matrix4d>> & optimized_poses)
+  : matcher_(load(directories, transforms, windows, optimized_poses, session_poses_)) {}
+
+  const std::vector<std::vector<Eigen::Matrix4d>> & sessionPoses() const {return session_poses_;}
+
+  static Scan thin(const Eigen::Ref<const Scan> & points)
+  {
+    std::vector<Eigen::Vector3f> finite;
+    finite.reserve(points.rows());
+    for (Eigen::Index i = 0; i < points.rows(); ++i) {
+      if (points.row(i).allFinite()) {finite.emplace_back(points.row(i).transpose());}
+    }
+    const auto thinned = small_gicp::voxelgrid_sampling<
+      std::vector<Eigen::Vector3f>, small_gicp::PointCloud>(finite, 0.2);
+    Scan result(thinned->size(), 3);
+    for (std::size_t i = 0; i < thinned->size(); ++i) {
+      result.row(i) = thinned->point(i).head<3>().cast<float>().transpose();
+    }
+    return result;
+  }
+
+  py::object match(const Eigen::Ref<const Eigen::MatrixX3f> & points,
+    const Eigen::Matrix4d & prior)
+  {
+    const auto result = registration(points, prior);
+    if (!result) {return py::none();}
+    return py::cast(Eigen::Matrix4d(result->pose.matrix()));
+  }
+
+  py::object matchWithReference(const Eigen::Ref<const Eigen::MatrixX3f> & points,
+    const Eigen::Matrix4d & prior)
+  {
+    const auto result = registration(points, prior);
+    if (!result) {return py::none();}
+    return py::make_tuple(result->reference, Eigen::Matrix4d(result->pose.matrix()));
+  }
+
+  py::object matchNearLaunch(const Eigen::Ref<const Eigen::MatrixX3f> & points)
+  {
+    const auto result = matcher_.matchNearLaunch(keyframe(points));
+    if (!result) {return py::none();}
+    return py::make_tuple(result->reference, Eigen::Matrix4d(result->pose.matrix()));
+  }
+
+  // An absent reference denotes a registration to the joint shared-surface map.
+  using Reference = std::optional<std::size_t>;
+  using Observation = std::tuple<std::size_t, Reference, Eigen::Matrix4d>;
+
+  std::pair<std::vector<Eigen::Matrix4d>, std::string> optimizeTracking(
+    const std::vector<Eigen::Matrix4d> & local_poses,
+    const Eigen::Matrix4d & initial_transform, const std::vector<Observation> & observations) const
+  {
+    namespace graph = graphslam::pose_graph;
+    if (local_poses.empty() || observations.empty()) {
+      throw std::invalid_argument("tracking needs poses and at least one reference observation");
+    }
+    const auto initial = rigidTransform(initial_transform);
+    std::map<Reference, int> references;
+    std::vector<graph::SubmapNode> nodes;
+    // Use a single fixed store-frame vertex for all registrations to the joint map.
+    if (std::any_of(observations.begin(), observations.end(), [](const auto & observation) {
+        return !std::get<1>(observation);
+      }))
+    {
+      graph::SubmapNode origin;
+      origin.session_start = true;
+      nodes.push_back(origin);
+      references.emplace(std::nullopt, 0);
+    }
+    for (const auto & observation : observations) {
+      const auto reference = std::get<1>(observation);
+      if (references.emplace(reference, static_cast<int>(nodes.size())).second) {
+        graph::SubmapNode node;
+        node.session_start = true;
+        node.pose = matcher_.referencePose(reference.value());
+        nodes.push_back(node);
+      }
+    }
+    const auto fixed = nodes.size();
+    for (std::size_t i = 0; i < local_poses.size(); ++i) {
+      graph::SubmapNode node;
+      node.pose = initial * rigidTransform(local_poses[i]);
+      node.session_start = (i == 0);
+      nodes.push_back(node);
+    }
+    std::vector<graph::LoopConstraint> edges;
+    for (const auto & [index, reference, pose] : observations) {
+      if (index >= local_poses.size()) {
+        throw std::invalid_argument("tracking observation refers to a missing pose");
+      }
+      graph::LoopConstraint edge;
+      edge.from = references.at(reference);
+      edge.to = static_cast<int>(fixed + index);
+      edge.relative_pose = nodes[edge.from].pose.inverse() * rigidTransform(pose);
+      edges.push_back(edge);
+    }
+    graph::AdjacentEdgeConfig adjacent;
+    adjacent.num_adjacent_pose_constraints = 3;
+    graph::LoopEdgeConfig loop;
+    loop.robust_kernel_type = "Huber";
+    loop.constant_info_trans = 2000.;
+    loop.constant_info_rot = 2000.;
+    const auto optimized = graph::optimizePoseGraph(
+      nodes, edges, {}, {}, adjacent, loop, {}, graph::Chi2Collection::NONE, true, 10, {}, fixed);
+    std::vector<Eigen::Matrix4d> result;
+    for (std::size_t i = fixed; i < optimized.poses.size(); ++i) {
+      result.push_back(optimized.poses[i].matrix());
+    }
+    return {std::move(result), optimized.pose_graph_g2o};
+  }
+
+private:
+  std::optional<graphslam::multisession::StartupRelocalizer::Match> registration(
+    const Eigen::Ref<const Eigen::MatrixX3f> & points, const Eigen::Matrix4d & prior)
+  {
+    return matcher_.match(keyframe(points), rigidTransform(prior));
+  }
+
+  static graphslam::multisession::Keyframe keyframe(
+    const Eigen::Ref<const Eigen::MatrixX3f> & points)
+  {
+    graphslam::multisession::Keyframe query;
+    query.points.reserve(points.rows());
+    for (Eigen::Index i = 0; i < points.rows(); ++i) {
+      if (points.row(i).allFinite()) {
+        query.points.emplace_back(points.row(i).transpose());
+      }
+    }
+    return query;
+  }
+
+  static std::vector<graphslam::multisession::Keyframe> load(
+    const std::vector<std::string> & directories,
+    const std::vector<Eigen::Matrix4d> & transforms,
+    const std::vector<Windows> & windows,
+    const std::vector<std::vector<Eigen::Matrix4d>> & optimized_poses,
+    std::vector<std::vector<Eigen::Matrix4d>> & session_poses)
+  {
+    if (directories.size() != transforms.size() || directories.size() != windows.size() ||
+      (!optimized_poses.empty() && directories.size() != optimized_poses.size()))
+    {
+      throw std::invalid_argument("one transform and window index are required per session");
+    }
+    std::vector<graphslam::multisession::Keyframe> frames;
+    session_poses.resize(directories.size());
+    for (std::size_t i = 0; i < directories.size(); ++i) {
+      const auto store_from_session = rigidTransform(transforms[i]);
+      graphslam::map_store::SessionMap session;
+      std::string error;
+      if (!graphslam::map_store::readSession(directories[i], session, error)) {
+        throw std::runtime_error(error);
+      }
+      const bool tracked = !optimized_poses.empty() && !optimized_poses[i].empty();
+      if (tracked && optimized_poses[i].size() != session.submaps.size()) {
+        throw std::invalid_argument("tracking poses do not match the stored submaps");
+      }
+      session_poses[i].reserve(session.submaps.size());
+      for (std::size_t j = 0; j < session.submaps.size(); ++j) {
+        const auto & submap = session.submaps[j];
+        const auto pose = tracked ? rigidTransform(optimized_poses[i][j]) :
+          store_from_session * submap.pose;
+        session_poses[i].push_back(pose.matrix());
+        graphslam::multisession::Keyframe frame;
+        frame.frame = graphslam::multisession::gravityAlignedFrame(pose);
+        const auto local = frame.frame.inverse() * pose;
+        const auto append = [&](const Eigen::Vector3d & point) {
+          const Eigen::Vector3d xyz = local * point;
+          if (xyz.squaredNorm() < 1600.) {
+            frame.points.push_back(xyz.cast<float>());
+          }
+        };
+        if (const auto window = windows[i].find(j); window != windows[i].end()) {
+          frame.points.reserve(window->second.rows());
+          for (Eigen::Index row = 0; row < window->second.rows(); ++row) {
+            append(window->second.row(row).transpose().cast<double>());
+          }
+        } else {
+          const auto cloud = graphslam::map_store::submapCloud(submap);
+          frame.points.reserve(cloud->size());
+          for (const auto & point : *cloud) {
+            append(point.getVector3fMap().cast<double>());
+          }
+        }
+        frames.push_back(std::move(frame));
+      }
+    }
+    return frames;
+  }
+
+  std::vector<std::vector<Eigen::Matrix4d>> session_poses_;
+  graphslam::multisession::StartupRelocalizer matcher_;
+};
+
 // The Autoware map bundle of stored sessions (map_store::exportBundle) with the map-saving
 // parameters of params. Returns the number of submaps.
 std::size_t exportStoreBundle(
   const std::vector<std::string> & session_dirs, const py::dict & params,
-  const std::string & out_dir, py::object log)
+  const std::string & out_dir, py::object log,
+  const std::vector<Eigen::Matrix4d> & transforms,
+  const std::vector<std::vector<Eigen::Matrix4d>> & optimized_poses,
+  const graphslam::map_store::RemovedVoxels & removed)
 {
+  if (!transforms.empty() && transforms.size() != session_dirs.size()) {
+    throw std::invalid_argument("one transform is required per exported session");
+  }
+  if (!optimized_poses.empty() && optimized_poses.size() != session_dirs.size()) {
+    throw std::invalid_argument("one pose list is required per exported session");
+  }
   const graphslam::offline::Parameters parameters = toParameters(params);
   const graphslam::map_export::MapExportConfig config =
     graphslam::offline::mapExportConfig(parameters);
@@ -335,13 +567,26 @@ std::size_t exportStoreBundle(
     if (!graphslam::map_store::readSession(session_dirs[i], sessions[i], error)) {
       throw std::runtime_error(error);
     }
+    if (!optimized_poses.empty() && !optimized_poses[i].empty()) {
+      if (optimized_poses[i].size() != sessions[i].submaps.size()) {
+        throw std::invalid_argument("tracking poses do not match the stored submaps");
+      }
+      for (std::size_t j = 0; j < sessions[i].submaps.size(); ++j) {
+        sessions[i].submaps[j].pose = rigidTransform(optimized_poses[i][j]);
+      }
+    } else if (!transforms.empty() && !transforms[i].isIdentity()) {
+      const auto transform = rigidTransform(transforms[i]);
+      for (auto & submap : sessions[i].submaps) {
+        submap.pose = transform * submap.pose;
+      }
+    }
     submaps += sessions[i].submaps.size();
   }
   const PythonLog python_log(std::move(log));
   graphslam::map_export::MapExportLog export_log;
   export_log.line = [&python_log](const std::string & line) {python_log.info(line);};
   export_log.info = export_log.line;
-  graphslam::map_store::exportBundle(sessions, config, out_dir, export_log);
+  graphslam::map_store::exportBundle(sessions, config, out_dir, export_log, removed);
   return submaps;
 }
 
@@ -357,6 +602,33 @@ int runJoinTool(const py::dict & params, py::object read, py::object log)
 
 void bind_backend(py::module_ & m)
 {
+  using Evidence = lidarslam_core::MapChangeEvidence;
+  py::class_<Evidence>(m, "MapChangeEvidence")
+  .def(py::init<const std::vector<std::string> &, const Evidence::Poses &>())
+  .def("observe", &Evidence::observe)
+  .def("snapshot", &Evidence::snapshot);
+  using Refined = lidarslam_core::RefinedNewPointEvidence;
+  py::class_<Refined>(m, "RefinedNewPointEvidence")
+  .def(py::init<>())
+  .def("observe", &Refined::observe)
+  .def("suppression_mask", &Refined::suppressionMask);
+  using NewPoints = lidarslam_core::NewPointEvidence;
+  py::class_<NewPoints>(m, "NewPointEvidence")
+  .def(py::init<>())
+  .def("observe", &NewPoints::observe)
+  .def("suppression_mask", &NewPoints::suppressionMask);
+  py::class_<StoreRelocalizer>(m, "StoreRelocalizer")
+  .def(py::init<const std::vector<std::string> &, const std::vector<Eigen::Matrix4d> &,
+    const std::vector<StoreRelocalizer::Windows> &,
+    const std::vector<std::vector<Eigen::Matrix4d>> &>(), py::arg("directories"),
+    py::arg("transforms"), py::arg("windows"),
+    py::arg("optimized_poses") = std::vector<std::vector<Eigen::Matrix4d>>{})
+  .def("match", &StoreRelocalizer::match, py::arg("points"), py::arg("prior"))
+  .def("match_with_reference", &StoreRelocalizer::matchWithReference)
+  .def("match_near_launch", &StoreRelocalizer::matchNearLaunch)
+  .def("session_poses", &StoreRelocalizer::sessionPoses)
+  .def("optimize_tracking", &StoreRelocalizer::optimizeTracking)
+  .def_static("thin", &StoreRelocalizer::thin);
   py::class_<BackendPipeline>(
     m, "BackendPipeline",
     "The offline backend of graph_slam_offline_runner: configure(), begin(), the odometry and "
@@ -404,6 +676,9 @@ void bind_backend(py::module_ & m)
   m.def(
     "export_store_bundle", &exportStoreBundle, py::arg("session_dirs"), py::arg("params"),
     py::arg("out_dir"), py::arg("log") = py::none(),
+    py::arg("transforms") = std::vector<Eigen::Matrix4d>{},
+    py::arg("optimized_poses") = std::vector<std::vector<Eigen::Matrix4d>>{},
+    py::arg("removed") = graphslam::map_store::RemovedVoxels{},
     "Writes the Autoware map bundle of the stored sessions (directories written by "
     "write_session_map) with the map-saving parameters of params to out_dir; returns the number "
     "of submaps. For one session it is the bundle the backend wrote.");

@@ -287,7 +287,9 @@ endif()
 if(LIDARSLAM_CORE_BUILD_PYTHON)
   find_package(Python 3.10 REQUIRED COMPONENTS Interpreter Development.Module)
   find_package(pybind11 CONFIG REQUIRED)
-  pybind11_add_module(_core ${CMAKE_CURRENT_SOURCE_DIR}/src/python_module.cpp)
+  # pybind11's implicit LTO can discard Eigen symbols used by the non-LTO
+  # NDT-OMP archive with GCC and Ubuntu's system dependencies.
+  pybind11_add_module(_core NO_EXTRAS ${CMAKE_CURRENT_SOURCE_DIR}/src/python_module.cpp)
   target_link_libraries(_core PRIVATE lidarslam_core_messages)
   # velodyne_msgs/VelodyneScan decoding (velodyne_pointcloud 56fc178d, BSD-3-Clause, vendored).
   add_library(lidarslam_velodyne_decoder STATIC

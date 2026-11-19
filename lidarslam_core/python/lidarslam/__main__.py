@@ -77,6 +77,22 @@ def main(argv: list[str] | None = None) -> int:
                       help='with --realtime: playback speed (2 = twice the sensor rate)')
     live.add_argument('--store', metavar='STORE',
                       help='add the session to this long-term map store (created when missing)')
+    startup = live.add_mutually_exclusive_group()
+    startup.add_argument('--initial-pose', nargs=7, type=float,
+                         metavar=('X', 'Y', 'Z', 'QX', 'QY', 'QZ', 'QW'),
+                         help='startup odometry frame in the store frame, as a pose')
+    startup.add_argument('--start-near-first-submap', action='store_true',
+                         help='search a launch area within 5 m of the first stored submap')
+    live.add_argument('--track-store', action='store_true',
+                      help='after startup, try experimental loop factors against the stored map')
+    live.add_argument('--track-shared-surfaces', action='store_true',
+                      help='track against shared surfaces in two or more stored sessions')
+    live.add_argument('--detect-changes', action='store_true',
+                      help='trace anchored keyframe scans and remove stale voxels from store exports')
+    live.add_argument('--filter-new-points', action='store_true',
+                      help='detect changes and filter new points without repeated scan support')
+    live.add_argument('--refine-visibility', action='store_true',
+                      help='use complete ray evidence for new submaps (experimental)')
     store = sub.add_parser('store', help='a long-term map store: info, export, rollback')
     store.add_argument('action', choices=['info', 'export', 'rollback'])
     store.add_argument('store', help='map store directory')
@@ -133,7 +149,13 @@ def main(argv: list[str] | None = None) -> int:
             backend_module.load_parameters(*args.backend_params), args.param)
         summary = live_module.replay(args.log, load_odometry_parameters(args.odometry_params),
                                      backend_params, args.out, realtime=args.realtime,
-                                     speed=args.speed, store=args.store)
+                                     speed=args.speed, store=args.store, initial_pose=args.initial_pose,
+                                     track_store=args.track_store,
+                                     track_shared_surfaces=args.track_shared_surfaces,
+                                     detect_changes=args.detect_changes,
+                                     filter_new_points=args.filter_new_points,
+                                     start_near_first_submap=args.start_near_first_submap,
+                                     refine_visibility=args.refine_visibility)
         print(json.dumps(summary, indent=2))
     elif args.command == 'store':
         from lidarslam.store import Store
