@@ -28,6 +28,7 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 #include "graph_based_slam/map_store.hpp"
+#include "graph_based_slam/map_change_evidence.hpp"
 
 #include <cstdint>
 #include <cstdio>
@@ -293,21 +294,53 @@ void exportBundle(
   const std::vector<SessionMap> & sessions, const map_export::MapExportConfig & config,
   const std::string & save_dir, const map_export::MapExportLog & log)
 {
+  exportBundle(sessions, config, save_dir, log, {});
+}
+
+void exportBundle(
+  const std::vector<SessionMap> & sessions, const map_export::MapExportConfig & config,
+  const std::string & save_dir, const map_export::MapExportLog & log,
+  const RemovedVoxels & removed)
+{
+  if (!removed.empty() && removed.size() != sessions.size()) {
+    throw std::invalid_argument("expected one removal mask per exported session");
+  }
   std::vector<const StoredSubmap *> submaps;
+  std::vector<const std::set<std::array<int, 3>> *> masks;
   std::vector<Eigen::Isometry3d> poses;
   std::size_t map_points = 0U;
   std::size_t loop_edges = 0U;
-  for (const SessionMap & session : sessions) {
+  for (std::size_t i = 0; i < sessions.size(); ++i) {
+    const auto & session = sessions[i];
     loop_edges += session.loop_edge_count;
-    for (const StoredSubmap & submap : session.submaps) {
+    for (std::size_t j = 0; j < session.submaps.size(); ++j) {
+      const auto & submap = session.submaps[j];
+      const std::set<std::array<int, 3>> * mask = nullptr;
+      if (!removed.empty()) {
+        const auto found = removed[i].find(j);
+        if (found != removed[i].end() && !found->second.empty()) {
+          mask = &found->second;
+        }
+      }
+      masks.push_back(mask);
       submaps.push_back(&submap);
       poses.push_back(submap.pose);
       map_points += static_cast<std::size_t>(submap.cloud->message.width) *
         submap.cloud->message.height;
     }
   }
-  const map_export::SubmapCloudLoader load = [&submaps](std::size_t i) {
-      return submapCloud(*submaps[i]);
+  const map_export::SubmapCloudLoader load = [&submaps, &masks](std::size_t i) {
+      auto cloud = submapCloud(*submaps[i]);
+      if (const auto * mask = masks[i]) {
+        cloud->points.erase(std::remove_if(cloud->points.begin(), cloud->points.end(),
+            [mask](const auto & point) {
+              const map_change::Point xyz{point.x, point.y, point.z};
+              return map_change::usable(xyz) && mask->count(map_change::voxel(xyz)) > 0;
+            }), cloud->points.end());
+        cloud->width = cloud->points.size();
+        cloud->height = 1U;
+      }
+      return cloud;
     };
   const map_export::ProjectorOrigin origin =
     sessions.empty() ? map_export::ProjectorOrigin() : sessions.front().origin;

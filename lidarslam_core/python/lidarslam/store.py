@@ -16,8 +16,10 @@ sessions (:meth:`Store.export`); for a store of one session it is, byte for byte
 backend wrote for that session.
 
 A live session (:class:`lidarslam.live.Session` with ``store=``) adds itself when it finishes.
-Until relocalization (L3) each session is mapped in its own frame, so a store of more than one
-session is not yet one map; :meth:`Store.export` refuses it unless asked to stack the sessions.
+Sessions anchored to the primary map record ``store_from_session``. Other sessions keep their
+own frame. :meth:`Store.export` requires a common frame by default.
+When present, ``store_submap_poses.npy`` holds the session's absolute tracked submap poses in
+``submaps.bin`` order, which take precedence over the rigid transform for export.
 """
 
 from __future__ import annotations
@@ -28,6 +30,8 @@ import os
 from pathlib import Path
 import shutil
 from typing import Any, Callable
+
+import numpy as np
 
 from lidarslam import _core
 
@@ -133,19 +137,33 @@ class Store:
         return dict(entry)
 
     def rollback(self) -> dict[str, Any]:
-        """Takes the latest session off the map; its files stay. Returns its entry."""
+        """Take the latest session off the map and rebuild an evidence-aware export."""
         if not self._index['sessions']:
             raise ValueError('the store has no session')
         index = dict(self._index)
         index['sessions'] = self._index['sessions'][:-1]
         _write_json(self.path / _INDEX, index)
         removed = self._index['sessions'][-1]
+        rebuild = any(e.get('map_change_evidence') for e in self._index['sessions'])
         self._index = index
+        if rebuild and index['sessions'] and len(self._aligned_sessions()) == len(index['sessions']):
+            self.export()
         return dict(removed)
 
     def backend_params(self, session_id: str) -> dict[str, Any]:
         with (self.session_dir(session_id) / 'backend_params.json').open(encoding='utf-8') as f:
             return json.load(f)
+
+    def _aligned_sessions(self) -> list[tuple[str, list[list[float]]]]:
+        """Sessions in the primary map frame. Older stores imply identity for the first session."""
+        aligned = []
+        for index, entry in enumerate(self._index['sessions']):
+            transform = entry.get('store_from_session')
+            if transform is None and index == 0:
+                transform = np.eye(4).tolist()
+            if transform is not None:
+                aligned.append((str(self.session_dir(entry['id'])), transform))
+        return aligned
 
     def export(self, out_dir: str | Path | None = None,
                params: dict[str, Any] | None = None, stack_sessions: bool = False,
@@ -154,27 +172,36 @@ class Store:
 
         ``out_dir`` defaults to ``export/`` in the store, which is replaced only once the new
         bundle is complete. ``params`` are the map-saving parameters (``map_leaf_size``, ...);
-        by default the first session's backend parameters. With more than one session the
-        sessions are not in one frame before relocalization (L3); ``stack_sessions`` writes
-        them on top of each other anyway.
+        by default the first session's backend parameters. ``stack_sessions`` also exports
+        unaligned sessions at their original local poses.
         """
         sessions = self._index['sessions']
         if not sessions:
             raise ValueError('the store has no session')
-        if len(sessions) > 1 and not stack_sessions:
-            raise ValueError('the sessions are mapped in their own frames until relocalization '
-                             '(L3); pass stack_sessions=True to export them stacked')
+        aligned = self._aligned_sessions()
+        if len(aligned) != len(sessions) and not stack_sessions:
+            raise ValueError('the store contains sessions mapped in their own frames; '
+                             'pass stack_sessions=True to export them stacked')
         if params is None:
             params = self.backend_params(sessions[0]['id'])
         dirs = [str(self.session_dir(entry['id'])) for entry in sessions]
+        transforms = dict(aligned)
+        extra = ({'transforms': [transforms.get(directory, np.eye(4).tolist()) for directory in dirs]}
+                 if any('store_from_session' in entry for entry in sessions) else {})
+        if any((Path(directory) / 'store_submap_poses.npy').is_file() for directory in dirs):
+            from lidarslam.relocalization import tracked_poses
+            extra['optimized_poses'] = [tracked_poses(directory) for directory in dirs]
+        if any(entry.get('map_change_evidence') for entry in sessions):
+            from lidarslam.map_changes import removal_masks
+            extra['removed'] = removal_masks(self, sessions)
         if out_dir is not None:
-            _core.export_store_bundle(dirs, params, str(out_dir), log)
+            _core.export_store_bundle(dirs, params, str(out_dir), log, **extra)
             return Path(out_dir)
         final = self.path / 'export'
         staging = self.path / 'export.tmp'
         if staging.exists():
             shutil.rmtree(staging)
-        _core.export_store_bundle(dirs, params, str(staging), log)
+        _core.export_store_bundle(dirs, params, str(staging), log, **extra)
         previous = self.path / 'export.old'
         if final.exists():
             os.replace(final, previous)
@@ -188,7 +215,7 @@ class Store:
                     export: bool = True,
                     log: Callable[[str, str], None] | None = None) -> dict[str, Any]:
         """Writes a session with ``write(directory)`` (returns its submap count), commits it and,
-        with ``export`` and one session in the store, exports the bundle. Returns its entry."""
+        when ``export`` is true and the sessions share a frame, exports the bundle. Returns its entry."""
         session_id, directory = self.new_session()
         submaps = write(str(directory))
         _write_json(directory / 'odometry_params.json', _jsonable(odometry_params))
@@ -196,6 +223,6 @@ class Store:
         entry_info = {'submaps': submaps, **(info or {})}
         _write_json(directory / 'session.json', {'id': session_id, **entry_info})
         entry = self.commit(session_id, entry_info)
-        if export and len(self._index['sessions']) == 1:
+        if export and len(self._aligned_sessions()) == len(self._index['sessions']):
             self.export(log=log)
         return entry

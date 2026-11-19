@@ -216,7 +216,9 @@ inline OptimizationResult optimizePoseGraph(
   // settle into the anchor (ENU) frame; the historical default pins it.
   bool fix_first_vertex = true,
   int iterations = 10,
-  const std::vector<PlaneRevisitConstraint> & plane_constraints = {})
+  const std::vector<PlaneRevisitConstraint> & plane_constraints = {},
+  // A tracking graph can prepend fixed reference submaps before its active session.
+  std::size_t fixed_prefix = 0)
 {
   g2o::SparseOptimizer optimizer;
   optimizer.setVerbose(false);
@@ -236,7 +238,9 @@ inline OptimizationResult optimizePoseGraph(
     g2o::VertexSE3 * vertex_se3 = new g2o::VertexSE3();
     vertex_se3->setId(i);
     vertex_se3->setEstimate(pose);
-    if (i == 0 && fix_first_vertex) {vertex_se3->setFixed(true);}
+    if ((i == 0 && fix_first_vertex) || static_cast<std::size_t>(i) < fixed_prefix) {
+      vertex_se3->setFixed(true);
+    }
     optimizer.addVertex(vertex_se3);
 
     if (i > session_first) {
