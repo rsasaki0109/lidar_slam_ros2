@@ -44,6 +44,13 @@ jobs:
       - name: Install build dependencies (Ubuntu packages only, no ROS)
         shell: bash
         run: |
+          # Regional EC2 mirrors can exhaust the job timeout downloading PCL's dependencies.
+          ubuntu_sources=/etc/apt/sources.list.d/ubuntu.sources
+          if [[ -f "$ubuntu_sources" ]]; then
+            sudo sed -Ei \
+              's@https?://[[:alnum:]-]+\.ec2\.archive\.ubuntu\.com/ubuntu@https://archive.ubuntu.com/ubuntu@g' \
+              "$ubuntu_sources"
+          fi
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential cmake libeigen3-dev libpcl-dev libg2o-dev libzstd-dev \
