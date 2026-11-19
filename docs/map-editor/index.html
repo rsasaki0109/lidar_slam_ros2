@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Map review editor</title>
+<meta name="description" content="Review what a long-term map update changed, keep or remove it, and save the edit for the map store. Runs in your browser; nothing is uploaded.">
+<style>
+  :root { --bg: #0e1116; --panel: rgba(18, 22, 30, 0.9); --text: #e6e9ef; --muted: #9aa3b2; --accent: #4fc3f7; --border: rgba(255,255,255,0.12); --row: rgba(255,255,255,0.05); }
+  @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --bg: #f4f6fa; --panel: rgba(255,255,255,0.94); --text: #1b1f27; --muted: #5b6474; --accent: #0277bd; --border: rgba(0,0,0,0.12); --row: rgba(0,0,0,0.04); } }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+  #view { position: fixed; inset: 0; }
+  .panel { position: fixed; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; backdrop-filter: blur(6px); box-sizing: border-box; }
+  #left { left: 16px; top: 16px; width: min(360px, calc(100vw - 32px)); max-height: calc(100vh - 32px); display: flex; flex-direction: column; }
+  #legend { right: 16px; top: 16px; font-size: 12px; }
+  h1 { font-size: 16px; margin: 0 0 4px; }
+  p { margin: 0 0 8px; color: var(--muted); }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 6px 0; }
+  button, select, input, textarea { background: transparent; color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 5px 9px; font: inherit; }
+  button { cursor: pointer; }
+  button.primary { background: var(--accent); color: #fff; border-color: transparent; font-weight: 600; }
+  button:disabled { opacity: 0.45; cursor: default; }
+  input[type=text], textarea { width: 100%; box-sizing: border-box; }
+  textarea { resize: vertical; min-height: 38px; }
+  #left { overflow: hidden; }
+  #editor:not([hidden]) { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+  #list { overflow-y: auto; flex: 1 1 auto; min-height: 60px; margin: 6px 0; border-top: 1px solid var(--border); }
+  .item { display: grid; grid-template-columns: 12px 1fr auto; gap: 8px; align-items: center; padding: 5px 4px; border-bottom: 1px solid var(--border); cursor: pointer; font-variant-numeric: tabular-nums; }
+  .item:hover { background: var(--row); }
+  .item.current { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .badge { font-size: 12px; color: var(--muted); }
+  .badge.keep { color: #26c6da; } .badge.remove { color: #ec407a; }
+  .muted { color: var(--muted); font-size: 12px; }
+  .legend-row { display: flex; gap: 6px; align-items: center; margin: 2px 0; }
+  #box { position: fixed; border: 1px dashed var(--accent); background: rgba(79,195,247,0.12); display: none; pointer-events: none; }
+  #drop { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; font-size: 20px; background: rgba(0,0,0,0.45); color: #fff; }
+  #error { color: #ef5350; display: none; }
+  .credit { position: fixed; right: 12px; bottom: 10px; color: var(--muted); font-size: 12px; text-align: right; max-width: calc(100vw - 24px); }
+  .credit a { color: var(--accent); }
+  details summary { cursor: pointer; color: var(--muted); }
+  @media (max-width: 720px) { #legend { display: none; } #left { max-height: 55vh; top: auto; bottom: 16px; } }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="view"></div>
+<div id="box"></div>
+<div id="drop">Drop a review pack (.lsreview)</div>
+<div class="panel" id="left">
+  <h1>Map review editor</h1>
+  <p id="lead">Open the review pack of a map store (<code>python -m lidarslam store review-pack STORE --out map.lsreview</code>) or the sample. Keep or remove what the update changed, then save the edit and apply it with <code>store apply-edit</code>. Nothing is uploaded.</p>
+  <div class="row">
+    <input type="file" id="file" accept=".lsreview,.gz" hidden>
+    <button id="open" class="primary">Open pack</button>
+    <button id="sample">Sample (LUH S3 + S6, 0.6 MB)</button>
+  </div>
+  <p id="error"></p>
+  <div id="editor" hidden>
+    <div class="muted" id="summary"></div>
+    <div class="row">
+      <select id="kind" aria-label="Candidate kind">
+        <option value="">All candidates</option>
+        <option value="removed_old">Removed old points</option>
+        <option value="suppressed_new">Held-back new points</option>
+        <option value="added">Added structure</option>
+      </select>
+      <label><input type="checkbox" id="undecided"> Undecided only</label>
+    </div>
+    <div class="row">
+      <button id="keep" title="K">Keep</button>
+      <button id="remove" title="R">Remove</button>
+      <button id="clear" title="C">Clear</button>
+      <button id="next" title="N">Next</button>
+      <button id="undo" title="Ctrl+Z">Undo</button>
+    </div>
+    <div id="list" role="listbox" aria-label="Candidates"></div>
+    <div class="row">
+      <label><input type="checkbox" id="show-removed" checked> Show removed points</label>
+      <label><input type="checkbox" id="top"> Top view</label>
+    </div>
+    <div class="muted">Shift + drag selects points: <button id="sel-remove" disabled>Remove selection</button> <button id="sel-keep" disabled>Keep selection</button></div>
+    <details open>
+      <summary>Save the edit</summary>
+      <div class="row"><input type="text" id="author" placeholder="Your name" aria-label="Your name"></div>
+      <div class="row"><textarea id="reason" placeholder="Why (kept with the edit)" aria-label="Reason"></textarea></div>
+      <div class="row"><button id="save" class="primary" disabled>Save edit</button><span class="muted" id="counts"></span></div>
+    </details>
+  </div>
+</div>
+<div class="credit" id="credit" hidden>Sample: LUH long-term indoor localization dataset, sequences S3 and S6 (<a href="https://data.uni-hannover.de/dataset/long-term-indoor-localization-in-dynamic-environment">data.uni-hannover.de</a>, CC BY 4.0), mapped with lidar_slam.</div>
+<div class="panel" id="legend" hidden>
+  <div class="legend-row"><span class="dot" style="background:#9aa3b2"></span>Map (kept)</div>
+  <div class="legend-row"><span class="dot" style="background:#ef5350"></span>Old points the update removed</div>
+  <div class="legend-row"><span class="dot" style="background:#ffa726"></span>New points it held back</div>
+  <div class="legend-row"><span class="dot" style="background:#66bb6a"></span>Structure it added</div>
+  <div class="legend-row"><span class="dot" style="background:#26c6da"></span>Your keep</div>
+  <div class="legend-row"><span class="dot" style="background:#ec407a"></span>Your remove</div>
+  <div class="legend-row"><span class="dot" style="background:#ffee58"></span>Selected</div>
+  <div class="muted">Drag to orbit, scroll to zoom.</div>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const $ = (id) => document.getElementById(id);
+const KIND_COLOR = { removed_old: '#ef5350', suppressed_new: '#ffa726', added: '#66bb6a' };
+const KIND_LABEL = { removed_old: 'removed', suppressed_new: 'held back', added: 'added' };
+// PointState of graph_based_slam/map_store.hpp
+const KEPT = 0, REMOVED_BY_EVIDENCE = 1, REMOVED_BY_EDIT = 2, KEPT_BY_EDIT = 3;
+
+let pack = null;          // { header, n, voxel, state, session, candidate, points }
+let voxelRows = null;     // voxel key -> row indices
+let rowVoxel = null;      // row -> voxel slot (index into voxelKeys)
+let voxelKeys = [];       // slot -> [x, y, z]
+let ops = [];             // { op: 'keep' | 'remove' | 'clear', slots: Int32Array, candidate }
+let undone = [];
+let current = -1;         // candidate index
+let selection = null;     // Uint8Array over rows
+let decisionOf = new Map();  // candidate index -> 'keep' | 'remove'
+
+// --- Scene ---------------------------------------------------------------------------------
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+$('view').appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 5000);
+camera.up.set(0, 0, 1);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+let cloud = null;
+function resize() {
+  renderer.setSize(innerWidth, innerHeight);
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize);
+resize();
+(function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); })();
+function themeBackground() {
+  scene.background = new THREE.Color(getComputedStyle(document.body).backgroundColor);
+}
+themeBackground();
+matchMedia('(prefers-color-scheme: light)').addEventListener('change', themeBackground);
+
+// --- Loading -------------------------------------------------------------------------------
+function fail(message) { const e = $('error'); e.textContent = message; e.style.display = 'block'; }
+
+async function bytesOf(blob, name) {
+  const gz = name.endsWith('.gz');
+  const stream = gz ? blob.stream().pipeThrough(new DecompressionStream('gzip')) : blob.stream();
+  return new Response(stream).arrayBuffer();
+}
+
+function parse(buffer) {
+  const bytes = new Uint8Array(buffer);
+  const magic = new TextDecoder().decode(bytes.slice(0, 8));
+  if (magic !== 'LSREVIEW') throw new Error('not a review pack (python -m lidarslam store review-pack)');
+  const view = new DataView(buffer);
+  const version = view.getUint32(8, true);
+  if (version !== 1) throw new Error(`review pack version ${version} (this page reads 1)`);
+  const length = view.getUint32(12, true);
+  const header = JSON.parse(new TextDecoder().decode(bytes.slice(16, 16 + length)));
+  let at = 16 + length;
+  const n = view.getUint32(at, true); at += 4;
+  const take = (Type, count) => {
+    const size = count * Type.BYTES_PER_ELEMENT;
+    const out = new Type(buffer.slice(at, at + size)); at += size; return out;
+  };
+  const voxel = take(Int32Array, n * 3), state = take(Uint8Array, n), session = take(Uint8Array, n);
+  const candidate = take(Int32Array, n), points = take(Uint16Array, n);
+  if (at !== buffer.byteLength) throw new Error('the review pack has trailing bytes');
+  return { header, n, voxel, state, session, candidate, points };
+}
+
+async function load(blob, name) {
+  try {
+    $('error').style.display = 'none';
+    setPack(parse(await bytesOf(blob, name)));
+  } catch (error) { fail(`Could not open ${name}: ${error.message}`); }
+}
+
+$('open').onclick = () => $('file').click();
+$('file').onchange = (e) => { const f = e.target.files[0]; if (f) load(f, f.name); };
+$('sample').onclick = async () => {
+  try {
+    const response = await fetch('sample_luh_s3_s6.lsreview.gz');
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    await load(await response.blob(), 'sample_luh_s3_s6.lsreview.gz');
+    $('credit').hidden = false;
+  } catch (error) { fail(`Could not fetch the sample: ${error.message}`); }
+};
+addEventListener('dragover', (e) => { e.preventDefault(); $('drop').style.display = 'flex'; });
+addEventListener('dragleave', () => { $('drop').style.display = 'none'; });
+addEventListener('drop', (e) => {
+  e.preventDefault(); $('drop').style.display = 'none';
+  const f = e.dataTransfer.files[0]; if (f) load(f, f.name);
+});
+
+function setPack(p) {
+  pack = p; ops = []; undone = []; current = -1; selection = null;
+  const slots = new Map(); voxelKeys = []; rowVoxel = new Int32Array(p.n);
+  for (let i = 0; i < p.n; i++) {
+    const key = `${p.voxel[3 * i]},${p.voxel[3 * i + 1]},${p.voxel[3 * i + 2]}`;
+    let slot = slots.get(key);
+    if (slot === undefined) {
+      slot = voxelKeys.length; slots.set(key, slot);
+      voxelKeys.push([p.voxel[3 * i], p.voxel[3 * i + 1], p.voxel[3 * i + 2]]);
+    }
+    rowVoxel[i] = slot;
+  }
+  voxelRows = slots;
+  p.candidateRows = p.header.candidates.map(() => []);
+  for (let i = 0; i < p.n; i++) if (p.candidate[i] >= 0) p.candidateRows[p.candidate[i]].push(i);
+  buildCloud();
+  $('editor').hidden = false; $('legend').hidden = false; $('lead').hidden = true;
+  const h = p.header;
+  $('summary').textContent = `${h.store}: sessions ${h.sessions.join(', ')}${h.edits.length ? `, edits ${h.edits.join(', ')}` : ''} · ${h.candidates.length} candidates · ${p.n.toLocaleString()} voxels`;
+  refresh();
+  frame();
+}
+
+// --- Rendering -----------------------------------------------------------------------------
+let zMin = 0, zMax = 1;
+function buildCloud() {
+  if (cloud) { scene.remove(cloud); cloud.geometry.dispose(); }
+  const s = pack.header.voxel_m, n = pack.n;
+  const position = new Float32Array(n * 3);
+  zMin = Infinity; zMax = -Infinity;
+  for (let i = 0; i < 3 * n; i++) position[i] = (pack.voxel[i] + 0.5) * s;
+  for (let i = 0; i < n; i++) { zMin = Math.min(zMin, position[3 * i + 2]); zMax = Math.max(zMax, position[3 * i + 2]); }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(position, 3));
+  geometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+  cloud = new THREE.Points(geometry, new THREE.PointsMaterial({ size: s * 0.8, vertexColors: true, sizeAttenuation: true }));
+  scene.add(cloud);
+}
+
+function kindOf(row) {
+  const c = pack.candidate[row];
+  return c >= 0 ? pack.header.candidates[c].kind : null;
+}
+
+// The user's final decision per voxel slot: 0 none, 1 keep, 2 remove (the last op decides).
+function voxelDecisions() {
+  const out = new Uint8Array(voxelKeys.length);
+  for (const o of ops) {
+    const v = o.op === 'keep' ? 1 : o.op === 'remove' ? 2 : 0;
+    for (const slot of o.slots) out[slot] = v;
+  }
+  return out;
+}
+
+const tmp = new THREE.Color();
+function colorRows() {
+  const decided = voxelDecisions();
+  const color = cloud.geometry.attributes.color.array;
+  const showRemoved = $('show-removed').checked;
+  const hidden = new THREE.Color(scene.background);
+  const currentRows = current >= 0 ? new Set(pack.candidateRows[current]) : null;
+  for (let i = 0; i < pack.n; i++) {
+    const d = decided[rowVoxel[i]], st = pack.state[i];
+    let removed = st === REMOVED_BY_EVIDENCE || st === REMOVED_BY_EDIT;
+    if (d === 1) { tmp.set('#26c6da'); removed = false; }
+    else if (d === 2) { tmp.set('#ec407a'); removed = true; }
+    else if (st === REMOVED_BY_EDIT) tmp.set('#7e57c2');
+    else if (st === KEPT_BY_EDIT) tmp.set('#5c8fc0');
+    else {
+      const kind = kindOf(i);
+      if (kind) tmp.set(KIND_COLOR[kind]);
+      else {
+        const t = (cloud.geometry.attributes.position.array[3 * i + 2] - zMin) / Math.max(1e-6, zMax - zMin);
+        tmp.setRGB(0.35 + 0.45 * t, 0.38 + 0.45 * t, 0.42 + 0.45 * t);
+      }
+    }
+    if ((selection && selection[i]) || (currentRows && currentRows.has(i))) tmp.set('#ffee58');
+    else if (removed && !showRemoved) tmp.copy(hidden);
+    color[3 * i] = tmp.r; color[3 * i + 1] = tmp.g; color[3 * i + 2] = tmp.b;
+  }
+  cloud.geometry.attributes.color.needsUpdate = true;
+}
+
+function frame(target, radius) {
+  const box = new THREE.Box3().setFromBufferAttribute(cloud.geometry.attributes.position);
+  const center = target ? new THREE.Vector3(...target) : box.getCenter(new THREE.Vector3());
+  const size = radius || box.getSize(new THREE.Vector3()).length() * 0.6;
+  controls.target.copy(center);
+  if ($('top').checked) camera.position.set(center.x, center.y + 0.001, center.z + size * 1.6);
+  else camera.position.set(center.x - size * 0.6, center.y - size * 0.6, center.z + size * 1.1);
+  controls.update();
+}
+$('top').onchange = () => frame(current >= 0 ? pack.header.candidates[current].centroid : null,
+  current >= 0 ? 6 : null);
+$('show-removed').onchange = () => colorRows();
+
+// --- Candidates and decisions --------------------------------------------------------------
+function visibleCandidates() {
+  const kind = $('kind').value, undecided = $('undecided').checked;
+  return pack.header.candidates.map((c, i) => i)
+    .filter((i) => (!kind || pack.header.candidates[i].kind === kind) && (!undecided || !decisionOf.has(i)));
+}
+
+function refresh() {
+  decisionOf = new Map();
+  for (const o of ops) if (o.candidate !== undefined) {
+    if (o.op === 'clear') decisionOf.delete(o.candidate); else decisionOf.set(o.candidate, o.op);
+  }
+  const list = $('list'); list.textContent = '';
+  for (const i of visibleCandidates().slice(0, 2000)) {
+    const c = pack.header.candidates[i];
+    const item = document.createElement('div');
+    item.className = 'item' + (i === current ? ' current' : '');
+    item.setAttribute('role', 'option');
+    const dot = document.createElement('span'); dot.className = 'dot'; dot.style.background = KIND_COLOR[c.kind];
+    const text = document.createElement('span');
+    const size = c.max.map((v, k) => (v - c.min[k]).toFixed(1)).join(' × ');
+    text.textContent = `${KIND_LABEL[c.kind]} · ${c.voxels} voxels · ${size} m`;
+    const badge = document.createElement('span');
+    const d = decisionOf.get(i); badge.className = 'badge' + (d ? ` ${d}` : ''); badge.textContent = d || '';
+    item.append(dot, text, badge);
+    item.onclick = () => select(i);
+    list.appendChild(item);
+  }
+  const decided = voxelDecisions();
+  let keep = 0, remove = 0;
+  for (const v of decided) { if (v === 1) keep++; else if (v === 2) remove++; }
+  $('counts').textContent = `${keep} kept, ${remove} removed voxels`;
+  $('save').disabled = keep + remove === 0;
+  $('undo').disabled = ops.length === 0;
+  $('sel-remove').disabled = $('sel-keep').disabled = !selection;
+  colorRows();
+}
+
+function select(i) {
+  current = i; selection = null;
+  const c = pack.header.candidates[i];
+  const extent = Math.max(...c.max.map((v, k) => v - c.min[k]));
+  frame(c.centroid, Math.max(7, extent * 3));
+  refresh();
+  const el = $('list').querySelector('.current'); if (el) el.scrollIntoView({ block: 'nearest' });
+}
+
+function slotsOfRows(rows) { return Int32Array.from(new Set(Array.from(rows, (r) => rowVoxel[r]))); }
+
+function decide(op) {
+  if (current < 0) return;
+  ops.push({ op, candidate: current, slots: slotsOfRows(pack.candidateRows[current]) });
+  undone = []; refresh();
+}
+function next() {
+  const order = visibleCandidates().filter((i) => !decisionOf.has(i));
+  if (!order.length) return;
+  const after = order.find((i) => i > current);
+  select(after !== undefined ? after : order[0]);
+}
+$('keep').onclick = () => decide('keep');
+$('remove').onclick = () => decide('remove');
+$('clear').onclick = () => decide('clear');
+$('next').onclick = next;
+$('undo').onclick = () => { if (ops.length) { undone.push(ops.pop()); refresh(); } };
+$('kind').onchange = refresh; $('undecided').onchange = refresh;
+addEventListener('keydown', (e) => {
+  if (!pack || e.target.closest('input, textarea, select')) return;
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z') { $('undo').click(); e.preventDefault(); }
+  else if (e.key === 'k') decide('keep');
+  else if (e.key === 'r') decide('remove');
+  else if (e.key === 'c') decide('clear');
+  else if (e.key === 'n') next();
+});
+
+// --- Box selection (Shift + drag) ----------------------------------------------------------
+let dragStart = null;
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  if (!pack || !e.shiftKey) return;
+  dragStart = [e.clientX, e.clientY]; controls.enabled = false;
+});
+addEventListener('pointermove', (e) => {
+  if (!dragStart) return;
+  const [x0, y0] = dragStart, box = $('box');
+  Object.assign(box.style, { display: 'block', left: `${Math.min(x0, e.clientX)}px`, top: `${Math.min(y0, e.clientY)}px`,
+    width: `${Math.abs(e.clientX - x0)}px`, height: `${Math.abs(e.clientY - y0)}px` });
+});
+addEventListener('pointerup', (e) => {
+  if (!dragStart) return;
+  const [x0, y0] = dragStart; dragStart = null; controls.enabled = true; $('box').style.display = 'none';
+  const [left, right] = [Math.min(x0, e.clientX), Math.max(x0, e.clientX)];
+  const [top, bottom] = [Math.min(y0, e.clientY), Math.max(y0, e.clientY)];
+  if (right - left < 3 || bottom - top < 3) return;
+  const p = cloud.geometry.attributes.position.array, v = new THREE.Vector3();
+  const showRemoved = $('show-removed').checked, decided = voxelDecisions();
+  selection = new Uint8Array(pack.n); let count = 0;
+  for (let i = 0; i < pack.n; i++) {
+    const d = decided[rowVoxel[i]], st = pack.state[i];
+    const removed = d === 2 || (d === 0 && (st === REMOVED_BY_EVIDENCE || st === REMOVED_BY_EDIT));
+    if (removed && !showRemoved) continue;
+    v.set(p[3 * i], p[3 * i + 1], p[3 * i + 2]).project(camera);
+    if (v.z < -1 || v.z > 1) continue;
+    const sx = (v.x + 1) / 2 * innerWidth, sy = (1 - v.y) / 2 * innerHeight;
+    if (sx >= left && sx <= right && sy >= top && sy <= bottom) { selection[i] = 1; count++; }
+  }
+  if (!count) selection = null;
+  current = -1; refresh();
+});
+function decideSelection(op) {
+  if (!selection) return;
+  const rows = []; selection.forEach((s, i) => { if (s) rows.push(i); });
+  ops.push({ op, slots: slotsOfRows(rows) }); selection = null; undone = []; refresh();
+}
+$('sel-remove').onclick = () => decideSelection('remove');
+$('sel-keep').onclick = () => decideSelection('keep');
+
+// --- Saving --------------------------------------------------------------------------------
+$('save').onclick = () => {
+  const name = $('author').value.trim(), reason = $('reason').value.trim();
+  if (!name) { $('author').focus(); fail('Enter your name: the edit records who made it.'); return; }
+  if (!reason) { $('reason').focus(); fail('Enter a reason: the edit records why.'); return; }
+  $('error').style.display = 'none';
+  const decided = voxelDecisions(), keep = [], remove = [];
+  decided.forEach((v, slot) => { if (v === 1) keep.push(voxelKeys[slot]); else if (v === 2) remove.push(voxelKeys[slot]); });
+  const operations = [];
+  if (remove.length) operations.push({ op: 'remove', voxels: remove, note: 'map editor' });
+  if (keep.length) operations.push({ op: 'keep', voxels: keep, note: 'map editor' });
+  const edit = {
+    format: 'lidarslam-map-edit', version: 1, author: `human:${name}`, reason,
+    created: new Date().toISOString().replace(/\.\d+Z$/, '+00:00'), operations,
+    basis: { sessions: pack.header.sessions, edits: pack.header.edits },
+    decisions: [...decisionOf].map(([i, op]) => ({ candidate: pack.header.candidates[i].id, op })),
+  };
+  const blob = new Blob([JSON.stringify(edit, null, 1)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = `edit-${pack.header.store}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+</script>
+</body>
+</html>

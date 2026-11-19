@@ -256,3 +256,81 @@ def resolve(store: Any, remove: Iterable[str] = (), keep: Iterable[str] = (),
                 operations.append({'op': op, 'box': [list(map(float, lo)), list(map(float, hi))],
                                    'voxels': voxels.tolist()})
     return operations
+
+
+PACK_MAGIC = b'LSREVIEW'
+PACK_VERSION = 1
+
+
+def review_pack(store: Any, path: str | Path, min_voxels: int = 5) -> dict[str, Any]:
+    """Writes the store's review pack for the map editor (docs/map-editor/) and returns its header.
+
+    Layout (little-endian): ``LSREVIEW``, u32 version, u32 header length, the header (JSON:
+    frame, voxel size, sessions, edits, candidates without their voxels), u32 rows, then the
+    arrays of the rows: voxel (int32 x 3), state (uint8), session (uint8), candidate (int32,
+    -1 for none) and points (uint16, clipped). A row is one voxel, state and session; its
+    candidate is the one whose kind matches the row.
+    """
+    sessions = store.sessions
+    points = store.points()
+    items = candidates(store, min_voxels, points)
+    if len(sessions) > 255:
+        raise ValueError('a review pack holds at most 255 sessions')
+    columns = np.stack([_keys(points['voxel']), points['state'].astype(np.int64),
+                        points['session'].astype(np.int64)], axis=1)
+    unique, counts = np.unique(columns, axis=0, return_counts=True)
+    row_voxel_keys = unique[:, 0]
+    state = unique[:, 1].astype(np.uint8)
+    session = unique[:, 2].astype(np.uint8)
+    latest = len(sessions) - 1
+    kind_of_row = np.full(len(unique), '', dtype=object)
+    kind_of_row[(state == REMOVED_BY_EVIDENCE) & (session < latest)] = 'removed_old'
+    kind_of_row[(state == REMOVED_BY_EVIDENCE) & (session == latest)] = 'suppressed_new'
+    kind_of_row[(state == KEPT) & (session == latest)] = 'added'
+    candidate = np.full(len(unique), -1, dtype=np.int32)
+    for index, item in enumerate(items):
+        rows = np.isin(row_voxel_keys, item['voxel_keys']) & (kind_of_row == item['kind'])
+        candidate[rows] = index
+    header = {
+        'format': 'lidarslam-map-review', 'version': PACK_VERSION, 'voxel_m': VOXEL_M,
+        'frame': store.frame, 'store': Path(store.path).name,
+        'sessions': [entry['id'] for entry in sessions],
+        'edits': [entry['id'] for entry in store.edits],
+        'candidates': [{k: v for k, v in item.items() if k != 'voxel_keys'} for item in items],
+    }
+    encoded = json.dumps(header).encode('utf-8')
+    with Path(path).open('wb') as handle:
+        handle.write(PACK_MAGIC)
+        handle.write(np.array([PACK_VERSION, len(encoded)], dtype='<u4').tobytes())
+        handle.write(encoded)
+        handle.write(np.array([len(unique)], dtype='<u4').tobytes())
+        handle.write(_voxels(row_voxel_keys).astype('<i4').tobytes())
+        handle.write(state.tobytes())
+        handle.write(session.tobytes())
+        handle.write(candidate.astype('<i4').tobytes())
+        handle.write(np.minimum(counts, 65535).astype('<u2').tobytes())
+    return header
+
+
+def read_review_pack(path: str | Path) -> tuple[dict[str, Any], dict[str, np.ndarray]]:
+    """The header and the rows of a review pack (the inverse of :func:`review_pack`)."""
+    data = Path(path).read_bytes()
+    if data[:8] != PACK_MAGIC:
+        raise ValueError(f'{path}: not a review pack')
+    version, length = np.frombuffer(data[8:16], dtype='<u4')
+    if version != PACK_VERSION:
+        raise ValueError(f'{path}: review pack version {version}')
+    header = json.loads(data[16:16 + length])
+    at = 16 + int(length)
+    (rows,) = np.frombuffer(data[at:at + 4], dtype='<u4')
+    at += 4
+    out = {}
+    for name, dtype, width in (('voxel', '<i4', 3), ('state', 'u1', 1), ('session', 'u1', 1),
+                               ('candidate', '<i4', 1), ('points', '<u2', 1)):
+        size = int(rows) * width * np.dtype(dtype).itemsize
+        array = np.frombuffer(data[at:at + size], dtype=dtype)
+        out[name] = array.reshape(-1, 3) if width == 3 else array
+        at += size
+    if at != len(data):
+        raise ValueError(f'{path}: review pack has {len(data) - at} trailing bytes')
+    return header, out

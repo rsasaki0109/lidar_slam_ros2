@@ -148,3 +148,27 @@ def test_fold_last_edit_wins() -> None:
     assert remove.tolist() == [[0, 0, 0]] and keep.tolist() == [[1, 0, 0]]
     remove, keep = map_edits.fold([second, first])
     assert remove.tolist() == [[0, 0, 0], [1, 0, 0]] and keep.tolist() == []
+
+
+def test_review_pack_round_trip_and_stale_edit(store: Store, tmp_path: Path) -> None:
+    path = tmp_path / 'map.lsreview'
+    assert cli(['store', 'review-pack', str(store.path), '--out', str(path),
+                '--min-voxels', '1']) == 0
+    header, rows = map_edits.read_review_pack(path)
+    assert header['sessions'] == ['0000', '0001'] and header['edits'] == []
+    points = store.points()
+    assert 0 < int(rows['points'].astype(np.int64).sum()) <= points['state'].size
+    # Each candidate's rows hold exactly its voxels.
+    for i, item in enumerate(header['candidates']):
+        assert len(np.unique(rows['voxel'][rows['candidate'] == i], axis=0)) == item['voxels']
+    # An edit made on this pack, as the map editor writes it (basis = the pack's store state).
+    first = header['candidates'][0]
+    voxels = np.unique(rows['voxel'][rows['candidate'] == 0], axis=0).tolist()
+    edit = {**map_edits.make_edit('human:editor', 'reviewed', [{'op': 'keep', 'voxels': voxels}]),
+            'basis': {'sessions': header['sessions'], 'edits': header['edits']},
+            'decisions': [{'candidate': first['id'], 'op': 'keep'}]}
+    store.add_edit(edit)
+    with pytest.raises(ValueError, match='review a new pack'):
+        store.add_edit(edit)  # the store has changed since the pack was written
+    store.add_edit(edit, force=True)
+    assert [e['id'] for e in store.edits] == ['0000', '0001']

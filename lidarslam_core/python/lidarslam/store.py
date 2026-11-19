@@ -164,14 +164,24 @@ class Store:
         from lidarslam import map_edits
         return map_edits.read(self.path / 'edits' / f'{edit_id}.json')
 
-    def add_edit(self, edit: dict[str, Any],
-                 log: Callable[[str, str], None] | None = None) -> dict[str, Any]:
+    def add_edit(self, edit: dict[str, Any], log: Callable[[str, str], None] | None = None,
+                 force: bool = False) -> dict[str, Any]:
         """Writes a reviewed edit (:func:`lidarslam.map_edits.make_edit`), lists it in store.json
-        and rebuilds the export when the sessions share a frame. Returns its entry."""
+        and rebuilds the export when the sessions share a frame. Returns its entry.
+
+        An edit made on a review pack records the store state it saw (``basis``: its sessions
+        and edits); it is refused when the store has changed since, unless ``force``."""
         from lidarslam import map_edits
         map_edits.validate(edit)
         if not self._index['sessions']:
             raise ValueError('the store has no session to edit')
+        basis = edit.get('basis')
+        if basis is not None and not force:
+            now = {'sessions': [e['id'] for e in self._index['sessions']],
+                   'edits': [e['id'] for e in self._index.get('edits', [])]}
+            if basis != now:
+                raise ValueError(f'the edit was made on the store as {basis}, it is now {now}; '
+                                 'review a new pack, or force it')
         directory = self.path / 'edits'
         directory.mkdir(exist_ok=True)
         existing = {p.stem for p in directory.glob('*.json')}

@@ -29,7 +29,13 @@ from lidarslam.io import SUPPORTED_TYPES, SensorLog
 def _store_review(map_store, args) -> int:
     """store candidates | edit | apply-edit | rollback-edit (lidarslam.map_edits)."""
     from lidarslam import map_edits
-    if args.action == 'candidates':
+    if args.action == 'review-pack':
+        if not args.out:
+            raise SystemExit('review-pack needs --out FILE')
+        header = map_edits.review_pack(map_store, args.out, args.min_voxels)
+        print(json.dumps({'out': args.out, 'candidates': len(header['candidates']),
+                          'sessions': header['sessions'], 'edits': header['edits']}, indent=2))
+    elif args.action == 'candidates':
         items = map_edits.candidates(map_store, args.min_voxels)
         print(json.dumps([{k: v for k, v in c.items() if k != 'voxel_keys'} for c in items],
                          indent=2))
@@ -51,7 +57,8 @@ def _store_review(map_store, args) -> int:
             if not operations:
                 raise SystemExit('nothing to edit: no candidate or box with stored points')
             edit = map_edits.make_edit(args.author, args.reason, operations)
-        print(json.dumps(map_store.add_edit(edit), indent=2))
+        print(json.dumps(map_store.add_edit(edit, force=getattr(args, 'force', False)),
+                         indent=2))
     return 0
 
 
@@ -125,11 +132,12 @@ def main(argv: list[str] | None = None) -> int:
     store = sub.add_parser(
         'store', help='a long-term map store: info, export, rollback, and reviewed edits')
     store.add_argument('action', choices=['info', 'export', 'rollback', 'candidates', 'edit',
-                                          'apply-edit', 'rollback-edit'],
+                                          'apply-edit', 'rollback-edit', 'review-pack'],
                        help='candidates: what the change evidence and the latest session '
                             'changed, as clusters to review; edit: keep or remove candidates or '
                             'boxes; apply-edit: an edit file (e.g. from the map editor); '
-                            'rollback-edit: take the latest edit off the map')
+                            'rollback-edit: take the latest edit off the map; review-pack: the '
+                            'file the map editor opens (--out)')
     store.add_argument('store', help='map store directory')
     store.add_argument('--out', help='export: bundle directory (default: STORE/export)')
     store.add_argument('--min-voxels', type=int, default=5,
@@ -147,6 +155,8 @@ def main(argv: list[str] | None = None) -> int:
                        metavar=('X0', 'Y0', 'Z0', 'X1', 'Y1', 'Z1'),
                        help='edit: keep the points inside a store-frame box')
     store.add_argument('--file', help='apply-edit: the edit file (JSON)')
+    store.add_argument('--force', action='store_true',
+                       help='apply-edit: apply an edit made on an older state of the store')
     join = sub.add_parser(
         'join', help='multi-session join of backend inputs and their offline runs (no ROS 2)')
     join.add_argument('--params', action='append', default=[],
@@ -210,7 +220,7 @@ def main(argv: list[str] | None = None) -> int:
     elif args.command == 'store':
         from lidarslam.store import Store
         map_store = Store.open(args.store)
-        if args.action in ('candidates', 'edit', 'apply-edit', 'rollback-edit'):
+        if args.action in ('candidates', 'edit', 'apply-edit', 'rollback-edit', 'review-pack'):
             return _store_review(map_store, args)
         if args.action == 'export':
             print(map_store.export(args.out))
