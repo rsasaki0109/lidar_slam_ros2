@@ -11,10 +11,14 @@
        [--store STORE]                  live mapping: the log played message by message, live
                                         (causal) poses as they come (lidarslam.live); with
                                         --store the session is added to a long-term map store
-  store info|export|rollback STORE [--out DIR]
+  store info|export|rollback|candidates|edit|apply-edit|rollback-edit|review-pack STORE [...]
                                         a long-term map store (lidarslam.store): list its
                                         sessions, export its Autoware bundle, take the latest
                                         session off the map
+  mcp STORE [--propose-only] [--author agent:NAME]
+                                        an MCP server (stdio) for an agent to review the
+                                        store's changes (lidarslam.mcp_server; needs
+                                        pip install "lidarslam[agent]")
 """
 
 from __future__ import annotations
@@ -24,6 +28,42 @@ import json
 import sys
 
 from lidarslam.io import SUPPORTED_TYPES, SensorLog
+
+
+def _store_review(map_store, args) -> int:
+    """store candidates | edit | apply-edit | rollback-edit (lidarslam.map_edits)."""
+    from lidarslam import map_edits
+    if args.action == 'review-pack':
+        if not args.out:
+            raise SystemExit('review-pack needs --out FILE')
+        header = map_edits.review_pack(map_store, args.out, args.min_voxels)
+        print(json.dumps({'out': args.out, 'candidates': len(header['candidates']),
+                          'sessions': header['sessions'], 'edits': header['edits']}, indent=2))
+    elif args.action == 'candidates':
+        items = map_edits.candidates(map_store, args.min_voxels)
+        print(json.dumps([{k: v for k, v in c.items() if k != 'voxel_keys'} for c in items],
+                         indent=2))
+    elif args.action == 'rollback-edit':
+        print(json.dumps(map_store.rollback_edit(), indent=2))
+    else:
+        if args.action == 'apply-edit':
+            if not args.file:
+                raise SystemExit('apply-edit needs --file')
+            edit = map_edits.read(args.file)
+        else:
+            if not (args.author and args.reason):
+                raise SystemExit('edit needs --author and --reason')
+            boxes = lambda values: [(v[:3], v[3:]) for v in values]  # noqa: E731
+            operations = map_edits.resolve(
+                map_store, remove=args.remove, keep=args.keep,
+                remove_boxes=boxes(args.remove_box), keep_boxes=boxes(args.keep_box),
+                min_voxels=args.min_voxels)
+            if not operations:
+                raise SystemExit('nothing to edit: no candidate or box with stored points')
+            edit = map_edits.make_edit(args.author, args.reason, operations)
+        print(json.dumps(map_store.add_edit(edit, force=getattr(args, 'force', False)),
+                         indent=2))
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -93,10 +133,41 @@ def main(argv: list[str] | None = None) -> int:
                       help='detect changes and filter new points without repeated scan support')
     live.add_argument('--refine-visibility', action='store_true',
                       help='use complete ray evidence for new submaps (experimental)')
-    store = sub.add_parser('store', help='a long-term map store: info, export, rollback')
-    store.add_argument('action', choices=['info', 'export', 'rollback'])
+    store = sub.add_parser(
+        'store', help='a long-term map store: info, export, rollback, and reviewed edits')
+    store.add_argument('action', choices=['info', 'export', 'rollback', 'candidates', 'edit',
+                                          'apply-edit', 'rollback-edit', 'review-pack'],
+                       help='candidates: what the change evidence and the latest session '
+                            'changed, as clusters to review; edit: keep or remove candidates or '
+                            'boxes; apply-edit: an edit file (e.g. from the map editor); '
+                            'rollback-edit: take the latest edit off the map; review-pack: the '
+                            'file the map editor opens (--out)')
     store.add_argument('store', help='map store directory')
+    mcp = sub.add_parser('mcp', help='MCP server (stdio) for an agent to review a map store')
+    mcp.add_argument('store', help='map store directory')
+    mcp.add_argument('--author', default='agent:claude', help="'agent:<name>' (default)")
+    mcp.add_argument('--propose-only', action='store_true',
+                     help='write proposals for a person to apply instead of editing the store')
+    mcp.add_argument('--min-voxels', type=int, default=5,
+                     help='smallest candidate listed (0.15 m voxels)')
     store.add_argument('--out', help='export: bundle directory (default: STORE/export)')
+    store.add_argument('--min-voxels', type=int, default=5,
+                       help='candidates / edit: smallest cluster listed (0.15 m voxels)')
+    store.add_argument('--author', help="edit: 'human:<name>' or 'agent:<name>'")
+    store.add_argument('--reason', help='edit: why (kept with the edit)')
+    store.add_argument('--remove', action='append', default=[], metavar='CANDIDATE',
+                       help='edit: remove the points of a candidate')
+    store.add_argument('--keep', action='append', default=[], metavar='CANDIDATE',
+                       help='edit: keep the points of a candidate')
+    store.add_argument('--remove-box', action='append', default=[], nargs=6, type=float,
+                       metavar=('X0', 'Y0', 'Z0', 'X1', 'Y1', 'Z1'),
+                       help='edit: remove the points inside a store-frame box')
+    store.add_argument('--keep-box', action='append', default=[], nargs=6, type=float,
+                       metavar=('X0', 'Y0', 'Z0', 'X1', 'Y1', 'Z1'),
+                       help='edit: keep the points inside a store-frame box')
+    store.add_argument('--file', help='apply-edit: the edit file (JSON)')
+    store.add_argument('--force', action='store_true',
+                       help='apply-edit: apply an edit made on an older state of the store')
     join = sub.add_parser(
         'join', help='multi-session join of backend inputs and their offline runs (no ROS 2)')
     join.add_argument('--params', action='append', default=[],
@@ -157,16 +228,22 @@ def main(argv: list[str] | None = None) -> int:
                                      start_near_first_submap=args.start_near_first_submap,
                                      refine_visibility=args.refine_visibility)
         print(json.dumps(summary, indent=2))
+    elif args.command == 'mcp':
+        from lidarslam.mcp_server import build_server
+        build_server(args.store, args.author, args.propose_only, args.min_voxels).run('stdio')
     elif args.command == 'store':
         from lidarslam.store import Store
         map_store = Store.open(args.store)
+        if args.action in ('candidates', 'edit', 'apply-edit', 'rollback-edit', 'review-pack'):
+            return _store_review(map_store, args)
         if args.action == 'export':
             print(map_store.export(args.out))
         elif args.action == 'rollback':
             print(json.dumps(map_store.rollback(), indent=2))
         else:
             print(json.dumps({'store': str(map_store.path), 'frame': map_store.frame,
-                              'sessions': map_store.sessions}, indent=2))
+                              'sessions': map_store.sessions, 'edits': map_store.edits},
+                             indent=2))
     elif args.command == 'join':
         from lidarslam import multisession
         from lidarslam.params import apply_overrides

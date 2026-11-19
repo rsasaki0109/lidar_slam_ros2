@@ -37,6 +37,8 @@ lidarslam-map = "lidarslam.product:main"
 
 [project.optional-dependencies]
 test = ["pytest"]
+# The MCP server for an agent reviewing a map store (python -m lidarslam mcp).
+agent = ["mcp>=2.3,<3"]
 
 [project.urls]
 Homepage = "https://github.com/rsasaki0109/lidar_slam"

@@ -300,7 +300,7 @@ void exportBundle(
 void exportBundle(
   const std::vector<SessionMap> & sessions, const map_export::MapExportConfig & config,
   const std::string & save_dir, const map_export::MapExportLog & log,
-  const RemovedVoxels & removed)
+  const RemovedVoxels & removed, const StoreFrameEdits & edits)
 {
   if (!removed.empty() && removed.size() != sessions.size()) {
     throw std::invalid_argument("expected one removal mask per exported session");
@@ -329,13 +329,24 @@ void exportBundle(
         submap.cloud->message.height;
     }
   }
-  const map_export::SubmapCloudLoader load = [&submaps, &masks](std::size_t i) {
+  const map_export::SubmapCloudLoader load = [&submaps, &masks, &poses, &edits](std::size_t i) {
       auto cloud = submapCloud(*submaps[i]);
-      if (const auto * mask = masks[i]) {
+      if (!edits.empty()) {
+        const auto * mask = masks[i];
+        const Eigen::Isometry3d & pose = poses[i];
         cloud->points.erase(std::remove_if(cloud->points.begin(), cloud->points.end(),
-            [mask](const auto & point) {
-              const map_change::Point xyz{point.x, point.y, point.z};
-              return map_change::usable(xyz) && mask->count(map_change::voxel(xyz)) > 0;
+          [mask, &pose, &edits](const auto & point) {
+            const PointState state = pointState(point, mask, pose, edits);
+            return state == PointState::removed_by_evidence ||
+                   state == PointState::removed_by_edit;
+            }), cloud->points.end());
+        cloud->width = cloud->points.size();
+        cloud->height = 1U;
+      } else if (const auto * mask = masks[i]) {
+        cloud->points.erase(std::remove_if(cloud->points.begin(), cloud->points.end(),
+          [mask](const auto & point) {
+            const map_change::Point xyz{point.x, point.y, point.z};
+            return map_change::usable(xyz) && mask->count(map_change::voxel(xyz)) > 0;
             }), cloud->points.end());
         cloud->width = cloud->points.size();
         cloud->height = 1U;
@@ -348,6 +359,69 @@ void exportBundle(
   adapters::FilesystemMapOutput output;
   map_export::writeBundle(load, poses, map_points, loop_edges, g2o, save_dir, config, origin,
     output, log);
+}
+
+std::array<int, 3> storeFrameVoxel(const pcl::PointXYZI & point, const Eigen::Isometry3d & pose)
+{
+  const Eigen::Vector3d world = pose * Eigen::Vector3d(point.x, point.y, point.z);
+  return map_change::voxel({world.x(), world.y(), world.z()});
+}
+
+PointState pointState(
+  const pcl::PointXYZI & point, const std::set<std::array<int, 3>> * mask,
+  const Eigen::Isometry3d & pose, const StoreFrameEdits & edits)
+{
+  const map_change::Point xyz{point.x, point.y, point.z};
+  if (!map_change::usable(xyz)) {
+    return PointState::kept;
+  }
+  const bool masked = mask != nullptr && mask->count(map_change::voxel(xyz)) > 0;
+  if (!edits.empty()) {
+    const map_change::Voxel cell = storeFrameVoxel(point, pose);
+    if (edits.keep.count(cell) > 0) {
+      return masked ? PointState::kept_by_edit : PointState::kept;
+    }
+    if (edits.remove.count(cell) > 0) {
+      return PointState::removed_by_edit;
+    }
+  }
+  return masked ? PointState::removed_by_evidence : PointState::kept;
+}
+
+void forEachPoint(
+  const std::vector<SessionMap> & sessions, const RemovedVoxels & removed,
+  const StoreFrameEdits & edits,
+  const std::function<void(
+    std::size_t, std::size_t, const Eigen::Vector3f &, const std::array<int, 3> &,
+    PointState)> & visit)
+{
+  if (!removed.empty() && removed.size() != sessions.size()) {
+    throw std::invalid_argument("expected one removal mask per session");
+  }
+  for (std::size_t i = 0; i < sessions.size(); ++i) {
+    for (std::size_t j = 0; j < sessions[i].submaps.size(); ++j) {
+      const StoredSubmap & submap = sessions[i].submaps[j];
+      const std::set<std::array<int, 3>> * mask = nullptr;
+      if (!removed.empty()) {
+        const auto found = removed[i].find(j);
+        if (found != removed[i].end() && !found->second.empty()) {
+          mask = &found->second;
+        }
+      }
+      const auto cloud = submapCloud(submap);
+      const Eigen::Isometry3f pose = submap.pose.cast<float>();
+      for (const auto & point : cloud->points) {
+        if (!map_change::usable({point.x, point.y, point.z})) {
+          continue;
+        }
+        // The position as the map export moves it (float transform, as pcl::transformPointCloud).
+        const Eigen::Vector3f world = pose * Eigen::Vector3f(point.x, point.y, point.z);
+        visit(
+          i, j, world, storeFrameVoxel(point, submap.pose),
+          pointState(point, mask, submap.pose, edits));
+      }
+    }
+  }
 }
 
 }  // namespace map_store

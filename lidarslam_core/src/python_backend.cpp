@@ -9,11 +9,13 @@
 // as in the ROS 2 runner.
 
 #include <pybind11/eigen.h>
+#include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
 #include <algorithm>
 #include <cmath>
+#include <array>
 #include <cstdint>
 #include <functional>
 #include <map>
@@ -542,14 +544,12 @@ private:
   graphslam::multisession::StartupRelocalizer matcher_;
 };
 
-// The Autoware map bundle of stored sessions (map_store::exportBundle) with the map-saving
-// parameters of params. Returns the number of submaps.
-std::size_t exportStoreBundle(
-  const std::vector<std::string> & session_dirs, const py::dict & params,
-  const std::string & out_dir, py::object log,
+// Stored sessions read from their directories, their submaps moved to the poses the export uses:
+// the tracked poses of a session when given, else its store transform.
+std::vector<graphslam::map_store::SessionMap> loadStoreSessions(
+  const std::vector<std::string> & session_dirs,
   const std::vector<Eigen::Matrix4d> & transforms,
-  const std::vector<std::vector<Eigen::Matrix4d>> & optimized_poses,
-  const graphslam::map_store::RemovedVoxels & removed)
+  const std::vector<std::vector<Eigen::Matrix4d>> & optimized_poses)
 {
   if (!transforms.empty() && transforms.size() != session_dirs.size()) {
     throw std::invalid_argument("one transform is required per exported session");
@@ -557,11 +557,7 @@ std::size_t exportStoreBundle(
   if (!optimized_poses.empty() && optimized_poses.size() != session_dirs.size()) {
     throw std::invalid_argument("one pose list is required per exported session");
   }
-  const graphslam::offline::Parameters parameters = toParameters(params);
-  const graphslam::map_export::MapExportConfig config =
-    graphslam::offline::mapExportConfig(parameters);
   std::vector<graphslam::map_store::SessionMap> sessions(session_dirs.size());
-  std::size_t submaps = 0U;
   for (std::size_t i = 0; i < session_dirs.size(); ++i) {
     std::string error;
     if (!graphslam::map_store::readSession(session_dirs[i], sessions[i], error)) {
@@ -580,14 +576,95 @@ std::size_t exportStoreBundle(
         submap.pose = transform * submap.pose;
       }
     }
-    submaps += sessions[i].submaps.size();
   }
+  return sessions;
+}
+
+graphslam::map_store::StoreFrameEdits storeFrameEdits(
+  const std::vector<std::array<int, 3>> & remove, const std::vector<std::array<int, 3>> & keep)
+{
+  graphslam::map_store::StoreFrameEdits edits;
+  edits.remove.insert(remove.begin(), remove.end());
+  edits.keep.insert(keep.begin(), keep.end());
+  for (const auto & voxel : edits.keep) {
+    if (edits.remove.count(voxel) > 0) {
+      throw std::invalid_argument("a voxel is both removed and kept by the edits");
+    }
+  }
+  return edits;
+}
+
+// The Autoware map bundle of stored sessions (map_store::exportBundle) with the map-saving
+// parameters of params. Returns the number of submaps.
+std::size_t exportStoreBundle(
+  const std::vector<std::string> & session_dirs, const py::dict & params,
+  const std::string & out_dir, py::object log,
+  const std::vector<Eigen::Matrix4d> & transforms,
+  const std::vector<std::vector<Eigen::Matrix4d>> & optimized_poses,
+  const graphslam::map_store::RemovedVoxels & removed,
+  const std::vector<std::array<int, 3>> & edit_remove,
+  const std::vector<std::array<int, 3>> & edit_keep)
+{
+  const graphslam::offline::Parameters parameters = toParameters(params);
+  const graphslam::map_export::MapExportConfig config =
+    graphslam::offline::mapExportConfig(parameters);
+  const auto sessions = loadStoreSessions(session_dirs, transforms, optimized_poses);
+  std::size_t submaps = 0U;
+  for (const auto & session : sessions) {
+    submaps += session.submaps.size();
+  }
+  const auto edits = storeFrameEdits(edit_remove, edit_keep);
   const PythonLog python_log(std::move(log));
   graphslam::map_export::MapExportLog export_log;
   export_log.line = [&python_log](const std::string & line) {python_log.info(line);};
   export_log.info = export_log.line;
-  graphslam::map_store::exportBundle(sessions, config, out_dir, export_log, removed);
+  graphslam::map_store::exportBundle(sessions, config, out_dir, export_log, removed, edits);
   return submaps;
+}
+
+// Every stored point at its exported pose with what the export does with it (map_store::
+// forEachPoint): xyz (float32, N x 3), the store-frame voxel edits address (int32, N x 3),
+// session and submap indices, state (uint8: map_store::PointState).
+py::dict storePoints(
+  const std::vector<std::string> & session_dirs,
+  const std::vector<Eigen::Matrix4d> & transforms,
+  const std::vector<std::vector<Eigen::Matrix4d>> & optimized_poses,
+  const graphslam::map_store::RemovedVoxels & removed,
+  const std::vector<std::array<int, 3>> & edit_remove,
+  const std::vector<std::array<int, 3>> & edit_keep)
+{
+  const auto sessions = loadStoreSessions(session_dirs, transforms, optimized_poses);
+  const auto edits = storeFrameEdits(edit_remove, edit_keep);
+  std::vector<float> xyz;
+  std::vector<std::int32_t> voxel;
+  std::vector<std::uint16_t> session;
+  std::vector<std::uint32_t> submap;
+  std::vector<std::uint8_t> state;
+  {
+    py::gil_scoped_release release;
+    graphslam::map_store::forEachPoint(
+      sessions, removed, edits,
+      [&](std::size_t i, std::size_t j, const Eigen::Vector3f & p, const std::array<int, 3> & v,
+      graphslam::map_store::PointState s) {
+        xyz.insert(xyz.end(), {p.x(), p.y(), p.z()});
+        voxel.insert(voxel.end(), {v[0], v[1], v[2]});
+        session.push_back(static_cast<std::uint16_t>(i));
+        submap.push_back(static_cast<std::uint32_t>(j));
+        state.push_back(static_cast<std::uint8_t>(s));
+      });
+  }
+  const auto n = static_cast<py::ssize_t>(state.size());
+  py::array_t<float> xyz_array({n, static_cast<py::ssize_t>(3)});
+  std::copy(xyz.begin(), xyz.end(), xyz_array.mutable_data());
+  py::dict out;
+  out["xyz"] = xyz_array;
+  py::array_t<std::int32_t> voxel_array({n, static_cast<py::ssize_t>(3)});
+  std::copy(voxel.begin(), voxel.end(), voxel_array.mutable_data());
+  out["voxel"] = voxel_array;
+  out["session"] = py::array_t<std::uint16_t>(n, session.data());
+  out["submap"] = py::array_t<std::uint32_t>(n, submap.data());
+  out["state"] = py::array_t<std::uint8_t>(n, state.data());
+  return out;
 }
 
 int runJoinTool(const py::dict & params, py::object read, py::object log)
@@ -679,9 +756,22 @@ void bind_backend(py::module_ & m)
     py::arg("transforms") = std::vector<Eigen::Matrix4d>{},
     py::arg("optimized_poses") = std::vector<std::vector<Eigen::Matrix4d>>{},
     py::arg("removed") = graphslam::map_store::RemovedVoxels{},
+    py::arg("edit_remove") = std::vector<std::array<int, 3>>{},
+    py::arg("edit_keep") = std::vector<std::array<int, 3>>{},
     "Writes the Autoware map bundle of the stored sessions (directories written by "
     "write_session_map) with the map-saving parameters of params to out_dir; returns the number "
-    "of submaps. For one session it is the bundle the backend wrote.");
+    "of submaps. For one session it is the bundle the backend wrote. edit_remove / edit_keep: "
+    "store-frame 0.15 m voxels removed or kept by reviewed edits (lidarslam.map_edits).");
+  m.def(
+    "store_points", &storePoints, py::arg("session_dirs"),
+    py::arg("transforms") = std::vector<Eigen::Matrix4d>{},
+    py::arg("optimized_poses") = std::vector<std::vector<Eigen::Matrix4d>>{},
+    py::arg("removed") = graphslam::map_store::RemovedVoxels{},
+    py::arg("edit_remove") = std::vector<std::array<int, 3>>{},
+    py::arg("edit_keep") = std::vector<std::array<int, 3>>{},
+    "Every stored point at its exported pose: dict of xyz (float32 N x 3), voxel (int32 N x 3, "
+    "the store-frame 0.15 m voxel edits address), session, submap and "
+    "state (0 kept, 1 removed by change evidence, 2 removed by an edit, 3 kept by an edit).");
   m.def(
     "run_join_tool", &runJoinTool, py::arg("params"), py::arg("read"), py::arg("log") = py::none(),
     "graph_slam_multisession_join with its parameters (node graph_based_slam); read(path, topics) "
