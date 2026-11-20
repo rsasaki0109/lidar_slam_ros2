@@ -80,6 +80,7 @@ nav:
   - Home: index.md
 
   - Get Started:
+      - Common Questions: common-questions.md
       - Getting Started: getting-started.md
       - Try It in Your Browser: browser-demo.md
       - Review Map Updates: map-review.md

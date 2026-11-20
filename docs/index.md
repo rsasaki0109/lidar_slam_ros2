@@ -97,6 +97,13 @@ output/my_map/
 Open the result in the browser-first [Autoware Foxglove path](autoware-foxglove.md)
 or read the [Autoware-Compatible Map Authoring](autoware-map-authoring.md) guide.
 
+## Common questions
+
+- [Can I use it without installing ROS 2?](common-questions.md#can-i-use-lidar_slam-without-installing-ros-2)
+- [What sensor data and bag formats can I use?](common-questions.md#what-sensor-data-and-bag-formats-can-i-use)
+- [What does an Autoware-compatible map include?](common-questions.md#what-does-an-autoware-compatible-map-include)
+- [How should I interpret the accuracy comparisons?](common-questions.md#is-lidar_slam-more-accurate-than-other-lidar-slam-systems)
+
 ## Learn more
 
 <div class="card-grid">

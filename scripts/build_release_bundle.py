@@ -43,6 +43,7 @@ TOP_LEVEL_FILES = (
 PRODUCT_DOCS = (
     'docs/index.md',
     'docs/getting-started.md',
+    'docs/common-questions.md',
     'docs/getting-started-ja.md',
     'docs/usability-scorecard.md',
     'docs/product-contract.md',

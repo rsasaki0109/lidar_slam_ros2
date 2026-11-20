@@ -71,7 +71,7 @@ class Metadata(HTMLParser):
 def check(site):
     descriptions = set()
     for filename, language in [('index.html', 'en'), ('getting-started.html', 'en'),
-                               ('getting-started-ja.html', 'ja'), ('comparison.html', 'en')]:
+                               ('getting-started-ja.html', 'ja'), ('comparison.html', 'en'), ('common-questions.html', 'en')]:
         meta = Metadata()
         meta.feed((site / filename).read_text(encoding='utf-8'))
         if not meta.title or not meta.description or meta.description in descriptions:
@@ -89,7 +89,7 @@ def check(site):
             raise ValueError(f'{filename}: invalid page schema type or context')
         if schema.get('description') != meta.description or schema.get('inLanguage') != language:
             raise ValueError(f'{filename}: schema description or language disagrees')
-    print('Verified metadata on four rendered entry pages.')
+    print('Verified metadata on five rendered entry pages.')
 
 
 if __name__ == '__main__':
